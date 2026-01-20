@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../services/supabaseClient';
 import { Users, Calendar, Database, Plus, Search, Link as LinkIcon, Share2, Copy, Check, Filter, ChevronLeft, ChevronRight, X } from 'lucide-react';
-import { MinistryEvent, Soul, Member } from '../types';
+import { MinistryEvent, Soul, Member, ModalType } from '../types';
 import { isEventLocked, isServiceClosed } from '../utils';
 import { EventStore } from '../database/eventStore';
 import { SoulsStore } from '../database/soulsStore';
@@ -11,7 +11,12 @@ import MemberSearchInput from './MemberSearchInput';
 
 type Tab = 'services' | 'events' | 'database';
 
-const FollowUpDashboard: React.FC = () => {
+
+interface FollowUpDashboardProps {
+    onOpenModal?: (type: ModalType) => void;
+}
+
+const FollowUpDashboard: React.FC<FollowUpDashboardProps> = ({ onOpenModal }) => {
     const [activeTab, setActiveTab] = useState<Tab>('services');
     const [events, setEvents] = useState<MinistryEvent[]>([]);
     const [services, setServices] = useState<MinistryEvent[]>([]);

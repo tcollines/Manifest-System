@@ -3,13 +3,16 @@ import { User } from '../types';
 import { supabase } from '../services/supabaseClient';
 import { UserStore } from '../database/userStore';
 import { Save, Loader2, ShieldCheck, User as UserIcon, Lock } from 'lucide-react';
+import { DEPARTMENTS } from '../constants';
 
 interface SetupAccountProps {
     currentUser: User;
     onComplete: (updatedUser: User) => void;
+    onLogout: () => void;
 }
 
-const SetupAccount: React.FC<SetupAccountProps> = ({ currentUser, onComplete }) => {
+const SetupAccount: React.FC<SetupAccountProps> = ({ currentUser, onComplete, onLogout }) => {
+    // ... existing hooks ...
     const [formData, setFormData] = useState({
         username: '',
         password: '',
@@ -71,22 +74,28 @@ const SetupAccount: React.FC<SetupAccountProps> = ({ currentUser, onComplete }) 
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-900 p-4">
-            <div className="bg-white rounded-2xl shadow-2xl overflow-hidden w-full max-w-md">
+        <div className="min-h-screen flex items-center justify-center bg-black p-4 relative overflow-hidden">
+            {/* Background Effects */}
+            <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0 pointer-events-none opacity-40">
+                <div className="absolute -top-[20%] -left-[10%] w-[60%] h-[60%] rounded-full bg-ministry-neon/10 blur-[120px]"></div>
+                <div className="absolute bottom-[10%] right-[10%] w-[40%] h-[40%] rounded-full bg-ministry-orange/10 blur-[100px]"></div>
+            </div>
+
+            <div className="bg-zinc-900/90 backdrop-blur-md border border-white/10 rounded-3xl shadow-2xl overflow-hidden w-full max-w-md relative z-10 animate-in fade-in zoom-in-95 duration-500">
 
                 {/* Header */}
-                <div className="bg-ministry-dark p-8 text-center border-b border-gray-800">
-                    <div className="w-16 h-16 bg-gray-800/50 backdrop-blur-sm rounded-full flex items-center justify-center mx-auto mb-4 border border-ministry-orange/20">
-                        <ShieldCheck className="w-8 h-8 text-ministry-orange" />
+                <div className="bg-black/40 p-10 text-center border-b border-white/5">
+                    <div className="w-20 h-20 bg-black/50 backdrop-blur-xl rounded-full flex items-center justify-center mx-auto mb-6 border border-white/10 shadow-lg ring-1 ring-white/5">
+                        <ShieldCheck className="w-10 h-10 text-ministry-orange" />
                     </div>
-                    <h2 className="text-2xl font-bold text-white mb-2">Welcome to Manifest!</h2>
-                    <p className="text-gray-400">Let's set up your account details.</p>
+                    <h2 className="text-3xl font-bold text-white mb-2 tracking-tight">Welcome to Manifest</h2>
+                    <p className="text-gray-400 font-light">Let's set up your account details.</p>
                 </div>
 
                 {/* Form */}
-                <div className="p-8">
+                <div className="p-10">
                     {error && (
-                        <div className="mb-6 p-4 bg-red-50 text-red-600 rounded-xl text-sm border border-red-100 flex items-center">
+                        <div className="mb-6 p-4 bg-red-500/10 text-red-400 rounded-xl text-sm border border-red-500/20 flex items-center animate-pulse">
                             <ShieldCheck className="w-4 h-4 mr-2 flex-shrink-0" />
                             {error}
                         </div>
@@ -95,97 +104,109 @@ const SetupAccount: React.FC<SetupAccountProps> = ({ currentUser, onComplete }) 
                     <form onSubmit={handleSubmit} className="space-y-6">
 
                         {/* Pre-filled Info Section */}
-                        <div className="bg-gray-50/50 p-4 rounded-xl border border-gray-100 space-y-3">
-                            <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-2">Account Details</h3>
-                            <div className="grid grid-cols-2 gap-4">
+                        <div className="bg-white/5 p-5 rounded-xl border border-white/10 space-y-3">
+                            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Account Details</h3>
+                            <div className="grid grid-cols-2 gap-y-4 gap-x-2">
                                 <div>
-                                    <label className="text-xs font-medium text-gray-500 block mb-1">Full Name</label>
-                                    <p className="text-sm font-semibold text-gray-800">{currentUser.name || 'N/A'}</p>
+                                    <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Full Name</label>
+                                    <p className="text-sm font-semibold text-white truncate">{currentUser.name || 'N/A'}</p>
                                 </div>
                                 <div>
-                                    <label className="text-xs font-medium text-gray-500 block mb-1">Email</label>
-                                    <p className="text-sm font-semibold text-gray-800">{currentUser.email || 'N/A'}</p>
+                                    <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Email</label>
+                                    <p className="text-sm font-semibold text-white truncate" title={currentUser.email}>{currentUser.email || 'N/A'}</p>
                                 </div>
                                 <div>
-                                    <label className="text-xs font-medium text-gray-500 block mb-1">Role</label>
-                                    <span className="inline-flex items-center px-2 py-1 rounded-md bg-ministry-orange/10 text-ministry-orange text-xs font-bold">
+                                    <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Role</label>
+                                    <span className="inline-flex items-center px-2 py-1 rounded bg-ministry-orange/20 text-ministry-orange text-[10px] font-bold uppercase tracking-wide border border-ministry-orange/20">
                                         {currentUser.role}
                                     </span>
                                 </div>
                                 {currentUser.departmentId && (
                                     <div>
-                                        <label className="text-xs font-medium text-gray-500 block mb-1">Department</label>
-                                        <p className="text-sm font-semibold text-gray-800">{currentUser.departmentId}</p>
+                                        <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Department</label>
+                                        <p className="text-sm font-semibold text-white">
+                                            {DEPARTMENTS.find(d => d.id === currentUser.departmentId)?.name || currentUser.departmentId}
+                                        </p>
                                     </div>
                                 )}
                             </div>
                         </div>
 
                         <div className="space-y-2">
-                            <label className="text-sm font-medium text-gray-700">Choose a Username</label>
-                            <div className="relative">
+                            <label className="text-xs font-bold text-gray-400 uppercase tracking-wide ml-1">Choose a Username</label>
+                            <div className="relative group">
                                 <input
                                     name="username"
                                     type="text"
                                     value={formData.username}
                                     onChange={handleInputChange}
-                                    className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-ministry-orange focus:border-opacity-50 focus:ring-1 focus:ring-ministry-orange transition-all"
+                                    className="w-full pl-10 pr-4 py-3.5 bg-black/20 border border-white/10 rounded-xl text-white placeholder-gray-600 focus:outline-none focus:bg-black/40 focus:border-ministry-orange/50 focus:ring-1 focus:ring-ministry-orange/50 transition-all"
                                     placeholder="jdoe"
                                     required
                                 />
-                                <UserIcon className="w-5 h-5 text-gray-400 absolute left-3 top-3.5" />
+                                <UserIcon className="w-5 h-5 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2 transition-colors group-focus-within:text-ministry-orange" />
                             </div>
                         </div>
 
                         <div className="space-y-2">
-                            <label className="text-sm font-medium text-gray-700">Create Password</label>
-                            <div className="relative">
+                            <label className="text-xs font-bold text-gray-400 uppercase tracking-wide ml-1">Create Password</label>
+                            <div className="relative group">
                                 <input
                                     name="password"
                                     type="password"
                                     value={formData.password}
                                     onChange={handleInputChange}
-                                    className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-ministry-orange focus:ring-1 focus:ring-ministry-orange transition-all"
+                                    className="w-full pl-10 pr-4 py-3.5 bg-black/20 border border-white/10 rounded-xl text-white placeholder-gray-600 focus:outline-none focus:bg-black/40 focus:border-ministry-orange/50 focus:ring-1 focus:ring-ministry-orange/50 transition-all"
                                     placeholder="••••••••"
                                     required
                                 />
-                                <Lock className="w-5 h-5 text-gray-400 absolute left-3 top-3.5" />
+                                <Lock className="w-5 h-5 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2 transition-colors group-focus-within:text-ministry-orange" />
                             </div>
                         </div>
 
                         <div className="space-y-2">
-                            <label className="text-sm font-medium text-gray-700">Confirm Password</label>
-                            <div className="relative">
+                            <label className="text-xs font-bold text-gray-400 uppercase tracking-wide ml-1">Confirm Password</label>
+                            <div className="relative group">
                                 <input
                                     name="confirmPassword"
                                     type="password"
                                     value={formData.confirmPassword}
                                     onChange={handleInputChange}
-                                    className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-ministry-orange focus:ring-1 focus:ring-ministry-orange transition-all"
+                                    className="w-full pl-10 pr-4 py-3.5 bg-black/20 border border-white/10 rounded-xl text-white placeholder-gray-600 focus:outline-none focus:bg-black/40 focus:border-ministry-orange/50 focus:ring-1 focus:ring-ministry-orange/50 transition-all"
                                     placeholder="••••••••"
                                     required
                                 />
-                                <Lock className="w-5 h-5 text-gray-400 absolute left-3 top-3.5" />
+                                <Lock className="w-5 h-5 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2 transition-colors group-focus-within:text-ministry-orange" />
                             </div>
                         </div>
 
-                        <button
-                            type="submit"
-                            disabled={isSubmitting}
-                            className="w-full py-3 bg-ministry-orange text-white font-bold rounded-xl hover:bg-orange-600 transition-colors flex items-center justify-center shadow-lg shadow-orange-500/20"
-                        >
-                            {isSubmitting ? (
-                                <>
-                                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                                    Setting up...
-                                </>
-                            ) : (
-                                <>
-                                    <Save className="w-5 h-5 mr-2" />
-                                    Complete Setup
-                                </>
-                            )}
-                        </button>
+                        <div className="space-y-3 pt-2">
+                            <button
+                                type="submit"
+                                disabled={isSubmitting}
+                                className="w-full py-4 bg-ministry-orange text-white font-bold rounded-xl hover:bg-orange-600 transition-all transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center shadow-lg shadow-orange-500/20"
+                            >
+                                {isSubmitting ? (
+                                    <>
+                                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                                        Setting up...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Save className="w-5 h-5 mr-2" />
+                                        Complete Setup
+                                    </>
+                                )}
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={onLogout}
+                                className="w-full py-3 bg-transparent text-gray-400 font-medium rounded-xl hover:text-white hover:bg-white/5 transition-colors border border-transparent hover:border-white/5"
+                            >
+                                Back to Sign In
+                            </button>
+                        </div>
                     </form>
                 </div>
             </div>

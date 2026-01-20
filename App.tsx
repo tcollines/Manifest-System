@@ -17,6 +17,7 @@ import MinistryAI from './components/MinistryAI';
 import SetupAccount from './components/SetupAccount';
 import SignIn from './components/SignIn';
 import RequisitionsView from './components/RequisitionsView';
+import PublicSoulEntry from './components/PublicSoulEntry';
 import { ModalType, MinistryEvent, User } from './types';
 import { MOCK_EVENTS, DEPARTMENTS } from './constants';
 import { UserStore } from './database/userStore';
@@ -28,7 +29,7 @@ const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [activeTab, setActiveTab] = useState(() => localStorage.getItem('ministry_active_tab') || 'dashboard');
   const [modalType, setModalType] = useState<ModalType>(ModalType.NONE);
-  const [events, setEvents] = useState<MinistryEvent[]>(MOCK_EVENTS);
+  const [events, setEvents] = useState<MinistryEvent[]>([]);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -49,8 +50,25 @@ const App: React.FC = () => {
     }
   };
 
+  // Helper to determine default dashboard based on role/department
+  const getDashboardForUser = (user: User): string => {
+    if (user.role === 'Super Admin' || user.role === 'Administrator') return 'dashboard';
+
+    // Map Department ID to Dashboard View
+    switch (user.departmentId) {
+      case 'd1': return 'registration';
+      case 'd2': return 'next-gen';
+      case 'd3': return 'parking';
+      case 'd4': return 'finance';
+      case 'd5': return 'transportation';
+      case 'd6': return 'follow-up';
+      default: return 'team-dashboard'; // Fallback for members/leaders without specific department dashboard
+    }
+  };
+
   const handleNavigate = (view: string) => {
     setActiveTab(view);
+    localStorage.setItem('ministry_active_tab', view);
     setIsSidebarOpen(false);
   };
 
@@ -60,6 +78,15 @@ const App: React.FC = () => {
     const persistedUser = UserStore.getSession();
     if (persistedUser) {
       setCurrentUser(persistedUser);
+
+      // Enforce Role-Based Routing on Load
+      // If user is NOT admin, prevent them from seeing the main dashboard
+      const allowedDashboard = getDashboardForUser(persistedUser);
+      const currentTab = localStorage.getItem('ministry_active_tab') || 'dashboard';
+
+      if (allowedDashboard !== 'dashboard' && currentTab === 'dashboard') {
+        setActiveTab(allowedDashboard);
+      }
     }
 
     // Check if redirected to setup-account
@@ -67,19 +94,36 @@ const App: React.FC = () => {
       setActiveTab('setup-account');
     }
 
+    // Check for Public Soul Collection Link
+    if (window.location.pathname.startsWith('/collect-souls/')) {
+      setActiveTab('public-soul-entry');
+    }
+
+    // Check for Public Soul Collection Link
+    if (window.location.pathname.startsWith('/collect-souls/')) {
+      setActiveTab('public-soul-entry');
+    }
+
+    // Check for Public Soul Collection Link
+    if (window.location.pathname.startsWith('/collect-souls/')) {
+      setActiveTab('public-soul-entry');
+      // Extract Event ID from URL if needed by the component, or component deals with it
+      // The component likely parses the URL itself or we need to pass it
+    }
+
     // Check for errors in the URL hash (e.g. invalid/expired link)
     const hash = window.location.hash;
     if (hash && hash.includes('error=')) {
       const params = new URLSearchParams(hash.substring(1)); // remove #
       const errorDescription = params.get('error_description');
-      const errorCode = params.get('error_code');
       if (errorDescription) {
-        setLoginError(`Authentication Error: ${errorDescription.replace(/\+/g, ' ')}`);
-        // Clear hash to clean up URL
-        window.history.replaceState(null, '', window.location.pathname);
+        setLoginError(decodeURIComponent(errorDescription.replace(/\+/g, ' ')));
       }
     }
+  }, []);
 
+  // Auth & Realtime Data Listener
+  useEffect(() => {
     refreshData();
 
     // Set up Realtime Subscription
@@ -115,8 +159,8 @@ const App: React.FC = () => {
             // Redirect logic based on Role
             if (matchingUser.role === 'Logistics') setActiveTab('registration');
             else if (matchingUser.role === 'Coordinator') setActiveTab('transportation');
-            else if (matchingUser.role === 'TeamLeader') setActiveTab('team-dashboard');
-            else if (matchingUser.role === 'Reg. Admin') setActiveTab('registration');
+            else if (matchingUser.role === 'Team Leader') setActiveTab('team-dashboard'); // Fixed role string
+            else if (matchingUser.role === 'Dept Admin') setActiveTab('registration'); // Updated from Reg. Admin
             else if (matchingUser.role === 'Member') setActiveTab('registration');
             else setActiveTab('dashboard');
           }
@@ -151,35 +195,31 @@ const App: React.FC = () => {
     };
   }, []);
 
-  const handleLogin = async (user: User) => {
-    setCurrentUser(user);
-    UserStore.saveSession(user);
-    if (!user.username) {
-      setActiveTab('setup-account');
-      return;
+  const handleLogin = async (username: string, password: string) => {
+    try {
+      const user = await UserStore.login(username, password);
+      if (user) {
+        setCurrentUser(user);
+        UserStore.saveSession(user);
+
+        // Check if new user needs setup (Invite flow or incomplete profile)
+        if (!user.username) {
+          setActiveTab('setup-account');
+          return;
+        }
+
+        // Route to appropriate dashboard based on Role/Department
+        const targetTab = getDashboardForUser(user);
+        setActiveTab(targetTab);
+        localStorage.setItem('ministry_active_tab', targetTab);
+        setLoginError(null);
+      } else {
+        setLoginError('Invalid credentials. Please try again.');
+      }
+    } catch (error) {
+      console.error("Login Error:", error);
+      setLoginError('An error occurred during login.');
     }
-    // Redirect based on role
-    if (user.role === 'Logistics') {
-      setActiveTab('registration');
-    } else if (user.role === 'Coordinator') {
-      setActiveTab('transportation');
-    } else if (user.role === 'TeamLeader') {
-      setActiveTab('team-dashboard');
-    } else if (user.role !== 'Administrator' && user.departmentId === 'd1') { // Registration Dept
-      setActiveTab('registration');
-    } else if (user.role !== 'Administrator' && user.departmentId === 'd2') { // Next Gen Dept
-      setActiveTab('next-gen');
-    } else if (user.role !== 'Administrator' && user.departmentId === 'd3') { // Parking Dept
-      setActiveTab('parking');
-    } else if (user.role !== 'Administrator' && user.departmentId === 'd5') { // Transportation
-      setActiveTab('transportation');
-    } else if (user.role !== 'Administrator' && user.departmentId === 'd4') { // Finance
-      setActiveTab('finance');
-    } else {
-      setActiveTab('dashboard');
-    }
-    UserStore.saveSession(user);
-    setLoginError(null);
   };
 
   const handleLogout = () => {
@@ -251,13 +291,11 @@ const App: React.FC = () => {
     alert("Account setup complete!");
 
     // Redirect after setup
-    if (updatedUser.role === 'Logistics') setActiveTab('registration');
-    else if (updatedUser.role === 'Coordinator') setActiveTab('transportation');
-    else if (updatedUser.role === 'TeamLeader') setActiveTab('team-dashboard');
-    else if (updatedUser.role === 'Reg. Admin') setActiveTab('registration');
-    else if (updatedUser.role === 'Member') setActiveTab('registration');
-    else setActiveTab('dashboard');
+    const targetTab = getDashboardForUser(updatedUser);
+    setActiveTab(targetTab);
+    localStorage.setItem('ministry_active_tab', targetTab);
   };
+
 
   if (!currentUser) {
     // If on setup-account valid path but waiting for Auth?
@@ -268,7 +306,7 @@ const App: React.FC = () => {
 
   // FORCE Setup if username is missing
   if (activeTab === 'setup-account' || !currentUser.username) {
-    return <SetupAccount currentUser={currentUser} onComplete={handleSetupComplete} />;
+    return <SetupAccount currentUser={currentUser} onComplete={handleSetupComplete} onLogout={handleLogout} />;
   }
 
   return (
@@ -356,12 +394,12 @@ const App: React.FC = () => {
               initialTab="manifest"
             />
           )}
-          {activeTab === 'registration' && <RegistrationDashboard events={events} currentUser={currentUser} />}
-          {activeTab === 'next-gen' && <NextGenDashboard events={events} />}
-          {activeTab === 'transportation' && <TransportationDashboard currentUser={currentUser} events={events} />}
-          {activeTab === 'finance' && <FinanceDashboard currentUser={currentUser} />}
-          {activeTab === 'follow-up' && <FollowUpDashboard />}
-          {activeTab === 'parking' && <ParkingDashboard events={events} />}
+          {activeTab === 'registration' && <RegistrationDashboard events={events} currentUser={currentUser} onOpenModal={setModalType} />}
+          {activeTab === 'next-gen' && <NextGenDashboard events={events} onOpenModal={setModalType} />}
+          {activeTab === 'transportation' && <TransportationDashboard currentUser={currentUser} events={events} onOpenModal={setModalType} />}
+          {activeTab === 'finance' && <FinanceDashboard currentUser={currentUser} onOpenModal={setModalType} />}
+          {activeTab === 'follow-up' && <FollowUpDashboard onOpenModal={setModalType} />}
+          {activeTab === 'parking' && <ParkingDashboard events={events} onOpenModal={setModalType} />}
           {activeTab === 'requisitions' && <RequisitionsView currentUser={currentUser} />}
 
           {activeTab !== 'dashboard' && activeTab !== 'team-dashboard' && activeTab !== 'departments' && activeTab !== 'events' && activeTab !== 'reports' && activeTab !== 'settings' && activeTab !== 'manifest-settings' && activeTab !== 'registration' && activeTab !== 'next-gen' && activeTab !== 'transportation' && activeTab !== 'finance' && activeTab !== 'follow-up' && activeTab !== 'parking' && activeTab !== 'requisitions' && (

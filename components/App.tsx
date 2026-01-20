@@ -87,24 +87,12 @@ const App: React.FC = () => {
       UserStore.saveSession(foundUser); // Persist session
 
       // Determine default tab based on role/department
+      // Determine default tab based on role/department
+      // Default to dashboard for all users as per request to fix "Signup Page" confusion
       let defaultTab = 'dashboard';
-      if (foundUser.role === 'Logistics') {
-        defaultTab = 'registration';
-      } else if (foundUser.role === 'Coordinator') {
-        defaultTab = 'transportation';
-      } else if (foundUser.role === 'TeamLeader') {
-        defaultTab = 'team-dashboard';
-      } else if (foundUser.role !== 'Administrator' && foundUser.departmentId === 'd1') { // Registration Dept
-        defaultTab = 'registration';
-      } else if (foundUser.role !== 'Administrator' && foundUser.departmentId === 'd2') { // Next Gen Dept
-        defaultTab = 'next-gen';
-      } else if (foundUser.role !== 'Administrator' && foundUser.departmentId === 'd3') { // Parking Dept
-        defaultTab = 'parking';
-      } else if (foundUser.role !== 'Administrator' && foundUser.departmentId === 'd5') { // Transportation
-        defaultTab = 'transportation';
-      } else if (foundUser.role !== 'Administrator' && foundUser.departmentId === 'd4') { // Finance
-        defaultTab = 'finance';
-      }
+
+      // If specific role-based redirection is strictly needed in future, uncomment logic here.
+      // For now, everyone goes to dashboard.
 
       setActiveTab(defaultTab);
       setLoginError(null);

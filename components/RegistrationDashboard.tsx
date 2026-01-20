@@ -2,7 +2,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { isEventLocked, isServiceClosed, validatePlate, validateContact } from '../utils';
 import { VEHICLE_TYPES } from '../constants';
-import { Member, MinistryEvent, User, Vehicle, Passenger, PickUpStation, PersonalVehicle } from '../types';
+import { ModalType, MinistryEvent, User, Vehicle, Passenger, PickUpStation, PersonalVehicle, Member } from '../types';
+
+interface RegistrationDashboardProps {
+  events: MinistryEvent[];
+  currentUser: User;
+  onOpenModal?: (type: ModalType) => void;
+}
 import { VehicleStore } from '../database/vehicleStore';
 import { UserStore } from '../database/userStore';
 import { MemberStore } from '../database/memberStore';
@@ -62,7 +68,7 @@ interface RegistrationDashboardProps {
 type Tab = 'checkin' | 'events' | 'database';
 type ViewMode = 'list' | 'service-active' | 'service-review' | 'Vehicle-view' | 'station-detail' | 'register-new' | 'bulk-import' | 'bulk-import-members' | 'member-detail';
 
-const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, currentUser }) => {
+const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, currentUser, onOpenModal }) => {
   /* Persistence Logic */
   const [activeTab, setActiveTab] = useState<Tab>(() =>
     (localStorage.getItem('registration_active_tab') as Tab) || 'checkin'
@@ -131,9 +137,15 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
   };
   const [stationForm, setStationForm] = useState(initialStationForm);
 
-  // Add Extra Entrant Modal
+  // Data Entrant - Add Entrant State
   const [isAddEntrantOpen, setIsAddEntrantOpen] = useState(false);
-  const [entrantForm, setEntrantForm] = useState({ name: '', username: '', password: '' });
+  const [newEntrant, setNewEntrant] = useState({
+    name: '',
+    username: '',
+    password: ''
+  });
+
+
 
   // Data Entrant - Add Vehicle State
   const [isAddVehicleOpen, setIsAddVehicleOpen] = useState(false);
@@ -1110,32 +1122,38 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
     }
   };
 
+
   const handleAddExtraEntrant = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedStation) return;
-    const users = await UserStore.getAll();
-    if (users.some(u => u.username?.toLowerCase() === entrantForm.username.toLowerCase())) {
-      alert(`The username "${entrantForm.username}" is already taken.`);
+
+    // Basic Validation
+    if (!newEntrant.name || !newEntrant.username || !newEntrant.password) {
+      alert("All fields are required.");
       return;
     }
-    const newEntrant: User = {
+
+    const newUser: User = {
       id: `u-${Date.now()}`,
-      name: entrantForm.name,
-      username: entrantForm.username,
-      password: entrantForm.password,
+      name: newEntrant.name,
+      username: newEntrant.username,
+      password: newEntrant.password,
       role: 'Logistics',
       stationId: selectedStation.id,
-      departmentId: 'd5'
+      departmentId: currentUser.departmentId || 'd5' // Default to current user's department or d5
     };
+
     try {
-      await UserStore.add(newEntrant);
-      setStationEntrants([...stationEntrants, newEntrant]);
+      await UserStore.add(newUser);
       setIsAddEntrantOpen(false);
-      setEntrantForm({ name: '', username: '', password: '' });
-    } catch (err: any) {
-      alert("Error adding user: " + err.message);
+      setNewEntrant({ name: '', username: '', password: '' });
+      alert("Data entrant added successfully.");
+    } catch (error: any) {
+      alert("Error adding entrant: " + error.message);
     }
   };
+
+
 
 
 
@@ -1933,7 +1951,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
                         Assigned Data Entrants
                       </h3>
                       <button
-                        onClick={() => setIsAddEntrantOpen(true)}
+                        onClick={() => onOpenModal && onOpenModal(ModalType.CREATE_USER)}
                         className="text-sm font-bold text-ministry-text hover:text-ministry-orange flex items-center bg-white border border-gray-200 px-3 py-2 rounded-lg shadow-sm"
                       >
                         <Plus className="w-4 h-4 mr-1" /> Add Entrant
@@ -1960,6 +1978,13 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
                         </div>
                       )}
                     </div>
+                    {/* Add Entrant Button */}
+                    <button
+                      onClick={() => setIsAddEntrantOpen(true)}
+                      className="mt-4 w-full py-2 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 font-bold hover:border-ministry-orange hover:text-ministry-orange transition-colors flex items-center justify-center text-sm"
+                    >
+                      <Plus className="w-4 h-4 mr-1" /> Add Data Entrant
+                    </button>
                   </div>
                 )}
 
@@ -2520,368 +2545,402 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
           </div>
         )}
 
-        {isAddEntrantOpen && (
-          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white w-full max-w-md p-6 rounded-2xl shadow-xl">
-              <h3 className="text-xl font-bold mb-4">Add Data Entrant</h3>
-              <p className="text-sm text-gray-500 mb-4">Create additional credentials for {selectedStation?.name}</p>
-              <form onSubmit={handleAddExtraEntrant} className="space-y-4">
+
+
+      </div>
+
+      {isAddEntrantOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-sm p-6 rounded-2xl shadow-xl">
+            <h3 className="text-xl font-bold mb-4">Add Data Entrant</h3>
+            <p className="text-xs text-gray-500 mb-4">Adding entrant to <strong>{selectedStation?.name}</strong></p>
+            <form onSubmit={handleAddExtraEntrant} className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-gray-700">Full Name</label>
+                <input
+                  required
+                  value={newEntrant.name}
+                  onChange={e => setNewEntrant({ ...newEntrant, name: e.target.value })}
+                  className="w-full p-3 bg-white border border-gray-200 rounded-xl outline-none focus:border-ministry-orange"
+                  placeholder="John Doe"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-gray-700">Username</label>
+                <input
+                  required
+                  value={newEntrant.username}
+                  onChange={e => setNewEntrant({ ...newEntrant, username: e.target.value })}
+                  className="w-full p-3 bg-white border border-gray-200 rounded-xl outline-none focus:border-ministry-orange"
+                  placeholder="username"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-gray-700">Password</label>
+                <input
+                  required
+                  type="password"
+                  value={newEntrant.password}
+                  onChange={e => setNewEntrant({ ...newEntrant, password: e.target.value })}
+                  className="w-full p-3 bg-white border border-gray-200 rounded-xl outline-none focus:border-ministry-orange"
+                  placeholder="••••••"
+                />
+              </div>
+              <div className="flex justify-end pt-4 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsAddEntrantOpen(false)}
+                  className="px-4 py-2 text-gray-600 font-bold hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2 bg-ministry-text text-white font-bold rounded-xl hover:bg-ministry-orange transition-colors"
+                >
+                  Add Entrant
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {isAddVehicleOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-md p-6 rounded-2xl shadow-xl">
+            <h3 className="text-xl font-bold mb-4">Add Vehicle</h3>
+            <form onSubmit={handleAddVehicle} className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-gray-700">Number Plate</label>
+                <input required value={vehicleForm.number_plate} onChange={e => setVehicleForm({ ...vehicleForm, number_plate: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 7) })} className="w-full p-3 border rounded-xl uppercase font-mono bg-white" placeholder="UBA123A" />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-gray-700">Vehicle Coordinator</label>
+                <select
+                  required
+                  value={vehicleForm.coordinator}
+                  onChange={e => setVehicleForm({ ...vehicleForm, coordinator: e.target.value })}
+                  className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-ministry-blue"
+                >
+                  <option value="">Select Coordinator</option>
+                  {coordinators.map(coord => (
+                    <option key={coord.id} value={coord.name}>
+                      {coord.name} ({coord.username})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700">Driver Name</label>
+                  <input
+                    required
+                    value={vehicleForm.driverName}
+                    onChange={e => setVehicleForm({ ...vehicleForm, driverName: e.target.value })}
+                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-ministry-blue"
+                    placeholder="Full Name"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700">Driver NIN / Permit No.</label>
+                  <input
+                    required
+                    value={vehicleForm.driverNin}
+                    onChange={e => setVehicleForm({ ...vehicleForm, driverNin: e.target.value })}
+                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-ministry-blue uppercase"
+                    placeholder="NIN or Permit Number"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-gray-700">Driver Contact</label>
+                <input required value={vehicleForm.driverContact} onChange={e => setVehicleForm({ ...vehicleForm, driverContact: validateContact(e.target.value) })} className="w-full p-3 border rounded-xl bg-white" placeholder="256..." />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-gray-700">Vehicle Type</label>
+                <select value={vehicleForm.type} onChange={e => setVehicleForm({ ...vehicleForm, type: e.target.value as any })} className="w-full p-3 border rounded-xl bg-white">
+                  {VEHICLE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
+              <div className="flex justify-end pt-4 gap-3">
+                <button type="button" onClick={() => setIsAddVehicleOpen(false)} className="px-4 py-2 text-gray-600 font-bold">Cancel</button>
+                <button type="submit" className="px-6 py-2 bg-ministry-text text-white font-bold rounded-xl hover:bg-ministry-orange">Register Vehicle</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {isAddPassengerOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-lg p-6 rounded-2xl shadow-xl max-h-[90vh] overflow-y-auto">
+            <h3 className="text-xl font-bold mb-4">
+              {passengerForm.category === 'Student' ? 'Add Student' : 'Add Member'} to Vehicle
+            </h3>
+            <p className="text-sm text-gray-500 mb-4">Adding to {selectedVehicle?.number_plate}</p>
+            <form onSubmit={handleAddPassenger} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-sm font-bold text-gray-700">Full Name</label>
-                  <input required value={entrantForm.name} onChange={e => setEntrantForm({ ...entrantForm, name: e.target.value })} className="w-full p-3 border rounded-xl bg-white" />
+                  <input required value={passengerForm.name} onChange={e => setPassengerForm({ ...passengerForm, name: e.target.value })} className="w-full p-3 border rounded-xl bg-white" />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-bold text-gray-700">Username</label>
-                  <input required value={entrantForm.username} onChange={e => setEntrantForm({ ...entrantForm, username: e.target.value })} className="w-full p-3 border rounded-xl bg-white" />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-gray-700">Password</label>
-                  <input required type="password" value={entrantForm.password} onChange={e => setEntrantForm({ ...entrantForm, password: e.target.value })} className="w-full p-3 border rounded-xl bg-white" />
-                </div>
-                <div className="flex justify-end pt-4 gap-3">
-                  <button type="button" onClick={() => setIsAddEntrantOpen(false)} className="px-4 py-2 text-gray-600 font-bold">Cancel</button>
-                  <button type="submit" className="px-6 py-2 bg-ministry-text text-white font-bold rounded-xl hover:bg-ministry-orange">Add User</button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {isAddVehicleOpen && (
-          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white w-full max-w-md p-6 rounded-2xl shadow-xl">
-              <h3 className="text-xl font-bold mb-4">Add Vehicle</h3>
-              <form onSubmit={handleAddVehicle} className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-gray-700">Number Plate</label>
-                  <input required value={vehicleForm.number_plate} onChange={e => setVehicleForm({ ...vehicleForm, number_plate: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 7) })} className="w-full p-3 border rounded-xl uppercase font-mono bg-white" placeholder="UBA123A" />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-gray-700">Vehicle Coordinator</label>
-                  <select
-                    required
-                    value={vehicleForm.coordinator}
-                    onChange={e => setVehicleForm({ ...vehicleForm, coordinator: e.target.value })}
-                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-ministry-blue"
-                  >
-                    <option value="">Select Coordinator</option>
-                    {coordinators.map(coord => (
-                      <option key={coord.id} value={coord.name}>
-                        {coord.name} ({coord.username})
-                      </option>
-                    ))}
+                  <label className="text-sm font-bold text-gray-700">Gender</label>
+                  <select value={passengerForm.gender} onChange={e => setPassengerForm({ ...passengerForm, gender: e.target.value })} className="w-full p-3 border rounded-xl bg-white">
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
                   </select>
                 </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-bold text-gray-700">Driver Name</label>
-                    <input
-                      required
-                      value={vehicleForm.driverName}
-                      onChange={e => setVehicleForm({ ...vehicleForm, driverName: e.target.value })}
-                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-ministry-blue"
-                      placeholder="Full Name"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-sm font-bold text-gray-700">Driver NIN / Permit No.</label>
-                    <input
-                      required
-                      value={vehicleForm.driverNin}
-                      onChange={e => setVehicleForm({ ...vehicleForm, driverNin: e.target.value })}
-                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-ministry-blue uppercase"
-                      placeholder="NIN or Permit Number"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-gray-700">Driver Contact</label>
-                  <input required value={vehicleForm.driverContact} onChange={e => setVehicleForm({ ...vehicleForm, driverContact: validateContact(e.target.value) })} className="w-full p-3 border rounded-xl bg-white" placeholder="256..." />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-gray-700">Vehicle Type</label>
-                  <select value={vehicleForm.type} onChange={e => setVehicleForm({ ...vehicleForm, type: e.target.value as any })} className="w-full p-3 border rounded-xl bg-white">
-                    {VEHICLE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                  </select>
-                </div>
-                <div className="flex justify-end pt-4 gap-3">
-                  <button type="button" onClick={() => setIsAddVehicleOpen(false)} className="px-4 py-2 text-gray-600 font-bold">Cancel</button>
-                  <button type="submit" className="px-6 py-2 bg-ministry-text text-white font-bold rounded-xl hover:bg-ministry-orange">Register Vehicle</button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {isAddPassengerOpen && (
-          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white w-full max-w-lg p-6 rounded-2xl shadow-xl max-h-[90vh] overflow-y-auto">
-              <h3 className="text-xl font-bold mb-4">
-                {passengerForm.category === 'Student' ? 'Add Student' : 'Add Member'} to Vehicle
-              </h3>
-              <p className="text-sm text-gray-500 mb-4">Adding to {selectedVehicle?.number_plate}</p>
-              <form onSubmit={handleAddPassenger} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-bold text-gray-700">Full Name</label>
-                    <input required value={passengerForm.name} onChange={e => setPassengerForm({ ...passengerForm, name: e.target.value })} className="w-full p-3 border rounded-xl bg-white" />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-bold text-gray-700">Gender</label>
-                    <select value={passengerForm.gender} onChange={e => setPassengerForm({ ...passengerForm, gender: e.target.value })} className="w-full p-3 border rounded-xl bg-white">
-                      <option value="Male">Male</option>
-                      <option value="Female">Female</option>
-                    </select>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-bold text-gray-700">Contact</label>
-                    <input required value={passengerForm.contact} onChange={e => setPassengerForm({ ...passengerForm, contact: validateContact(e.target.value) })} className="w-full p-3 border rounded-xl bg-white" placeholder="256..." />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-bold text-gray-700">Residence</label>
-                    <input required value={passengerForm.residence} onChange={e => setPassengerForm({ ...passengerForm, residence: e.target.value })} className="w-full p-3 border rounded-xl bg-white" />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-gray-700">Are you going with us for the first time?</label>
-                  <select value={passengerForm.isFirstTime} onChange={e => setPassengerForm({ ...passengerForm, isFirstTime: e.target.value })} className="w-full p-3 border rounded-xl bg-white">
-                    <option value="No">No</option>
-                    <option value="Yes">Yes</option>
-                  </select>
-                </div>
-                {passengerForm.category === 'Student' && (
-                  <div className="bg-gray-50 p-4 rounded-xl space-y-4 border border-gray-100">
-                    <h4 className="text-xs font-bold text-gray-400 uppercase">Student Details</h4>
-                    <div className="space-y-2">
-                      <label className="text-sm font-bold text-gray-700">School Name</label>
-                      <input value={passengerForm.school} onChange={e => setPassengerForm({ ...passengerForm, school: e.target.value })} className="w-full p-3 border rounded-xl bg-white" />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <label className="text-sm font-bold text-gray-700">Class</label>
-                        <input value={passengerForm.studentClass} onChange={e => setPassengerForm({ ...passengerForm, studentClass: e.target.value })} className="w-full p-3 border rounded-xl bg-white" />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-sm font-bold text-gray-700">Section</label>
-                        <select value={passengerForm.boardingType} onChange={e => setPassengerForm({ ...passengerForm, boardingType: e.target.value })} className="w-full p-3 border rounded-xl bg-white">
-                          <option value="Day">Day Student</option>
-                          <option value="Boarding">Boarding Student</option>
-                        </select>
-                      </div>
-                    </div>
-                  </div>
-                )}
-                {passengerForm.category === 'Institution' && (
-                  <div className="bg-gray-50 p-4 rounded-xl space-y-4 border border-gray-100">
-                    <h4 className="text-xs font-bold text-gray-400 uppercase">Institution Details</h4>
-                    <div className="space-y-2">
-                      <label className="text-sm font-bold text-gray-700">Name of Institute</label>
-                      <input value={passengerForm.school} onChange={e => setPassengerForm({ ...passengerForm, school: e.target.value })} className="w-full p-3 border rounded-xl bg-white" placeholder="e.g. Makerere University" />
-                    </div>
-                  </div>
-                )}
-                <div className="flex justify-end pt-4 gap-3">
-                  <button type="button" onClick={() => setIsAddPassengerOpen(false)} className="px-4 py-2 text-gray-600 font-bold">Cancel</button>
-                  <button type="submit" className="px-6 py-2 bg-ministry-text text-white font-bold rounded-xl hover:bg-ministry-orange">Add to Vehicle</button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {/* Add Event/Service Modal */}
-        {isAddEventOpen && (
-          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-            <div className="bg-white w-full max-w-md p-8 rounded-2xl shadow-2xl">
-              <h3 className="text-xl font-bold mb-4">
-                {eventFormType === 'Service' ? 'Create New Service' : 'Plan New Event'}
-              </h3>
-              <form onSubmit={handleAddEvent} className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-gray-700">Title / Theme</label>
-                  <input
-                    required
-                    value={eventForm.title}
-                    onChange={e => setEventForm({ ...eventForm, title: e.target.value })}
-                    className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:border-ministry-orange outline-none transition-all"
-                    placeholder={eventFormType === 'Service' ? "e.g. Sunday Service" : "e.g. Men's Conference"}
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-bold text-gray-700">Date</label>
-                    <input
-                      type="date"
-                      required
-                      value={eventForm.date}
-                      onChange={e => setEventForm({ ...eventForm, date: e.target.value })}
-                      className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 outline-none"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-bold text-gray-700">Time</label>
-                    <input
-                      type="time"
-                      required
-                      value={eventForm.time}
-                      onChange={e => setEventForm({ ...eventForm, time: e.target.value })}
-                      className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 outline-none"
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-gray-700">Location</label>
-                  <input
-                    required
-                    value={eventForm.location}
-                    onChange={e => setEventForm({ ...eventForm, location: e.target.value })}
-                    className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 outline-none"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-gray-700">Description (Optional)</label>
-                  <textarea
-                    value={eventForm.description}
-                    onChange={e => setEventForm({ ...eventForm, description: e.target.value })}
-                    className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 outline-none h-24 resize-none"
-                    placeholder="Details about this gathering..."
-                  />
-                </div>
-                <div className="flex justify-end pt-4 gap-3">
-                  <button type="button" onClick={() => setIsAddEventOpen(false)} className="px-4 py-2 text-gray-600 font-bold hover:bg-gray-100 rounded-lg">Cancel</button>
-                  <button type="submit" className="px-6 py-2 bg-ministry-text text-white font-bold rounded-xl hover:bg-ministry-orange transition-colors shadow-md">
-                    Create {eventFormType}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {/* Add Event/Service Modal */}
-        {isAddEventOpen && (
-          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-            <div className="bg-white w-full max-w-md p-8 rounded-2xl shadow-2xl">
-              <h3 className="text-xl font-bold mb-4">
-                {eventFormType === 'Service' ? 'Create New Service' : 'Plan New Event'}
-              </h3>
-              <form onSubmit={handleAddEvent} className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-gray-700">Title / Theme</label>
-                  <input
-                    required
-                    value={eventForm.title}
-                    onChange={e => setEventForm({ ...eventForm, title: e.target.value })}
-                    className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:border-ministry-orange outline-none transition-all"
-                    placeholder={eventFormType === 'Service' ? "e.g. Sunday Service" : "e.g. Men's Conference"}
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-bold text-gray-700">Date</label>
-                    <input
-                      type="date"
-                      required
-                      value={eventForm.date}
-                      onChange={e => setEventForm({ ...eventForm, date: e.target.value })}
-                      className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 outline-none"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-bold text-gray-700">Time</label>
-                    <input
-                      type="time"
-                      required
-                      value={eventForm.time}
-                      onChange={e => setEventForm({ ...eventForm, time: e.target.value })}
-                      className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 outline-none"
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-gray-700">Location</label>
-                  <input
-                    required
-                    value={eventForm.location}
-                    onChange={e => setEventForm({ ...eventForm, location: e.target.value })}
-                    className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 outline-none"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-gray-700">Description (Optional)</label>
-                  <textarea
-                    value={eventForm.description}
-                    onChange={e => setEventForm({ ...eventForm, description: e.target.value })}
-                    className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 outline-none h-24 resize-none"
-                    placeholder="Details about this gathering..."
-                  />
-                </div>
-                <div className="flex justify-end pt-4 gap-3">
-                  <button type="button" onClick={() => setIsAddEventOpen(false)} className="px-4 py-2 text-gray-600 font-bold hover:bg-gray-100 rounded-lg">Cancel</button>
-                  <button type="submit" className="px-6 py-2 bg-ministry-text text-white font-bold rounded-xl hover:bg-ministry-orange transition-colors shadow-md">
-                    Create {eventFormType}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-        {/* Add Children Modal */}
-        {isAddChildrenOpen && (
-          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-            <div className="bg-white w-full max-w-sm p-8 rounded-2xl shadow-2xl">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="p-3 bg-orange-100 rounded-xl text-ministry-orange">
-                  <Baby className="w-6 h-6" />
-                </div>
-                <h3 className="text-xl font-bold text-gray-900">Children Count</h3>
               </div>
-              <form onSubmit={handleUpdateChildrenCount} className="space-y-6">
+              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-bold text-gray-700">Number of Children</label>
-                  <input
-                    type="number"
-                    required
-                    min="0"
-                    autoFocus
-                    value={childrenForm.count}
-                    onChange={e => setChildrenForm({ count: e.target.value })}
-                    className="w-full p-4 border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:border-ministry-orange outline-none transition-all text-2xl font-bold text-center"
-                    placeholder="0"
-                  />
-                  <p className="text-xs text-gray-500 italic">Enter the total number of children traveling in this vehicle.</p>
+                  <label className="text-sm font-bold text-gray-700">Contact</label>
+                  <input required value={passengerForm.contact} onChange={e => setPassengerForm({ ...passengerForm, contact: validateContact(e.target.value) })} className="w-full p-3 border rounded-xl bg-white" placeholder="256..." />
                 </div>
-                <div className="flex justify-end gap-3 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setIsAddChildrenOpen(false)}
-                    className="px-5 py-2.5 text-gray-600 font-bold hover:bg-gray-100 rounded-xl transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-6 py-2.5 bg-ministry-orange text-white font-bold rounded-xl hover:bg-orange-600 transition-colors shadow-lg shadow-orange-100"
-                  >
-                    Save Count
-                  </button>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700">Residence</label>
+                  <input required value={passengerForm.residence} onChange={e => setPassengerForm({ ...passengerForm, residence: e.target.value })} className="w-full p-3 border rounded-xl bg-white" />
                 </div>
-              </form>
-            </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-gray-700">Are you going with us for the first time?</label>
+                <select value={passengerForm.isFirstTime} onChange={e => setPassengerForm({ ...passengerForm, isFirstTime: e.target.value })} className="w-full p-3 border rounded-xl bg-white">
+                  <option value="No">No</option>
+                  <option value="Yes">Yes</option>
+                </select>
+              </div>
+              {passengerForm.category === 'Student' && (
+                <div className="bg-gray-50 p-4 rounded-xl space-y-4 border border-gray-100">
+                  <h4 className="text-xs font-bold text-gray-400 uppercase">Student Details</h4>
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-gray-700">School Name</label>
+                    <input value={passengerForm.school} onChange={e => setPassengerForm({ ...passengerForm, school: e.target.value })} className="w-full p-3 border rounded-xl bg-white" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-gray-700">Class</label>
+                      <input value={passengerForm.studentClass} onChange={e => setPassengerForm({ ...passengerForm, studentClass: e.target.value })} className="w-full p-3 border rounded-xl bg-white" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-gray-700">Section</label>
+                      <select value={passengerForm.boardingType} onChange={e => setPassengerForm({ ...passengerForm, boardingType: e.target.value })} className="w-full p-3 border rounded-xl bg-white">
+                        <option value="Day">Day Student</option>
+                        <option value="Boarding">Boarding Student</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {passengerForm.category === 'Institution' && (
+                <div className="bg-gray-50 p-4 rounded-xl space-y-4 border border-gray-100">
+                  <h4 className="text-xs font-bold text-gray-400 uppercase">Institution Details</h4>
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-gray-700">Name of Institute</label>
+                    <input value={passengerForm.school} onChange={e => setPassengerForm({ ...passengerForm, school: e.target.value })} className="w-full p-3 border rounded-xl bg-white" placeholder="e.g. Makerere University" />
+                  </div>
+                </div>
+              )}
+              <div className="flex justify-end pt-4 gap-3">
+                <button type="button" onClick={() => setIsAddPassengerOpen(false)} className="px-4 py-2 text-gray-600 font-bold">Cancel</button>
+                <button type="submit" className="px-6 py-2 bg-ministry-text text-white font-bold rounded-xl hover:bg-ministry-orange">Add to Vehicle</button>
+              </div>
+            </form>
           </div>
-        )}
-        {/* Highlights Modal */}
-        <EventDetailsModal
-          event={showHighlights ? highlightEvent : null}
-          onClose={() => setShowHighlights(false)}
-        />
-      </div>
-    </div >
+        </div>
+      )}
+
+      {/* Add Event/Service Modal */}
+      {isAddEventOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-white w-full max-w-md p-8 rounded-2xl shadow-2xl">
+            <h3 className="text-xl font-bold mb-4">
+              {eventFormType === 'Service' ? 'Create New Service' : 'Plan New Event'}
+            </h3>
+            <form onSubmit={handleAddEvent} className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-gray-700">Title / Theme</label>
+                <input
+                  required
+                  value={eventForm.title}
+                  onChange={e => setEventForm({ ...eventForm, title: e.target.value })}
+                  className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:border-ministry-orange outline-none transition-all"
+                  placeholder={eventFormType === 'Service' ? "e.g. Sunday Service" : "e.g. Men's Conference"}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700">Date</label>
+                  <input
+                    type="date"
+                    required
+                    value={eventForm.date}
+                    onChange={e => setEventForm({ ...eventForm, date: e.target.value })}
+                    className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 outline-none"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700">Time</label>
+                  <input
+                    type="time"
+                    required
+                    value={eventForm.time}
+                    onChange={e => setEventForm({ ...eventForm, time: e.target.value })}
+                    className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 outline-none"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-gray-700">Location</label>
+                <input
+                  required
+                  value={eventForm.location}
+                  onChange={e => setEventForm({ ...eventForm, location: e.target.value })}
+                  className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 outline-none"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-gray-700">Description (Optional)</label>
+                <textarea
+                  value={eventForm.description}
+                  onChange={e => setEventForm({ ...eventForm, description: e.target.value })}
+                  className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 outline-none h-24 resize-none"
+                  placeholder="Details about this gathering..."
+                />
+              </div>
+              <div className="flex justify-end pt-4 gap-3">
+                <button type="button" onClick={() => setIsAddEventOpen(false)} className="px-4 py-2 text-gray-600 font-bold hover:bg-gray-100 rounded-lg">Cancel</button>
+                <button type="submit" className="px-6 py-2 bg-ministry-text text-white font-bold rounded-xl hover:bg-ministry-orange transition-colors shadow-md">
+                  Create {eventFormType}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add Event/Service Modal */}
+      {isAddEventOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-white w-full max-w-md p-8 rounded-2xl shadow-2xl">
+            <h3 className="text-xl font-bold mb-4">
+              {eventFormType === 'Service' ? 'Create New Service' : 'Plan New Event'}
+            </h3>
+            <form onSubmit={handleAddEvent} className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-gray-700">Title / Theme</label>
+                <input
+                  required
+                  value={eventForm.title}
+                  onChange={e => setEventForm({ ...eventForm, title: e.target.value })}
+                  className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:border-ministry-orange outline-none transition-all"
+                  placeholder={eventFormType === 'Service' ? "e.g. Sunday Service" : "e.g. Men's Conference"}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700">Date</label>
+                  <input
+                    type="date"
+                    required
+                    value={eventForm.date}
+                    onChange={e => setEventForm({ ...eventForm, date: e.target.value })}
+                    className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 outline-none"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700">Time</label>
+                  <input
+                    type="time"
+                    required
+                    value={eventForm.time}
+                    onChange={e => setEventForm({ ...eventForm, time: e.target.value })}
+                    className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 outline-none"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-gray-700">Location</label>
+                <input
+                  required
+                  value={eventForm.location}
+                  onChange={e => setEventForm({ ...eventForm, location: e.target.value })}
+                  className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 outline-none"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-gray-700">Description (Optional)</label>
+                <textarea
+                  value={eventForm.description}
+                  onChange={e => setEventForm({ ...eventForm, description: e.target.value })}
+                  className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 outline-none h-24 resize-none"
+                  placeholder="Details about this gathering..."
+                />
+              </div>
+              <div className="flex justify-end pt-4 gap-3">
+                <button type="button" onClick={() => setIsAddEventOpen(false)} className="px-4 py-2 text-gray-600 font-bold hover:bg-gray-100 rounded-lg">Cancel</button>
+                <button type="submit" className="px-6 py-2 bg-ministry-text text-white font-bold rounded-xl hover:bg-ministry-orange transition-colors shadow-md">
+                  Create {eventFormType}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* Add Children Modal */}
+      {isAddChildrenOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-white w-full max-w-sm p-8 rounded-2xl shadow-2xl">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-3 bg-orange-100 rounded-xl text-ministry-orange">
+                <Baby className="w-6 h-6" />
+              </div>
+              <h3 className="text-xl font-bold text-gray-900">Children Count</h3>
+            </div>
+            <form onSubmit={handleUpdateChildrenCount} className="space-y-6">
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-gray-700">Number of Children</label>
+                <input
+                  type="number"
+                  required
+                  min="0"
+                  autoFocus
+                  value={childrenForm.count}
+                  onChange={e => setChildrenForm({ count: e.target.value })}
+                  className="w-full p-4 border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:border-ministry-orange outline-none transition-all text-2xl font-bold text-center"
+                  placeholder="0"
+                />
+                <p className="text-xs text-gray-500 italic">Enter the total number of children traveling in this vehicle.</p>
+              </div>
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsAddChildrenOpen(false)}
+                  className="px-5 py-2.5 text-gray-600 font-bold hover:bg-gray-100 rounded-xl transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2.5 bg-ministry-orange text-white font-bold rounded-xl hover:bg-orange-600 transition-colors shadow-lg shadow-orange-100"
+                >
+                  Save Count
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* Highlights Modal */}
+      <EventDetailsModal
+        event={showHighlights ? highlightEvent : null}
+        onClose={() => setShowHighlights(false)}
+      />
+    </div>
+
   );
 };
 

@@ -30,13 +30,13 @@ export const EventStore = {
     try {
       const { data, error } = await supabase.from('ministry_events').select('*').order('date', { ascending: false });
       if (error) {
-        console.warn('Error fetching events, using mock data:', error.message);
-        return MOCK_EVENTS;
+        console.warn('Error fetching events:', error.message);
+        return [];
       }
-      return data.length > 0 ? data.map(mapEventFromDB) : MOCK_EVENTS;
+      return data && data.length > 0 ? data.map(mapEventFromDB) : [];
     } catch (e) {
-      console.warn('Failed to fetch events, using mock data.');
-      return MOCK_EVENTS;
+      console.warn('Failed to fetch events:', e);
+      return [];
     }
   },
 
@@ -44,7 +44,7 @@ export const EventStore = {
     const { error } = await supabase.from('ministry_events').insert([mapEventToDB(event)]);
     if (error) {
       console.error('Error adding event:', error);
-      throw error; 
+      throw error;
     }
   },
 

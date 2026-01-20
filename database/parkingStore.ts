@@ -1,7 +1,7 @@
 
 import { PersonalVehicle } from '../types';
 import { supabase } from '../services/supabaseClient';
-import { MOCK_PERSONAL_VEHICLES } from '../constants';
+
 
 const mapPVFromDB = (v: any): PersonalVehicle => ({
   id: v.id,
@@ -33,12 +33,12 @@ export const ParkingStore = {
       const { data, error } = await supabase.from('personal_vehicles').select('*');
       if (error) {
         console.error('Error fetching personal vehicles:', error.message);
-        return MOCK_PERSONAL_VEHICLES;
+        return [];
       }
-      return data.map(mapPVFromDB);
+      return data ? data.map(mapPVFromDB) : [];
     } catch (e: any) {
       console.error('Unexpected error fetching personal vehicles:', e.message || e);
-      return MOCK_PERSONAL_VEHICLES;
+      return [];
     }
   },
 

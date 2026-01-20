@@ -28,14 +28,15 @@ import { LogisticsStore } from '../database/logisticsStore';
 import { ManifestStore } from '../database/manifestStore';
 import { supabase } from '../services/supabaseClient';
 import { RequisitionStore } from '../database/requisitionStore';
-import { Vehicle, MinistryEvent, Transaction, DepartmentRequest, Passenger, PickUpStation, User, Requisition } from '../types';
+import { Vehicle, MinistryEvent, Transaction, DepartmentRequest, Passenger, PickUpStation, User, Requisition, ModalType } from '../types';
 import { UserStore } from '../database/userStore';
 
 interface FinanceDashboardProps {
     currentUser?: any;
+    onOpenModal?: (type: ModalType) => void;
 }
 
-const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser }) => { // Accept props properly
+const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, onOpenModal }) => { // Accept props properly
     /* Persistence Logic */
     const [activeTab, setActiveTab] = useState<'income' | 'expenses' | 'requisitions' | 'fleet'>(() =>
         (localStorage.getItem('finance_active_tab') as 'income' | 'expenses' | 'requisitions' | 'fleet') || 'income'

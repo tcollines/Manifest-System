@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { MOCK_EVENTS, PICKUP_STATIONS } from '../constants';
-import { MinistryEvent, Vehicle, User, Passenger, JourneyStage } from '../types';
+import { MinistryEvent, Vehicle, User, Passenger, JourneyStage, ModalType } from '../types';
 import EventDetailsModal from './EventDetailsModal';
 import { VehicleStore } from '../database/vehicleStore';
 import { UserStore } from '../database/userStore';
@@ -54,6 +54,7 @@ const center = {
 interface TransportationDashboardProps {
     currentUser?: User | null;
     events?: MinistryEvent[];
+    onOpenModal?: (type: ModalType) => void;
 }
 
 // Extended interface for local state tracking (simulation)
@@ -65,7 +66,7 @@ interface TrackedVehicle extends Omit<Vehicle, 'status'> {
     coordinates?: { x: number; y: number }; // Retained for fallback
 }
 
-const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ currentUser, events = MOCK_EVENTS }) => {
+const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ currentUser, events = MOCK_EVENTS, onOpenModal }) => {
     const [activeTab, setActiveTab] = useState<'overview' | 'coordinators'>(() =>
         (localStorage.getItem('transportation_active_tab') as 'overview' | 'coordinators') || 'overview'
     );
@@ -84,6 +85,7 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
 
     const [coordinators, setCoordinators] = useState<User[]>([]);
     const [newCoordinator, setNewCoordinator] = useState({ name: '', username: '', password: '', contact: '' });
+
 
     const [isAssigning, setIsAssigning] = useState<string | null>(null);
     const [selectedCoordinator, setSelectedCoordinator] = useState('');
@@ -422,6 +424,9 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
             refreshData();
         }
     };
+
+
+
 
     const handleAddCoordinator = (e: React.FormEvent) => {
         e.preventDefault();
@@ -1380,7 +1385,7 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
                                 <UserPlus className="w-5 h-5 mr-2 text-ministry-orange" />
                                 Add Coordinator
                             </h2>
-                            <p className="text-sm text-gray-500 mb-6">Create credentials for vehicle coordinators for <strong>{selectedEvent?.title}</strong>. These users will be available in the dropdown when assigning vehicles.</p>
+                            <p className="text-sm text-gray-500 mb-6">Create credentials for vehicle coordinators for <strong>{selectedEvent?.title}</strong> to an active operation. These users will be available in the dropdown when assigning vehicles.</p>
 
                             <form onSubmit={handleAddCoordinator} className="space-y-4">
                                 <div className="space-y-2">
@@ -1440,28 +1445,31 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
                                         Create Coordinator
                                     </button>
                                 </div>
-                            </form>
-                        </div>
+                            </form >
+                        </div >
                     )}
 
-                    {isEventLocked(selectedEvent?.date || '') && (
-                        <div className="bg-gray-50 border border-gray-200 rounded-2xl shadow-sm p-6 flex flex-col items-center justify-center text-center h-full">
-                            <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mb-4">
-                                <ShieldAlert className="w-8 h-8 text-gray-400" />
+
+                    {
+                        isEventLocked(selectedEvent?.date || '') && (
+                            <div className="bg-gray-50 border border-gray-200 rounded-2xl shadow-sm p-6 flex flex-col items-center justify-center text-center h-full">
+                                <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mb-4">
+                                    <ShieldAlert className="w-8 h-8 text-gray-400" />
+                                </div>
+                                <h3 className="text-xl font-bold text-gray-900">Event Locked</h3>
+                                <p className="text-gray-500 mt-2 max-w-xs">This event has been concluded and locked. Coordinators cannot be added or modified.</p>
+                                <button onClick={() => setShowHighlights(true)} className="mt-6 text-ministry-orange font-bold hover:underline">View Highlights</button>
                             </div>
-                            <h3 className="text-xl font-bold text-gray-900">Event Locked</h3>
-                            <p className="text-gray-500 mt-2 max-w-xs">This event has been concluded and locked. Coordinators cannot be added or modified.</p>
-                            <button onClick={() => setShowHighlights(true)} className="mt-6 text-ministry-orange font-bold hover:underline">View Highlights</button>
-                        </div>
-                    )}
-                </div>
+                        )
+                    }
+                </div >
             )}
 
             <EventDetailsModal
                 event={showHighlights ? selectedEvent || null : null}
                 onClose={() => setShowHighlights(false)}
             />
-        </div>
+        </div >
     );
 };
 

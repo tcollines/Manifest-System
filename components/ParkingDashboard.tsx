@@ -1,8 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { isServiceClosed, validatePlate } from '../utils';
-import { MOCK_PERSONAL_VEHICLES } from '../constants';
-import { PersonalVehicle, MinistryEvent } from '../types';
+import { PersonalVehicle, MinistryEvent, ModalType } from '../types';
 import {
     Car,
     Search,
@@ -28,12 +27,13 @@ import { supabase } from '../services/supabaseClient';
 
 interface ParkingDashboardProps {
     events?: MinistryEvent[];
+    onOpenModal?: (type: ModalType) => void;
 }
 
 type ParkingTab = 'checkin' | 'database';
 type ViewMode = 'list' | 'service-active' | 'register-new' | 'add-vehicle-db' | 'bulk-add';
 
-const ParkingDashboard: React.FC<ParkingDashboardProps> = ({ events = [] }) => {
+const ParkingDashboard: React.FC<ParkingDashboardProps> = ({ events = [], onOpenModal }) => {
     const [activeTab, setActiveTab] = useState<ParkingTab>('checkin');
     const [viewMode, setViewMode] = useState<ViewMode>('list');
     const [searchQuery, setSearchQuery] = useState('');
@@ -358,36 +358,46 @@ const ParkingDashboard: React.FC<ParkingDashboardProps> = ({ events = [] }) => {
                         <div className="flex justify-between items-center">
                             <h3 className="text-lg font-bold text-gray-800">Select Service for Parking</h3>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {services.map(service => {
-                                const isPast = isServiceClosed(service.date);
+                        {services.length === 0 ? (
+                            <div className="col-span-1 md:col-span-2 lg:col-span-3 py-12 text-center bg-gray-50 border-2 border-dashed border-gray-200 rounded-xl">
+                                <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                                <h3 className="text-lg font-bold text-gray-500 mb-2">No Active Services Found</h3>
+                                <p className="text-sm text-gray-400 max-w-sm mx-auto">
+                                    Please verify that Ministry Events have been created in the system. As a non-admin, you can only see existing services.
+                                </p>
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {services.map(service => {
+                                    const isPast = isServiceClosed(service.date);
 
-                                return (
-                                    <div key={service.id} className="bg-white border border-gray-200 rounded-xl p-5 hover:border-ministry-orange/40 hover:shadow-md transition-all group">
-                                        <div className="flex justify-between items-start mb-3">
-                                            <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded-full ${isPast ? 'bg-gray-100 text-gray-500' : 'bg-green-100 text-green-700'}`}>
-                                                {isPast ? 'Past Service' : 'Active / Upcoming'}
-                                            </span>
-                                            <Calendar className="w-4 h-4 text-gray-400" />
+                                    return (
+                                        <div key={service.id} className="bg-white border border-gray-200 rounded-xl p-5 hover:border-ministry-orange/40 hover:shadow-md transition-all group">
+                                            <div className="flex justify-between items-start mb-3">
+                                                <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded-full ${isPast ? 'bg-gray-100 text-gray-500' : 'bg-green-100 text-green-700'}`}>
+                                                    {isPast ? 'Past Service' : 'Active / Upcoming'}
+                                                </span>
+                                                <Calendar className="w-4 h-4 text-gray-400" />
+                                            </div>
+                                            <h4 className="text-lg font-bold text-ministry-text mb-1">{service.title}</h4>
+                                            <p className="text-sm text-gray-500 mb-4 flex items-center">
+                                                <Clock className="w-3 h-3 mr-1" /> {service.date} at {service.time}
+                                            </p>
+                                            <button
+                                                onClick={() => handleOpenService(service)}
+                                                className={`w-full py-2.5 rounded-lg font-bold flex items-center justify-center transition-colors ${isPast
+                                                    ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                                    : 'bg-ministry-text text-white hover:bg-ministry-orange'
+                                                    }`}
+                                            >
+                                                <Car className="w-4 h-4 mr-2" />
+                                                {isPast ? 'View Records' : 'Open Check-In'}
+                                            </button>
                                         </div>
-                                        <h4 className="text-lg font-bold text-ministry-text mb-1">{service.title}</h4>
-                                        <p className="text-sm text-gray-500 mb-4 flex items-center">
-                                            <Clock className="w-3 h-3 mr-1" /> {service.date} at {service.time}
-                                        </p>
-                                        <button
-                                            onClick={() => handleOpenService(service)}
-                                            className={`w-full py-2.5 rounded-lg font-bold flex items-center justify-center transition-colors ${isPast
-                                                ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                                : 'bg-ministry-text text-white hover:bg-ministry-orange'
-                                                }`}
-                                        >
-                                            <Car className="w-4 h-4 mr-2" />
-                                            {isPast ? 'View Records' : 'Open Check-In'}
-                                        </button>
-                                    </div>
-                                );
-                            })}
-                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
                     </div>
                 )}
 

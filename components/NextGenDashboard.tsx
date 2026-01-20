@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Child, MinistryEvent } from '../types';
+import { Child, MinistryEvent, ModalType } from '../types';
 import * as XLSX from 'xlsx';
 import { validateContact, isServiceClosed } from '../utils';
 import { EventStore } from '../database/eventStore';
@@ -26,12 +26,13 @@ import {
 
 interface NextGenDashboardProps {
     events?: MinistryEvent[];
+    onOpenModal?: (type: ModalType) => void;
 }
 
 type Tab = 'checkin' | 'checkout' | 'database';
 type ViewMode = 'list' | 'service-active' | 'add-child' | 'bulk-import';
 
-const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [] }) => {
+const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpenModal }) => {
     const [activeTab, setActiveTab] = useState<Tab>('checkin');
     const [viewMode, setViewMode] = useState<ViewMode>('list');
     const [children, setChildren] = useState<Child[]>([]);
@@ -227,7 +228,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [] }) => {
 
 
 
-    const handleBulkSubmit = (e: React.FormEvent) => {
+    const handleBulkSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         const lines = bulkText.split('\n');
         const newChildren: Child[] = [];
@@ -268,6 +269,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [] }) => {
         });
 
         if (count > 0) {
+            await ChildStore.bulkAdd(newChildren);
             setChildren([...newChildren, ...children]);
             setBulkText('');
             setViewMode('list');

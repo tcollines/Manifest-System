@@ -26,7 +26,7 @@ const ActionPanel: React.FC<ActionPanelProps> = ({ modalType, closeModal, onSave
     email: '',
     contact: '256', // Initialize with 256
     departmentId: '',
-    role: 'Reg. Admin'
+    role: 'Dept Admin'
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -49,7 +49,7 @@ const ActionPanel: React.FC<ActionPanelProps> = ({ modalType, closeModal, onSave
       // If not admin/team leader, lock to current user's department
       departmentId: !isAdmin && !isTeamLeader && currentUser?.departmentId ? currentUser.departmentId : '',
 
-      role: isTeamLeader ? 'Administrator' : 'Reg. Admin' // Default role for Team Leader adds is Admin
+      role: isTeamLeader ? 'Administrator' : 'Dept Admin' // Default role for Team Leader adds is Admin
     });
   }, [modalType, currentUser, isAdmin, isTeamLeader]);
 
@@ -120,17 +120,10 @@ const ActionPanel: React.FC<ActionPanelProps> = ({ modalType, closeModal, onSave
       }
       setIsSubmitting(true);
       try {
-        // 1. Send Magic Link
-        const { error } = await supabase.auth.signInWithOtp({
-          email: formData.email,
-          options: {
-            emailRedirectTo: `${window.location.origin}/setup-account`
-          }
-        });
+        // 1. Generate Token
+        const invitationToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
 
-        if (error) throw error;
-
-        // 2. Create User Profile
+        // 2. Create User Profile FIRST
         const newUser: User = {
           id: `u-${Date.now()}`,
           name: formData.fullname,
@@ -139,10 +132,29 @@ const ActionPanel: React.FC<ActionPanelProps> = ({ modalType, closeModal, onSave
           contact: formData.contact,
           email: formData.email,
           username: '', // Not set yet (triggers Setup flow)
-          password: ''  // Not set yet
+          password: '',  // Not set yet
+          invitationToken: invitationToken,
+          status: 'Pending'
         };
 
-        if (onSaveUser) await onSaveUser(newUser);
+        if (onSaveUser) {
+          await onSaveUser(newUser);
+        } else {
+          // Fallback if onSaveUser not provided (should not happen in App.tsx usage)
+          console.warn("No onSaveUser handler provided");
+        }
+
+        // 3. Send Magic Link (Delivery Mechanism Only)
+        // We append the token to the redirect URL so it persists
+        const { error } = await supabase.auth.signInWithOtp({
+          email: formData.email,
+          options: {
+            emailRedirectTo: `${window.location.origin}/setup-account?token=${invitationToken}`
+          }
+        });
+
+        if (error) throw error;
+
         alert(`Invite sent to ${formData.email}! They can click the link to sign in and set their password.`);
         closeModal();
       } catch (err: any) {
@@ -245,9 +257,9 @@ const ActionPanel: React.FC<ActionPanelProps> = ({ modalType, closeModal, onSave
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-gray-500">Role</label>
                     <select name="role" value={formData.role} onChange={handleInputChange} className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-ministry-text focus:outline-none focus:border-ministry-orange">
-                      <option value="Reg. Admin">Reg. Admin</option>
+                      <option value="Dept Admin">Dept Admin</option>
                       <option value="Member">Member</option>
-                      {isAdmin && <option value="Lead">Lead</option>}
+                      {isAdmin && <option value="Head of Dept">Head of Dept</option>}
                       {isAdmin && <option value="Administrator">Administrator</option>}
                     </select>
                   </div>

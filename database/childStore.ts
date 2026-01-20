@@ -48,12 +48,24 @@ export const ChildStore = {
     }
   },
 
+
+
   add: async (child: Child): Promise<void> => {
     try {
       const { error } = await supabase.from('children').insert([mapChildToDB(child)]);
       if (error) console.error('Error adding child:', error.message);
     } catch (e: any) {
       console.error('Unexpected error adding child:', e.message || e);
+    }
+  },
+
+  bulkAdd: async (children: Child[]): Promise<void> => {
+    try {
+      const mappedChildren = children.map(mapChildToDB);
+      const { error } = await supabase.from('children').insert(mappedChildren);
+      if (error) console.error('Error bulk adding children:', error.message);
+    } catch (e: any) {
+      console.error('Unexpected error bulk adding children:', e.message || e);
     }
   },
 

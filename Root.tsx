@@ -10,6 +10,7 @@ const Root: React.FC = () => {
             <Routes>
                 <Route path="/collect-souls/:eventId" element={<PublicSoulEntry />} />
                 <Route path="/accept-invite" element={<AcceptInvite />} />
+                <Route path="/setup-account" element={<AcceptInvite />} />
                 <Route path="*" element={<App />} />
             </Routes>
         </Router>
