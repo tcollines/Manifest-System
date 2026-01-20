@@ -1951,7 +1951,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
                         Assigned Data Entrants
                       </h3>
                       <button
-                        onClick={() => onOpenModal && onOpenModal(ModalType.CREATE_USER)}
+                        onClick={() => setIsAddEntrantOpen(true)}
                         className="text-sm font-bold text-ministry-text hover:text-ministry-orange flex items-center bg-white border border-gray-200 px-3 py-2 rounded-lg shadow-sm"
                       >
                         <Plus className="w-4 h-4 mr-1" /> Add Entrant

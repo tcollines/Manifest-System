@@ -169,18 +169,24 @@ const App: React.FC = () => {
           console.warn("User authenticated but no profile found for:", session.user.email);
           // FALLBACK: If user is authenticated via Magic Link but DB profile is missing/RLS blocked
           // We FORCE them to Setup Account so they can at least try to recover/create profile.
-          const tempUser: User = {
-            id: session.user.id,
-            email: session.user.email || '',
-            username: '',
-            name: 'New User',
-            role: 'Member',
-            departmentId: '',
-            contact: '',
-            password: ''
-          };
-          setCurrentUser(tempUser);
-          setActiveTab('setup-account');
+          if (window.location.pathname === '/setup-account') {
+            const tempUser: User = {
+              id: session.user.id,
+              email: session.user.email || '',
+              username: '',
+              name: 'New User',
+              role: 'Member',
+              departmentId: '',
+              contact: '',
+              password: ''
+            };
+            setCurrentUser(tempUser);
+            setActiveTab('setup-account');
+          } else {
+            // If not on setup page, treat as logged out or potentially show an error/loading
+            // For now, we won't set currentUser, so SignIn will show.
+            console.warn("User authenticated but no profile found. Not on setup page, causing SignIn to render.");
+          }
         }
       } else if (event === 'SIGNED_OUT') {
         setCurrentUser(null);
