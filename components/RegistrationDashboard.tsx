@@ -1,0 +1,2888 @@
+
+import React, { useState, useEffect, useRef } from 'react';
+import { isEventLocked, isServiceClosed, validatePlate, validateContact } from '../utils';
+import { VEHICLE_TYPES } from '../constants';
+import { Member, MinistryEvent, User, Vehicle, Passenger, PickUpStation, PersonalVehicle } from '../types';
+import { VehicleStore } from '../database/vehicleStore';
+import { UserStore } from '../database/userStore';
+import { MemberStore } from '../database/memberStore';
+import { LogisticsStore, ExtendedStation } from '../database/logisticsStore';
+import { ManifestStore } from '../database/manifestStore';
+import { EventStore } from '../database/eventStore';
+import { supabase } from '../services/supabaseClient';
+import * as XLSX from 'xlsx';
+import {
+  ClipboardCheck,
+  Search,
+  Plus,
+  CheckCircle,
+  Clock,
+  Calendar,
+  ArrowLeft,
+  UserPlus,
+  Database,
+  FileText,
+  Upload,
+  Ticket,
+  Bus,
+  MapPin,
+  LayoutList,
+  Users,
+  Eye,
+  Download,
+  ChevronRight,
+  Shield,
+  Trash2,
+  X,
+  Phone,
+  Key,
+  Save,
+  CreditCard,
+  GraduationCap,
+  Printer,
+  Lock,
+  FileSpreadsheet,
+  AlertTriangle,
+  Building2,
+  ShieldCheck,
+  BarChart3,
+  CalendarPlus,
+  Baby,
+  CalendarCheck,
+  History,
+  User as UserIcon
+} from 'lucide-react';
+import EventDetailsModal from './EventDetailsModal';
+
+interface RegistrationDashboardProps {
+  events: MinistryEvent[];
+  currentUser: User;
+}
+
+type Tab = 'checkin' | 'events' | 'database';
+type ViewMode = 'list' | 'service-active' | 'service-review' | 'Vehicle-view' | 'station-detail' | 'register-new' | 'bulk-import' | 'bulk-import-members' | 'member-detail';
+
+const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, currentUser }) => {
+  /* Persistence Logic */
+  const [activeTab, setActiveTab] = useState<Tab>(() =>
+    (localStorage.getItem('registration_active_tab') as Tab) || 'checkin'
+  );
+
+  // Force re-render state
+  const [, forceUpdate] = useState(0);
+
+  const [viewMode, setViewMode] = useState<ViewMode>(() =>
+    (localStorage.getItem('registration_view_mode') as ViewMode) || 'list'
+  );
+
+  useEffect(() => {
+    localStorage.setItem('registration_active_tab', activeTab);
+  }, [activeTab]);
+
+  useEffect(() => {
+    localStorage.setItem('registration_view_mode', viewMode);
+  }, [viewMode]);
+
+
+
+  const [members, setMembers] = useState<Member[]>([]);
+  const [totalMembers, setTotalMembers] = useState(0);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Selection State for Hierarchy
+  const [selectedService, setSelectedService] = useState<MinistryEvent | null>(null); // For Check-in
+
+  // Fix for blank screen on reload: If view is 'service-active' but no service selected, go back to list
+  useEffect(() => {
+    if (viewMode === 'service-active' && !selectedService) {
+      setViewMode('list');
+    }
+  }, [viewMode, selectedService]);
+
+  // Logistics Hierarchy State
+  const [selectedLogisticsEvent, setSelectedLogisticsEvent] = useState<MinistryEvent | null>(null); // Level 1 -> 2
+  const [selectedStation, setSelectedStation] = useState<ExtendedStation | null>(null); // Level 2 -> 3
+  const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null); // Level 3 -> 4
+
+  const [stationEntrants, setStationEntrants] = useState<User[]>([]);
+  const [availableCoordinators, setAvailableCoordinators] = useState<User[]>([]);
+
+  // Logistics Data
+  const [stations, setStations] = useState<ExtendedStation[]>([]);
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [passengers, setPassengers] = useState<Passenger[]>([]);
+
+  // Parking State
+  const [personalVehicles, setPersonalVehicles] = useState<PersonalVehicle[]>([]);
+  const [isAddParkingOpen, setIsAddParkingOpen] = useState(false);
+  const [parkingForm, setParkingForm] = useState({ number_plate: '', driverName: '', driverContact: '256' });
+
+  // Add Station Form State
+  const [isAddStationOpen, setIsAddStationOpen] = useState(false);
+  const initialStationForm = {
+    name: '',
+    location: '',
+    coordinatorName: '',
+    coordinatorContact: '256', // Initialize with 256
+    // Data Entrant Initials
+    entrantName: '',
+    entrantUsername: '',
+    entrantPassword: ''
+  };
+  const [stationForm, setStationForm] = useState(initialStationForm);
+
+  // Add Extra Entrant Modal
+  const [isAddEntrantOpen, setIsAddEntrantOpen] = useState(false);
+  const [entrantForm, setEntrantForm] = useState({ name: '', username: '', password: '' });
+
+  // Data Entrant - Add Vehicle State
+  const [isAddVehicleOpen, setIsAddVehicleOpen] = useState(false);
+  const [vehicleForm, setVehicleForm] = useState({
+    number_plate: '',
+    driverName: '',
+    driverContact: '256', // Initialize with 256
+    driverNin: '',
+    type: 'Taxi' as 'Car' | 'Taxi' | 'Coaster' | 'Bus',
+    capacity: '',
+    coordinator: ''
+  });
+
+  // Add Passenger Modal State
+  const [isAddPassengerOpen, setIsAddPassengerOpen] = useState(false);
+  const [isAddChildrenOpen, setIsAddChildrenOpen] = useState(false);
+  const [childrenForm, setChildrenForm] = useState({ count: '0' });
+  const initialPassengerForm = {
+    name: '',
+    category: 'Member',
+    gender: 'Male',
+    contact: '256', // Initialize with 256
+    residence: '',
+    isFirstTime: 'No',
+    school: '',
+    studentClass: '',
+    boardingType: 'Day'
+  };
+  const [passengerForm, setPassengerForm] = useState(initialPassengerForm);
+
+  // Registration Form State
+  const initialForm = {
+    name: '',
+    countryCode: '+256',
+    phone: '256', // Initialize with 256
+    residence: '',
+    email: '',
+    occupation: '',
+    placeOfWork: '',
+    bornAgain: 'No',
+    isPhanerooMember: 'No',
+    referralSource: '',
+    category: 'Member',
+    gender: 'Male'
+  };
+  const [formData, setFormData] = useState(initialForm);
+  const [bulkMemberText, setBulkMemberText] = useState('');
+
+  // Bulk Selection & Delete State
+  const [selectedMemberIds, setSelectedMemberIds] = useState<Set<string>>(new Set());
+  const [selectedEventId, setSelectedEventId] = useState<string>(events.find(e => e.type === 'Event')?.id || '');
+  const [coordinators, setCoordinators] = useState<User[]>([]);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
+
+  // Import State
+  const [isImporting, setIsImporting] = useState(false);
+  const [importProgress, setImportProgress] = useState(0);
+
+  // New Event/Service State
+  const [isAddEventOpen, setIsAddEventOpen] = useState(false);
+  const [eventFormType, setEventFormType] = useState<'Service' | 'Event'>('Service');
+  const [eventForm, setEventForm] = useState({
+    title: '',
+    date: new Date().toISOString().split('T')[0],
+    time: '17:00',
+    location: 'Phaneroo Grounds',
+    description: ''
+  });
+
+  // Highlights Modal State
+  const [showHighlights, setShowHighlights] = useState(false);
+  const [highlightEvent, setHighlightEvent] = useState<MinistryEvent | null>(null);
+
+  // Check-in Stats State
+  const [checkInStats, setCheckInStats] = useState({ total: 0, firstTimers: 0 });
+  const [checkedInIds, setCheckedInIds] = useState<Set<string>>(new Set());
+
+  // Member Details View State
+  const [selectedMemberDetails, setSelectedMemberDetails] = useState<{ member: Member, attendedCount: number, totalServices: number, history: any[] } | null>(null);
+  const [isEditingMember, setIsEditingMember] = useState(false);
+
+
+
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 100000;
+
+  const isLogisticsRole = currentUser.role === 'Logistics';
+  const isMember = currentUser.role === 'Member';
+  const canCreateService = ['Administrator', 'Lead', 'Reg. Admin'].includes(currentUser.role);
+
+  // Derived State - Filters
+  const services = events.filter(e => e.type === 'Service').sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  const logisticsEvents = events.filter(e => e.type === 'Event').sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  const refreshData = async () => {
+    try {
+      const [fetchedStations, fetchedVehicles, fetchedPassengers, fetchedMembersResult, fetchedUsers, fetchedPersonalCars] = await Promise.all([
+        LogisticsStore.getStations(),
+        VehicleStore.getVehicles(),
+        VehicleStore.getPassengers(),
+        MemberStore.getMembers(currentPage, itemsPerPage, searchQuery),
+        UserStore.getAll(),
+        VehicleStore.getPersonalVehicles()
+      ]);
+
+      setStations(fetchedStations);
+      setVehicles(fetchedVehicles);
+      setPersonalVehicles(fetchedPersonalCars);
+      setPassengers(fetchedPassengers);
+      setMembers(fetchedMembersResult.data);
+      setTotalMembers(fetchedMembersResult.count);
+      setCoordinators(fetchedUsers.filter(u => u.role === 'Coordinator'));
+
+      // If Logistics user, auto-select their station and event
+      if (isLogisticsRole && currentUser.stationId) {
+        const myStation = fetchedStations.find(s => s.id === currentUser.stationId);
+        if (myStation) {
+          handleSelectStation(myStation);
+          // Find associated event
+          const myEvent = events.find(e => e.id === myStation.eventId);
+          if (myEvent) setSelectedLogisticsEvent(myEvent);
+          setActiveTab('events');
+        }
+      }
+    } catch (error) {
+      console.error("Error refreshing data:", error);
+    }
+  };
+
+  const refreshDataRef = useRef(refreshData);
+  refreshDataRef.current = refreshData;
+
+  useEffect(() => {
+    refreshData();
+  }, [currentPage, searchQuery, activeTab]); // Re-fetch when pagination or search changes
+
+  // Realtime Subscriptions
+  useEffect(() => {
+    const channel = supabase.channel('reg-dashboard-live')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'members' }, async () => {
+        refreshDataRef.current();
+        if (selectedService) {
+          const stats = await MemberStore.getServiceStats(selectedService.id, selectedService.date);
+          const childrenCount = selectedService.stats?.manualChildrenCount || 0;
+          setCheckInStats({ total: stats.total + childrenCount, firstTimers: stats.firstTimers });
+          setCheckedInIds(new Set(stats.memberIds));
+        }
+        forceUpdate(n => n + 1);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, () => { refreshDataRef.current(); forceUpdate(n => n + 1); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'pickup_stations' }, () => { refreshDataRef.current(); forceUpdate(n => n + 1); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'vehicles' }, () => { refreshDataRef.current(); forceUpdate(n => n + 1); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'ministry_events' }, () => {
+        window.location.reload();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'manifest_passengers' }, () => { refreshDataRef.current(); forceUpdate(n => n + 1); })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  // Fetch coordinators when selectedLogisticsEvent changes
+  useEffect(() => {
+    const fetchCoordinators = async () => {
+      if (selectedLogisticsEvent) {
+        const allUsers = await UserStore.getAll();
+        const eventCoords = allUsers.filter(u =>
+          u.role === 'Coordinator' &&
+          u.departmentId === 'd5' &&
+          u.eventId === selectedLogisticsEvent.id
+        );
+        setAvailableCoordinators(eventCoords);
+      }
+    };
+    fetchCoordinators();
+  }, [selectedLogisticsEvent]);
+
+  // Clear selections when changing tabs or views
+  useEffect(() => {
+    setSelectedMemberIds(new Set());
+  }, [activeTab, viewMode]);
+
+
+
+  // Helper for contact validation
+  const validateContact = (val: string) => {
+    let digits = val.replace(/\D/g, '');
+    if (digits.length > 12) digits = digits.slice(0, 12);
+    if (digits.length > 0 && !digits.startsWith('256')) {
+      return '256';
+    }
+    return digits;
+  };
+
+  const handleSelectStation = async (station: ExtendedStation) => {
+    setSelectedStation(station);
+    // Fetch data entrants for this station
+    const allUsers = await UserStore.getAll();
+    const entrants = allUsers.filter(u => u.role === 'Logistics' && u.stationId === station.id);
+    setStationEntrants(entrants);
+  };
+
+  const handleOpenService = async (service: MinistryEvent) => {
+    setSelectedService(service);
+    setViewMode('service-active');
+    // Fetch initial stats
+    const stats = await MemberStore.getServiceStats(service.id, service.date);
+    const childrenCount = service.stats?.manualChildrenCount || 0;
+    setCheckInStats({ total: stats.total + childrenCount, firstTimers: stats.firstTimers });
+    setCheckedInIds(new Set(stats.memberIds));
+  };
+
+  /* --- DOWNLOAD HIGHLIGHTS --- */
+  const handleDownloadHighlights = () => {
+    if (!selectedService) return;
+
+    const stats = [
+      ['Metric', 'Value'],
+      ['Service Title', selectedService.title],
+      ['Date', selectedService.date],
+      ['Total Members Checked In', checkInStats.total],
+      ['First Timers', checkInStats.firstTimers],
+      ['Children Count', selectedService.stats?.manualChildrenCount || 0]
+    ];
+
+    const ws = XLSX.utils.aoa_to_sheet(stats);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Highlights");
+    XLSX.writeFile(wb, `${selectedService.title.replace(/\s+/g, '_')}_Highlights.xlsx`);
+  };
+
+  // Back Handlers for Hierarchy
+  const handleBackLogistics = () => {
+    if (selectedVehicle) {
+      setSelectedVehicle(null);
+    } else if (selectedStation) {
+      // If logistics role, they can't go back further than their station
+      if (isLogisticsRole) return;
+      setSelectedStation(null);
+      setStationEntrants([]);
+    } else if (selectedLogisticsEvent) {
+      setSelectedLogisticsEvent(null);
+    }
+  };
+
+  const handleBackRegistration = () => {
+    setViewMode('list');
+    setSelectedService(null);
+    setSearchQuery('');
+    setFormData(initialForm);
+    setBulkMemberText('');
+  };
+
+  // --- PRINT VEHICLE LOGIC ---
+  const handlePrintManifest = async () => {
+    if (!selectedVehicle || !selectedStation) return;
+
+    // Fetch Global Manifest Name from Store
+    const globalManifest = await ManifestStore.get();
+    const manifestName = globalManifest?.name || selectedStation.name.toUpperCase();
+
+    const vPassengers = passengers.filter(p => p.vehicleId === selectedVehicle.id);
+    const groups = {
+      'Members': vPassengers.filter(p => p.category === 'Member'),
+      'Schools': vPassengers.filter(p => p.category === 'Student'),
+      'Institutions': vPassengers.filter(p => p.category === 'Institution')
+    };
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    let htmlContent = `
+        <html>
+        <head>
+            <title>Manifest - ${selectedVehicle.number_plate}</title>
+            <style>
+                @media print {
+                    @page { size: landscape; margin: 5mm; }
+                    body { -webkit-print-color-adjust: exact; }
+                    .page-break { page-break-after: always; }
+                }
+                body { font-family: 'Arial', sans-serif; font-size: 10px; margin: 0; padding: 10px; }
+                .header-wrapper { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; border-bottom: 2px solid black; padding-bottom: 5px; }
+                .logo-container { width: 80px; text-align: left; }
+                .main-title { text-align: center; flex: 1; }
+                .main-title h1 { font-size: 20px; font-weight: 900; margin: 0; text-transform: uppercase; }
+                .main-title h2 { font-size: 14px; font-weight: bold; margin: 2px 0 0 0; text-transform: uppercase; color: #333; }
+                
+                .meta-table { width: 100%; border-collapse: collapse; margin-bottom: 5px; font-size: 11px; font-weight: bold; }
+                .meta-table td { padding: 2px 5px; border: none; }
+                .meta-label { text-transform: uppercase; }
+                .meta-value { border-bottom: 1px solid black; min-width: 150px; display: inline-block; }
+
+                table.data-table { width: 100%; border-collapse: collapse; margin-bottom: 5px; }
+                table.data-table th, table.data-table td { border: 1px solid black; padding: 4px; text-align: left; height: 22px; vertical-align: middle; }
+                table.data-table th { background-color: white; font-weight: 900; text-align: center; text-transform: uppercase; font-size: 10px; }
+                .center { text-align: center; }
+                
+                .footer-consent { display: flex; gap: 20px; font-size: 9px; line-height: 1.2; margin-top: 5px; }
+                .col-left, .col-right { flex: 1; text-align: justify; }
+                .col-left h4 { margin: 4px 0 2px 0; font-size: 9px; text-decoration: underline; }
+                .col-right h4 { margin: 4px 0 2px 0; font-size: 9px; }
+                ol { margin: 2px 0; padding-left: 15px; }
+            </style>
+        </head>
+        <body>
+    `;
+
+    const getConsentHTML = () => `
+        <div class="footer-consent">
+            <div class="col-left">
+                <strong>*CONSENT TO HOLD AND USE YOUR PERSONAL DATA</strong><br/>
+                By appending my signature on this form, I consent to Phaneroo Ministries International (hereinafter referred to as PMI) holding and using my personal information for the purposes only;
+                <ol>
+                    <li>To keep you informed of events, services and other related communications from the ministry.</li>
+                    <li>To share your contact details with our teams for experience sharing with the ministry.</li>
+                    <li>To use your photograph(s) and video(s) taken during any of our events on our communication materials.</li>
+                </ol>
+                <br/>
+                <strong>CONSENT TO BE TRANSPORTED BY A PMI CHARTERED VEHICLE</strong><br/>
+                By appending my signature to this document I consent to be transported in a vehicle chartered by Phaneroo Ministries International (hereinafter referred to as PMI)
+                to........................................... and/ from........................................... for...........................................
+            </div>
+            <div class="col-right">
+                I also acknowledge the following;
+                <ol>
+                    <li>To be transported in a vehicle chartered by PMI to and fro the ongoing PMI church service or event.</li>
+                    <li>I acknowledge that PMI Transportation Department has taken reasonable measures to ensure that the vehicle is in proper mechanical condition, safe and that it has the right to establish rules and regulations regarding the use of this vehicle.</li>
+                    <li>I agree to comply with any such rules and regulations, including but not limited to wearing a seatbelt and refraining from engaging in distracted driving behavior.</li>
+                    <li>I absolve PMI of any responsibility that arises out of accidents, damage and/ or malfunctions to my person and/ or property whilst abode the said vehicle.</li>
+                    <li>I understand that PMI reserves the right to admit anyone into the vehicle chartered by it.</li>
+                    <li>I have read and understood the above terms and conditions and I voluntarily agree to the same and I so consent.</li>
+                </ol>
+            </div>
+        </div>
+    `;
+
+    const createPage = (category: string, chunk: Passenger[], pageNum: number, totalPages: number, totalCount: number) => {
+      let tableHeader = '';
+      let rowsHtml = '';
+      const eventTitle = selectedLogisticsEvent?.title || 'MINISTRY EVENT';
+      const eventDate = selectedLogisticsEvent?.date || new Date().toLocaleDateString();
+
+      // Filter First Timers based on the current category
+      let categoryFirstTimers = 0;
+      if (category === 'Members') {
+        categoryFirstTimers = vPassengers.filter(p => p.category === 'Member' && p.isFirstTime === 'Yes').length;
+      } else if (category === 'Schools') {
+        categoryFirstTimers = vPassengers.filter(p => p.category === 'Student' && p.isFirstTime === 'Yes').length;
+      } else if (category === 'Institutions') {
+        categoryFirstTimers = vPassengers.filter(p => p.category === 'Institution' && p.isFirstTime === 'Yes').length;
+      }
+
+      // Define Columns based on Category
+      if (category === 'Schools') {
+        tableHeader = `
+                <tr>
+                    <th style="width: 30px;">No.</th>
+                    <th>FULL NAME</th>
+                    <th style="width: 40px;">GENDER</th>
+                    <th>CONTACT</th>
+                    <th>PLACE OF RESIDENCE</th>
+                    <th>NAME OF SCHOOL</th>
+                    <th style="width: 60px;">DAY / BOARDING</th>
+                    <th style="width: 50px;">CLASS</th>
+                    <th style="width: 50px;">VACIST</th>
+                    <th>CONSENT TO STORE YOUR INFO</th>
+                </tr>
+            `;
+      } else if (category === 'Institutions') {
+        tableHeader = `
+                <tr>
+                    <th style="width: 30px;">No.</th>
+                    <th>FULL NAME</th>
+                    <th style="width: 40px;">GENDER</th>
+                    <th>CONTACT</th>
+                    <th>PLACE OF RESIDENCE</th>
+                    <th>NAME OF INSTITUTION</th>
+                    <th>CONSENT TO STORE YOUR INFO</th>
+                </tr>
+            `;
+      } else {
+        // Members (Residency)
+        tableHeader = `
+                <tr>
+                    <th style="width: 30px;">No.</th>
+                    <th>FULL NAME</th>
+                    <th style="width: 40px;">GENDER</th>
+                    <th>CONTACT</th>
+                    <th>PLACE OF RESIDENCE</th>
+                    <th>ARE YOU A FIRST TIMER</th>
+                </tr>
+            `;
+      }
+
+      // Generate Rows
+      for (let i = 0; i < 15; i++) {
+        const p = chunk[i];
+        const no = (pageNum * 15) + (i + 1);
+        const name = p ? p.name.toUpperCase() : '';
+        const contact = p ? p.contact : '';
+        const residence = p ? p.residence.toUpperCase() : '';
+
+        // Gender
+        const gender = p ? (p.gender === 'Male' ? 'M' : 'F') : '';
+
+        let rowContent = '';
+
+        if (category === 'Schools') {
+          const school = p?.school?.toUpperCase() || '';
+          const studentClass = p?.studentClass?.toUpperCase() || '';
+          const db = p?.boardingType ? (p.boardingType === 'Day' ? 'D' : 'B') : '';
+          rowContent = `
+                    <td class="center">${no}.</td>
+                    <td>${name}</td>
+                    <td class="center">${gender}</td>
+                    <td>${contact}</td>
+                    <td>${residence}</td>
+                    <td>${school}</td>
+                    <td class="center">${db}</td>
+                    <td class="center">${studentClass}</td>
+                    <td></td>
+                    <td></td>
+                `;
+        } else if (category === 'Institutions') {
+          const institution = p?.school?.toUpperCase() || ''; // Using school field for institution name
+          rowContent = `
+                    <td class="center">${no}.</td>
+                    <td>${name}</td>
+                    <td class="center">${gender}</td>
+                    <td>${contact}</td>
+                    <td>${residence}</td>
+                    <td>${institution}</td>
+                    <td></td>
+                `;
+        } else {
+          // Members
+          const isFirstTime = p?.isFirstTime === 'Yes' ? 'YES' : (p ? 'NO' : '');
+          rowContent = `
+                    <td class="center">${no}.</td>
+                    <td>${name}</td>
+                    <td class="center">${gender}</td>
+                    <td>${contact}</td>
+                    <td>${residence}</td>
+                    <td class="center">${isFirstTime}</td>
+                `;
+        }
+
+        rowsHtml += `<tr>${rowContent}</tr>`;
+      }
+
+      const titleMap: any = {
+        'Members': 'RESIDENCY REGISTRATION FORM',
+        'Schools': 'SCHOOLS REGISTRATION FORM',
+        'Institutions': 'INSTITUTION REGISTRATION FORM'
+      };
+
+      return `
+            <div class="${(pageNum < totalPages - 1) ? 'page-break' : ''}">
+                <div class="header-wrapper">
+                    <div class="logo-container">
+                        ${globalManifest?.logoUrl
+          ? `<img src="${globalManifest.logoUrl}" style="width: 50px; height: 50px; object-fit: contain;" alt="Logo" />`
+          : `<div style="width: 50px; height: 50px; background: black; border-radius: 50%; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 8px;">LOGO</div>`
+        }
+                    </div>
+                    <div class="main-title">
+                        <h1>${eventTitle}</h1>
+                        <h2>${titleMap[category]}</h2>
+                    </div>
+                    <div class="logo-container"></div> <!-- Spacer -->
+                </div>
+
+                <table class="meta-table">
+                    <tr>
+                        <td style="width: 10%;">MANIFEST NAME:</td>
+                        <td style="width: 30%; border-bottom: 1px solid black;">${manifestName}</td>
+                        <td style="width: 10%;">REGION:</td>
+                        <td style="width: 20%; border-bottom: 1px solid black;">CENTRAL</td>
+                        <td style="width: 10%;">TOTAL:</td>
+                        <td style="width: 20%; border-bottom: 1px solid black;">${totalCount}</td>
+                    </tr>
+                    <tr>
+                        <td>MANIFEST ID:</td>
+                        <td style="border-bottom: 1px solid black;">CTL/EBB01R</td>
+                        <td>EVENT DATE:</td>
+                        <td style="border-bottom: 1px solid black;">${eventDate}</td>
+                        <td>FIRST TIMERS:</td>
+                        <td style="border-bottom: 1px solid black;">${categoryFirstTimers}</td>
+                    </tr>
+                </table>
+
+                <table class="data-table">
+                    <thead>${tableHeader}</thead>
+                    <tbody>${rowsHtml}</tbody>
+                </table>
+
+                ${category === 'Members' ? `
+                    <div style="margin-top: 5px; margin-bottom: 10px; font-weight: bold; font-size: 11px; text-align: right;">
+                        CHILDREN COUNT: <span style="border-bottom: 1px solid black; display: inline-block; min-width: 50px; text-align: center;">${selectedVehicle.childrenCount || 0}</span>
+                    </div>
+                ` : ''}
+
+                ${getConsentHTML()}
+            </div>
+        `;
+    };
+
+    // Iterate categories and chunks
+    Object.entries(groups).forEach(([category, catPassengers], catIndex, catArray) => {
+      if (catPassengers.length === 0 && vPassengers.length > 0) return; // Only skip if other categories exist. If vehicle empty, print Member form.
+
+      // Chunk into 15
+      const chunkSize = 15;
+      const chunks = [];
+      for (let i = 0; i < catPassengers.length; i += chunkSize) {
+        chunks.push(catPassengers.slice(i, i + chunkSize));
+      }
+      if (chunks.length === 0) chunks.push([]); // Ensure at least one page if empty
+
+      chunks.forEach((chunk, i) => {
+        htmlContent += createPage(category, chunk, i, chunks.length, catPassengers.length);
+        if (i < chunks.length - 1 || catIndex < catArray.length - 1) {
+          htmlContent += '<div class="page-break"></div>';
+        }
+      });
+    });
+
+    // Handle case where vehicle is completely empty (print one empty Member/Residency page)
+    if (vPassengers.length === 0) {
+      htmlContent += createPage('Members', [], 0, 1, 0);
+    }
+
+    htmlContent += `</body></html>`;
+
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+    printWindow.focus();
+    // Delay slightly to ensure render
+    setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 500);
+  };
+
+  // --- REGISTRATION LOGIC ---
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    if (name === 'phone') {
+      setFormData({ ...formData, phone: validateContact(value) });
+    } else {
+      setFormData({ ...formData, [name]: value });
+    }
+  };
+
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    // FIX: use selectedService to detect active session, because viewMode is 'register-new' here
+    const isServiceActive = !!selectedService;
+
+    if (formData.phone.length < 12) {
+      alert("Phone number is too short. Must start with 256 and have at least 9 digits.");
+      return;
+    }
+
+    const fullPhone = formData.phone;
+
+    const newMember: Member = {
+      id: `m-${Date.now()}`,
+      name: formData.name,
+      category: formData.category as any,
+      phone: fullPhone,
+      gender: formData.gender as any,
+      bornAgain: formData.bornAgain as any,
+      status: isServiceActive ? 'Checked In' : 'Absent',
+      checkInTime: isServiceActive ? new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : undefined,
+      joinedDate: new Date().toISOString().split('T')[0],
+      attendedServiceIds: isServiceActive && selectedService ? [selectedService.id] : [],
+      residency: formData.residence,
+      email: formData.email,
+      occupation: formData.occupation,
+      placeOfWork: formData.placeOfWork,
+      isPhanerooMember: formData.isPhanerooMember as any,
+      referralSource: formData.referralSource
+    };
+
+    try {
+      await MemberStore.add(newMember);
+
+      if (isServiceActive && selectedService) {
+        // Auto Check-in uses the new relational table
+        await MemberStore.checkIn(newMember.id, selectedService.id);
+
+        // Fetch fresh stats to ensure FirstTimer logic (JoinedDate === ServiceDate) is accurate
+        // Fetch fresh stats to ensure FirstTimer logic (JoinedDate === ServiceDate) is accurate
+        const stats = await MemberStore.getServiceStats(selectedService.id, selectedService.date);
+        const childrenCount = selectedService.stats?.manualChildrenCount || 0;
+        setCheckInStats({ total: stats.total + childrenCount, firstTimers: stats.firstTimers });
+        setCheckedInIds(new Set(stats.memberIds));
+
+        alert(`${newMember.name} registered and checked in!`);
+      } else {
+        alert(`${newMember.name} added to database.`);
+        setViewMode('list');
+      }
+
+      setMembers([newMember, ...members]);
+      setFormData(initialForm);
+
+    } catch (err) {
+      console.error(err);
+      alert("Failed to register member.");
+    }
+  };
+
+  const handleCheckInMember = async (memberId: string) => {
+    if (!selectedService) return;
+
+    // Use new Relational Check-in
+    await MemberStore.checkIn(memberId, selectedService.id);
+
+    // Update local state for immediate UI feedback (Badge)
+    setMembers(prev => prev.map(m => m.id === memberId ? { ...m, status: 'Checked In', checkInTime: new Date().toLocaleTimeString() } : m));
+
+    // Refresh Stats
+    // Refresh Stats
+    const stats = await MemberStore.getServiceStats(selectedService.id, selectedService.date);
+    const childrenCount = selectedService.stats?.manualChildrenCount || 0;
+    setCheckInStats({ total: stats.total + childrenCount, firstTimers: stats.firstTimers });
+    setCheckedInIds(new Set(stats.memberIds));
+  };
+
+  // --- MEMBER DETAILS & EDIT ---
+  const handleViewMember = async (memberId: string) => {
+    try {
+      const details = await MemberStore.getMemberDetails(memberId);
+      setSelectedMemberDetails(details);
+      setFormData(details.member as any); // Pre-fill form for potential editing
+      setIsEditingMember(false); // Start in View-only mode
+      setViewMode('member-detail');
+    } catch (e) {
+      console.error("Error viewing member:", e);
+      alert("Could not load member details.");
+    }
+  };
+
+  const handleUpdateMember = async (e: React.FormEvent) => {
+    e.preventDefault();
+    // Only run update logic if in editing mode
+    if (!selectedMemberDetails) return;
+
+    try {
+      const updatedMember = {
+        ...selectedMemberDetails.member,
+        ...formData,
+        id: selectedMemberDetails.member.id // Ensure ID doesn't change
+      };
+      await MemberStore.update(updatedMember);
+      setMembers(prev => prev.map(m => m.id === updatedMember.id ? updatedMember : m));
+
+      // Refresh details
+      const details = await MemberStore.getMemberDetails(updatedMember.id);
+      setSelectedMemberDetails(details);
+      setIsEditingMember(false);
+      alert("Member updated successfully.");
+    } catch (e) {
+      console.error("Update failed", e);
+      alert("Failed to update member.");
+    }
+  };
+
+  // --- PARKING HANDLERS ---
+  const handleAddVehicle = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedStation) return;
+
+    // 1. Validate Plate Format
+    const { valid, formatted } = validatePlate(vehicleForm.number_plate);
+    if (!valid) {
+      alert(`Invalid Number Plate Format: "${vehicleForm.number_plate}".\nAllowed formats: UAA 123A or UA 123AA (e.g. UBA 123A)`);
+      return;
+    }
+
+    // 2. Check Duplicates (Global System Check - Across ALL stations)
+    // We check against 'vehicles' (Transportation Vehicles) state which should contain all fetched vehicles
+    const duplicate = vehicles.find(v => v.number_plate === formatted);
+    if (duplicate) {
+      alert(`Error: Vehicle "${formatted}" already exists in the system (Station: ${stations.find(s => s.id === duplicate.stationId)?.name || 'Unknown'}).`);
+      return;
+    }
+
+    try {
+      await VehicleStore.addVehicle({
+        ...vehicleForm,
+        number_plate: formatted, // Use formatted plate
+        stationId: selectedStation.id,
+        coordinator: vehicleForm.coordinator || currentUser.name,
+      });
+
+      alert("Vehicle Added Successfully");
+      setIsAddVehicleOpen(false);
+      setVehicleForm({
+        number_plate: '',
+        driverName: '',
+        driverContact: '256',
+        type: 'Taxi',
+        driverNin: '',
+        coordinator: ''
+      });
+      refreshData();
+    } catch (e) {
+      console.error(e);
+      alert("Failed to add vehicle");
+    }
+  };
+
+  const handleParkingAction = async (car: PersonalVehicle, action: 'Check In' | 'Check Out') => {
+    if (action === 'Check In' && !selectedService) {
+      alert("Please select an Active Service first (go to Check-in tab and select a service)");
+      return;
+    }
+    try {
+      await VehicleStore.updatePersonalVehicleStatus(car.id, action, selectedService?.id);
+      setPersonalVehicles(prev => prev.map(c => c.id === car.id ? {
+        ...c,
+        status: action === 'Check In' ? 'Checked In' : 'Checked Out',
+        checkInTime: action === 'Check In' ? new Date().toISOString() : c.checkInTime,
+        currentServiceId: action === 'Check In' ? selectedService?.id : c.currentServiceId
+      } : c));
+    } catch (error) {
+      alert("Failed to update status");
+    }
+  };
+
+  // --- BULK IMPORT & DELETE ---
+  const handleBulkMemberImport = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const lines = bulkMemberText.split('\n');
+    let count = 0;
+
+    const newMembers: Member[] = [];
+    setIsImporting(true);
+    setImportProgress(0);
+
+    // 1. Parse Logic
+    for (const line of lines) {
+      if (!line.trim()) continue;
+
+      // Support Excel (Tab) or CSV (Comma)
+      const delimiter = line.includes('\t') ? '\t' : ',';
+      const parts = line.split(delimiter);
+
+      if (parts.length >= 2) {
+        // Updated Format: Name, Residence, Contact, Gender
+        const name = parts[0].trim();
+        const residence = parts[1]?.trim() || '';
+        const phone = parts[2]?.trim() || '';
+        const genderRaw = parts[3]?.trim() || 'Male';
+
+        // Normalize Gender
+        const gender = (genderRaw.toLowerCase().startsWith('f') ? 'Female' : 'Male') as 'Male' | 'Female';
+
+        if (name) {
+          const newMember: Member = {
+            id: `m-bulk-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+            name,
+            phone,
+            category: 'Member', // Forced as requested
+            residency: residence,
+            gender: gender,
+            status: 'Absent',
+            joinedDate: new Date().toISOString().split('T')[0],
+            attendedServiceIds: [],
+            bornAgain: 'No', // Default
+            isPhanerooMember: 'Yes' // Implied
+          };
+          newMembers.push(newMember);
+          // Removed duplicate MemberStore.add(newMember) call here
+        }
+      }
+    }
+
+    // 2. Upload in Batches
+    const BATCH_SIZE = 50;
+    if (newMembers.length > 0) {
+      try {
+        let processed = 0;
+        const total = newMembers.length;
+
+        for (let i = 0; i < total; i += BATCH_SIZE) {
+          const batch = newMembers.slice(i, i + BATCH_SIZE);
+          await Promise.all(batch.map(m => MemberStore.add(m)));
+
+          processed += batch.length;
+          setImportProgress(Math.round((processed / total) * 100));
+          // Small delay to allow UI to update if needed, though React batching usually handles it
+          await new Promise(resolve => setTimeout(resolve, 10));
+        }
+
+        setMembers(prev => [...prev, ...newMembers]); // Optimistic update or fetch fresh? Appending is faster.
+        setBulkMemberText('');
+        setIsImporting(false);
+        alert(`${processed} members imported successfully.`);
+        setViewMode('list');
+      } catch (err: any) {
+        console.error("Bulk Import Error:", err);
+        setIsImporting(false);
+        alert("Error importing members: " + err.message);
+      }
+    } else {
+      setIsImporting(false);
+      alert("No valid records found. Please check format.");
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+      const data = await file.arrayBuffer();
+      const workbook = XLSX.read(data);
+      const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
+
+      // Convert to tab-separated string
+      // Order: Name | Residence | Contact | Gender
+      let text = '';
+      jsonData.forEach((row, index) => {
+        // Skip header if detected (assuming "Name" is in first column)
+        if (index === 0 && typeof row[0] === 'string' && row[0].toLowerCase().includes('name')) return;
+
+        // Assumed Excel Order: Name | Residence | Contact | Gender
+        const name = row[0] || '';
+        const residence = row[1] || '';
+        const contact = row[2] || '';
+        const gender = row[3] || 'Male';
+
+        if (name) {
+          text += `${name}\t${residence}\t${contact}\t${gender}\n`;
+        }
+      });
+      setBulkMemberText(text);
+    } else {
+      // Fallback for CSV/Text
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        const text = evt.target?.result as string;
+        setBulkMemberText(text);
+      };
+      reader.readAsText(file);
+    }
+  };
+
+  // --- ADD EVENT / SERVICE Logic ---
+  const handleAddEvent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const newEvent: MinistryEvent = {
+        id: `evt-${Date.now()}`,
+        title: eventForm.title,
+        type: eventFormType,
+        date: eventForm.date,
+        time: eventForm.time,
+        location: eventForm.location,
+        description: eventForm.description,
+        stats: { attendees: 0, firstTimers: 0, soulsWon: 0, students: 0, expenditure: '$0.00', nextGen: 0 }
+      };
+
+      await EventStore.add(newEvent);
+      refreshData(); // Refresh parent data
+      setIsAddEventOpen(false);
+      setEventForm({ title: '', date: new Date().toISOString().split('T')[0], time: '17:00', location: 'Phaneroo Grounds', description: '' });
+      alert(`${eventFormType} created successfully.`);
+    } catch (error: any) {
+      console.error("Error creating event:", error);
+      alert("Failed to create event: " + error.message);
+    }
+  };
+
+
+
+  const filteredMembers = members.filter(m =>
+    m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    m.phone.includes(searchQuery)
+  );
+
+  // Bulk Selection Handlers
+  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+      setSelectedMemberIds(new Set(filteredMembers.map(m => m.id)));
+    } else {
+      setSelectedMemberIds(new Set());
+    }
+  };
+
+  const handleSelectOne = (id: string) => {
+    const newSet = new Set(selectedMemberIds);
+    if (newSet.has(id)) newSet.delete(id);
+    else newSet.add(id);
+    setSelectedMemberIds(newSet);
+  };
+
+  const handleDeleteSelected = () => {
+    setIsDeleteModalOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    // Hardcoded check as requested for specific "Lead Registration Password"
+    if (deletePassword !== 'admin123') {
+      alert('Incorrect Lead Registration Password.');
+      return;
+    }
+
+    await MemberStore.delete(Array.from(selectedMemberIds));
+
+    const remainingMembers = members.filter(m => !selectedMemberIds.has(m.id));
+    setMembers(remainingMembers);
+    setSelectedMemberIds(new Set());
+    setIsDeleteModalOpen(false);
+    setDeletePassword('');
+    alert('Selected members deleted successfully.');
+  };
+
+  // --- LOGISTICS LOGIC ---
+  const handleAddStation = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedLogisticsEvent) return;
+
+    if (stationForm.entrantUsername) {
+      const users = await UserStore.getAll();
+      if (users.some(u => u.username?.toLowerCase() === stationForm.entrantUsername.toLowerCase())) {
+        alert(`The username "${stationForm.entrantUsername}" is already taken.`);
+        return;
+      }
+    }
+
+    const stationId = `s-${Date.now()}`;
+    const newStation: ExtendedStation = {
+      id: stationId,
+      name: stationForm.name,
+      location: stationForm.location,
+      registeredAttendees: 0,
+      vehicleStatus: 'Pending',
+      eventId: selectedLogisticsEvent.id,
+      coordinatorName: stationForm.coordinatorName,
+      coordinatorContact: stationForm.coordinatorContact
+    };
+
+    try {
+      await LogisticsStore.addStation(newStation);
+      if (stationForm.entrantName && stationForm.entrantUsername && stationForm.entrantPassword) {
+        const newEntrant: User = {
+          id: `u-${Date.now()}`,
+          name: stationForm.entrantName,
+          username: stationForm.entrantUsername,
+          password: stationForm.entrantPassword,
+          role: 'Logistics',
+          stationId: stationId,
+          departmentId: 'd5'
+        };
+        await UserStore.add(newEntrant);
+      }
+      setStations([...stations, newStation]);
+      setIsAddStationOpen(false);
+      setStationForm(initialStationForm);
+      alert("Station created successfully.");
+    } catch (err: any) {
+      alert("Error creating station: " + err.message);
+    }
+  };
+
+  const handleAddExtraEntrant = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedStation) return;
+    const users = await UserStore.getAll();
+    if (users.some(u => u.username?.toLowerCase() === entrantForm.username.toLowerCase())) {
+      alert(`The username "${entrantForm.username}" is already taken.`);
+      return;
+    }
+    const newEntrant: User = {
+      id: `u-${Date.now()}`,
+      name: entrantForm.name,
+      username: entrantForm.username,
+      password: entrantForm.password,
+      role: 'Logistics',
+      stationId: selectedStation.id,
+      departmentId: 'd5'
+    };
+    try {
+      await UserStore.add(newEntrant);
+      setStationEntrants([...stationEntrants, newEntrant]);
+      setIsAddEntrantOpen(false);
+      setEntrantForm({ name: '', username: '', password: '' });
+    } catch (err: any) {
+      alert("Error adding user: " + err.message);
+    }
+  };
+
+
+
+  const handleAddPassenger = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedVehicle) return;
+    if (selectedVehicle.approvals?.registration === 'Approved') {
+      alert("This vehicle is locked (Registration Approved). No more passengers can be added.");
+      return;
+    }
+
+    // Check for duplicates
+    const normalizedName = passengerForm.name.trim().toLowerCase();
+    const isDuplicate = passengers.some(p =>
+      p.vehicleId === selectedVehicle.id &&
+      p.name.trim().toLowerCase() === normalizedName
+    );
+
+    if (isDuplicate) {
+      alert(`${passengerForm.name} is already in this vehicle.`);
+      return;
+    }
+
+    const newPassenger: Passenger = {
+      id: `p-${Date.now()}`,
+      vehicleId: selectedVehicle.id,
+      name: passengerForm.name,
+      category: passengerForm.category as 'Member' | 'Student' | 'Institution',
+      contact: passengerForm.contact, // Validated on input
+      residence: passengerForm.residence,
+      isFirstTime: passengerForm.isFirstTime as 'Yes' | 'No',
+      verified: false,
+      gender: passengerForm.gender as 'Male' | 'Female',
+      school: passengerForm.school,
+      studentClass: passengerForm.studentClass,
+      boardingType: passengerForm.boardingType as 'Day' | 'Boarding'
+    };
+    await VehicleStore.addPassenger(newPassenger);
+    setPassengers([...passengers, newPassenger]);
+    setIsAddPassengerOpen(false);
+    setPassengerForm(initialPassengerForm);
+    refreshData(); // Force full refresh to ensure consistency
+  };
+
+  const openAddMember = () => {
+    setPassengerForm({ ...initialPassengerForm, category: 'Member' });
+    setIsAddPassengerOpen(true);
+  };
+
+  const openAddStudent = () => {
+    setPassengerForm({ ...initialPassengerForm, category: 'Student' });
+    setIsAddPassengerOpen(true);
+  };
+
+  const openAddInstitution = () => {
+    setPassengerForm({ ...initialPassengerForm, category: 'Institution' });
+    setIsAddPassengerOpen(true);
+  };
+
+  const handleDeletePassenger = async (passengerId: string) => {
+    if (confirm('Are you sure you want to remove this passenger from the vehicle?')) {
+      try {
+        // Optimistic update: remove from UI immediately
+        setPassengers(prev => prev.filter(p => p.id !== passengerId));
+        // Then call API
+        await VehicleStore.deletePassenger(passengerId);
+      } catch (error) {
+        console.error("Error deleting passenger", error);
+        // Fallback: If DB delete fails, maybe reload to get correct state or alert user
+        alert("Could not delete from database. Please refresh.");
+      }
+    }
+  };
+
+  /* 
+   * Updated Approval Logic:
+   * Moves vehicle from Registration -> Finance Approval
+   */
+  const handleApproveVehicle = async () => {
+    if (!selectedVehicle) return;
+
+    if (window.confirm(`Are you sure you want to approve vehicle ${selectedVehicle.number_plate} and send it to Finance?`)) {
+      try {
+        const nextStage = 'FinanceApproval';
+        const updatedApprovals = {
+          registration: 'Approved',
+          finance: selectedVehicle.approvals?.finance || 'Pending'
+        };
+
+        // Targeted Update in DB (Safer than full update)
+        await VehicleStore.updateVehicleStage(selectedVehicle.id, nextStage, updatedApprovals);
+
+        // Construct updated object for local state
+        const updatedVehicle: Vehicle = {
+          ...selectedVehicle,
+          currentStage: nextStage as any,
+          approvals: updatedApprovals as any
+        };
+
+        // Update Local State directly
+        setVehicles(prev => prev.map(v => v.id === updatedVehicle.id ? updatedVehicle : v));
+        setSelectedVehicle(updatedVehicle);
+
+        alert("Vehicle successfully approved and sent to Finance Dashboard.");
+      } catch (err: any) {
+        console.error("Error approving vehicle:", err);
+        alert("Failed to approve vehicle: " + err.message);
+      }
+    }
+  };
+
+  const handleUpdateChildrenCount = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedVehicle) return;
+    try {
+      const updatedVehicle = { ...selectedVehicle, childrenCount: parseInt(childrenForm.count) || 0 };
+      await VehicleStore.updateVehicle(updatedVehicle);
+      setVehicles(prev => prev.map(v => v.id === updatedVehicle.id ? updatedVehicle : v));
+      setSelectedVehicle(updatedVehicle);
+      setIsAddChildrenOpen(false);
+    } catch (err) {
+      console.error("Error updating children count", err);
+    }
+  };
+
+  const handleUpdateManualCount = async (count: number) => {
+    if (!selectedService) return;
+
+    try {
+      // Update local state for immediate feedback
+      const updatedService = {
+        ...selectedService,
+        stats: {
+          ...selectedService.stats,
+          manualChildrenCount: count
+        }
+      };
+      setSelectedService(updatedService);
+
+      // Update Database
+      await EventStore.update(updatedService);
+
+      // Update UI Stats immediately
+      const memberStats = await MemberStore.getServiceStats(selectedService.id, selectedService.date);
+      setCheckInStats({
+        total: memberStats.total + count, // Updates total immediately
+        firstTimers: memberStats.firstTimers
+      });
+
+      alert(`Children count updated to ${count}`);
+    } catch (error) {
+      console.error("Failed to update manual count", error);
+      alert("Failed to update count. Please try again.");
+    }
+  };
+
+  return (
+    <div className="p-4 md:p-8 space-y-6 md:space-y-8 animate-in fade-in duration-500 relative pb-20 md:pb-8">
+      {/* Delete Modal */}
+      {isDeleteModalOpen && (
+        <div className="fixed inset-0 bg-black/70 z-[100] flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full border border-gray-200">
+            <div className="flex items-center space-x-3 mb-6 text-red-600">
+              <AlertTriangle className="w-8 h-8" />
+              <h3 className="text-xl font-bold">Delete Members?</h3>
+            </div>
+            <p className="text-gray-600 mb-6">
+              You are about to delete <span className="font-bold text-gray-900">{selectedMemberIds.size}</span> members from the database.
+              This action cannot be undone.
+            </p>
+            <div className="space-y-2 mb-6">
+              <label className="text-sm font-bold text-gray-700">Enter Lead Registration Password</label>
+              <input
+                type="password"
+                autoFocus
+                value={deletePassword}
+                onChange={e => setDeletePassword(e.target.value)}
+                className="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500"
+                placeholder="Password"
+              />
+            </div>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => { setIsDeleteModalOpen(false); setDeletePassword(''); }}
+                className="px-5 py-2.5 rounded-xl font-bold text-gray-600 hover:bg-gray-100"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="px-5 py-2.5 rounded-xl font-bold text-white bg-red-600 hover:bg-red-700 shadow-md"
+              >
+                Confirm Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold text-ministry-text flex items-center gap-3">
+            <ClipboardCheck className="w-8 h-8 text-ministry-orange" />
+            {isLogisticsRole ? 'Logistics Entry' : 'Registration Dashboard'}
+          </h1>
+          <p className="text-sm md:text-base text-gray-500 mt-1">
+            {isLogisticsRole ? 'Manage vehicles and passengers for your station.' : 'Manage event registration, stations, and member database.'}
+          </p>
+        </div>
+      </div>
+
+      {!isLogisticsRole && viewMode === 'list' && (
+        <div className="flex space-x-1 bg-gray-100 p-1.5 rounded-xl w-fit overflow-x-auto">
+          <button
+            onClick={() => setActiveTab('checkin')}
+            className={`flex items-center space-x-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${activeTab === 'checkin' ? 'bg-black text-white shadow-md' : 'text-gray-500 hover:text-gray-900'}`}
+          >
+            <CheckCircle className={`w-4 h-4 ${activeTab === 'checkin' ? 'text-ministry-neon' : ''}`} />
+            <span>Service Check-In</span>
+          </button>
+          {!isMember && (
+            <button
+              onClick={() => setActiveTab('events')}
+              className={`flex items-center space-x-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${activeTab === 'events' ? 'bg-black text-white shadow-md' : 'text-gray-500 hover:text-gray-900'}`}
+            >
+              <Bus className={`w-4 h-4 ${activeTab === 'events' ? 'text-ministry-neon' : ''}`} />
+              <span>Events & Logistics</span>
+            </button>
+          )}
+          {!isMember && (
+            <button
+              onClick={() => setActiveTab('database')}
+              className={`flex items-center space-x-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${activeTab === 'database' ? 'bg-black text-white shadow-md' : 'text-gray-500 hover:text-gray-900'}`}
+            >
+              <Database className={`w-4 h-4 ${activeTab === 'database' ? 'text-ministry-neon' : ''}`} />
+              <span>Database</span>
+            </button>
+          )}
+        </div>
+      )
+      }
+
+      <div className={`${isLogisticsRole ? '' : 'bg-ministry-card border border-gray-200'} rounded-2xl md:p-6 shadow-sm min-h-[500px]`}>
+
+        {/* ... (Checkin Tab Code) ... */}
+        {activeTab === 'checkin' && viewMode === 'list' && (
+          <div className="space-y-6 p-4 md:p-0">
+            <div className="flex justify-between items-center">
+              <h3 className="text-lg font-bold text-gray-800">Active Services</h3>
+              {!isLogisticsRole && canCreateService && (
+                <button
+                  onClick={() => { setEventFormType('Service'); setIsAddEventOpen(true); }}
+                  className="flex items-center space-x-2 bg-ministry-orange text-white px-4 py-2 rounded-lg hover:bg-orange-600 transition-colors shadow-sm font-bold text-sm"
+                >
+                  <CalendarPlus className="w-4 h-4" />
+                  <span className="hidden md:inline">Add Service</span>
+                  <span className="md:hidden">Add</span>
+                </button>
+              )}
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {services.map(service => {
+                const isClosed = isServiceClosed(service.date);
+                return (
+                  <div key={service.id} className="bg-white border border-gray-200 rounded-xl p-5 hover:border-ministry-orange/40 transition-all">
+                    <div className="flex justify-between items-start mb-3">
+                      <Calendar className="w-5 h-5 text-gray-400" />
+                      <span className={`text-xs px-2 py-1 rounded-full font-bold ${isClosed ? 'bg-gray-100 text-gray-600' : 'bg-green-100 text-green-700'}`}>
+                        {isClosed ? 'Past' : 'Active'}
+                      </span>
+                    </div>
+                    <h4 className="text-lg font-bold text-ministry-text">{service.title}</h4>
+                    <p className="text-sm text-gray-500 mb-4">{service.date} • {service.time}</p>
+                    <button
+                      onClick={() => handleOpenService(service)}
+                      className={`w-full py-2 rounded-lg font-bold transition-colors ${isClosed ? 'bg-gray-100 text-gray-600 hover:bg-gray-200' : 'bg-ministry-text text-white hover:bg-ministry-orange'}`}
+                    >
+                      {isClosed ? 'View Highlights' : 'Open Check-In'}
+                    </button>
+                  </div>
+                )
+              })}
+              {services.length === 0 && (
+                <div className="col-span-full py-12 text-center text-gray-400 bg-white rounded-xl border border-dashed border-gray-300">
+                  No active services scheduled.
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ... (Active Service View Code) ... */}
+        {viewMode === 'service-active' && selectedService && (
+          <div className="space-y-6 p-4 md:p-0">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-4">
+              <div className="flex items-center space-x-3">
+                <button onClick={handleBackRegistration} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+                  <ArrowLeft className="w-5 h-5 text-gray-600" />
+                </button>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-xl font-bold text-ministry-text">{selectedService.title}</h2>
+                    {isServiceClosed(selectedService.date) && <span className="bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded-full border border-gray-200 font-bold">LOCKED</span>}
+                  </div>
+                  <p className="text-sm text-gray-500">{isServiceClosed(selectedService.date) ? 'Service Highlights' : 'Live Check-In'} • {selectedService.date}</p>
+                </div>
+              </div>
+              {!isServiceClosed(selectedService.date) && (
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => {
+                      const currentCount = selectedService.stats?.manualChildrenCount || 0;
+                      const countStr = prompt("Enter total manual children count:", currentCount.toString());
+                      if (countStr !== null) {
+                        const num = parseInt(countStr);
+                        if (!isNaN(num) && num >= 0) {
+                          handleUpdateManualCount(num);
+                        } else {
+                          alert("Please enter a valid number.");
+                        }
+                      }
+                    }}
+                    className="flex items-center space-x-2 bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 border border-gray-200 shadow-sm"
+                  >
+                    <Baby className="w-4 h-4" />
+                    <span className="hidden md:inline">Children Count</span>
+                  </button>
+                  <button onClick={() => setViewMode('register-new')} className="flex items-center space-x-2 bg-ministry-orange text-white px-4 py-2 rounded-lg hover:bg-orange-600 shadow-md">
+                    <UserPlus className="w-4 h-4" />
+                    <span className="hidden md:inline">Register New</span>
+                  </button>
+                </div>
+              )}
+
+            </div>
+
+            {/* Check-in Stats Cards */}
+            {
+              isServiceClosed(selectedService.date) ? (
+                /* --- CLOSED / HIGHLIGHTS VIEW --- */
+                <div className="space-y-8 animate-in fade-in">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {/* Total Members */}
+                    <div className="bg-white border border-gray-200 p-6 rounded-2xl shadow-sm flex flex-col items-center justify-center text-center">
+                      <div className="p-3 bg-blue-50 text-blue-600 rounded-full mb-3">
+                        <Users className="w-6 h-6" />
+                      </div>
+                      <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Total Members</p>
+                      <p className="text-4xl font-black text-gray-900 mt-2">{checkInStats.total}</p>
+                    </div>
+
+                    {/* First Timers */}
+                    <div className="bg-white border border-gray-200 p-6 rounded-2xl shadow-sm flex flex-col items-center justify-center text-center">
+                      <div className="p-3 bg-orange-50 text-orange-600 rounded-full mb-3">
+                        <UserPlus className="w-6 h-6" />
+                      </div>
+                      <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">First Timers</p>
+                      <p className="text-4xl font-black text-gray-900 mt-2">{checkInStats.firstTimers}</p>
+                    </div>
+
+                    {/* Children Count */}
+                    <div className="bg-white border border-gray-200 p-6 rounded-2xl shadow-sm flex flex-col items-center justify-center text-center">
+                      <div className="p-3 bg-purple-50 text-purple-600 rounded-full mb-3">
+                        <Baby className="w-6 h-6" />
+                      </div>
+                      <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Children Count</p>
+                      <p className="text-4xl font-black text-gray-900 mt-2">{selectedService.stats?.manualChildrenCount || 0}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-center">
+                    <button
+                      onClick={handleDownloadHighlights}
+                      className="flex items-center space-x-3 bg-gray-900 text-white px-8 py-4 rounded-xl font-bold hover:bg-black transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-1"
+                    >
+                      <Download className="w-5 h-5" />
+                      <span>Download Highlights Report</span>
+                    </button>
+                  </div>
+
+                  <div className="bg-gray-50 border border-gray-200 rounded-xl p-6 text-center text-gray-500 max-w-2xl mx-auto">
+                    <p className="flex items-center justify-center gap-2 font-medium">
+                      <Lock className="w-4 h-4" /> Service is Closed
+                    </p>
+                    <p className="text-sm mt-1">Detailed check-in lists and editing are disabled for past services.</p>
+                  </div>
+                </div>
+              ) : (
+                /* --- ACTIVE CHECK-IN VIEW --- */
+                <>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-ministry-text text-white p-4 rounded-xl shadow-lg border-l-4 border-ministry-neon">
+                      <p className="text-xs uppercase font-bold text-gray-400">Total Check-ins</p>
+                      <p className="text-3xl font-black mt-1">{checkInStats.total}</p>
+                    </div>
+                    <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 border-l-4 border-ministry-orange">
+                      <p className="text-xs uppercase font-bold text-gray-500">First Timers</p>
+                      <p className="text-3xl font-black text-gray-900 mt-1">{checkInStats.firstTimers}</p>
+                    </div>
+                  </div>
+
+                  <div className="max-w-xl mx-auto space-y-4">
+                    <div className="relative group">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-ministry-orange" />
+                      <input className="w-full pl-10 pr-4 py-4 bg-white border border-gray-200 rounded-xl text-lg focus:outline-none focus:border-ministry-orange focus:ring-1 focus:ring-ministry-orange transition-all" placeholder="Search member by name or phone..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+                    </div>
+
+                    {/* Search Results */}
+                    {searchQuery && (
+                      <div className="bg-white border border-gray-200 rounded-xl shadow-lg divide-y divide-gray-100 max-h-96 overflow-y-auto">
+                        {filteredMembers.map(m => (
+                          <div key={m.id} className="p-4 flex flex-row justify-between items-center gap-4 hover:bg-gray-50">
+                            <div className="flex-1 min-w-0">
+                              <p className="font-bold text-gray-900 truncate">{m.name}</p>
+                              <p className="text-xs text-gray-500 truncate">{m.phone} • {m.residency || 'No Residence'}</p>
+                            </div>
+                            <div>
+                              {checkedInIds.has(m.id) ? (
+                                <span className="text-green-600 font-bold text-sm flex items-center"><CheckCircle className="w-4 h-4 mr-1" /> Checked In</span>
+                              ) : (
+                                <button
+                                  onClick={() => handleCheckInMember(m.id)}
+                                  className="bg-ministry-text text-white px-4 py-1.5 rounded-lg text-sm font-bold hover:bg-ministry-orange transition-colors"
+                                >
+                                  Check In
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                        {filteredMembers.length === 0 && (
+                          <div className="p-4 text-center text-gray-500">No members found.</div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Manual Add if not found */}
+                    {searchQuery && filteredMembers.length === 0 && (
+                      <div className="text-center pt-4">
+                        <p className="text-gray-500 mb-2">Member not found?</p>
+                        <button onClick={() => setViewMode('register-new')} className="text-ministry-orange font-bold hover:underline">
+                          Register New Member
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+          </div>
+        )}
+
+        {/* ... (Register New Form Code) ... */}
+        {viewMode === 'register-new' && (
+          <div className="max-w-5xl mx-auto space-y-6 p-4 md:p-0">
+            <div className="flex items-center space-x-3 border-b border-gray-100 pb-4">
+              <button onClick={handleBackRegistration} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><ArrowLeft className="w-5 h-5 text-gray-600" /></button>
+              <h2 className="text-xl font-bold text-ministry-text">
+                {selectedService ? 'Register & Check In' : 'Add New Member'}
+              </h2>
+            </div>
+
+            <form onSubmit={handleRegister} className="space-y-8 bg-white p-8 rounded-2xl border border-gray-200 shadow-sm">
+              {/* ... (Existing Form Content) ... */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="md:col-span-2 pb-2 border-b border-gray-100">
+                  <h3 className="text-lg font-bold text-gray-800 flex items-center">
+                    <Users className="w-5 h-5 mr-2 text-ministry-orange" /> Personal Details
+                  </h3>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700">Full Name <span className="text-red-500">*</span></label>
+                  <input required name="name" value={formData.name} onChange={handleInputChange} className="w-full p-3 bg-white border border-gray-200 rounded-xl focus:border-ministry-orange outline-none" placeholder="John Doe" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700">Gender <span className="text-red-500">*</span></label>
+                  <select name="gender" value={formData.gender} onChange={handleInputChange} className="w-full p-3 bg-white border border-gray-200 rounded-xl focus:border-ministry-orange outline-none">
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                  </select>
+                </div>
+
+                <div className="md:col-span-2 pb-2 border-b border-gray-100 mt-2">
+                  <h3 className="text-lg font-bold text-gray-800 flex items-center">
+                    <Phone className="w-5 h-5 mr-2 text-ministry-orange" /> Contact Info
+                  </h3>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700">Phone Number</label>
+                  <input
+                    type="text"
+                    name="phone"
+                    value={formData.phone}
+                    onChange={handleInputChange}
+                    className="w-full p-3 bg-white border border-gray-200 rounded-xl focus:border-ministry-orange outline-none font-mono tracking-wide"
+                    placeholder="256..."
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700">Email Address</label>
+                  <input name="email" type="email" value={formData.email} onChange={handleInputChange} className="w-full p-3 bg-white border border-gray-200 rounded-xl focus:border-ministry-orange outline-none" placeholder="john@example.com" />
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                  <label className="text-sm font-bold text-gray-700">Place of Residence <span className="text-red-500">*</span></label>
+                  <input required name="residence" value={formData.residence} onChange={handleInputChange} className="w-full p-3 bg-white border border-gray-200 rounded-xl focus:border-ministry-orange outline-none" placeholder="e.g. Entebbe, Kitoro" />
+                </div>
+
+                <div className="md:col-span-2 pb-2 border-b border-gray-100 mt-2">
+                  <h3 className="text-lg font-bold text-gray-800 flex items-center">
+                    <CreditCard className="w-5 h-5 mr-2 text-ministry-orange" /> Professional
+                  </h3>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700">Occupation</label>
+                  <input name="occupation" value={formData.occupation} onChange={handleInputChange} className="w-full p-3 bg-white border border-gray-200 rounded-xl focus:border-ministry-orange outline-none" placeholder="e.g. Engineer" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700">Place of Work</label>
+                  <input name="placeOfWork" value={formData.placeOfWork} onChange={handleInputChange} className="w-full p-3 bg-white border border-gray-200 rounded-xl focus:border-ministry-orange outline-none" placeholder="e.g. Ministry Works" />
+                </div>
+
+                <div className="md:col-span-2 pb-2 border-b border-gray-100 mt-2">
+                  <h3 className="text-lg font-bold text-gray-800 flex items-center">
+                    <Ticket className="w-5 h-5 mr-2 text-ministry-orange" /> Ministry Details
+                  </h3>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700">Are you a Phaneroo member? <span className="text-red-500">*</span></label>
+                  <select name="isPhanerooMember" value={formData.isPhanerooMember} onChange={handleInputChange} className="w-full p-3 bg-white border border-gray-200 rounded-xl focus:border-ministry-orange outline-none">
+                    <option value="No">No</option>
+                    <option value="Yes">Yes</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700">Born Again?</label>
+                  <select name="bornAgain" value={formData.bornAgain} onChange={handleInputChange} className="w-full p-3 bg-white border border-gray-200 rounded-xl focus:border-ministry-orange outline-none"><option value="No">No</option><option value="Yes">Yes</option></select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700">Category</label>
+                  <select name="category" value={formData.category} onChange={handleInputChange} className="w-full p-3 bg-white border border-gray-200 rounded-xl focus:border-ministry-orange outline-none"><option value="Member">Member</option><option value="First Timer">First Timer</option><option value="Guest">Guest</option></select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700">Referral Source</label>
+                  <input name="referralSource" value={formData.referralSource} onChange={handleInputChange} className="w-full p-3 bg-white border border-gray-200 rounded-xl focus:border-ministry-orange outline-none" placeholder="Invited by..." />
+                </div>
+              </div>
+              <div className="flex justify-end pt-6 border-t border-gray-100">
+                <button type="submit" className="px-10 py-4 bg-ministry-text text-white rounded-xl font-bold hover:bg-ministry-orange transition-colors shadow-lg flex items-center justify-center text-lg">
+                  <Save className="w-5 h-5 mr-2" />
+                  {selectedService ? 'Register & Check In' : 'Save to Database'}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* ... (Bulk Import View) ... */}
+        {viewMode === 'bulk-import-members' && (
+          <div className="max-w-3xl mx-auto space-y-6 animate-in fade-in p-4 md:p-0">
+            <div className="flex items-center space-x-3 border-b border-gray-100 pb-4">
+              <button onClick={handleBackRegistration} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><ArrowLeft className="w-5 h-5 text-gray-600" /></button>
+              <h2 className="text-xl font-bold text-ministry-text">Bulk Member Import</h2>
+            </div>
+
+            <form onSubmit={handleBulkMemberImport} className="space-y-6 bg-white p-8 rounded-2xl border border-gray-200 shadow-lg">
+              <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 mb-2">
+                <p className="text-sm font-bold text-blue-800">Instructions</p>
+                <p className="text-xs text-blue-700 mt-1">
+                  Upload an Excel file (.xlsx) or copy and paste cells.
+                </p>
+                <p className="text-xs text-blue-700 mt-1">
+                  Columns Order: <span className="font-mono bg-blue-100 px-1 rounded font-bold">Name | Residence | Contact | Gender</span>
+                </p>
+                <p className="text-xs text-blue-600 mt-1 italic">
+                  * All imports will be categorized as "Member".
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-gray-700">Upload Excel File</label>
+                <input
+                  type="file"
+                  accept=".xlsx, .xls"
+                  onChange={handleFileUpload}
+                  className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-ministry-orange file:text-white hover:file:bg-orange-600"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-gray-700">Or Paste Excel Data Here</label>
+                <textarea
+                  required
+                  value={bulkMemberText}
+                  onChange={e => setBulkMemberText(e.target.value)}
+                  className="w-full p-4 h-64 bg-white border border-gray-200 rounded-xl focus:border-ministry-orange outline-none font-mono text-sm whitespace-pre"
+                  placeholder={`John Doe\tEntebbe\t0772123456\tMale\nJane Smith\tKampala\t0700987654\tFemale`}
+                />
+              </div>
+
+              <div className="flex justify-end pt-4">
+                <button type="submit" className="flex items-center space-x-2 bg-ministry-text text-white px-6 py-3 rounded-xl font-bold hover:bg-ministry-orange transition-colors shadow-lg">
+                  <Upload className="w-4 h-4" />
+                  <span>Import Members</span>
+                </button>
+              </div>
+            </form>
+
+            {/* Loading Overlay */}
+            {isImporting && (
+              <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
+                <div className="bg-white p-8 rounded-2xl shadow-2xl max-w-sm w-full text-center space-y-4">
+                  <div className="w-12 h-12 border-4 border-ministry-orange border-t-transparent rounded-full animate-spin mx-auto"></div>
+                  <h3 className="text-xl font-bold text-gray-800">Importing Members...</h3>
+                  <div className="w-full bg-gray-200 rounded-full h-2.5">
+                    <div className="bg-ministry-orange h-2.5 rounded-full transition-all duration-300" style={{ width: `${importProgress}%` }}></div>
+                  </div>
+                  <p className="text-gray-500 font-mono">{importProgress}% Complete</p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* === EVENTS & LOGISTICS TAB (UPDATED HIERARCHY) === */}
+        {activeTab === 'events' && (
+          <div className="space-y-6">
+
+            {/* LEVEL 1: EVENTS LIST */}
+            {!selectedLogisticsEvent && !selectedStation && (
+              <div className="animate-in fade-in p-4 md:p-0">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-bold text-gray-800">Select an Event to Manage Stations</h3>
+                  {!isLogisticsRole && (
+                    <button
+                      onClick={() => { setEventFormType('Event'); setIsAddEventOpen(true); }}
+                      className="flex items-center space-x-2 bg-ministry-text text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors shadow-sm font-bold text-sm"
+                    >
+                      <CalendarPlus className="w-4 h-4" />
+                      <span>Plan Event</span>
+                    </button>
+                  )}
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {logisticsEvents.map(event => (
+                    <div key={event.id} className="bg-white border border-gray-200 rounded-xl p-5 hover:shadow-lg transition-all group">
+                      <div className="flex justify-between items-start mb-3">
+                        <Calendar className="w-6 h-6 text-gray-400 group-hover:text-ministry-orange transition-colors" />
+                        <span className="text-xs font-bold px-2 py-1 rounded-full bg-purple-50 text-purple-600">
+                          {event.type}
+                        </span>
+                      </div>
+                      <h4 className="text-lg font-bold text-gray-900 mb-1">{event.title}</h4>
+                      <p className="text-sm text-gray-500 mb-4">{event.date} • {event.time}</p>
+                      <button
+                        onClick={() => {
+                          if (isEventLocked(event.date)) {
+                            setHighlightEvent(event);
+                            setShowHighlights(true);
+                          } else {
+                            setSelectedLogisticsEvent(event);
+                          }
+                        }}
+                        className={`w-full py-2 rounded-lg font-bold transition-colors ${isEventLocked(event.date)
+                          ? 'bg-gray-900 text-white hover:bg-black'
+                          : 'bg-gray-50 border border-gray-200 text-gray-700 hover:bg-ministry-text hover:text-white'
+                          }`}
+                      >
+                        {isEventLocked(event.date) ? 'Preview Highlights' : 'View Stations'}
+                      </button>
+                    </div>
+                  ))}
+                  {logisticsEvents.length === 0 && (
+                    <div className="col-span-full py-12 text-center text-gray-400 bg-white rounded-xl border border-dashed border-gray-300">
+                      No special events found. Logistics for services are handled via Service Check-In if configured.
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* LEVEL 2: STATION LIST (FOR SELECTED EVENT) */}
+            {selectedLogisticsEvent && !selectedStation && (
+              <div className="animate-in slide-in-from-right-4 p-4 md:p-0">
+                <div className="flex justify-between items-center mb-6">
+                  <div className="flex items-center space-x-3">
+                    <button onClick={handleBackLogistics} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+                      <ArrowLeft className="w-5 h-5 text-gray-600" />
+                    </button>
+                    <div>
+                      <h3 className="text-xl font-bold text-gray-800">{selectedLogisticsEvent.title}</h3>
+                      <p className="text-sm text-gray-500">Pickup Stations Management</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setIsAddStationOpen(true)}
+                    className="flex items-center space-x-2 bg-ministry-text text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Add Pickup Station</span>
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {stations.filter(s => s.eventId === selectedLogisticsEvent.id).map(station => (
+                    <div key={station.id} className="bg-white border border-gray-200 rounded-xl p-5 hover:shadow-md transition-all">
+                      <div className="flex justify-between items-start mb-3">
+                        <div className="p-2 bg-blue-50 rounded-lg"><MapPin className="w-5 h-5 text-blue-600" /></div>
+                        <span className="text-xs bg-gray-100 px-2 py-1 rounded font-bold text-gray-600">
+                          {vehicles.filter(v => v.stationId === station.id).length} Vehicles
+                        </span>
+                      </div>
+                      <h4 className="text-lg font-bold text-gray-900">{station.name}</h4>
+                      <p className="text-sm text-gray-500 mb-4">{station.location}</p>
+                      <div className="flex items-center text-xs text-gray-500 mb-4 bg-gray-50 p-2 rounded">
+                        <UserPlus className="w-3 h-3 mr-2" />
+                        Coord: {station.coordinatorName || 'None'}
+                      </div>
+                      <button
+                        onClick={() => handleSelectStation(station)}
+                        className="w-full bg-white border border-gray-200 text-gray-700 py-2 rounded-lg font-bold hover:bg-gray-50 transition-colors"
+                      >
+                        View Station Details
+                      </button>
+                    </div>
+                  ))}
+                  {stations.filter(s => s.eventId === selectedLogisticsEvent.id).length === 0 && (
+                    <div className="col-span-full py-12 text-center text-gray-400 bg-white rounded-xl border border-dashed border-gray-300">
+                      No pickup stations added for this event yet.
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* LEVEL 3: STATION DETAILS (VEHICLES & ENTRANTS) */}
+            {selectedStation && !selectedVehicle && (
+              <div className="animate-in slide-in-from-right-4 space-y-6">
+
+                {/* Mobile-Optimized Station Header Card */}
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden mx-4 md:mx-0">
+                  <div className="p-6">
+                    <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          {!isLogisticsRole && (
+                            <button onClick={handleBackLogistics} className="p-1 -ml-2 hover:bg-gray-100 rounded-full text-gray-500">
+                              <ArrowLeft className="w-5 h-5" />
+                            </button>
+                          )}
+                          <span className="text-xs font-bold uppercase tracking-wider text-ministry-orange">
+                            {selectedLogisticsEvent?.title || 'Event'}
+                          </span>
+                        </div>
+                        <h2 className="text-2xl md:text-3xl font-bold text-gray-900 leading-tight">
+                          {selectedStation.name}
+                        </h2>
+                        <p className="text-gray-500 flex items-center gap-1">
+                          <MapPin className="w-4 h-4" />
+                          {selectedStation.location}
+                        </p>
+                      </div>
+
+                      {/* Stats & Actions */}
+                      <div className="flex items-center justify-between md:flex-col md:items-end gap-4 mt-2 md:mt-0">
+                        <div className="bg-green-50 border border-green-100 text-green-700 px-4 py-2 rounded-xl flex flex-col items-center">
+                          <span className="text-xs font-bold uppercase">Registered</span>
+                          <span className="text-2xl font-bold leading-none">
+                            {passengers.filter(p => vehicles.find(v => v.id === p.vehicleId)?.stationId === selectedStation.id).length}
+                          </span>
+                        </div>
+
+                        {isLogisticsRole && (
+                          <button
+                            onClick={() => setIsAddVehicleOpen(true)}
+                            className="flex items-center justify-center space-x-2 bg-ministry-orange text-white px-6 py-3 rounded-xl hover:bg-orange-600 shadow-lg shadow-orange-200 transition-transform active:scale-95 font-bold"
+                          >
+                            <Plus className="w-5 h-5" />
+                            <span>Add Vehicle</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  {/* Decorative element */}
+                  <div className="h-1 w-full bg-gray-100">
+                    <div className="h-full bg-ministry-orange w-1/3 rounded-r-full"></div>
+                  </div>
+                </div>
+
+                {/* ENTRANT MANAGEMENT (ADMIN ONLY) */}
+                {!isLogisticsRole && (
+                  <div className="mb-8 bg-gray-50 p-6 rounded-2xl border border-gray-200 mx-4 md:mx-0">
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="text-lg font-bold text-gray-800 flex items-center">
+                        <Users className="w-5 h-5 mr-2 text-ministry-orange" />
+                        Assigned Data Entrants
+                      </h3>
+                      <button
+                        onClick={() => setIsAddEntrantOpen(true)}
+                        className="text-sm font-bold text-ministry-text hover:text-ministry-orange flex items-center bg-white border border-gray-200 px-3 py-2 rounded-lg shadow-sm"
+                      >
+                        <Plus className="w-4 h-4 mr-1" /> Add Entrant
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {stationEntrants.map(user => (
+                        <div key={user.id} className="bg-white border border-gray-200 p-4 rounded-xl flex items-center justify-between">
+                          <div className="flex items-center space-x-3">
+                            <div className="w-10 h-10 bg-ministry-neon text-black font-bold rounded-full flex items-center justify-center">
+                              {user.name.charAt(0)}
+                            </div>
+                            <div>
+                              <p className="font-bold text-sm text-gray-900">{user.name}</p>
+                              <p className="text-xs text-gray-500">@{user.username}</p>
+                            </div>
+                          </div>
+                          <div className="text-xs bg-green-50 text-green-700 px-2 py-1 rounded font-bold">Active</div>
+                        </div>
+                      ))}
+                      {stationEntrants.length === 0 && (
+                        <div className="col-span-full py-4 text-center text-gray-400 text-sm italic">
+                          No Data Entrants assigned.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* VEHICLE LIST */}
+                <div className="px-4 md:px-0">
+                  <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center"><Bus className="w-5 h-5 mr-2 text-ministry-orange" /> Registered Vehicles</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+                    {vehicles.filter(v => v.stationId === selectedStation.id).map(vehicle => {
+                      const vPassengers = passengers.filter(p => p.vehicleId === vehicle.id);
+                      let statusColor = "bg-gray-100 text-gray-600";
+                      let statusText = vehicle.currentStage || "Onboarding";
+
+                      if (vehicle.currentStage === 'RegApproval') { statusColor = "bg-orange-100 text-orange-700"; }
+                      else if (vehicle.currentStage === 'FinanceApproval') { statusColor = "bg-blue-100 text-blue-700"; }
+                      else if (vehicle.currentStage === 'Transit') { statusColor = "bg-green-100 text-green-700"; }
+
+                      return (
+                        <div key={vehicle.id} className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm hover:border-ministry-orange/50 transition-all group">
+                          <div className="p-4 bg-white border-b border-gray-100 flex justify-between items-start">
+                            <span className="font-mono font-bold text-xl text-gray-900">{vehicle.number_plate}</span>
+                            <div className="text-right">
+                              <span className="text-[10px] font-bold uppercase bg-gray-50 border border-gray-200 px-2 py-1 rounded text-gray-500 block mb-1">{vehicle.type}</span>
+                              <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${statusColor}`}>
+                                {statusText}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="p-4">
+                            <div className="mb-4 flex justify-between">
+                              <div>
+                                <p className="text-xs text-gray-400 uppercase font-bold">Driver</p>
+                                <p className="font-bold text-gray-700">{vehicle.driverName}</p>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-xs text-gray-400 uppercase font-bold">Passengers</p>
+                                <div className="flex items-center justify-end text-blue-600 font-bold text-lg">
+                                  <Users className="w-4 h-4 mr-1" />
+                                  {vPassengers.length}
+                                </div>
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => setSelectedVehicle(vehicle)}
+                              className="w-full text-center bg-ministry-text text-white py-3 rounded-xl font-bold text-sm hover:bg-ministry-orange transition-colors flex items-center justify-center shadow-md active:scale-95"
+                            >
+                              Manage Vehicle <ChevronRight className="w-4 h-4 ml-1" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {vehicles.filter(v => v.stationId === selectedStation.id).length === 0 && (
+                      <div className="col-span-full py-12 text-center text-gray-400 bg-white rounded-xl border border-dashed border-gray-300">
+                        No vehicles registered at this station yet.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* LEVEL 4: VEHICLE DETAILS (DETAILS) */}
+            {selectedVehicle && (() => {
+              const isLocked = selectedVehicle.approvals?.registration === 'Approved';
+              return (
+                <div className="animate-in slide-in-from-right-4 p-4 md:p-0">
+                  <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 gap-4">
+                    <div className="flex items-center space-x-3">
+                      <button onClick={handleBackLogistics} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+                        <ArrowLeft className="w-5 h-5 text-gray-600" />
+                      </button>
+                      <div>
+                        <h2 className="text-2xl font-bold font-mono text-ministry-text flex items-center flex-wrap gap-2">
+                          {selectedVehicle.number_plate}
+                          <span className={`text-xs px-2 py-1 rounded-full font-bold ${selectedVehicle.currentStage === 'FinanceApproval' ? 'bg-blue-100 text-blue-700' :
+                            selectedVehicle.currentStage === 'RegApproval' ? 'bg-orange-100 text-orange-700' :
+                              selectedVehicle.currentStage === 'Transit' ? 'bg-green-100 text-green-700' :
+                                'bg-gray-100 text-gray-600'
+                            }`}>
+                            {selectedVehicle.currentStage || 'Onboarding'}
+                          </span>
+                        </h2>
+                        <p className="text-sm text-gray-500">Vehicle Details & Statistics</p>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap lg:flex-nowrap gap-2 w-full lg:w-auto overflow-x-auto lg:overflow-visible pb-2 lg:pb-0">
+                      {(() => {
+
+                        // Allow approval for Administrator, TeamLeader, and Lead
+                        const canApprove = ['Administrator', 'TeamLeader', 'Lead'].includes(currentUser.role);
+
+                        // Show button if authorized (either active or disabled state)
+                        const isApproved = selectedVehicle.currentStage === 'FinanceApproval' || isLocked;
+
+                        return (
+                          <>
+                            {isLogisticsRole ? (
+                              <button
+                                onClick={() => {
+                                  setChildrenForm({ count: String(selectedVehicle.childrenCount || 0) });
+                                  setIsAddChildrenOpen(true);
+                                }}
+                                disabled={isLocked}
+                                className={`flex-1 lg:flex-none flex items-center justify-center space-x-2 px-4 py-2 rounded-lg transition-colors shadow-sm font-bold ${isLocked
+                                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                  : 'bg-gray-800 text-white hover:bg-gray-900'
+                                  }`}
+                              >
+                                <Baby className="w-4 h-4" />
+                                <span>Children Count</span>
+                              </button>
+                            ) : (
+                              <button
+                                onClick={handlePrintManifest}
+                                className="flex-1 lg:flex-none flex items-center justify-center space-x-2 bg-gray-800 text-white px-4 py-2 rounded-lg hover:bg-gray-900 transition-colors shadow-sm font-bold"
+                              >
+                                <Printer className="w-4 h-4" />
+                                <span>Print Vehicle</span>
+                              </button>
+                            )}
+
+                            {/* APPROVE BUTTON */}
+                            {canApprove && (
+                              <button
+                                onClick={handleApproveVehicle}
+                                disabled={isApproved}
+                                className={`flex-1 lg:flex-none flex items-center justify-center space-x-2 px-4 py-2 rounded-lg transition-colors shadow-sm font-bold ${isApproved
+                                  ? 'bg-green-100 text-green-700 cursor-not-allowed border border-green-200'
+                                  : 'bg-green-600 text-white hover:bg-green-700'
+                                  }`}
+                              >
+                                <ShieldCheck className="w-4 h-4" />
+                                <span>{isApproved ? 'Approved (Finance)' : 'Approve Vehicle'}</span>
+                              </button>
+                            )}
+
+                            {/* Add Buttons: Only if not locked */}
+                            {!isLocked ? (
+                              <>
+                                <button
+                                  onClick={openAddMember}
+                                  className="flex-1 lg:flex-none flex items-center justify-center space-x-2 bg-ministry-text text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors shadow-sm"
+                                >
+                                  <UserPlus className="w-4 h-4" />
+                                  <span>Add Member</span>
+                                </button>
+                                <button
+                                  onClick={openAddStudent}
+                                  className="flex-1 lg:flex-none flex items-center justify-center space-x-2 bg-white border border-ministry-text text-ministry-text px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors shadow-sm font-bold"
+                                >
+                                  <GraduationCap className="w-4 h-4" />
+                                  <span>Add Student</span>
+                                </button>
+                                <button
+                                  onClick={openAddInstitution}
+                                  className="flex-1 lg:flex-none flex items-center justify-center space-x-2 bg-white border border-ministry-text text-ministry-text px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors shadow-sm font-bold"
+                                >
+                                  <Building2 className="w-4 h-4" />
+                                  <span>Add Institution</span>
+                                </button>
+                              </>
+                            ) : (
+                              // Locked State Indicator
+                              <div className="flex items-center space-x-2 bg-gray-100 text-gray-500 px-4 py-2 rounded-lg font-bold border border-gray-200 cursor-not-allowed">
+                                <Lock className="w-4 h-4" />
+                                <span>Vehicle Locked ({selectedVehicle.currentStage})</span>
+                              </div>
+                            )}
+                          </>
+                        );
+                      })()}
+                    </div>
+                  </div>
+
+                  {/* Stats Grid */}
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                      <p className="text-xs font-bold text-gray-400 uppercase">Total Passengers</p>
+                      <p className="text-3xl font-bold text-ministry-text mt-1">{passengers.filter(p => p.vehicleId === selectedVehicle.id).length}</p>
+                    </div>
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                      <p className="text-xs font-bold text-gray-400 uppercase">First Timers</p>
+                      <p className="text-3xl font-bold text-green-600 mt-1">{passengers.filter(p => p.vehicleId === selectedVehicle.id && p.isFirstTime === 'Yes').length}</p>
+                    </div>
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                      <p className="text-xs font-bold text-gray-400 uppercase">Students</p>
+                      <p className="text-3xl font-bold text-blue-600 mt-1">{passengers.filter(p => p.vehicleId === selectedVehicle.id && p.category === 'Student').length}</p>
+                    </div>
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm border-l-4 border-l-ministry-orange">
+                      <p className="text-xs font-bold text-gray-400 uppercase">Children</p>
+                      <p className="text-3xl font-bold text-ministry-orange mt-1">{selectedVehicle.childrenCount || 0}</p>
+                    </div>
+                  </div>
+
+                  {/* Manifest Table */}
+                  <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                    <div className="p-4 border-b border-gray-100 bg-white flex items-center">
+                      <LayoutList className="w-4 h-4 mr-2 text-gray-500" />
+                      <h4 className="font-bold text-gray-700 text-sm uppercase">Passenger Manifest</h4>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left min-w-[600px]">
+                        <thead className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
+                          <tr>
+                            <th className="px-6 py-4">Name</th>
+                            <th className="px-6 py-4">Category</th>
+                            <th className="px-6 py-4">Contact</th>
+                            <th className="px-6 py-4">Residence</th>
+                            <th className="px-6 py-4">Status</th>
+                            <th className="px-6 py-4 text-right">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {passengers.filter(p => p.vehicleId === selectedVehicle.id).map(p => (
+                            <tr key={p.id} className="hover:bg-gray-50">
+                              <td className="px-6 py-4 font-bold text-gray-900">{p.name}</td>
+                              <td className="px-6 py-4 text-sm">{p.category}</td>
+                              <td className="px-6 py-4 text-sm font-mono text-gray-600">{p.contact}</td>
+                              <td className="px-6 py-4 text-sm text-gray-600">{p.residence}</td>
+                              <td className="px-6 py-4">
+                                {p.isFirstTime === 'Yes' ? (
+                                  <span className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded-full font-bold">New</span>
+                                ) : (
+                                  <span className="bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded-full font-bold">Member</span>
+                                )}
+                              </td>
+                              <td className="px-6 py-4 text-right">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation(); // Prevent any parent clicks
+                                    handleDeletePassenger(p.id);
+                                  }}
+                                  disabled={isLocked}
+                                  className={`p-2 rounded-lg transition-colors ${isLocked ? 'text-gray-200 cursor-not-allowed' : 'text-gray-400 hover:text-red-600 hover:bg-red-50'}`}
+                                  title={isLocked ? "Cannot remove from locked vehicle" : "Remove Passenger"}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                          {passengers.filter(p => p.vehicleId === selectedVehicle.id).length === 0 && (
+                            <tr><td colSpan={6} className="p-8 text-center text-gray-400">No passengers recorded in this vehicle.</td></tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+          </div>
+        )}
+
+        {/* ... Database Tabs ... */}
+        {activeTab === 'database' && viewMode === 'list' && (
+          <div className="space-y-6 p-4 md:p-0">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+              <h3 className="text-lg font-bold text-gray-800">Member Database</h3>
+              <div className="flex gap-2 w-full md:w-auto">
+                <button
+                  onClick={() => { setSelectedService(null); setViewMode('register-new'); }}
+                  className="flex-1 md:flex-none flex items-center justify-center space-x-2 bg-ministry-text text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors shadow-sm"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Add Member</span>
+                </button>
+                <button
+                  onClick={() => setViewMode('bulk-import-members')}
+                  className="flex-1 md:flex-none flex items-center justify-center space-x-2 bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors shadow-sm font-medium"
+                >
+                  <FileSpreadsheet className="w-4 h-4" />
+                  <span>Bulk Import</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="flex flex-col md:flex-row gap-4 items-center">
+              {/* Search */}
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search database..."
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setCurrentPage(1); // Reset to page 1 on search
+                  }}
+                  className="w-full pl-9 pr-4 py-2 bg-gray-100 border-none rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ministry-orange transition-all"
+                />
+              </div>
+              {selectedMemberIds.size > 0 && (
+                <div className="flex items-center space-x-2 bg-gray-100 px-3 py-1 rounded-lg">
+                  <span className="text-xs font-bold text-gray-600">{selectedMemberIds.size} Selected</span>
+                  <button
+                    onClick={handleDeleteSelected}
+                    className="flex items-center space-x-1 text-red-600 hover:text-red-800 text-xs font-bold"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Delete
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* LEVEL 1: DATABASE LIST */}
+            <div className="animate-in fade-in space-y-4">
+              {/* PAGINATION CONTROLS */}
+              <div className="flex justify-between items-center bg-white p-3 rounded-xl border border-gray-200 shadow-sm sticky top-0 z-10">
+                <div>
+                  <span className="text-sm text-gray-600">Showing </span>
+                  <span className="font-bold text-gray-900">
+                    {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, totalMembers)}
+                  </span>
+                  <span className="text-sm text-gray-600"> of {totalMembers} members</span>
+                </div>
+                <div className="flex space-x-2">
+                  <button
+                    disabled={currentPage === 1}
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    className="px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed font-bold text-sm text-gray-700 transition-colors"
+                  >
+                    Previous
+                  </button>
+                  <button
+                    disabled={currentPage * itemsPerPage >= totalMembers}
+                    onClick={() => setCurrentPage(p => p + 1)}
+                    className="px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed font-bold text-sm text-gray-700 transition-colors"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+
+              <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                <table className="w-full text-left">
+                  <thead className="bg-gray-50 border-b border-gray-100">
+                    <tr>
+                      <th className="p-4 w-10"><input type="checkbox" onChange={handleSelectAll} checked={selectedMemberIds.size === members.length && members.length > 0} className="rounded border-gray-300" /></th>
+                      <th className="p-4 text-xs font-bold text-gray-500 uppercase">Name</th>
+                      <th className="p-4 text-xs font-bold text-gray-500 uppercase">Category</th>
+                      <th className="p-4 text-xs font-bold text-gray-500 uppercase">Phone</th>
+                      <th className="p-4 text-xs font-bold text-gray-500 uppercase">Status</th>
+                      <th className="p-4 text-xs font-bold text-gray-500 uppercase text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {members.map((member) => (
+                      <tr key={member.id} className="hover:bg-gray-50 transition-colors group">
+                        <td className="p-4"><input type="checkbox" checked={selectedMemberIds.has(member.id)} onChange={() => handleSelectOne(member.id)} className="rounded border-gray-300" /></td>
+                        <td className="p-4 font-bold text-gray-900">{member.name}</td>
+                        <td className="p-4 text-sm text-gray-600">{member.category}</td>
+                        <td className="p-4 text-sm font-mono text-gray-600">{member.phone}</td>
+                        <td className="p-4">
+                          <span className={`text-xs px-2 py-1 rounded-full font-bold ${member.status === 'Checked In' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                            {member.status}
+                          </span>
+                        </td>
+                        <td className="p-4 text-right">
+                          <button onClick={() => handleViewMember(member.id)} className="text-ministry-blue font-bold text-xs hover:underline bg-blue-50 px-3 py-1.5 rounded-lg flex items-center gap-1">
+                            <Eye className="w-3 h-3" /> View
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                    {filteredMembers.length === 0 && (
+                      <tr><td colSpan={6} className="p-12 text-center text-gray-400">No members found matching your search.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              {/* Bottom Pagination Info */}
+              <div className="flex justify-center mt-4">
+                <div className="text-xs text-gray-500">
+                  Page {currentPage} of {Math.ceil(totalMembers / itemsPerPage)}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* --- MEMBER DETAIL VIEW --- */}
+        {viewMode === 'member-detail' && selectedMemberDetails && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <button onClick={() => setViewMode('list')} className="flex items-center space-x-2 text-gray-500 hover:text-gray-800">
+                <ArrowLeft className="w-5 h-5" />
+                <span className="font-bold">Back to Database</span>
+              </button>
+            </div>
+
+            {/* Top Stats Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 flex items-center gap-4">
+                <div className="p-3 bg-blue-50 rounded-full"><Users className="w-8 h-8 text-blue-600" /></div>
+                <div>
+                  <p className="text-xs uppercase font-bold text-gray-400">Total Attended</p>
+                  <p className="text-2xl font-black text-gray-900">{selectedMemberDetails.attendedCount} Services</p>
+                </div>
+              </div>
+              <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 flex items-center gap-4">
+                <div className="p-3 bg-purple-50 rounded-full"><CalendarCheck className="w-8 h-8 text-purple-600" /></div>
+                <div>
+                  <p className="text-xs uppercase font-bold text-gray-400">Expected Services</p>
+                  <p className="text-2xl font-black text-gray-900">{selectedMemberDetails.totalServices} Held</p>
+                  <p className="text-xs text-gray-500">Since Joined ({new Date(selectedMemberDetails.member.joinedDate || '').toLocaleDateString()})</p>
+                </div>
+              </div>
+              <div className="bg-ministry-text text-white p-6 rounded-2xl shadow-lg border-l-4 border-ministry-neon flex items-center gap-4">
+                <div className="p-3 bg-white/10 rounded-full"><BarChart3 className="w-8 h-8 text-white" /></div>
+                <div>
+                  <p className="text-xs uppercase font-bold text-gray-400">Attendance Score</p>
+                  <p className="text-3xl font-black">
+                    {selectedMemberDetails.totalServices > 0
+                      ? Math.round((selectedMemberDetails.attendedCount / selectedMemberDetails.totalServices) * 100)
+                      : 0}%
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col lg:flex-row gap-6">
+              {/* LEFT: Profile Details */}
+              <div className="flex-1 bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+                <div className="flex justify-between items-center mb-6 border-b border-gray-100 pb-4">
+                  <h3 className="font-bold text-lg text-gray-800 flex items-center gap-2"><UserIcon className="w-5 h-5" /> Member Profile</h3>
+                  <button
+                    onClick={() => setIsEditingMember(!isEditingMember)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${isEditingMember ? 'bg-red-50 text-red-600' : 'bg-blue-50 text-blue-600'}`}
+                  >
+                    {isEditingMember ? 'Cancel Editing' : 'Edit Details'}
+                  </button>
+                </div>
+
+                <form onSubmit={handleUpdateMember} className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-gray-500">Full Name</label>
+                      <input disabled={!isEditingMember} value={formData.name} onChange={handleInputChange} name="name" className={`w-full p-2 border rounded-lg ${!isEditingMember ? 'bg-gray-50 border-transparent' : 'bg-white border-gray-200'}`} />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-gray-500">Phone</label>
+                      <input disabled={!isEditingMember} value={formData.phone} onChange={handleInputChange} name="phone" className={`w-full p-2 border rounded-lg ${!isEditingMember ? 'bg-gray-50 border-transparent' : 'bg-white border-gray-200'}`} />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-gray-500">Category</label>
+                      <select disabled={!isEditingMember} value={formData.category} onChange={handleInputChange as any} name="category" className={`w-full p-2 border rounded-lg ${!isEditingMember ? 'bg-gray-50 border-transparent' : 'bg-white border-gray-200'}`}>
+                        <option>Member</option>
+                        <option>Guest</option>
+                        <option>First Timer</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-gray-500">Residence</label>
+                      <input disabled={!isEditingMember} value={formData.residence} onChange={handleInputChange} name="residence" className={`w-full p-2 border rounded-lg ${!isEditingMember ? 'bg-gray-50 border-transparent' : 'bg-white border-gray-200'}`} />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-gray-500">Occupation</label>
+                      <input disabled={!isEditingMember} value={formData.occupation} onChange={handleInputChange} name="occupation" className={`w-full p-2 border rounded-lg ${!isEditingMember ? 'bg-gray-50 border-transparent' : 'bg-white border-gray-200'}`} />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-gray-500">Place of Work</label>
+                      <input disabled={!isEditingMember} value={formData.placeOfWork} onChange={handleInputChange} name="placeOfWork" className={`w-full p-2 border rounded-lg ${!isEditingMember ? 'bg-gray-50 border-transparent' : 'bg-white border-gray-200'}`} />
+                    </div>
+                  </div>
+
+                  {isEditingMember && (
+                    <div className="pt-4 flex justify-end">
+                      <button type="submit" className="bg-ministry-text text-white px-6 py-2 rounded-xl font-bold hover:bg-ministry-orange transition-colors">Save Changes</button>
+                    </div>
+                  )}
+                </form>
+              </div>
+
+              {/* RIGHT: Attendance History */}
+              <div className="w-full lg:w-1/3 bg-white border border-gray-200 rounded-xl p-6 shadow-sm h-fit">
+                <h3 className="font-bold text-lg text-gray-800 mb-4 flex items-center gap-2"><History className="w-5 h-5" /> Recent Activity</h3>
+                <div className="space-y-3 max-h-[500px] overflow-y-auto">
+                  {selectedMemberDetails.history.map((record, idx) => (
+                    <div key={idx} className="flex items-center p-3 bg-gray-50 rounded-lg border border-gray-100">
+                      <div className="p-2 bg-green-100 rounded-full mr-3">
+                        <CheckCircle className="w-4 h-4 text-green-600" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-gray-900">{record.title}</p>
+                        <p className="text-xs text-gray-500">{record.date} at {record.checkInTime}</p>
+                      </div>
+                    </div>
+                  ))}
+                  {selectedMemberDetails.history.length === 0 && (
+                    <p className="text-center text-gray-400 py-8 text-sm">No attendance records found yet.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modals (Add Station, Entrant, Vehicle, Passenger) */}
+
+        {isAddStationOpen && (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white w-full max-w-lg p-6 rounded-2xl shadow-xl max-h-[90vh] overflow-y-auto">
+              <h3 className="text-xl font-bold mb-4">Add Pickup Station</h3>
+              <form onSubmit={handleAddStation} className="space-y-4">
+                <div className="space-y-4 border-b border-gray-100 pb-4">
+                  <h4 className="text-xs font-bold text-gray-400 uppercase">Station Details</h4>
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-gray-700">Station Name</label>
+                    <input required value={stationForm.name} onChange={e => setStationForm({ ...stationForm, name: e.target.value })} className="w-full p-3 border rounded-xl bg-white" placeholder="e.g. Kitoro Stage" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-gray-700">Location Description</label>
+                    <input required value={stationForm.location} onChange={e => setStationForm({ ...stationForm, location: e.target.value })} className="w-full p-3 border rounded-xl bg-white" placeholder="Detailed location" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-gray-700">Coord Name</label>
+                      <input value={stationForm.coordinatorName} onChange={e => setStationForm({ ...stationForm, coordinatorName: e.target.value })} className="w-full p-3 border rounded-xl bg-white" placeholder="Optional" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-gray-700">Coord Contact</label>
+                      <input
+                        value={stationForm.coordinatorContact}
+                        onChange={e => setStationForm({ ...stationForm, coordinatorContact: validateContact(e.target.value) })}
+                        className="w-full p-3 border rounded-xl bg-white"
+                        placeholder="256..."
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-4 pt-2">
+                  <h4 className="text-xs font-bold text-gray-400 uppercase flex items-center"><Key className="w-3 h-3 mr-1" /> Assign Data Entrant</h4>
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-gray-700">Entrant Name</label>
+                    <input required value={stationForm.entrantName} onChange={e => setStationForm({ ...stationForm, entrantName: e.target.value })} className="w-full p-3 border rounded-xl bg-white" placeholder="Person handling data" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-gray-700">Username</label>
+                      <input required value={stationForm.entrantUsername} onChange={e => setStationForm({ ...stationForm, entrantUsername: e.target.value })} className="w-full p-3 border rounded-xl bg-white" placeholder="jdoe" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-gray-700">Password</label>
+                      <input required type="password" value={stationForm.entrantPassword} onChange={e => setStationForm({ ...stationForm, entrantPassword: e.target.value })} className="w-full p-3 border rounded-xl bg-white" placeholder="••••••" />
+                    </div>
+                  </div>
+                </div>
+                <div className="flex justify-end pt-4 gap-3">
+                  <button type="button" onClick={() => setIsAddStationOpen(false)} className="px-4 py-2 text-gray-600 font-bold">Cancel</button>
+                  <button type="submit" className="px-6 py-2 bg-ministry-text text-white font-bold rounded-xl hover:bg-ministry-orange">Create Station & User</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {isAddEntrantOpen && (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white w-full max-w-md p-6 rounded-2xl shadow-xl">
+              <h3 className="text-xl font-bold mb-4">Add Data Entrant</h3>
+              <p className="text-sm text-gray-500 mb-4">Create additional credentials for {selectedStation?.name}</p>
+              <form onSubmit={handleAddExtraEntrant} className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700">Full Name</label>
+                  <input required value={entrantForm.name} onChange={e => setEntrantForm({ ...entrantForm, name: e.target.value })} className="w-full p-3 border rounded-xl bg-white" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700">Username</label>
+                  <input required value={entrantForm.username} onChange={e => setEntrantForm({ ...entrantForm, username: e.target.value })} className="w-full p-3 border rounded-xl bg-white" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700">Password</label>
+                  <input required type="password" value={entrantForm.password} onChange={e => setEntrantForm({ ...entrantForm, password: e.target.value })} className="w-full p-3 border rounded-xl bg-white" />
+                </div>
+                <div className="flex justify-end pt-4 gap-3">
+                  <button type="button" onClick={() => setIsAddEntrantOpen(false)} className="px-4 py-2 text-gray-600 font-bold">Cancel</button>
+                  <button type="submit" className="px-6 py-2 bg-ministry-text text-white font-bold rounded-xl hover:bg-ministry-orange">Add User</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {isAddVehicleOpen && (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white w-full max-w-md p-6 rounded-2xl shadow-xl">
+              <h3 className="text-xl font-bold mb-4">Add Vehicle</h3>
+              <form onSubmit={handleAddVehicle} className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700">Number Plate</label>
+                  <input required value={vehicleForm.number_plate} onChange={e => setVehicleForm({ ...vehicleForm, number_plate: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 7) })} className="w-full p-3 border rounded-xl uppercase font-mono bg-white" placeholder="UBA123A" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700">Vehicle Coordinator</label>
+                  <select
+                    required
+                    value={vehicleForm.coordinator}
+                    onChange={e => setVehicleForm({ ...vehicleForm, coordinator: e.target.value })}
+                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-ministry-blue"
+                  >
+                    <option value="">Select Coordinator</option>
+                    {coordinators.map(coord => (
+                      <option key={coord.id} value={coord.name}>
+                        {coord.name} ({coord.username})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-gray-700">Driver Name</label>
+                    <input
+                      required
+                      value={vehicleForm.driverName}
+                      onChange={e => setVehicleForm({ ...vehicleForm, driverName: e.target.value })}
+                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-ministry-blue"
+                      placeholder="Full Name"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-gray-700">Driver NIN / Permit No.</label>
+                    <input
+                      required
+                      value={vehicleForm.driverNin}
+                      onChange={e => setVehicleForm({ ...vehicleForm, driverNin: e.target.value })}
+                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-ministry-blue uppercase"
+                      placeholder="NIN or Permit Number"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700">Driver Contact</label>
+                  <input required value={vehicleForm.driverContact} onChange={e => setVehicleForm({ ...vehicleForm, driverContact: validateContact(e.target.value) })} className="w-full p-3 border rounded-xl bg-white" placeholder="256..." />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700">Vehicle Type</label>
+                  <select value={vehicleForm.type} onChange={e => setVehicleForm({ ...vehicleForm, type: e.target.value as any })} className="w-full p-3 border rounded-xl bg-white">
+                    {VEHICLE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+                <div className="flex justify-end pt-4 gap-3">
+                  <button type="button" onClick={() => setIsAddVehicleOpen(false)} className="px-4 py-2 text-gray-600 font-bold">Cancel</button>
+                  <button type="submit" className="px-6 py-2 bg-ministry-text text-white font-bold rounded-xl hover:bg-ministry-orange">Register Vehicle</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {isAddPassengerOpen && (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white w-full max-w-lg p-6 rounded-2xl shadow-xl max-h-[90vh] overflow-y-auto">
+              <h3 className="text-xl font-bold mb-4">
+                {passengerForm.category === 'Student' ? 'Add Student' : 'Add Member'} to Vehicle
+              </h3>
+              <p className="text-sm text-gray-500 mb-4">Adding to {selectedVehicle?.number_plate}</p>
+              <form onSubmit={handleAddPassenger} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-gray-700">Full Name</label>
+                    <input required value={passengerForm.name} onChange={e => setPassengerForm({ ...passengerForm, name: e.target.value })} className="w-full p-3 border rounded-xl bg-white" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-gray-700">Gender</label>
+                    <select value={passengerForm.gender} onChange={e => setPassengerForm({ ...passengerForm, gender: e.target.value })} className="w-full p-3 border rounded-xl bg-white">
+                      <option value="Male">Male</option>
+                      <option value="Female">Female</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-gray-700">Contact</label>
+                    <input required value={passengerForm.contact} onChange={e => setPassengerForm({ ...passengerForm, contact: validateContact(e.target.value) })} className="w-full p-3 border rounded-xl bg-white" placeholder="256..." />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-gray-700">Residence</label>
+                    <input required value={passengerForm.residence} onChange={e => setPassengerForm({ ...passengerForm, residence: e.target.value })} className="w-full p-3 border rounded-xl bg-white" />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700">Are you going with us for the first time?</label>
+                  <select value={passengerForm.isFirstTime} onChange={e => setPassengerForm({ ...passengerForm, isFirstTime: e.target.value })} className="w-full p-3 border rounded-xl bg-white">
+                    <option value="No">No</option>
+                    <option value="Yes">Yes</option>
+                  </select>
+                </div>
+                {passengerForm.category === 'Student' && (
+                  <div className="bg-gray-50 p-4 rounded-xl space-y-4 border border-gray-100">
+                    <h4 className="text-xs font-bold text-gray-400 uppercase">Student Details</h4>
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-gray-700">School Name</label>
+                      <input value={passengerForm.school} onChange={e => setPassengerForm({ ...passengerForm, school: e.target.value })} className="w-full p-3 border rounded-xl bg-white" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-sm font-bold text-gray-700">Class</label>
+                        <input value={passengerForm.studentClass} onChange={e => setPassengerForm({ ...passengerForm, studentClass: e.target.value })} className="w-full p-3 border rounded-xl bg-white" />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-bold text-gray-700">Section</label>
+                        <select value={passengerForm.boardingType} onChange={e => setPassengerForm({ ...passengerForm, boardingType: e.target.value })} className="w-full p-3 border rounded-xl bg-white">
+                          <option value="Day">Day Student</option>
+                          <option value="Boarding">Boarding Student</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {passengerForm.category === 'Institution' && (
+                  <div className="bg-gray-50 p-4 rounded-xl space-y-4 border border-gray-100">
+                    <h4 className="text-xs font-bold text-gray-400 uppercase">Institution Details</h4>
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-gray-700">Name of Institute</label>
+                      <input value={passengerForm.school} onChange={e => setPassengerForm({ ...passengerForm, school: e.target.value })} className="w-full p-3 border rounded-xl bg-white" placeholder="e.g. Makerere University" />
+                    </div>
+                  </div>
+                )}
+                <div className="flex justify-end pt-4 gap-3">
+                  <button type="button" onClick={() => setIsAddPassengerOpen(false)} className="px-4 py-2 text-gray-600 font-bold">Cancel</button>
+                  <button type="submit" className="px-6 py-2 bg-ministry-text text-white font-bold rounded-xl hover:bg-ministry-orange">Add to Vehicle</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Add Event/Service Modal */}
+        {isAddEventOpen && (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+            <div className="bg-white w-full max-w-md p-8 rounded-2xl shadow-2xl">
+              <h3 className="text-xl font-bold mb-4">
+                {eventFormType === 'Service' ? 'Create New Service' : 'Plan New Event'}
+              </h3>
+              <form onSubmit={handleAddEvent} className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700">Title / Theme</label>
+                  <input
+                    required
+                    value={eventForm.title}
+                    onChange={e => setEventForm({ ...eventForm, title: e.target.value })}
+                    className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:border-ministry-orange outline-none transition-all"
+                    placeholder={eventFormType === 'Service' ? "e.g. Sunday Service" : "e.g. Men's Conference"}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-gray-700">Date</label>
+                    <input
+                      type="date"
+                      required
+                      value={eventForm.date}
+                      onChange={e => setEventForm({ ...eventForm, date: e.target.value })}
+                      className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 outline-none"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-gray-700">Time</label>
+                    <input
+                      type="time"
+                      required
+                      value={eventForm.time}
+                      onChange={e => setEventForm({ ...eventForm, time: e.target.value })}
+                      className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 outline-none"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700">Location</label>
+                  <input
+                    required
+                    value={eventForm.location}
+                    onChange={e => setEventForm({ ...eventForm, location: e.target.value })}
+                    className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 outline-none"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700">Description (Optional)</label>
+                  <textarea
+                    value={eventForm.description}
+                    onChange={e => setEventForm({ ...eventForm, description: e.target.value })}
+                    className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 outline-none h-24 resize-none"
+                    placeholder="Details about this gathering..."
+                  />
+                </div>
+                <div className="flex justify-end pt-4 gap-3">
+                  <button type="button" onClick={() => setIsAddEventOpen(false)} className="px-4 py-2 text-gray-600 font-bold hover:bg-gray-100 rounded-lg">Cancel</button>
+                  <button type="submit" className="px-6 py-2 bg-ministry-text text-white font-bold rounded-xl hover:bg-ministry-orange transition-colors shadow-md">
+                    Create {eventFormType}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Add Event/Service Modal */}
+        {isAddEventOpen && (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+            <div className="bg-white w-full max-w-md p-8 rounded-2xl shadow-2xl">
+              <h3 className="text-xl font-bold mb-4">
+                {eventFormType === 'Service' ? 'Create New Service' : 'Plan New Event'}
+              </h3>
+              <form onSubmit={handleAddEvent} className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700">Title / Theme</label>
+                  <input
+                    required
+                    value={eventForm.title}
+                    onChange={e => setEventForm({ ...eventForm, title: e.target.value })}
+                    className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:border-ministry-orange outline-none transition-all"
+                    placeholder={eventFormType === 'Service' ? "e.g. Sunday Service" : "e.g. Men's Conference"}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-gray-700">Date</label>
+                    <input
+                      type="date"
+                      required
+                      value={eventForm.date}
+                      onChange={e => setEventForm({ ...eventForm, date: e.target.value })}
+                      className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 outline-none"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-gray-700">Time</label>
+                    <input
+                      type="time"
+                      required
+                      value={eventForm.time}
+                      onChange={e => setEventForm({ ...eventForm, time: e.target.value })}
+                      className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 outline-none"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700">Location</label>
+                  <input
+                    required
+                    value={eventForm.location}
+                    onChange={e => setEventForm({ ...eventForm, location: e.target.value })}
+                    className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 outline-none"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700">Description (Optional)</label>
+                  <textarea
+                    value={eventForm.description}
+                    onChange={e => setEventForm({ ...eventForm, description: e.target.value })}
+                    className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 outline-none h-24 resize-none"
+                    placeholder="Details about this gathering..."
+                  />
+                </div>
+                <div className="flex justify-end pt-4 gap-3">
+                  <button type="button" onClick={() => setIsAddEventOpen(false)} className="px-4 py-2 text-gray-600 font-bold hover:bg-gray-100 rounded-lg">Cancel</button>
+                  <button type="submit" className="px-6 py-2 bg-ministry-text text-white font-bold rounded-xl hover:bg-ministry-orange transition-colors shadow-md">
+                    Create {eventFormType}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+        {/* Add Children Modal */}
+        {isAddChildrenOpen && (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+            <div className="bg-white w-full max-w-sm p-8 rounded-2xl shadow-2xl">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-3 bg-orange-100 rounded-xl text-ministry-orange">
+                  <Baby className="w-6 h-6" />
+                </div>
+                <h3 className="text-xl font-bold text-gray-900">Children Count</h3>
+              </div>
+              <form onSubmit={handleUpdateChildrenCount} className="space-y-6">
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700">Number of Children</label>
+                  <input
+                    type="number"
+                    required
+                    min="0"
+                    autoFocus
+                    value={childrenForm.count}
+                    onChange={e => setChildrenForm({ count: e.target.value })}
+                    className="w-full p-4 border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:border-ministry-orange outline-none transition-all text-2xl font-bold text-center"
+                    placeholder="0"
+                  />
+                  <p className="text-xs text-gray-500 italic">Enter the total number of children traveling in this vehicle.</p>
+                </div>
+                <div className="flex justify-end gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsAddChildrenOpen(false)}
+                    className="px-5 py-2.5 text-gray-600 font-bold hover:bg-gray-100 rounded-xl transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-6 py-2.5 bg-ministry-orange text-white font-bold rounded-xl hover:bg-orange-600 transition-colors shadow-lg shadow-orange-100"
+                  >
+                    Save Count
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+        {/* Highlights Modal */}
+        <EventDetailsModal
+          event={showHighlights ? highlightEvent : null}
+          onClose={() => setShowHighlights(false)}
+        />
+      </div>
+    </div >
+  );
+};
+
+export default RegistrationDashboard;

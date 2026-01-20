@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="./vite.svg" />
+  <link rel="manifest" href="./manifest.json" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#FF5722" />
+  <title>Manifest Management System</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    // AGGRESSIVE ERROR LOGGER
+    window.addEventListener('error', function (e) {
+      const errorContainer = document.getElementById('error-container') || document.createElement('div');
+      errorContainer.id = 'error-container';
+      errorContainer.style.position = 'fixed';
+      errorContainer.style.top = '0';
+      errorContainer.style.left = '0';
+      errorContainer.style.width = '100%';
+      errorContainer.style.backgroundColor = '#fae8e8';
+      errorContainer.style.color = '#c0392b';
+      errorContainer.style.padding = '20px';
+      errorContainer.style.zIndex = '9999';
+      errorContainer.style.borderBottom = '2px solid #e74c3c';
+      errorContainer.style.fontFamily = 'monospace';
+      errorContainer.style.fontSize = '14px';
+
+      let msg = '';
+      if (e.target.tagName === 'SCRIPT' || e.target.tagName === 'LINK') {
+        msg = 'Resource Failed to Load: ' + (e.target.src || e.target.href);
+      } else {
+        msg = e.message;
+      }
+
+      errorContainer.innerHTML += '<strong>Error:</strong> ' + msg + '<br>';
+      document.body.prepend(errorContainer);
+    }, true); // Capture phase to get resource errors
+
+    window.addEventListener('unhandledrejection', function (e) {
+      const errorContainer = document.getElementById('error-container') || document.createElement('div');
+      errorContainer.innerHTML += '<strong>Promise Error:</strong> ' + (e.reason ? e.reason.message : e.reason) + '<br>';
+      document.body.prepend(errorContainer);
+    });
+  </script>
+  <!-- Google Maps API Config handled via React components -->
+  <script>
+    // Polyfill process.env for browser environments to prevent crashes
+    window.process = {
+      env: {
+        API_KEY: '', // Value will be injected or handled by the environment/bundler
+        NODE_ENV: 'development'
+      }
+    };
+  </script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            ministry: {
+              black: '#F3F4F6', // Main Background (Light Gray)
+              dark: '#FFFFFF',  // Component Background (White)
+              card: '#FFFFFF',  // Card Background (White)
+              neon: '#ccff00', // Neon Green/Lime (Keep for accents)
+              orange: '#FF5722', // Deep Orange
+              text: '#111827', // Main Text (Gray 900)
+              muted: '#6B7280' // Muted Text (Gray 500)
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #F3F4F6;
+      color: #111827;
+    }
+
+    /* Custom Scrollbar - Light Theme */
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: #F3F4F6;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #CBD5E1;
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: #FF5722;
+    }
+  </style>
+
+  <script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@18.3.1",
+    "react-dom": "https://esm.sh/react-dom@18.3.1",
+    "react-dom/": "https://esm.sh/react-dom@18.3.1/",
+    "react/": "https://esm.sh/react@18.3.1/",
+    "lucide-react": "https://esm.sh/lucide-react@0.344.0",
+    "recharts": "https://esm.sh/recharts@2.12.2",
+    "@google/genai": "https://esm.sh/@google/genai@0.1.1",
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2.39.7",
+    "xlsx": "https://esm.sh/xlsx@0.18.5",
+    "@react-google-maps/api": "https://esm.sh/@react-google-maps/api@2.19.3?external=react,react-dom",
+    "react-router-dom": "https://esm.sh/react-router-dom@6.22.0?external=react,react-dom"
+  }
+}
+</script>
+</head>
+
+<body>
+  <div id="root"></div>
+
+  <script type="module" src="./index.tsx"></script>
+</body>
+
+</html>

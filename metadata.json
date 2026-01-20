@@ -1,0 +1,7 @@
+{
+  "name": "Manifest Management System",
+  "description": "A high-performance administrator dashboard for ministry management, featuring real-time analytics, soul-winning targets, and AI-powered insights.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}

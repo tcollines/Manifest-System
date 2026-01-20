@@ -1,0 +1,20 @@
+{
+  "name": "Manifest Management System",
+  "short_name": "Manifest",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#111827",
+  "theme_color": "#FF5722",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/2983/2983803.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/2983/2983803.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
