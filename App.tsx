@@ -278,6 +278,7 @@ const App: React.FC = () => {
 
     } catch (e: any) {
       alert(e.message || "Failed to add user");
+      throw e; // Re-throw so ActionPanel knows to stop
     }
   };
 
