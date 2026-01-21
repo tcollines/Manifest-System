@@ -156,7 +156,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
         }
     };
 
-    const handleAddChild = (e: React.FormEvent) => {
+    const handleAddChild = async (e: React.FormEvent) => {
         e.preventDefault();
         const isServiceActive = viewMode === 'service-active';
 
@@ -173,6 +173,9 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
             joinedDate: new Date().toISOString().split('T')[0],
             attendedServiceIds: isServiceActive && selectedService ? [selectedService.id] : []
         };
+
+        // Save to DB first
+        await ChildStore.add(newChild);
 
         setChildren([newChild, ...children]);
         setFormData(initialForm);
@@ -286,7 +289,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
             {/* Header */}
             <div className="flex justify-between items-center">
                 <div>
-                    <h1 className="text-3xl font-bold text-ministry-text flex items-center gap-3">
+                    <h1 className="text-2xl md:text-3xl font-bold text-ministry-text flex items-center gap-3">
                         <Baby className="w-8 h-8 text-ministry-orange" />
                         Next Gen Ministry
                     </h1>
@@ -341,7 +344,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                                 {activeTab === 'checkin' ? 'Select Service for Check-In' : 'Select Service for Check-Out'}
                             </h3>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
                             {services.map(service => {
                                 const serviceDate = new Date(service.date);
                                 const today = new Date();
@@ -479,7 +482,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
                                     <div className="bg-white border border-gray-200 p-6 rounded-xl shadow-sm text-center">
                                         <h4 className="text-gray-500 font-bold uppercase text-xs mb-2">Total Children</h4>
                                         <p className="text-3xl font-black text-ministry-text">
@@ -606,7 +609,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                                     <h3 className="font-bold text-gray-800 mb-4">
                                         Recently Checked In
                                     </h3>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                         {children.filter(c => selectedService && c.attendedServiceIds.includes(selectedService.id)).slice(0, 6).map(c => (
                                             <div key={c.id} className="bg-green-50 border border-green-100 p-4 rounded-xl flex justify-between items-center">
                                                 <div>

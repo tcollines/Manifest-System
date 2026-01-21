@@ -223,7 +223,11 @@ const App: React.FC = () => {
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    // 1. Clear Supabase Auth Session (Critical for preventing auto-relogin of same user)
+    await supabase.auth.signOut();
+
+    // 2. Clear Local App Session
     UserStore.clearSession();
     localStorage.removeItem('ministry_active_tab');
     setCurrentUser(null);
@@ -231,6 +235,39 @@ const App: React.FC = () => {
     setLoginError(null);
     setIsSidebarOpen(false);
   };
+
+  // Auto-Logout on Inactivity
+  useEffect(() => {
+    if (!currentUser) return;
+
+    let timer: NodeJS.Timeout;
+    const INACTIVITY_LIMIT = 60 * 1000; // 1 minute
+
+    const resetTimer = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        console.log("User inactive for 1 minute. Logging out...");
+        handleLogout();
+      }, INACTIVITY_LIMIT);
+    };
+
+    const activityEvents = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart'];
+
+    // Initial start
+    resetTimer();
+
+    // Attach listeners
+    activityEvents.forEach(event => {
+      window.addEventListener(event, resetTimer);
+    });
+
+    return () => {
+      clearTimeout(timer);
+      activityEvents.forEach(event => {
+        window.removeEventListener(event, resetTimer);
+      });
+    };
+  }, [currentUser]); // Re-attach when user login status changes
 
   const handleSaveEvent = async (newEvent: MinistryEvent) => {
     try {

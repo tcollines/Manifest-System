@@ -21,7 +21,7 @@ const Dashboard: React.FC<DashboardProps> = ({ openModal, onNavigate }) => {
          {/* Header Section */}
          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
             <div>
-               <h1 className="text-3xl font-bold text-ministry-text mb-1">
+               <h1 className="text-2xl md:text-3xl font-bold text-ministry-text mb-1">
                   Ministry Overview
                </h1>
                <p className="text-gray-500">
@@ -116,7 +116,7 @@ const Dashboard: React.FC<DashboardProps> = ({ openModal, onNavigate }) => {
                   {/* Quick Actions Card */}
                   <div className="bg-white border border-gray-200 rounded-2xl p-6 sticky top-24 shadow-sm">
                      <h3 className="text-lg font-bold text-ministry-text mb-4">Command Center</h3>
-                     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-1 gap-3">
+                     <div className="grid grid-cols-2 sm:grid-cols-2 xl:grid-cols-1 gap-3">
                         <button onClick={() => openModal(ModalType.CREATE_SERVICE)} className="w-full flex items-center justify-between p-4 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-xl transition-all group">
                            <div className="flex items-center space-x-3">
                               <div className="bg-blue-100 p-2 rounded-lg text-blue-600"><Plus className="w-5 h-5" /></div>

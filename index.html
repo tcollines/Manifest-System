@@ -83,6 +83,36 @@
       color: #111827;
     }
 
+    /* Mobile Optimization: Reduce base font and padding */
+    @media (max-width: 640px) {
+      body {
+        font-size: 14px;
+        /* Slightly smaller base font */
+      }
+
+      h1 {
+        font-size: 1.5rem !important;
+      }
+
+      /* Force smaller headings */
+      h2 {
+        font-size: 1.25rem !important;
+      }
+
+      h3 {
+        font-size: 1.1rem !important;
+      }
+
+      .p-8 {
+        padding: 1rem !important;
+      }
+
+      /* Override large paddings */
+      .gap-8 {
+        gap: 1rem !important;
+      }
+    }
+
     /* Custom Scrollbar - Light Theme */
     ::-webkit-scrollbar {
       width: 8px;

@@ -22,20 +22,24 @@ const mapUserFromDB = (u: any): User => ({
 });
 
 // Helper to map App camelCase to DB snake_case
-const mapUserToDB = (u: User) => ({
-  id: u.id,
-  name: u.name,
-  role: u.role,
-  department_id: u.departmentId,
-  username: u.username,
-  password: u.password,
-  contact: u.contact,
-  email: u.email,
-  station_id: u.stationId,
-  event_id: u.eventId,
-  invitation_token: u.invitationToken,
-  status: u.status
-});
+const mapUserToDB = (u: User) => {
+  const data = {
+    id: u.id,
+    name: u.name,
+    role: u.role,
+    department_id: u.departmentId,
+    username: u.username,
+    password: u.password,
+    contact: u.contact,
+    email: u.email,
+    station_id: u.stationId,
+    event_id: u.eventId,
+    invitation_token: u.invitationToken,
+    status: u.status
+  };
+  // Remove undefined keys to avoid sending them to Supabase (which might cause errors if cols are missing)
+  return Object.fromEntries(Object.entries(data).filter(([_, v]) => v !== undefined));
+};
 
 export const UserStore = {
   // Login now queries the DB

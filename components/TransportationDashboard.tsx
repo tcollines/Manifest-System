@@ -237,7 +237,7 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
             )
             .on(
                 'postgres_changes',
-                { event: '*', schema: 'public', table: 'manifest_passengers' },
+                { event: '*', schema: 'public', table: 'passengers' },
                 (payload) => {
                     console.log('Realtime passenger update:', payload);
                     refreshDataRef.current();
@@ -906,7 +906,7 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
                 <div>
                     <div className="flex items-center gap-2 mb-1">
                         <Bus className="w-6 h-6 text-ministry-orange" />
-                        <h1 className="text-3xl font-bold text-ministry-text">Transportation Command</h1>
+                        <h1 className="text-2xl md:text-3xl font-bold text-ministry-text">Transportation Command</h1>
                     </div>
                     <p className="text-gray-500">Real-time fleet tracking and coordinator dispatch.</p>
                 </div>
@@ -1002,7 +1002,7 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
 
                                 <div className="p-6">
                                     {/* Info Cards */}
-                                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mb-8">
                                         <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
                                             <p className="text-xs text-gray-400 uppercase font-bold mb-1">Driver</p>
                                             <p className="font-bold text-gray-800 text-lg">{selectedAdminVehicle.driverName}</p>
@@ -1139,7 +1139,7 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
                         /* STANDARD FLEET LIST */
                         <>
                             {/* KPI Stats Row */}
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                 <div className="bg-ministry-card border border-gray-200 p-4 rounded-xl shadow-sm flex items-center justify-between">
                                     <div>
                                         <p className="text-xs text-gray-500 uppercase font-bold">Total Fleet</p>

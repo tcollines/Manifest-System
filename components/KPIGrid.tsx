@@ -30,11 +30,11 @@ const KPIGrid: React.FC = () => {
       const partnerships = transactions.filter(t => t.type === 'Income' && t.category === 'Partnership').reduce((sum, t) => sum + t.amount, 0); // Using Amount for value, or count? Mock used count. Let's use Amount for value consistency or Count.
       // Mock used '142' for partnerships (count). Let's use count of transactions.
       const partnershipCount = transactions.filter(t => t.type === 'Income' && t.category === 'Partnership').length;
-      
+
       const pmiGiving = transactions.filter(t => t.type === 'Income' && t.category === 'PMI Giving').reduce((sum, t) => sum + t.amount, 0);
 
       const formatMoney = (amount: number) => {
-          return new Intl.NumberFormat('en-US', { style: 'currency', currency: currency }).format(amount);
+        return new Intl.NumberFormat('en-US', { style: 'currency', currency: currency }).format(amount);
       };
 
       setKpis([
@@ -50,7 +50,7 @@ const KPIGrid: React.FC = () => {
   }, []);
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 mb-8">
+    <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 md:gap-6 mb-8">
       {kpis.map((kpi) => {
         const IconComponent = (Icons as any)[kpi.icon] || Icons.Activity;
         return (
@@ -59,10 +59,9 @@ const KPIGrid: React.FC = () => {
               <div className="p-2 bg-gray-100 rounded-lg group-hover:bg-ministry-neon/20 transition-colors">
                 <IconComponent className="w-6 h-6 text-gray-700 group-hover:text-ministry-orange" />
               </div>
-              <span className={`text-xs font-bold px-2 py-1 rounded-full ${
-                kpi.trend === 'up' ? 'bg-green-100 text-green-700' : 
-                kpi.trend === 'down' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'
-              }`}>
+              <span className={`text-xs font-bold px-2 py-1 rounded-full ${kpi.trend === 'up' ? 'bg-green-100 text-green-700' :
+                  kpi.trend === 'down' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'
+                }`}>
                 {kpi.change}
               </span>
             </div>
