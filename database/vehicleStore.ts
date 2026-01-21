@@ -90,6 +90,7 @@ export const VehicleStore = {
             if (error) throw error;
         } catch (e: any) {
             console.error('Error adding vehicle:', e.message || e);
+            throw e;
         }
     },
 
@@ -120,6 +121,7 @@ export const VehicleStore = {
             if (error) console.error('Error updating vehicle:', error.message);
         } catch (e: any) {
             console.error('Unexpected error updating vehicle:', e.message || e);
+            throw e;
         }
     },
 
@@ -192,6 +194,7 @@ export const VehicleStore = {
             if (error) console.error('Error adding passenger:', error.message);
         } catch (e: any) {
             console.error('Unexpected error adding passenger:', e.message || e);
+            throw e;
         }
     },
 
@@ -214,6 +217,7 @@ export const VehicleStore = {
             if (error) console.error('Error updating passenger:', error.message);
         } catch (e: any) {
             console.error('Unexpected error updating passenger:', e.message || e);
+            throw e;
         }
     },
 
@@ -223,6 +227,7 @@ export const VehicleStore = {
             if (error) console.error('Error deleting passenger:', error.message);
         } catch (e: any) {
             console.error('Unexpected error deleting passenger:', e.message || e);
+            throw e;
         }
     },
 

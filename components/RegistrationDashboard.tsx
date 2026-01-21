@@ -845,6 +845,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
 
     try {
       await VehicleStore.addVehicle({
+        id: `v-${Date.now()}`,
         ...vehicleForm,
         number_plate: formatted, // Use formatted plate
         stationId: selectedStation.id,
@@ -874,7 +875,8 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
       return;
     }
     try {
-      await VehicleStore.updatePersonalVehicleStatus(car.id, action, selectedService?.id);
+      const storeStatus = action === 'Check In' ? 'Checked In' : 'Checked Out';
+      await VehicleStore.updatePersonalVehicleStatus(car.id, storeStatus, selectedService?.id);
       setPersonalVehicles(prev => prev.map(c => c.id === car.id ? {
         ...c,
         status: action === 'Check In' ? 'Checked In' : 'Checked Out',
