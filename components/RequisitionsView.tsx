@@ -16,6 +16,11 @@ const RequisitionsView: React.FC<RequisitionsViewProps> = ({ currentUser }) => {
 
     const [editingReq, setEditingReq] = useState<Requisition | null>(null);
 
+    // Check Roles
+    const isAdmin = currentUser.role === 'Administrator' || currentUser.role === 'Super Admin';
+    const isTeamLeader = currentUser.role === 'TeamLeader';
+    const isFinance = currentUser.role === 'Finance' || currentUser.departmentId === 'd4';
+
     useEffect(() => {
         fetchRequisitions();
     }, []);
@@ -38,10 +43,59 @@ const RequisitionsView: React.FC<RequisitionsViewProps> = ({ currentUser }) => {
     };
 
     const filteredRequisitions = requisitions.filter(r => {
-        if (activeTab === 'Pending') return r.status === 'Pending' || r.status === 'Rejected' || r.status === 'Pending Finance';
+        if (activeTab === 'Pending') {
+            // Team Leaders should ONLY see items waiting for their approval (Pending Team Leader)
+            // or items they might have rejected? The prompt says "Teamleader should only view requisitions that have been approved byAdministration"
+            // implying they shouldn't see the initial 'Pending'.
+            if (isTeamLeader) {
+                return r.status === 'Pending Team Leader';
+            }
+
+            // Admins see Pending (to approve) and others? 
+            // For now, keep Admin seeing all pending types for oversight, or restrict based on workflow.
+            // Administrator is intermediate, so they see Pending.
+
+            return r.status === 'Pending' ||
+                r.status === 'Rejected' ||
+                r.status === 'Pending Finance' ||
+                r.status === 'Pending Team Leader';
+        }
         if (activeTab === 'Approved') return r.status === 'Approved' || r.status === 'Paid';
         return true;
     });
+
+    const handleApprove = async (req: Requisition) => {
+        if (!confirm(`Are you sure you want to approve "${req.title}"?`)) return;
+
+        try {
+            let nextStatus: 'Pending Team Leader' | 'Pending Finance' | 'Approved' = 'Approved';
+
+            // Workflow: Pending -> Pending Team Leader -> Pending Finance -> Approved
+            if (req.status === 'Pending') nextStatus = 'Pending Team Leader';
+            else if (req.status === 'Pending Team Leader') nextStatus = 'Pending Finance';
+            else if (req.status === 'Pending Finance') nextStatus = 'Approved';
+
+            await RequisitionStore.updateStatus(req.id, nextStatus);
+            fetchRequisitions();
+        } catch (e: any) {
+            alert('Error updating status: ' + e.message);
+        }
+    };
+
+    const handleReject = async (req: Requisition) => {
+        const reason = prompt(`Reason for rejection for "${req.title}":`);
+        if (!reason) return; // Cancelled
+
+        try {
+            // Rejection always goes back to 'Rejected' (Head of Dept to fix)
+            await RequisitionStore.updateStatus(req.id, 'Rejected', reason);
+            fetchRequisitions();
+        } catch (e: any) {
+            alert('Error rejected requisition: ' + e.message);
+        }
+    };
+
+
 
     const handleCreateSuccess = () => {
         setViewMode('list');
@@ -74,11 +128,15 @@ const RequisitionsView: React.FC<RequisitionsViewProps> = ({ currentUser }) => {
                         <div>
                             <h1 className="text-3xl font-bold text-ministry-text flex items-center gap-2">
                                 <FileText className="text-ministry-orange" size={32} />
-                                Requisitions
+                                {isTeamLeader ? 'Review Requisitions' : 'Requisitions'}
                             </h1>
-                            <p className="text-gray-500">Manage funding requests for your department.</p>
+                            <p className="text-gray-500">
+                                {isTeamLeader
+                                    ? 'Departmental requests waiting for your approval.'
+                                    : 'Manage funding requests for your department.'}
+                            </p>
                         </div>
-                        {activeTab === 'Pending' && (
+                        {activeTab === 'Pending' && !isTeamLeader && (
                             <button
                                 onClick={() => {
                                     setEditingReq(null);
@@ -147,6 +205,12 @@ const RequisitionsView: React.FC<RequisitionsViewProps> = ({ currentUser }) => {
                                                                 <span className="text-xs font-bold whitespace-nowrap">Finance</span>
                                                             </div>
                                                         )}
+                                                        {req.status === 'Pending Team Leader' && (
+                                                            <div className="flex items-center gap-1">
+                                                                <Clock className="w-5 h-5" />
+                                                                <span className="text-xs font-bold whitespace-nowrap">Team Leader</span>
+                                                            </div>
+                                                        )}
                                                     </div>
                                                     <div>
                                                         <div className="flex items-center gap-2">
@@ -176,6 +240,50 @@ const RequisitionsView: React.FC<RequisitionsViewProps> = ({ currentUser }) => {
                                                             className="mt-2 text-sm text-ministry-orange font-bold hover:text-orange-700 border border-ministry-orange rounded px-3 py-1 hover:bg-orange-50 transition-colors"
                                                         >
                                                             Edit & Resubmit
+                                                        </button>
+                                                    )}
+
+                                                    {/* Approval Buttons */}
+                                                    {isAdmin && req.status === 'Pending' && (
+                                                        <div className="flex gap-2 mt-2">
+                                                            <button
+                                                                onClick={() => handleReject(req)}
+                                                                className="text-sm bg-red-100 text-red-600 px-3 py-2 rounded-lg font-bold hover:bg-red-200 transition-colors shadow-sm whitespace-nowrap"
+                                                            >
+                                                                Reject
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleApprove(req)}
+                                                                className="text-sm bg-black text-white px-4 py-2 rounded-lg font-bold hover:bg-gray-800 transition-colors shadow-sm whitespace-nowrap"
+                                                            >
+                                                                Approve to Team Leader
+                                                            </button>
+                                                        </div>
+                                                    )}
+
+                                                    {isTeamLeader && req.status === 'Pending Team Leader' && (
+                                                        <div className="flex gap-2 mt-2">
+                                                            <button
+                                                                onClick={() => handleReject(req)}
+                                                                className="text-sm bg-red-100 text-red-600 px-3 py-2 rounded-lg font-bold hover:bg-red-200 transition-colors shadow-sm whitespace-nowrap"
+                                                            >
+                                                                Reject
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleApprove(req)}
+                                                                className="text-sm bg-ministry-text text-white px-4 py-2 rounded-lg font-bold hover:bg-gray-800 transition-colors shadow-sm whitespace-nowrap"
+                                                            >
+                                                                Approve to Finance
+                                                            </button>
+                                                        </div>
+                                                    )}
+
+                                                    {isFinance && req.status === 'Pending Finance' && (
+                                                        <button
+                                                            onClick={() => handleApprove(req)}
+                                                            className="mt-2 text-sm bg-green-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-green-700 transition-colors shadow-sm whitespace-nowrap"
+                                                        >
+                                                            Approve & Pay
                                                         </button>
                                                     )}
                                                 </div>

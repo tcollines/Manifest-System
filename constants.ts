@@ -20,6 +20,7 @@ export const KPIS: KPI[] = [
 ];
 
 export const DEPARTMENTS: Department[] = [
+  { id: 'd0', name: 'Administration', head: 'Admin', members: 5, status: 'Active' },
   { id: 'd1', name: 'Registration', head: 'Sarah Connor', members: 12, status: 'Active' },
   { id: 'd2', name: 'Next Gen', head: 'John Doe', members: 45, status: 'Active' },
   { id: 'd3', name: 'Parking', head: 'Harvey Specter', members: 15, status: 'Active' },

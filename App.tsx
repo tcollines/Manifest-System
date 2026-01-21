@@ -18,12 +18,14 @@ import SetupAccount from './components/SetupAccount';
 import SignIn from './components/SignIn';
 import RequisitionsView from './components/RequisitionsView';
 import PublicSoulEntry from './components/PublicSoulEntry';
+import { AssetsTab } from './components/AssetsTab';
 import { ModalType, MinistryEvent, User } from './types';
 import { MOCK_EVENTS, DEPARTMENTS } from './constants';
 import { UserStore } from './database/userStore';
 import { EventStore } from './database/eventStore';
 import { Bell, Search, Menu } from 'lucide-react';
 import { supabase } from './services/supabaseClient';
+import TeamLeaderRequisitions from './components/TeamLeaderRequisitions';
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -102,13 +104,6 @@ const App: React.FC = () => {
     // Check for Public Soul Collection Link
     if (window.location.pathname.startsWith('/collect-souls/')) {
       setActiveTab('public-soul-entry');
-    }
-
-    // Check for Public Soul Collection Link
-    if (window.location.pathname.startsWith('/collect-souls/')) {
-      setActiveTab('public-soul-entry');
-      // Extract Event ID from URL if needed by the component, or component deals with it
-      // The component likely parses the URL itself or we need to pass it
     }
 
     // Check for errors in the URL hash (e.g. invalid/expired link)
@@ -380,7 +375,7 @@ const App: React.FC = () => {
         <div className="flex-1 overflow-y-auto scroll-smooth">
           {activeTab === 'dashboard' && <Dashboard openModal={setModalType} onNavigate={handleNavigate} />}
           {activeTab === 'team-dashboard' && <TeamLeaderDashboard onNavigate={handleNavigate} />}
-          {activeTab === 'departments' && <DepartmentsView onNavigate={handleNavigate} />}
+          {activeTab === 'departments' && <DepartmentsView onNavigate={handleNavigate} currentUser={currentUser} />}
           {activeTab === 'events' && <EventsView events={events} />}
           {activeTab === 'reports' && <ReportsView />}
           {activeTab === 'settings' && (
@@ -406,9 +401,20 @@ const App: React.FC = () => {
           {activeTab === 'finance' && <FinanceDashboard currentUser={currentUser} onOpenModal={setModalType} />}
           {activeTab === 'follow-up' && <FollowUpDashboard onOpenModal={setModalType} />}
           {activeTab === 'parking' && <ParkingDashboard events={events} onOpenModal={setModalType} />}
-          {activeTab === 'requisitions' && <RequisitionsView currentUser={currentUser} />}
+          {activeTab === 'requisitions' && (
+            currentUser?.role === 'TeamLeader'
+              ? <TeamLeaderRequisitions currentUser={currentUser} />
+              : <RequisitionsView currentUser={currentUser} />
+          )}
+          {activeTab === 'public-soul-entry' && <PublicSoulEntry />}
+          {activeTab === 'assets' && (
+            <div className="p-4 md:p-8">
+              <h1 className="text-3xl font-bold text-ministry-text mb-6">Assets Management</h1>
+              <AssetsTab currentUser={currentUser} />
+            </div>
+          )}
 
-          {activeTab !== 'dashboard' && activeTab !== 'team-dashboard' && activeTab !== 'departments' && activeTab !== 'events' && activeTab !== 'reports' && activeTab !== 'settings' && activeTab !== 'manifest-settings' && activeTab !== 'registration' && activeTab !== 'next-gen' && activeTab !== 'transportation' && activeTab !== 'finance' && activeTab !== 'follow-up' && activeTab !== 'parking' && activeTab !== 'requisitions' && (
+          {activeTab !== 'dashboard' && activeTab !== 'team-dashboard' && activeTab !== 'departments' && activeTab !== 'events' && activeTab !== 'reports' && activeTab !== 'settings' && activeTab !== 'manifest-settings' && activeTab !== 'registration' && activeTab !== 'next-gen' && activeTab !== 'transportation' && activeTab !== 'finance' && activeTab !== 'follow-up' && activeTab !== 'parking' && activeTab !== 'requisitions' && activeTab !== 'assets' && (
             <div className="flex items-center justify-center h-full text-gray-500">
               <div className="text-center">
                 <h2 className="text-2xl font-bold text-gray-700 mb-2">Work in Progress</h2>

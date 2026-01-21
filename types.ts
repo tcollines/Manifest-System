@@ -267,6 +267,15 @@ export interface RequisitionPayment {
   recordedBy?: string;
 }
 
+export interface RequisitionItem {
+  id: string;
+  requisitionId: string;
+  description: string;
+  quantity: number;
+  unitCost: number;
+  totalCost: number;
+}
+
 export interface Requisition {
   id: string;
   requisitionNumber: string;
@@ -274,7 +283,7 @@ export interface Requisition {
   departmentId: string;
   requesterId: string;
   requesterName?: string; // For display
-  status: 'Pending' | 'Approved' | 'Rejected' | 'Paid' | 'Pending Finance';
+  status: 'Pending' | 'Approved' | 'Rejected' | 'Paid' | 'Pending Finance' | 'Pending Team Leader';
   totalAmount: number;
   amountPaid?: number; // New field
   payments?: RequisitionPayment[]; // New field

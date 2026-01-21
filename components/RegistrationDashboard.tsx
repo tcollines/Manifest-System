@@ -36,6 +36,7 @@ import {
   Users,
   Eye,
   Download,
+
   ChevronRight,
   Shield,
   Trash2,
@@ -59,6 +60,7 @@ import {
   User as UserIcon
 } from 'lucide-react';
 import EventDetailsModal from './EventDetailsModal';
+import { AssetsTab } from './AssetsTab';
 
 interface RegistrationDashboardProps {
   events: MinistryEvent[];
@@ -236,7 +238,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
 
   const isLogisticsRole = currentUser.role === 'Logistics';
   const isMember = currentUser.role === 'Member';
-  const canCreateService = ['Administrator', 'Lead', 'Reg. Admin'].includes(currentUser.role);
+  const canCreateService = ['Administrator', 'Head of Dept', 'Reg. Admin'].includes(currentUser.role);
 
   // Derived State - Filters
   const services = events.filter(e => e.type === 'Service').sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -1058,9 +1060,9 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
   };
 
   const confirmDelete = async () => {
-    // Hardcoded check as requested for specific "Lead Registration Password"
+    // Hardcoded check as requested for specific "Head of Dept Registration Password"
     if (deletePassword !== 'admin123') {
-      alert('Incorrect Lead Registration Password.');
+      alert('Incorrect Head of Dept Registration Password.');
       return;
     }
 
@@ -1325,7 +1327,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
               This action cannot be undone.
             </p>
             <div className="space-y-2 mb-6">
-              <label className="text-sm font-bold text-gray-700">Enter Lead Registration Password</label>
+              <label className="text-sm font-bold text-gray-700">Enter Head of Dept Registration Password</label>
               <input
                 type="password"
                 autoFocus
@@ -1392,6 +1394,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
               <span>Database</span>
             </button>
           )}
+
         </div>
       )
       }
@@ -2075,7 +2078,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
                       {(() => {
 
                         // Allow approval for Administrator, TeamLeader, and Lead
-                        const canApprove = ['Administrator', 'TeamLeader', 'Lead'].includes(currentUser.role);
+                        const canApprove = ['Administrator', 'TeamLeader', 'Head of Dept'].includes(currentUser.role);
 
                         // Show button if authorized (either active or disabled state)
                         const isApproved = selectedVehicle.currentStage === 'FinanceApproval' || isLocked;

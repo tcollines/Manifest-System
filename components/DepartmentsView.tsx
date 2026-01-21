@@ -2,11 +2,14 @@ import React from 'react';
 import DepartmentList from './DepartmentList';
 import DepartmentRequests from './DepartmentRequests';
 
+
 interface DepartmentsViewProps {
   onNavigate: (view: string) => void;
+  currentUser: any;
 }
 
-const DepartmentsView: React.FC<DepartmentsViewProps> = ({ onNavigate }) => {
+const DepartmentsView: React.FC<DepartmentsViewProps> = ({ onNavigate, currentUser }) => {
+  const isTeamLeader = currentUser?.role === 'TeamLeader';
   return (
     <div className="p-8 space-y-8 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -21,9 +24,14 @@ const DepartmentsView: React.FC<DepartmentsViewProps> = ({ onNavigate }) => {
 
       <DepartmentList onNavigate={onNavigate} />
 
-      <div id="requests-section">
-        <DepartmentRequests />
-      </div>
+      {!isTeamLeader && (
+        <div id="requests-section">
+          <DepartmentRequests />
+        </div>
+      )}
+
+
+
 
 
     </div>

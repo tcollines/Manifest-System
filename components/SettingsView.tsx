@@ -296,11 +296,11 @@ const SettingsView: React.FC<SettingsViewProps> = ({ users = [], openModal, onDe
                                         </td>
                                         <td className="px-6 py-4">
                                             <span className={`px-2 py-1 rounded-full text-xs font-bold ${user.role === 'Administrator' ? 'bg-purple-100 text-purple-700' :
-                                                    user.role === 'Lead' ? 'bg-blue-100 text-blue-700' :
-                                                        user.role === 'TeamLeader' ? 'bg-orange-100 text-orange-700' :
-                                                            user.role === 'Reg. Admin' ? 'bg-indigo-100 text-indigo-700' :
-                                                                user.role === 'Member' ? 'bg-green-100 text-green-700' :
-                                                                    'bg-gray-100 text-gray-600'
+                                                user.role === 'Head of Dept' ? 'bg-blue-100 text-blue-700' :
+                                                    user.role === 'TeamLeader' ? 'bg-orange-100 text-orange-700' :
+                                                        user.role === 'Reg. Admin' ? 'bg-indigo-100 text-indigo-700' :
+                                                            user.role === 'Member' ? 'bg-green-100 text-green-700' :
+                                                                'bg-gray-100 text-gray-600'
                                                 }`}>{user.role}</span>
                                         </td>
                                         <td className="px-6 py-4 text-sm text-gray-600">

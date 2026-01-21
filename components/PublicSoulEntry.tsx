@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
 import { Globe, ArrowLeft, CheckCircle } from 'lucide-react';
 import SoulEntryForm from './SoulEntryForm';
 import { EventStore } from '../database/eventStore';
@@ -7,7 +6,10 @@ import { SoulsStore } from '../database/soulsStore';
 import { MinistryEvent, Soul } from '../types';
 
 const PublicSoulEntry: React.FC = () => {
-    const { eventId } = useParams<{ eventId: string }>();
+    // Manually parse ID from URL since we aren't using React Router provider
+    const pathParts = window.location.pathname.split('/');
+    // Assuming /collect-souls/:eventId
+    const eventId = pathParts.find(part => part.startsWith('evt-')) || pathParts[pathParts.length - 1];
     const [eventData, setEventData] = useState<MinistryEvent | null>(null);
     const [status, setStatus] = useState<'loading' | 'active' | 'success' | 'error'>('loading');
     const [errorMsg, setErrorMsg] = useState('');

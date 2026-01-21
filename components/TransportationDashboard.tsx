@@ -34,8 +34,10 @@ import {
     Phone,
     ArrowLeft,
     LayoutList,
-    Activity
+    Activity,
+    Package
 } from 'lucide-react';
+import { AssetsTab } from './AssetsTab';
 
 
 import { GoogleMap, useJsApiLoader, Marker, Polyline } from '@react-google-maps/api';
@@ -67,8 +69,8 @@ interface TrackedVehicle extends Omit<Vehicle, 'status'> {
 }
 
 const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ currentUser, events = MOCK_EVENTS, onOpenModal }) => {
-    const [activeTab, setActiveTab] = useState<'overview' | 'coordinators'>(() =>
-        (localStorage.getItem('transportation_active_tab') as 'overview' | 'coordinators') || 'overview'
+    const [activeTab, setActiveTab] = useState<'overview' | 'coordinators' | 'assets'>(() =>
+        (localStorage.getItem('transportation_active_tab') as 'overview' | 'coordinators' | 'assets') || 'overview'
     );
 
     // Persist activeTab changes
@@ -104,7 +106,7 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
     const lastLocationUpdate = useRef(0);
     const [dbStations, setDbStations] = useState<ExtendedStation[]>([]);
 
-    // --- LEAD DETAIL VIEW STATE ---
+    // --- HEAD OF DEPT DETAIL VIEW STATE ---
     const [adminViewMode, setAdminViewMode] = useState<'list' | 'detail'>('list');
     const [selectedAdminVehicle, setSelectedAdminVehicle] = useState<TrackedVehicle | null>(null);
     const [adminVehiclePassengers, setAdminVehiclePassengers] = useState<Passenger[]>([]);
@@ -152,7 +154,7 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
                     setPassengers([]);
                 }
             } else {
-                // Lead View Data Logic
+                // Head of Dept View Data Logic
                 const stations = await LogisticsStore.getStations();
                 setDbStations(stations);
 
@@ -563,7 +565,7 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
                 <div className="p-8 flex flex-col items-center justify-center h-full text-center animate-in fade-in">
                     <div className="bg-gray-100 p-6 rounded-full mb-4"><Bus className="w-12 h-12 text-gray-400" /></div>
                     <h2 className="text-2xl font-bold text-ministry-text">No Vehicle Assigned</h2>
-                    <p className="text-gray-500 mt-2 max-w-md">You have not been assigned a vehicle for the current operation yet. Please contact the Transportation Lead.</p>
+                    <p className="text-gray-500 mt-2 max-w-md">You have not been assigned a vehicle for the current operation yet. Please contact the Transportation Head of Dept.</p>
                     <button onClick={() => refreshData()} className="mt-6 flex items-center text-ministry-orange hover:underline font-bold">
                         <RefreshCw className="w-4 h-4 mr-2" /> Refresh Status
                     </button>
@@ -887,7 +889,7 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
         );
     }
 
-    // --- LEAD VIEW (Standard Admin) ---
+    // --- HEAD OF DEPT VIEW (Standard Admin) ---
     const activeVehicles = vehicles.filter(v => filterStatus === 'All' ? true : v.status === filterStatus);
     const filteredEvents = events.filter(e => e.type === 'Event');
 
@@ -960,13 +962,23 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
                         <Users className={`w-4 h-4 ${activeTab === 'coordinators' ? 'text-ministry-neon' : ''}`} />
                         <span>Vehicle Coordinators</span>
                     </button>
+                    <button
+                        onClick={() => setActiveTab('assets')}
+                        className={`flex items-center space-x-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all ${activeTab === 'assets'
+                            ? 'bg-black text-white shadow-md'
+                            : 'text-gray-500 hover:text-gray-900'
+                            }`}
+                    >
+                        <Package className={`w-4 h-4 ${activeTab === 'assets' ? 'text-ministry-neon' : ''}`} />
+                        <span>Assets</span>
+                    </button>
                 </div>
             )}
 
             {/* === OVERVIEW TAB === */}
             {activeTab === 'overview' && (
                 <>
-                    {/* LEAD DETAIL VIEW */}
+                    {/* HEAD OF DEPT DETAIL VIEW */}
                     {adminViewMode === 'detail' && selectedAdminVehicle ? (
                         <div className="animate-in fade-in slide-in-from-bottom-4">
                             <button onClick={handleBackToFleet} className="mb-4 flex items-center text-gray-500 hover:text-ministry-orange font-bold text-sm">
@@ -1463,6 +1475,16 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
                         )
                     }
                 </div >
+            )}
+
+            {/* === ASSETS TAB === */}
+            {activeTab === 'assets' && (
+                <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-1">
+                    <AssetsTab
+                        currentUser={currentUser || { id: 'viewer', name: 'Viewer', role: 'Viewer' } as User}
+                        departmentId={isCoordinatorView ? 'd5' : undefined}
+                    />
+                </div>
             )}
 
             <EventDetailsModal

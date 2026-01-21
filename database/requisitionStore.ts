@@ -1,4 +1,4 @@
-import { Requisition, RequisitionItem } from '../types';
+import { Requisition, RequisitionItem, RequisitionPayment } from '../types';
 import { supabase } from '../services/supabaseClient';
 
 export const RequisitionStore = {
@@ -128,7 +128,7 @@ export const RequisitionStore = {
         }
     },
 
-    updateStatus: async (id: string, status: 'Approved' | 'Rejected' | 'Paid' | 'Pending Finance', reason?: string): Promise<void> => {
+    updateStatus: async (id: string, status: 'Approved' | 'Rejected' | 'Paid' | 'Pending Finance' | 'Pending Team Leader', reason?: string): Promise<void> => {
         const updateData: any = { status, updated_at: new Date().toISOString() };
         if (reason) updateData.rejection_reason = reason;
 

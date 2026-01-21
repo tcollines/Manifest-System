@@ -16,7 +16,8 @@ import {
   Map,
   Globe,
   X,
-  FileText
+  FileText,
+  Package
 } from 'lucide-react';
 import { ModalType, User } from '../types';
 
@@ -32,11 +33,11 @@ interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, currentUser, onLogout, isOpen, onClose }) => {
 
   // Custom Menus based on Department Leads
-  const isRegistrationLead = currentUser.role === 'Lead' && currentUser.departmentId === 'd1';
-  const isNextGenLead = currentUser.role === 'Lead' && currentUser.departmentId === 'd2';
-  const isParkingLead = currentUser.role === 'Lead' && currentUser.departmentId === 'd3';
-  const isFinanceLead = currentUser.role === 'Lead' && currentUser.departmentId === 'd4';
-  const isTransportationLead = currentUser.role === 'Lead' && currentUser.departmentId === 'd5';
+  const isRegistrationHead = currentUser.role === 'Head of Dept' && currentUser.departmentId === 'd1';
+  const isNextGenHead = currentUser.role === 'Head of Dept' && currentUser.departmentId === 'd2';
+  const isParkingHead = currentUser.role === 'Head of Dept' && currentUser.departmentId === 'd3';
+  const isFinanceHead = currentUser.role === 'Head of Dept' && currentUser.departmentId === 'd4';
+  const isTransportationHead = currentUser.role === 'Head of Dept' && currentUser.departmentId === 'd5';
   const isCoordinator = currentUser.role === 'Coordinator';
   const isLogisticsEntrant = currentUser.role === 'Logistics';
   const isTeamLeader = currentUser.role === 'TeamLeader';
@@ -50,35 +51,40 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, currentUser,
     ];
   };
 
-  if (isRegistrationLead) {
+  if (isRegistrationHead) {
     menuItems = [
       { id: 'registration', label: 'Registration Dashboard', icon: ClipboardCheck },
       { id: 'settings', label: 'Team Management', icon: Users },
       { id: 'requisitions', label: 'Requisitions', icon: FileText },
+      { id: 'assets', label: 'Assets', icon: Package },
     ];
-  } else if (isNextGenLead) {
+  } else if (isNextGenHead) {
     menuItems = [
       { id: 'next-gen', label: 'Next Gen Dashboard', icon: Baby },
       { id: 'settings', label: 'Team Management', icon: Users },
       { id: 'requisitions', label: 'Requisitions', icon: FileText },
+      { id: 'assets', label: 'Assets', icon: Package },
     ];
-  } else if (isParkingLead) {
+  } else if (isParkingHead) {
     menuItems = [
       { id: 'parking', label: 'Parking Dashboard', icon: Car },
       { id: 'settings', label: 'Team Management', icon: Users },
       { id: 'requisitions', label: 'Requisitions', icon: FileText },
+      { id: 'assets', label: 'Assets', icon: Package },
     ];
-  } else if (isTransportationLead) {
+  } else if (isTransportationHead) {
     menuItems = [
       { id: 'transportation', label: 'Transportation Dashboard', icon: Bus },
       { id: 'settings', label: 'Team Management', icon: Users },
       { id: 'requisitions', label: 'Requisitions', icon: FileText },
+      { id: 'assets', label: 'Assets', icon: Package },
     ];
-  } else if (isFinanceLead) {
+  } else if (isFinanceHead) {
     menuItems = [
       { id: 'finance', label: 'Finance Dashboard', icon: CreditCard },
       { id: 'settings', label: 'Team Management', icon: Users },
       { id: 'requisitions', label: 'Requisitions', icon: FileText },
+      { id: 'assets', label: 'Assets', icon: Package },
     ];
   } else if (isCoordinator) {
     menuItems = [
@@ -95,18 +101,22 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, currentUser,
       { id: 'departments', label: 'Departments', icon: Users },
       { id: 'events', label: 'Events & Services', icon: Calendar },
       { id: 'reports', label: 'Reports', icon: BarChart2 },
+      { id: 'requisitions', label: 'Requisitions', icon: FileText },
+      { id: 'assets', label: 'Assets', icon: Package },
       { id: 'manifest-settings', label: 'Manifest Settings', icon: Map }, // Extra Tab
       { id: 'settings', label: 'Settings', icon: Settings },
     ];
   } else {
     // Standard logic for Admin and others
     const allMenuItems = [
-      { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['Administrator', 'Lead', 'Staff', 'Volunteer'] },
+      { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['Administrator', 'Head of Dept', 'Staff', 'Volunteer'] },
       // Finance removed from main sidebar for Admin, accessed via Department Card
       { id: 'departments', label: 'Departments', icon: Users, roles: ['Administrator'] },
-      { id: 'events', label: 'Events & Services', icon: Calendar, roles: ['Administrator', 'Lead', 'Staff'] },
-      { id: 'reports', label: 'Reports', icon: BarChart2, roles: ['Administrator', 'Lead'] },
-      { id: 'settings', label: 'Settings', icon: Settings, roles: ['Administrator', 'Lead', 'Staff', 'Volunteer'] },
+      { id: 'events', label: 'Events & Services', icon: Calendar, roles: ['Administrator', 'Head of Dept', 'Staff'] },
+      { id: 'reports', label: 'Reports', icon: BarChart2, roles: ['Administrator', 'Head of Dept'] },
+      { id: 'requisitions', label: 'Requisitions', icon: FileText, roles: ['Administrator', 'Head of Dept', 'Staff'] },
+      { id: 'assets', label: 'Assets', icon: Package, roles: ['Administrator', 'Head of Dept'] },
+      { id: 'settings', label: 'Settings', icon: Settings, roles: ['Administrator', 'Head of Dept', 'Staff', 'Volunteer'] },
     ];
 
     menuItems = allMenuItems.filter(item => {
