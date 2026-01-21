@@ -4,7 +4,7 @@ import { ShieldCheck, Globe, Instagram, Facebook, Twitter, ArrowRight, KeyRound,
 import { supabase } from '../services/supabaseClient';
 
 interface SignInProps {
-  onLogin: (username: string, password: string) => void;
+  onLogin: (username: string, password: string) => Promise<void>;
   error?: string | null;
 }
 
@@ -20,14 +20,16 @@ const SignIn: React.FC<SignInProps> = ({ onLogin, error }) => {
   const [resetStatus, setResetStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
   const [resetMessage, setResetMessage] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    // Simulate network delay for effect
-    setTimeout(() => {
-      onLogin(username, password);
+    try {
+      await onLogin(username, password);
+    } catch (err) {
+      console.error("Login call failed in UI", err);
+    } finally {
       setIsLoading(false);
-    }, 800);
+    }
   };
 
   const handleForgotPassword = async (e: React.FormEvent) => {

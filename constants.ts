@@ -63,7 +63,19 @@ export const MOCK_EVENTS: MinistryEvent[] = [
     stats: { attendees: 2000, firstTimers: 150, soulsWon: 50, students: 1800 }
   }
 ];
-export const MOCK_USERS: User[] = [];
+export const MOCK_USERS: User[] = [
+  {
+    id: 'mock-admin',
+    name: 'System Admin',
+    role: 'Super Admin',
+    departmentId: 'd0',
+    username: 'admin',
+    password: 'password123',
+    contact: '000-000-0000',
+    email: 'admin@ministry.com',
+    status: 'Active'
+  }
+];
 export const MOCK_MEMBERS: Member[] = [];
 export const MOCK_CHILDREN: Child[] = [];
 export const MOCK_PERSONAL_VEHICLES: PersonalVehicle[] = [];
