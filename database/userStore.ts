@@ -100,10 +100,9 @@ export const UserStore = {
       const { error } = await supabase.from('users').insert([mapUserToDB(user)]);
       if (error) throw new Error('Error adding user: ' + error.message);
       return UserStore.getAll();
-    } catch (e) {
-      console.error(e);
-      // Fallback simulation
-      return [...MOCK_USERS, user];
+    } catch (e: any) {
+      console.error("UserStore Add Error:", e);
+      throw e; // Re-throw to let the UI know it failed
     }
   },
 

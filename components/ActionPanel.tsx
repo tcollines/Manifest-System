@@ -125,7 +125,7 @@ const ActionPanel: React.FC<ActionPanelProps> = ({ modalType, closeModal, onSave
 
         // 2. Create User Profile FIRST
         const newUser: User = {
-          id: `u-${Date.now()}`,
+          id: crypto.randomUUID(),
           name: formData.fullname,
           role: formData.role,
           departmentId: formData.departmentId,
