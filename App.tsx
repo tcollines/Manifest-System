@@ -26,6 +26,7 @@ import { EventStore } from './database/eventStore';
 import { Bell, Search, Menu } from 'lucide-react';
 import { supabase } from './services/supabaseClient';
 import TeamLeaderRequisitions from './components/TeamLeaderRequisitions';
+import SchoolsDashboard from './components/SchoolsDashboard';
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -63,7 +64,9 @@ const App: React.FC = () => {
       case 'd3': return 'parking';
       case 'd4': return 'finance';
       case 'd5': return 'transportation';
+      case 'd5': return 'transportation';
       case 'd6': return 'follow-up';
+      case 'd7': return 'schools';
       default: return 'team-dashboard'; // Fallback for members/leaders without specific department dashboard
     }
   };
@@ -156,6 +159,8 @@ const App: React.FC = () => {
             else if (matchingUser.role === 'Coordinator') setActiveTab('transportation');
             else if (matchingUser.role === 'Team Leader') setActiveTab('team-dashboard'); // Fixed role string
             else if (matchingUser.role === 'Dept Admin') setActiveTab('registration'); // Updated from Reg. Admin
+            else if (matchingUser.role === 'Next Gen Member') setActiveTab('next-gen');
+            else if (matchingUser.role === 'Member' && matchingUser.departmentId === 'd2') setActiveTab('next-gen');
             else if (matchingUser.role === 'Member') setActiveTab('registration');
             else setActiveTab('dashboard');
           }
@@ -434,11 +439,12 @@ const App: React.FC = () => {
             />
           )}
           {activeTab === 'registration' && <RegistrationDashboard events={events} currentUser={currentUser} onOpenModal={setModalType} />}
-          {activeTab === 'next-gen' && <NextGenDashboard events={events} onOpenModal={setModalType} />}
+          {activeTab === 'next-gen' && <NextGenDashboard events={events} currentUser={currentUser} onOpenModal={setModalType} />}
           {activeTab === 'transportation' && <TransportationDashboard currentUser={currentUser} events={events} onOpenModal={setModalType} />}
           {activeTab === 'finance' && <FinanceDashboard currentUser={currentUser} onOpenModal={setModalType} />}
           {activeTab === 'follow-up' && <FollowUpDashboard onOpenModal={setModalType} />}
           {activeTab === 'parking' && <ParkingDashboard events={events} onOpenModal={setModalType} />}
+          {activeTab === 'schools' && <SchoolsDashboard currentUser={currentUser} onOpenModal={setModalType} />}
           {activeTab === 'requisitions' && (
             currentUser?.role === 'TeamLeader'
               ? <TeamLeaderRequisitions currentUser={currentUser} />

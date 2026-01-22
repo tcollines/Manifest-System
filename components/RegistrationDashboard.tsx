@@ -70,6 +70,8 @@ interface RegistrationDashboardProps {
 type Tab = 'checkin' | 'events' | 'database';
 type ViewMode = 'list' | 'service-active' | 'service-review' | 'Vehicle-view' | 'station-detail' | 'register-new' | 'bulk-import' | 'bulk-import-members' | 'member-detail';
 
+
+
 const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, currentUser, onOpenModal }) => {
   /* Persistence Logic */
   const [activeTab, setActiveTab] = useState<Tab>(() =>
@@ -127,6 +129,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
 
   // Add Station Form State
   const [isAddStationOpen, setIsAddStationOpen] = useState(false);
+
   const initialStationForm = {
     name: '',
     location: '',
@@ -229,6 +232,8 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
   // Member Details View State
   const [selectedMemberDetails, setSelectedMemberDetails] = useState<{ member: Member, attendedCount: number, totalServices: number, history: any[] } | null>(null);
   const [isEditingMember, setIsEditingMember] = useState(false);
+
+
 
 
 
@@ -336,15 +341,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
 
 
 
-  // Helper for contact validation
-  const validateContact = (val: string) => {
-    let digits = val.replace(/\D/g, '');
-    if (digits.length > 12) digits = digits.slice(0, 12);
-    if (digits.length > 0 && !digits.startsWith('256')) {
-      return '256';
-    }
-    return digits;
-  };
+
 
   const handleSelectStation = async (station: ExtendedStation) => {
     setSelectedStation(station);
@@ -1181,12 +1178,23 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
       return;
     }
 
+    // Contact Logic: Check if "Parent Contact" was selected
+    let finalContact = passengerForm.contact;
+    let finalParentContact = undefined;
+
+    // Use type casting to check the temporary UI flag we added
+    if ((passengerForm as any).isParentContact === true) {
+      finalParentContact = passengerForm.contact; // The input value goes to parentContact
+      finalContact = ''; // Clear regular contact
+    }
+
     const newPassenger: Passenger = {
       id: `p-${Date.now()}`,
       vehicleId: selectedVehicle.id,
       name: passengerForm.name,
       category: passengerForm.category as 'Member' | 'Student' | 'Institution',
-      contact: passengerForm.contact, // Validated on input
+      contact: finalContact, // Use processed contact 
+      parentContact: finalParentContact, // Use processed parent contact
       residence: passengerForm.residence,
       isFirstTime: passengerForm.isFirstTime as 'Yes' | 'No',
       verified: false,
@@ -2711,6 +2719,51 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
                   <input required value={passengerForm.residence} onChange={e => setPassengerForm({ ...passengerForm, residence: e.target.value })} className="w-full p-3 border rounded-xl bg-white" />
                 </div>
               </div>
+
+              {/* New Contact Type Selector for Students */}
+              {passengerForm.category === 'Student' && (
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700">Contact Type</label>
+                  <div className="flex gap-4">
+                    <label className="flex items-center space-x-2 cursor-pointer bg-gray-50 px-4 py-2 rounded-lg border border-gray-200">
+                      <input
+                        type="radio"
+                        name="contactType"
+                        value="Personal"
+                        checked={!passengerForm.parentContact} // If parentContact is empty/undefined, it's Personal (default logic)
+                        onChange={() => {
+                          // Clearing parent contact implies personal contact is now primary
+                          setPassengerForm(prev => ({ ...prev, parentContact: undefined }));
+                        }}
+                        className="form-radio text-ministry-orange focus:ring-ministry-orange"
+                      />
+                      <span className="text-sm font-medium">Personal Contact</span>
+                    </label>
+                    <label className="flex items-center space-x-2 cursor-pointer bg-gray-50 px-4 py-2 rounded-lg border border-gray-200">
+                      <input
+                        type="radio"
+                        name="contactType"
+                        value="Parent"
+                        checked={(passengerForm as any).isParentContact === true}
+                        onChange={(e) => {
+                          if (e.target.value === 'Parent') {
+                            setPassengerForm(prev => ({ ...prev, isParentContact: true } as any));
+                          } else {
+                            setPassengerForm(prev => {
+                              const copy = { ...prev };
+                              delete (copy as any).isParentContact;
+                              return copy;
+                            });
+                          }
+                        }}
+                        className="form-radio text-ministry-orange focus:ring-ministry-orange"
+                      />
+                      <span className="text-sm font-medium">Parent Contact</span>
+                    </label>
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-2">
                 <label className="text-sm font-bold text-gray-700">Are you going with us for the first time?</label>
                 <select value={passengerForm.isFirstTime} onChange={e => setPassengerForm({ ...passengerForm, isFirstTime: e.target.value })} className="w-full p-3 border rounded-xl bg-white">
@@ -2827,118 +2880,6 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
         </div>
       )}
 
-      {/* Add Event/Service Modal */}
-      {isAddEventOpen && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-white w-full max-w-md p-8 rounded-2xl shadow-2xl">
-            <h3 className="text-xl font-bold mb-4">
-              {eventFormType === 'Service' ? 'Create New Service' : 'Plan New Event'}
-            </h3>
-            <form onSubmit={handleAddEvent} className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-sm font-bold text-gray-700">Title / Theme</label>
-                <input
-                  required
-                  value={eventForm.title}
-                  onChange={e => setEventForm({ ...eventForm, title: e.target.value })}
-                  className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:border-ministry-orange outline-none transition-all"
-                  placeholder={eventFormType === 'Service' ? "e.g. Sunday Service" : "e.g. Men's Conference"}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-gray-700">Date</label>
-                  <input
-                    type="date"
-                    required
-                    value={eventForm.date}
-                    onChange={e => setEventForm({ ...eventForm, date: e.target.value })}
-                    className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 outline-none"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-gray-700">Time</label>
-                  <input
-                    type="time"
-                    required
-                    value={eventForm.time}
-                    onChange={e => setEventForm({ ...eventForm, time: e.target.value })}
-                    className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 outline-none"
-                  />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-bold text-gray-700">Location</label>
-                <input
-                  required
-                  value={eventForm.location}
-                  onChange={e => setEventForm({ ...eventForm, location: e.target.value })}
-                  className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 outline-none"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-bold text-gray-700">Description (Optional)</label>
-                <textarea
-                  value={eventForm.description}
-                  onChange={e => setEventForm({ ...eventForm, description: e.target.value })}
-                  className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 outline-none h-24 resize-none"
-                  placeholder="Details about this gathering..."
-                />
-              </div>
-              <div className="flex justify-end pt-4 gap-3">
-                <button type="button" onClick={() => setIsAddEventOpen(false)} className="px-4 py-2 text-gray-600 font-bold hover:bg-gray-100 rounded-lg">Cancel</button>
-                <button type="submit" className="px-6 py-2 bg-ministry-text text-white font-bold rounded-xl hover:bg-ministry-orange transition-colors shadow-md">
-                  Create {eventFormType}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-      {/* Add Children Modal */}
-      {isAddChildrenOpen && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-white w-full max-w-sm p-8 rounded-2xl shadow-2xl">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-3 bg-orange-100 rounded-xl text-ministry-orange">
-                <Baby className="w-6 h-6" />
-              </div>
-              <h3 className="text-xl font-bold text-gray-900">Children Count</h3>
-            </div>
-            <form onSubmit={handleUpdateChildrenCount} className="space-y-6">
-              <div className="space-y-2">
-                <label className="text-sm font-bold text-gray-700">Number of Children</label>
-                <input
-                  type="number"
-                  required
-                  min="0"
-                  autoFocus
-                  value={childrenForm.count}
-                  onChange={e => setChildrenForm({ count: e.target.value })}
-                  className="w-full p-4 border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:border-ministry-orange outline-none transition-all text-2xl font-bold text-center"
-                  placeholder="0"
-                />
-                <p className="text-xs text-gray-500 italic">Enter the total number of children traveling in this vehicle.</p>
-              </div>
-              <div className="flex justify-end gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setIsAddChildrenOpen(false)}
-                  className="px-5 py-2.5 text-gray-600 font-bold hover:bg-gray-100 rounded-xl transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-6 py-2.5 bg-ministry-orange text-white font-bold rounded-xl hover:bg-orange-600 transition-colors shadow-lg shadow-orange-100"
-                >
-                  Save Count
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
       {/* Highlights Modal */}
       <EventDetailsModal
         event={showHighlights ? highlightEvent : null}

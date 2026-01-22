@@ -29,6 +29,7 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({ event, onClose })
     institutions: 0,
     attendees: 0,
     firstTimers: 0,
+    soulsWon: 0,
     children: 0,
     expenditure: '0'
   });
@@ -70,6 +71,9 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({ event, onClose })
         const childrenCount = eventVehicles.reduce((sum, v) => sum + (v.childrenCount || 0), 0);
         const totalAttendees = eventPassengers.length + childrenCount; // Passengers + Children
 
+        // Calculate Souls Won from Passenger flags + any event level tracking
+        const soulsWonCount = eventPassengers.filter(p => p.soulWon).length;
+
         // Calculate Expenditure
         const totalExpenditure = eventVehicles.reduce((sum, v) => {
           // In FinanceDashboard, 'Total Paid' or 'Vehicle Cost' is represented by ongoingDispatch 
@@ -85,6 +89,7 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({ event, onClose })
           institutions: eventPassengers.filter(p => p.category === 'Institution').length,
           attendees: totalAttendees,
           firstTimers: firstTimersCount,
+          soulsWon: soulsWonCount,
           children: childrenCount,
           expenditure: totalExpenditure.toLocaleString()
         });
@@ -130,7 +135,7 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({ event, onClose })
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
             <StatCard label="Total Attendees" value={stats.attendees} icon={Users} colorClass="bg-blue-500" />
             <StatCard label="First Timers" value={stats.firstTimers} icon={Users} colorClass="bg-green-500" />
-            <StatCard label="Souls Won" value={event.stats.soulsWon} icon={Heart} colorClass="bg-red-500" />
+            <StatCard label="Souls Won" value={stats.soulsWon || event.stats.soulsWon || 0} icon={Heart} colorClass="bg-red-500" />
 
             {/* Dynamic Stats */}
             <StatCard label="Vehicles" value={stats.vehicles} icon={Bus} colorClass="bg-yellow-500" />
@@ -183,7 +188,7 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({ event, onClose })
                                 <div class="grid">
                                     <div class="card"><div class="label">Total Attendees</div><div class="value">${stats.attendees}</div></div>
                                     <div class="card"><div class="label">First Timers</div><div class="value">${stats.firstTimers}</div></div>
-                                    <div class="card"><div class="label">Souls Won</div><div class="value">${event.stats?.soulsWon || 0}</div></div>
+                                    <div class="card"><div class="label">Souls Won</div><div class="value">${stats.soulsWon || event.stats?.soulsWon || 0}</div></div>
                                     <div class="card"><div class="label">Vehicles</div><div class="value">${stats.vehicles}</div></div>
                                     <div class="card"><div class="label">Students</div><div class="value">${stats.students}</div></div>
                                     <div class="card"><div class="label">Institutions</div><div class="value">${stats.institutions}</div></div>

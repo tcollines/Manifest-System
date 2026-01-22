@@ -1,11 +1,12 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { MOCK_EVENTS, PICKUP_STATIONS } from '../constants';
-import { MinistryEvent, Vehicle, User, Passenger, JourneyStage, ModalType } from '../types';
+import { MinistryEvent, Vehicle, User, Passenger, JourneyStage, ModalType, Soul } from '../types';
 import EventDetailsModal from './EventDetailsModal';
 import { VehicleStore } from '../database/vehicleStore';
 import { UserStore } from '../database/userStore';
 import { LogisticsStore, ExtendedStation } from '../database/logisticsStore';
+import { SoulsStore } from '../database/soulsStore';
 import { supabase } from '../services/supabaseClient';
 import { validateContact, isEventLocked } from '../utils';
 import {
@@ -35,7 +36,8 @@ import {
     ArrowLeft,
     LayoutList,
     Activity,
-    Package
+    Package,
+    Heart
 } from 'lucide-react';
 import { AssetsTab } from './AssetsTab';
 
@@ -411,6 +413,50 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
             const resetPassengers = passengers.map(p => ({ ...p, verified: false }));
             resetPassengers.forEach(p => VehicleStore.updatePassenger(p));
             setPassengers(resetPassengers);
+        }
+    };
+
+
+
+    const handleMarkSoulWon = async (passengerId: string) => {
+        const p = passengers.find(p => p.id === passengerId);
+        if (!p || !myVehicle) return;
+
+        const newSoulWonStatus = !p.soulWon;
+        const updatedPassenger = { ...p, soulWon: newSoulWonStatus };
+
+        // Update local and DB
+        setPassengers(passengers.map(pas => pas.id === passengerId ? updatedPassenger : pas));
+        await VehicleStore.updatePassenger(updatedPassenger);
+
+        if (newSoulWonStatus) {
+            // Add to Souls Store
+            // Helper to split name
+            const nameParts = p.name.split(' ');
+            const firstName = nameParts[0];
+            const lastName = nameParts.slice(1).join(' ') || 'Unknown';
+
+            const newSoul: Soul = {
+                id: `s-${Date.now()}`,
+                firstName,
+                lastName,
+                phone: p.contact,
+                gender: p.gender || 'Male', // Fallback
+                residence: p.residence,
+                status: 'New',
+                sourceType: 'Event',
+                sourceId: selectedEventId,
+                capturedBy: currentUser?.name || 'Vehicle Coordinator',
+                createdAt: new Date().toISOString()
+            };
+
+            try {
+                await SoulsStore.add(newSoul);
+                // Ideally show toast
+                console.log("Soul added to Follow Up");
+            } catch (error) {
+                console.error("Failed to add soul", error);
+            }
         }
     };
 
@@ -791,16 +837,16 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
                                                                 <p className="text-xs text-gray-400">{p.category}</p>
                                                             </div>
                                                         </div>
-                                                        {activeJourneyTab === 'Return' && myVehicle.currentStage === 'Verifying' && (
+                                                        {activeJourneyTab === 'Return' && (myVehicle.currentStage === 'Verifying' || myVehicle.currentStage === 'Onboarding') && (
                                                             <button
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
-                                                                    handleRemovePassenger(p.id);
+                                                                    handleMarkSoulWon(p.id);
                                                                 }}
-                                                                className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                                                                title="Remove Passenger"
+                                                                className={`p-2 rounded-lg transition-colors ${p.soulWon ? 'text-red-500 bg-red-50' : 'text-gray-300 hover:text-red-400 hover:bg-red-50'}`}
+                                                                title={p.soulWon ? "Unmark Soul Won" : "Mark as Soul Won"}
                                                             >
-                                                                <Trash2 className="w-4 h-4" />
+                                                                <Heart className={`w-5 h-5 ${p.soulWon ? 'fill-current' : ''}`} />
                                                             </button>
                                                         )}
                                                     </div>
@@ -847,9 +893,19 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
                                                     </button>
                                                 ) : (
                                                     <button
-                                                        onClick={() => handleStageUpdate(activeJourneyTab === 'Ongoing' ? 'RegApproval' : 'FinanceApproval')}
-                                                        className="bg-ministry-orange text-white px-6 py-3 rounded-xl font-bold flex items-center hover:bg-orange-600 shadow-lg transition-all"
-                                                        disabled={passengers.some(p => !p.verified)}
+                                                        onClick={() => {
+                                                            const unverifiedCount = passengers.filter(p => !p.verified).length;
+                                                            if (activeJourneyTab === 'Return' && unverifiedCount > 0) {
+                                                                const verifiedCount = passengers.length - unverifiedCount;
+                                                                if (window.confirm(`You have confirmed ${verifiedCount}/${passengers.length} members. Are you sure you want to continue?`)) {
+                                                                    handleStageUpdate('FinanceApproval');
+                                                                }
+                                                            } else {
+                                                                handleStageUpdate(activeJourneyTab === 'Ongoing' ? 'RegApproval' : 'FinanceApproval');
+                                                            }
+                                                        }}
+                                                        className={`bg-ministry-orange text-white px-6 py-3 rounded-xl font-bold flex items-center hover:bg-orange-600 shadow-lg transition-all ${activeJourneyTab === 'Ongoing' && passengers.some(p => !p.verified) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                        disabled={activeJourneyTab === 'Ongoing' && passengers.some(p => !p.verified)}
                                                     >
                                                         <ShieldAlert className="w-4 h-4 mr-2" />
                                                         Approve Verification

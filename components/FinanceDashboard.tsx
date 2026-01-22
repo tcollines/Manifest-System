@@ -321,8 +321,8 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, onOpen
         let totalExpenditure = 0;
         allEventVehicles.forEach(v => {
             const bookingFee = parseFloat(v.financeDetails?.ongoingBalance || '0');
-            const returnBalance = parseFloat(v.financeDetails?.returnDispatch || '0');
-            totalExpenditure += (bookingFee + returnBalance);
+            const balancePayment = parseFloat(v.financeDetails?.returnDispatch || '0');
+            totalExpenditure += (bookingFee + balancePayment);
         });
 
         // Generate HTML
@@ -367,18 +367,18 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, onOpen
               <th>Plate</th>
               <th>Driver</th>
               <th>Contact</th>
-              <th class="money">Ongoing (Disp)</th>
-              <th class="money">Return (Disp)</th>
+              <th class="money">Booking Fee</th>
+              <th class="money">Balance</th>
               <th class="money">Total Cost</th>
               <th class="money">Balance</th>
             </tr>
           </thead>
           <tbody>
             ${allEventVehicles.map((v, i) => {
-            const ongoing = parseFloat(v.financeDetails?.ongoingDispatch || '0');
-            const ret = parseFloat(v.financeDetails?.returnDispatch || '0');
-            const total = ongoing + ret;
-            const bal = (parseFloat(v.financeDetails?.ongoingBalance || '0') + parseFloat(v.financeDetails?.returnBalance || '0'));
+            const totalCost = parseFloat(v.financeDetails?.ongoingDispatch || '0');
+            const bookingFee = parseFloat(v.financeDetails?.ongoingBalance || '0');
+            const balancePayment = parseFloat(v.financeDetails?.returnDispatch || '0');
+            const balance = totalCost - (bookingFee + balancePayment); // Should be 0 if cleared
 
             return `
                   <tr>
@@ -386,10 +386,10 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, onOpen
                     <td>${v.number_plate}</td>
                     <td>${v.driverName || '-'}</td>
                     <td>${v.driverContact || '-'}</td>
-                    <td class="money">${formatMoney(ongoing)}</td>
-                    <td class="money">${formatMoney(ret)}</td>
-                    <td class="money">${formatMoney(total)}</td>
-                    <td class="money">${formatMoney(bal)}</td>
+                    <td class="money">${formatMoney(bookingFee)}</td>
+                    <td class="money">${formatMoney(balancePayment)}</td>
+                    <td class="money">${formatMoney(totalCost)}</td>
+                    <td class="money">${formatMoney(balance)}</td>
                   </tr>
                 `;
         }).join('')}

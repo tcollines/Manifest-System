@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { DEPARTMENTS } from '../constants';
-import { MoreHorizontal, Users, Car, CreditCard, ClipboardCheck, Phone, Bus } from 'lucide-react';
+import { MoreHorizontal, Users, Car, CreditCard, ClipboardCheck, Phone, Bus, BookOpen } from 'lucide-react';
 
 interface DepartmentListProps {
   onNavigate?: (view: string) => void;
@@ -15,6 +15,7 @@ const getIcon = (name: string) => {
     case 'finance': return CreditCard;
     case 'transportation': return Bus;
     case 'follow-up': return Phone;
+    case 'schools': return BookOpen;
     default: return Users;
   }
 }
@@ -34,6 +35,8 @@ const DepartmentList: React.FC<DepartmentListProps> = ({ onNavigate }) => {
       onNavigate('parking');
     } else if (deptName.toLowerCase() === 'follow-up' && onNavigate) {
       onNavigate('follow-up');
+    } else if (deptName.toLowerCase() === 'schools' && onNavigate) {
+      onNavigate('schools');
     } else {
       alert(`Navigating to ${deptName} Dashboard... (Module under construction)`);
     }

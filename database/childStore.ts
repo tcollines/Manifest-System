@@ -11,7 +11,7 @@ const mapChildFromDB = (c: any): Child => ({
   age: c.age,
   gender: c.gender,
   residence: c.residence,
-  status: 'Absent', // Default to Absent for context-aware check-ins
+  status: c.status || 'Absent',
   checkInTime: c.check_in_time,
   checkOutTime: c.check_out_time,
   joinedDate: c.joined_date,

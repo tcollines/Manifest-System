@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Child, MinistryEvent, ModalType } from '../types';
+import { Child, MinistryEvent, ModalType, User } from '../types';
 import * as XLSX from 'xlsx';
 import { validateContact, isServiceClosed } from '../utils';
 import { EventStore } from '../database/eventStore';
@@ -27,12 +27,13 @@ import {
 interface NextGenDashboardProps {
     events?: MinistryEvent[];
     onOpenModal?: (type: ModalType) => void;
+    currentUser?: User | null;
 }
 
 type Tab = 'checkin' | 'checkout' | 'database';
 type ViewMode = 'list' | 'service-active' | 'add-child' | 'bulk-import';
 
-const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpenModal }) => {
+const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpenModal, currentUser }) => {
     const [activeTab, setActiveTab] = useState<Tab>('checkin');
     const [viewMode, setViewMode] = useState<ViewMode>('list');
     const [children, setChildren] = useState<Child[]>([]);
@@ -41,6 +42,8 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
 
     // Force re-render
     const [, forceUpdate] = useState(0);
+
+    const isRestrictedUser = currentUser?.role === 'Next Gen Member' || currentUser?.role === 'Member';
 
     const refreshData = async () => {
         const data = await ChildStore.getAll();
@@ -320,16 +323,18 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                         <LogOut className={`w-4 h-4 ${activeTab === 'checkout' ? 'text-ministry-neon' : ''}`} />
                         <span>Check-Out</span>
                     </button>
-                    <button
-                        onClick={() => setActiveTab('database')}
-                        className={`flex items-center space-x-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${activeTab === 'database'
-                            ? 'bg-black text-white shadow-md'
-                            : 'text-gray-500 hover:text-gray-900'
-                            }`}
-                    >
-                        <Users className={`w-4 h-4 ${activeTab === 'database' ? 'text-ministry-neon' : ''}`} />
-                        <span>Database</span>
-                    </button>
+                    {!isRestrictedUser && (
+                        <button
+                            onClick={() => setActiveTab('database')}
+                            className={`flex items-center space-x-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${activeTab === 'database'
+                                ? 'bg-black text-white shadow-md'
+                                : 'text-gray-500 hover:text-gray-900'
+                                }`}
+                        >
+                            <Users className={`w-4 h-4 ${activeTab === 'database' ? 'text-ministry-neon' : ''}`} />
+                            <span>Database</span>
+                        </button>
+                    )}
                 </div>
             )}
 
@@ -610,13 +615,23 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                                         Recently Checked In
                                     </h3>
                                     <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                        {children.filter(c => selectedService && c.attendedServiceIds.includes(selectedService.id)).slice(0, 6).map(c => (
-                                            <div key={c.id} className="bg-green-50 border border-green-100 p-4 rounded-xl flex justify-between items-center">
+                                        {children.filter(c => selectedService && (c.attendedServiceIds.includes(selectedService.id) || c.status === 'Checked In')).slice(0, 6).map(c => (
+                                            <div key={c.id} className="bg-green-50 border border-green-100 p-4 rounded-xl flex justify-between items-center group">
                                                 <div>
                                                     <p className="font-bold text-green-900">{c.name}</p>
                                                     <p className="text-xs text-green-700">Checked in at {c.checkInTime || 'Recently'}</p>
                                                 </div>
-                                                <Smile className="w-5 h-5 text-green-500" />
+                                                <div className="flex items-center space-x-2">
+                                                    <span className="p-2 bg-white rounded-full"><Smile className="w-5 h-5 text-green-500" /></span>
+                                                    {activeTab === 'checkout' && (
+                                                        <button
+                                                            onClick={() => handleCheckOut(c.id)}
+                                                            className="text-xs font-bold bg-white border border-green-200 text-green-700 py-1.5 px-3 rounded-lg hover:bg-green-100 transition-colors shadow-sm"
+                                                        >
+                                                            Check Out
+                                                        </button>
+                                                    )}
+                                                </div>
                                             </div>
                                         ))}
                                     </div>

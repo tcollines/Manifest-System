@@ -186,6 +186,8 @@ export interface Passenger {
   studentClass?: string;
   boardingType?: 'Day' | 'Boarding';
   gender?: 'Male' | 'Female';
+  soulWon?: boolean;
+  parentContact?: string;
 }
 
 export interface PickUpStation {
@@ -292,4 +294,24 @@ export interface Requisition {
   rejectionReason?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface SchoolOutreachReport {
+  id: string;
+  date: string;
+  centreName: string; // Outreach Centre
+  purpose: string;
+  labourers: {
+    name: string;
+    contact: string;
+  }[];
+  totalAttendance: number;
+  teachersAttendance: number;
+  studentsAttendance: number;
+  soulsWon: number;
+  sermonTitle: string;
+  scriptureReferences: string;
+  notes?: string;
+  submittedBy: string; // User ID
+  submittedAt: string;
 }

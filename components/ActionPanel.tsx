@@ -131,8 +131,8 @@ const ActionPanel: React.FC<ActionPanelProps> = ({ modalType, closeModal, onSave
           departmentId: formData.departmentId,
           contact: formData.contact,
           email: formData.email,
-          username: '', // Not set yet (triggers Setup flow)
-          password: '',  // Not set yet
+          username: undefined, // Not set yet (triggers Setup flow)
+          password: undefined,  // Not set yet
           invitationToken: invitationToken,
           status: 'Pending'
         };

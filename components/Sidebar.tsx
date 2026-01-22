@@ -17,7 +17,8 @@ import {
   Globe,
   X,
   FileText,
-  Package
+  Package,
+  BookOpen
 } from 'lucide-react';
 import { ModalType, User } from '../types';
 
@@ -38,20 +39,22 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, currentUser,
   const isParkingHead = currentUser.role === 'Head of Dept' && currentUser.departmentId === 'd3';
   const isFinanceHead = currentUser.role === 'Head of Dept' && currentUser.departmentId === 'd4';
   const isTransportationHead = currentUser.role === 'Head of Dept' && currentUser.departmentId === 'd5';
+  const isSchoolsHead = currentUser.role === 'Head of Dept' && currentUser.departmentId === 'd7';
   const isCoordinator = currentUser.role === 'Coordinator';
   const isLogisticsEntrant = currentUser.role === 'Logistics';
   const isTeamLeader = currentUser.role === 'TeamLeader';
 
   let menuItems: any[] = [];
 
-  const addRequisitions = (items: any[]) => {
-    return [
-      ...items,
-      { id: 'requisitions', label: 'Requisitions', icon: FileText }
+  // Schools Head Menu
+  if (isSchoolsHead) {
+    menuItems = [
+      { id: 'schools', label: 'Schools Dashboard', icon: BookOpen },
+      { id: 'requisitions', label: 'Requisitions', icon: FileText },
+      { id: 'settings', label: 'Team Management', icon: Users },
+      { id: 'assets', label: 'Assets', icon: Package },
     ];
-  };
-
-  if (isRegistrationHead) {
+  } else if (isRegistrationHead) {
     menuItems = [
       { id: 'registration', label: 'Registration Dashboard', icon: ClipboardCheck },
       { id: 'settings', label: 'Team Management', icon: Users },
