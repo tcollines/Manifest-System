@@ -308,6 +308,12 @@ const App: React.FC = () => {
         }
       }
 
+      // Check for duplicate EMAIL (Critical for invites)
+      if (newUser.email && users.some(u => u.email?.toLowerCase() === newUser.email?.toLowerCase())) {
+        alert(`Error: The email "${newUser.email}" is already registered.`);
+        throw new Error(`The email "${newUser.email}" is already registered.`);
+      }
+
       const updatedUsers = await UserStore.add(newUser);
       setAllUsers(updatedUsers);
       // Wait, in invite flow we already alerted. But this might be generic "Add User".
