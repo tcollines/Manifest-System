@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
+import PhoneInput from './PhoneInput';
 import { MOCK_EVENTS, PICKUP_STATIONS } from '../constants';
 import { MinistryEvent, Vehicle, User, Passenger, JourneyStage, ModalType, Soul } from '../types';
 import EventDetailsModal from './EventDetailsModal';
@@ -32,14 +33,16 @@ import {
     Plus,
     ThumbsUp,
     RefreshCw,
-    Phone,
     ArrowLeft,
     LayoutList,
     Activity,
-    Package,
-    Heart
+    Packet,
+    Heart,
+    Phone,
+    Package
 } from 'lucide-react';
 import { AssetsTab } from './AssetsTab';
+
 
 
 import { GoogleMap, useJsApiLoader, Marker, Polyline } from '@react-google-maps/api';
@@ -863,12 +866,14 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
                                                             placeholder="Name"
                                                             className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-ministry-orange"
                                                         />
-                                                        <input
-                                                            value={returnPassengerForm.contact}
-                                                            onChange={e => setReturnPassengerForm({ ...returnPassengerForm, contact: e.target.value })}
-                                                            placeholder="Contact"
-                                                            className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-ministry-orange"
-                                                        />
+                                                        <div className="w-full">
+                                                            <PhoneInput
+                                                                value={returnPassengerForm.contact}
+                                                                onChange={(val) => setReturnPassengerForm({ ...returnPassengerForm, contact: val })}
+                                                                placeholder="Contact"
+                                                                className="h-[38px]"
+                                                            />
+                                                        </div>
                                                         <div className="flex gap-2">
                                                             <input
                                                                 value={returnPassengerForm.residence}
@@ -1470,13 +1475,11 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
                                 <div className="space-y-2">
                                     <label className="text-sm font-bold text-gray-700">Contact</label>
                                     <div className="relative">
-                                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                                        <input
+                                        <PhoneInput
                                             required
                                             value={newCoordinator.contact}
-                                            onChange={e => setNewCoordinator({ ...newCoordinator, contact: validateContact(e.target.value) })}
-                                            className="w-full pl-10 pr-3 py-3 bg-white border border-gray-200 rounded-xl focus:border-ministry-orange outline-none"
-                                            placeholder="256..."
+                                            onChange={(val) => setNewCoordinator({ ...newCoordinator, contact: val })}
+                                            placeholder="700 000 000"
                                         />
                                     </div>
                                 </div>

@@ -61,6 +61,8 @@ import {
 } from 'lucide-react';
 import EventDetailsModal from './EventDetailsModal';
 import { AssetsTab } from './AssetsTab';
+import NumberPlateInput from './NumberPlateInput';
+import PhoneInput from './PhoneInput';
 
 interface RegistrationDashboardProps {
   events: MinistryEvent[];
@@ -1650,18 +1652,15 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
 
                 <div className="md:col-span-2 pb-2 border-b border-gray-100 mt-2">
                   <h3 className="text-lg font-bold text-gray-800 flex items-center">
-                    <Phone className="w-5 h-5 mr-2 text-ministry-orange" /> Contact Info
+                    Contact Info
                   </h3>
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-bold text-gray-700">Phone Number</label>
-                  <input
-                    type="text"
-                    name="phone"
+                  <PhoneInput
                     value={formData.phone}
-                    onChange={handleInputChange}
-                    className="w-full p-3 bg-white border border-gray-200 rounded-xl focus:border-ministry-orange outline-none font-mono tracking-wide"
-                    placeholder="256..."
+                    onChange={(val) => setFormData({ ...formData, phone: val })}
+                    placeholder="700 000 000"
                   />
                 </div>
                 <div className="space-y-2">
@@ -2443,7 +2442,12 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
                     </div>
                     <div className="space-y-1">
                       <label className="text-xs font-bold text-gray-500">Phone</label>
-                      <input disabled={!isEditingMember} value={formData.phone} onChange={handleInputChange} name="phone" className={`w-full p-2 border rounded-lg ${!isEditingMember ? 'bg-gray-50 border-transparent' : 'bg-white border-gray-200'}`} />
+                      <PhoneInput
+                        disabled={!isEditingMember}
+                        value={formData.phone}
+                        onChange={(val) => setFormData({ ...formData, phone: val })}
+                        className={`w-full ${!isEditingMember ? 'bg-gray-50' : 'bg-white'}`}
+                      />
                     </div>
                     <div className="space-y-1">
                       <label className="text-xs font-bold text-gray-500">Category</label>
@@ -2523,11 +2527,10 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
                     </div>
                     <div className="space-y-2">
                       <label className="text-sm font-bold text-gray-700">Coord Contact</label>
-                      <input
+                      <PhoneInput
                         value={stationForm.coordinatorContact}
-                        onChange={e => setStationForm({ ...stationForm, coordinatorContact: validateContact(e.target.value) })}
-                        className="w-full p-3 border rounded-xl bg-white"
-                        placeholder="256..."
+                        onChange={(val) => setStationForm({ ...stationForm, coordinatorContact: val })}
+                        placeholder="700 000 000"
                       />
                     </div>
                   </div>
@@ -2624,10 +2627,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
           <div className="bg-white w-full max-w-md p-6 rounded-2xl shadow-xl">
             <h3 className="text-xl font-bold mb-4">Add Vehicle</h3>
             <form onSubmit={handleAddVehicle} className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-sm font-bold text-gray-700">Number Plate</label>
-                <input required value={vehicleForm.number_plate} onChange={e => setVehicleForm({ ...vehicleForm, number_plate: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 7) })} className="w-full p-3 border rounded-xl uppercase font-mono bg-white" placeholder="UBA123A" />
-              </div>
+
               <div className="space-y-2">
                 <label className="text-sm font-bold text-gray-700">Vehicle Coordinator</label>
                 <select
@@ -2671,7 +2671,15 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
 
               <div className="space-y-2">
                 <label className="text-sm font-bold text-gray-700">Driver Contact</label>
-                <input required value={vehicleForm.driverContact} onChange={e => setVehicleForm({ ...vehicleForm, driverContact: validateContact(e.target.value) })} className="w-full p-3 border rounded-xl bg-white" placeholder="256..." />
+                <PhoneInput required value={vehicleForm.driverContact} onChange={(val) => setVehicleForm({ ...vehicleForm, driverContact: val })} placeholder="700 000 000" />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-gray-700">Number Plate</label>
+                <NumberPlateInput
+                  required
+                  value={vehicleForm.number_plate}
+                  onChange={(val) => setVehicleForm({ ...vehicleForm, number_plate: val })}
+                />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-bold text-gray-700">Vehicle Type</label>
@@ -2712,7 +2720,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-sm font-bold text-gray-700">Contact</label>
-                  <input required value={passengerForm.contact} onChange={e => setPassengerForm({ ...passengerForm, contact: validateContact(e.target.value) })} className="w-full p-3 border rounded-xl bg-white" placeholder="256..." />
+                  <PhoneInput required value={passengerForm.contact} onChange={(val) => setPassengerForm({ ...passengerForm, contact: val })} placeholder="700 000 000" />
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-bold text-gray-700">Residence</label>

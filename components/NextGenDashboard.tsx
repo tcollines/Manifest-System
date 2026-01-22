@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import PhoneInput from './PhoneInput';
 import { Child, MinistryEvent, ModalType, User } from '../types';
 import * as XLSX from 'xlsx';
 import { validateContact, isServiceClosed } from '../utils';
@@ -254,7 +254,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                 const age = parseInt(parts[2].trim()) || 0;
                 const residence = parts[3].trim();
                 const parentName = parts[4].trim();
-                const parentContact = parts[5].trim();
+                const parentContact = validateContact(parts[5].trim());
 
                 if (name && parentName) {
                     newChildren.push({
@@ -681,7 +681,12 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                                         </div>
                                         <div className="space-y-2">
                                             <label className="text-sm font-bold text-gray-700">Contact</label>
-                                            <input required name="parentContact" value={formData.parentContact} onChange={handleInputChange} className="w-full p-3 bg-white border border-gray-200 rounded-xl focus:border-ministry-orange outline-none" placeholder="256..." />
+                                            <PhoneInput
+                                                required
+                                                value={formData.parentContact}
+                                                onChange={(val) => setFormData({ ...formData, parentContact: val })}
+                                                placeholder="700 000 000"
+                                            />
                                         </div>
                                     </div>
                                     <div className="space-y-2">

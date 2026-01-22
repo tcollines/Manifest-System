@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import PhoneInput from './PhoneInput';
 import { UserPlus, Save, X } from 'lucide-react';
 import { Soul } from '../types';
 
@@ -126,20 +127,11 @@ const SoulEntryForm: React.FC<SoulEntryFormProps> = ({ sourceType, sourceId, sou
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number *</label>
-                        <input
-                            type="tel"
+                        <PhoneInput
                             required
-                            className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-ministry-orange focus:border-transparent font-mono"
                             value={formData.phone}
-                            placeholder="256..."
-                            onChange={e => {
-                                let val = e.target.value.replace(/\D/g, '');
-                                if (val.length > 12) val = val.slice(0, 12);
-                                if (val.length > 0 && !val.startsWith('256')) val = '256' + val.replace(/^256/, '');
-                                // Ensure 256 is minimal if something is typed
-                                if (val.length < 3 && val.length > 0) val = '256';
-                                setFormData({ ...formData, phone: val });
-                            }}
+                            onChange={(val) => setFormData({ ...formData, phone: val })}
+                            placeholder="700 000 000"
                         />
                     </div>
                     <div>
@@ -154,8 +146,6 @@ const SoulEntryForm: React.FC<SoulEntryFormProps> = ({ sourceType, sourceId, sou
                         </select>
                     </div>
                 </div>
-
-
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
@@ -241,13 +231,14 @@ const SoulEntryForm: React.FC<SoulEntryFormProps> = ({ sourceType, sourceId, sou
                                     value={formData.invitedBy?.name || ''}
                                     onChange={e => setFormData({ ...formData, invitedBy: { ...formData.invitedBy, name: e.target.value } })}
                                 />
-                                <input
-                                    type="text"
-                                    className="w-full p-2 border border-gray-200 rounded-md text-sm focus:border-ministry-orange"
-                                    placeholder="Inviter Contact"
-                                    value={formData.invitedBy?.contact || ''}
-                                    onChange={e => setFormData({ ...formData, invitedBy: { ...formData.invitedBy, contact: e.target.value } })}
-                                />
+                                <div>
+                                    <PhoneInput
+                                        value={formData.invitedBy?.contact || ''}
+                                        onChange={(val) => setFormData({ ...formData, invitedBy: { ...formData.invitedBy, contact: val } })}
+                                        placeholder="Inviter Contact"
+                                        className="h-10"
+                                    />
+                                </div>
                             </div>
                         </div>
                     </div>
