@@ -78,6 +78,7 @@ export interface User {
   eventId?: string; // Links coordinator to a specific event/operation
   invitationToken?: string;
   status?: 'Active' | 'Pending';
+  createdBy?: string;
 }
 
 export interface Member {
@@ -255,7 +256,8 @@ export enum ModalType {
   SET_TARGETS,
   AI_INSIGHTS,
   CREATE_USER,
-  REQUISITIONS
+  REQUISITIONS,
+  EDIT_USER
 }
 
 export interface RequisitionPayment {

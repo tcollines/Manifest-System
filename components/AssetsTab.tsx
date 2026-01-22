@@ -108,7 +108,22 @@ export const AssetsTab: React.FC<AssetsTabProps> = ({ departmentId, currentUser 
             asset.asset_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
             asset.serial_number?.toLowerCase().includes(searchQuery.toLowerCase());
 
-        const matchesDept = departmentId ? true : (selectedDept ? asset.department_id === selectedDept : true);
+        // View Restriction Logic:
+        // 1. If departmentId prop is passed (e.g. Dashboard widget), use it.
+        // 2. If User is Admin, allow filtering by selectedDept (or show all).
+        // 3. If User is Non-Admin, FORCE filter by their departmentId.
+
+        let matchesDept = true;
+
+        if (departmentId) {
+            matchesDept = asset.department_id === departmentId;
+        } else if (currentUser.role === 'Administrator') {
+            matchesDept = selectedDept ? asset.department_id === selectedDept : true;
+        } else {
+            // Non-Admin on global view -> restricted to own department
+            matchesDept = asset.department_id === currentUser.departmentId;
+        }
+
         const matchesDate = dateFilter ? asset.date_procured === dateFilter : true;
 
         return matchesSearch && matchesDept && matchesDate;
@@ -167,8 +182,8 @@ export const AssetsTab: React.FC<AssetsTabProps> = ({ departmentId, currentUser 
                         />
                     </div>
 
-                    {/* Department Filter (Only for Global View) */}
-                    {!departmentId && (
+                    {/* Department Filter (Only for Admin Global View) */}
+                    {!departmentId && currentUser.role === 'Administrator' && (
                         <select
                             value={selectedDept}
                             onChange={(e) => setSelectedDept(e.target.value)}
@@ -320,6 +335,22 @@ export const AssetsTab: React.FC<AssetsTabProps> = ({ departmentId, currentUser 
                                     <label className="text-sm font-bold text-gray-700">Value (UGX)</label>
                                     <input type="number" value={formData.value_at_purchase} onChange={e => setFormData({ ...formData, value_at_purchase: Number(e.target.value) })} className="w-full p-3 border rounded-xl" placeholder="0" />
                                 </div>
+
+                                <div className="space-y-2">
+                                    <label className="text-sm font-bold text-gray-700">Department</label>
+                                    <select
+                                        value={formData.department_id}
+                                        onChange={e => setFormData({ ...formData, department_id: e.target.value })}
+                                        disabled={currentUser.role !== 'Administrator'}
+                                        className={`w-full p-3 border rounded-xl bg-white ${currentUser.role !== 'Administrator' ? 'opacity-70 bg-gray-100' : ''}`}
+                                    >
+                                        <option value="">Select Department...</option>
+                                        {DEPARTMENTS.map(dept => (
+                                            <option key={dept.id} value={dept.id}>{dept.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
                                 <div className="space-y-2">
                                     <label className="text-sm font-bold text-gray-700">Date Procured</label>
                                     <input type="date" value={formData.date_procured} onChange={e => setFormData({ ...formData, date_procured: e.target.value })} className="w-full p-3 border rounded-xl" />
@@ -341,8 +372,6 @@ export const AssetsTab: React.FC<AssetsTabProps> = ({ departmentId, currentUser 
                                     <label className="text-sm font-bold text-gray-700">Responsible Person</label>
                                     <input required value={formData.responsible_person} onChange={e => setFormData({ ...formData, responsible_person: e.target.value })} className="w-full p-3 border rounded-xl" placeholder="e.g. John Doe" />
                                 </div>
-
-
                             </div>
 
                             <div className="space-y-2">
@@ -360,8 +389,8 @@ export const AssetsTab: React.FC<AssetsTabProps> = ({ departmentId, currentUser 
                             </div>
                         </form>
                     </div>
-                </div>
+                </div >
             )}
-        </div>
+        </div >
     );
 };

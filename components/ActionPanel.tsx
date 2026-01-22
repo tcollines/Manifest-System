@@ -10,10 +10,12 @@ interface ActionPanelProps {
   closeModal: () => void;
   onSave?: (data: any) => void;
   onSaveUser?: (data: User) => void;
+  onUpdateUser?: (data: User) => void;
   currentUser?: User | null;
+  targetUser?: User | null;
 }
 
-const ActionPanel: React.FC<ActionPanelProps> = ({ modalType, closeModal, onSave, onSaveUser, currentUser }) => {
+const ActionPanel: React.FC<ActionPanelProps> = ({ modalType, closeModal, onSave, onSaveUser, onUpdateUser, currentUser, targetUser }) => {
   const [formData, setFormData] = useState({
     title: '',
     date: new Date().toISOString().split('T')[0],
@@ -53,6 +55,20 @@ const ActionPanel: React.FC<ActionPanelProps> = ({ modalType, closeModal, onSave
     });
   }, [modalType, currentUser, isAdmin, isTeamLeader]);
 
+  // Populate data when Editing
+  useEffect(() => {
+    if (modalType === ModalType.EDIT_USER && targetUser) {
+      setFormData(prev => ({
+        ...prev,
+        fullname: targetUser.name,
+        email: targetUser.email || '',
+        contact: targetUser.contact || '',
+        departmentId: targetUser.departmentId || '',
+        role: targetUser.role
+      }));
+    }
+  }, [modalType, targetUser]);
+
   if (modalType === ModalType.NONE || modalType === ModalType.AI_INSIGHTS) return null;
 
   const getTitle = () => {
@@ -63,6 +79,7 @@ const ActionPanel: React.FC<ActionPanelProps> = ({ modalType, closeModal, onSave
       case ModalType.ASSIGN_USER: return 'Assign User / Department';
       case ModalType.SET_TARGETS: return 'Set Soul Winning Targets';
       case ModalType.CREATE_USER: return isTeamLeader ? 'Add Administrator' : 'Add New System User';
+      case ModalType.EDIT_USER: return 'Edit User Details';
       default: return '';
     }
   };
@@ -75,6 +92,7 @@ const ActionPanel: React.FC<ActionPanelProps> = ({ modalType, closeModal, onSave
       case ModalType.ASSIGN_USER: return UserPlus;
       case ModalType.SET_TARGETS: return Target;
       case ModalType.CREATE_USER: return UserPlus;
+      case ModalType.EDIT_USER: return UserPlus; // or EditIcon if imported
       default: return Calendar;
     }
   };
@@ -130,6 +148,7 @@ const ActionPanel: React.FC<ActionPanelProps> = ({ modalType, closeModal, onSave
           role: formData.role,
           departmentId: formData.departmentId,
           contact: formData.contact,
+          createdBy: currentUser?.id, // Track who added the user
           email: formData.email,
           username: undefined, // Not set yet (triggers Setup flow)
           password: undefined,  // Not set yet
@@ -164,11 +183,65 @@ const ActionPanel: React.FC<ActionPanelProps> = ({ modalType, closeModal, onSave
         setIsSubmitting(false);
       }
       return; // Early return to handle async flow
+    } else if (modalType === ModalType.EDIT_USER && targetUser) {
+      setIsSubmitting(true);
+      try {
+        const updatedUser: User = {
+          ...targetUser,
+          role: formData.role,
+          departmentId: formData.departmentId,
+          // name, contact could be updated too if desired, but sticking to prompt scope for now?
+          // Let's allow updating name/contact too as it's standard
+          name: formData.fullname,
+          contact: formData.contact,
+          email: formData.email // Identity, usually locked but let's allow
+        };
+
+        if (onUpdateUser) {
+          await onUpdateUser(updatedUser);
+        }
+        closeModal();
+      } catch (e: any) {
+        console.error("Update Error:", e);
+        alert("Failed to update user");
+      } finally {
+        setIsSubmitting(false);
+      }
+      return;
     }
     closeModal();
   };
 
   const Icon = getIcon();
+
+  const isCreator = currentUser?.id === targetUser?.createdBy; // Kept for legacy/fallback reference if needed, but primary logic is Role-based now.
+  const isHeadOfTheirDept = currentUser?.role === 'Head of Dept' && currentUser?.departmentId === targetUser?.departmentId;
+
+  const isTargetTeamLeader = targetUser?.role === 'TeamLeader';
+  const isSelf = currentUser?.id === targetUser?.id;
+
+  // Permissions
+  // 1. Team Leader: Can edit everything (except themselves target is TL logic below).
+  // 2. Administrator: Can edit Role AND Department of anyone (except TL).
+  // 3. Head of Dept: Can edit Role ONLY, and ONLY for members of their own department.
+
+  let canEditRole = isTeamLeader || isAdmin || isHeadOfTheirDept;
+  let canEditDept = isTeamLeader || isAdmin;
+  let canEditProfile = true;
+
+  // Team Leader Protection Rules
+  if (isTargetTeamLeader) {
+    // Rule: Team Leader Role and Department are immutable via this UI
+    // "administrator cannot edit the team leader role... he [TL] cannot edit his role"
+    canEditRole = false;
+    canEditDept = false;
+
+    // Rule: "Only he [TL] can edit [himself]"
+    // If target is TL, ONLY the TL themselves can edit the profile details.
+    if (!isSelf) {
+      canEditProfile = false;
+    }
+  }
 
   return (
     <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -196,7 +269,7 @@ const ActionPanel: React.FC<ActionPanelProps> = ({ modalType, closeModal, onSave
           )}
 
           {/* Common Field: Title / Name (Services/Events) */}
-          {(modalType !== ModalType.ASSIGN_USER && modalType !== ModalType.SET_TARGETS && modalType !== ModalType.CREATE_USER) && (
+          {(modalType !== ModalType.ASSIGN_USER && modalType !== ModalType.SET_TARGETS && modalType !== ModalType.CREATE_USER && modalType !== ModalType.EDIT_USER) && (
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-500">Name / Title</label>
               <input
@@ -210,8 +283,8 @@ const ActionPanel: React.FC<ActionPanelProps> = ({ modalType, closeModal, onSave
             </div>
           )}
 
-          {/* --- CREATE USER FORM (Dynamic based on Role) --- */}
-          {modalType === ModalType.CREATE_USER && (
+          {/* --- CREATE / EDIT USER FORM (Dynamic based on Role) --- */}
+          {(modalType === ModalType.CREATE_USER || modalType === ModalType.EDIT_USER) && (
             <>
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-500">Full Name</label>
@@ -219,8 +292,9 @@ const ActionPanel: React.FC<ActionPanelProps> = ({ modalType, closeModal, onSave
                   name="fullname"
                   value={formData.fullname}
                   onChange={handleInputChange}
+                  disabled={!canEditProfile}
                   type="text"
-                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-ministry-text focus:outline-none focus:border-ministry-orange"
+                  className={`w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-ministry-text focus:outline-none focus:border-ministry-orange ${!canEditProfile ? 'opacity-60 bg-gray-100 cursor-not-allowed' : ''}`}
                   placeholder="e.g. John Doe"
                 />
               </div>
@@ -231,8 +305,9 @@ const ActionPanel: React.FC<ActionPanelProps> = ({ modalType, closeModal, onSave
                   name="email"
                   value={formData.email}
                   onChange={handleInputChange}
+                  disabled={!canEditProfile && modalType !== ModalType.CREATE_USER} // Allow create always (implied)
                   type="email"
-                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-ministry-text focus:outline-none focus:border-ministry-orange"
+                  className={`w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-ministry-text focus:outline-none focus:border-ministry-orange ${!canEditProfile && modalType !== ModalType.CREATE_USER ? 'opacity-60 bg-gray-100 cursor-not-allowed' : ''}`}
                   placeholder="john@example.com"
                 />
               </div>
@@ -245,22 +320,32 @@ const ActionPanel: React.FC<ActionPanelProps> = ({ modalType, closeModal, onSave
                   name="contact"
                   value={formData.contact}
                   onChange={handleInputChange}
+                  disabled={!canEditProfile}
                   type="text"
-                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-ministry-text focus:outline-none focus:border-ministry-orange"
+                  className={`w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-ministry-text focus:outline-none focus:border-ministry-orange ${!canEditProfile ? 'opacity-60 bg-gray-100 cursor-not-allowed' : ''}`}
                   placeholder="256..."
                 />
               </div>
 
-              {/* Hide Role/Dept selection for Team Leader when adding Admin */}
-              {!isTeamLeader && (
+              {/* Hide Role/Dept selection for Team Leader when adding Admin, but SHOW if Editing */}
+              {(!isTeamLeader || modalType === ModalType.EDIT_USER) && (
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-gray-500">Role</label>
-                    <select name="role" value={formData.role} onChange={handleInputChange} className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-ministry-text focus:outline-none focus:border-ministry-orange">
+                    <select
+                      name="role"
+                      value={formData.role}
+                      onChange={handleInputChange}
+                      disabled={!canEditRole}
+                      className={`w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-ministry-text focus:outline-none focus:border-ministry-orange ${!canEditRole ? 'opacity-60 bg-gray-100 cursor-not-allowed' : ''}`}
+                    >
                       <option value="Dept Admin">Dept Admin</option>
                       <option value="Member">Member</option>
-                      {isAdmin && <option value="Head of Dept">Head of Dept</option>}
-                      {isAdmin && <option value="Administrator">Administrator</option>}
+                      <option value="Head of Dept">Head of Dept</option>
+                      <option value="Administrator">Administrator</option>
+                      <option value="TeamLeader">TeamLeader</option>
+                      <option value="Logistics">Logistics</option>
+                      <option value="Coordinator">Coordinator</option>
                     </select>
                   </div>
                   <div className="space-y-2">
@@ -269,8 +354,8 @@ const ActionPanel: React.FC<ActionPanelProps> = ({ modalType, closeModal, onSave
                       name="departmentId"
                       value={formData.departmentId}
                       onChange={handleInputChange}
-                      disabled={!isAdmin}
-                      className={`w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-ministry-text focus:outline-none focus:border-ministry-orange ${!isAdmin ? 'opacity-70 cursor-not-allowed' : ''}`}
+                      disabled={!canEditDept}
+                      className={`w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-ministry-text focus:outline-none focus:border-ministry-orange ${!canEditDept ? 'opacity-60 bg-gray-100 cursor-not-allowed' : ''}`}
                     >
                       <option value="">None</option>
                       {DEPARTMENTS.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
@@ -364,8 +449,8 @@ const ActionPanel: React.FC<ActionPanelProps> = ({ modalType, closeModal, onSave
           <button onClick={closeModal} className="px-5 py-2.5 rounded-xl text-gray-600 hover:bg-gray-100 transition-colors font-medium">Cancel</button>
           <button
             onClick={handleSubmit}
-            disabled={isSubmitting}
-            className={`px-5 py-2.5 rounded-xl bg-ministry-orange text-white font-bold hover:bg-orange-600 transition-colors flex items-center shadow-lg shadow-orange-500/30 ${isSubmitting ? 'opacity-70 cursor-wait' : ''}`}
+            disabled={isSubmitting || (!canEditProfile && !canEditRole && !canEditDept && modalType === ModalType.EDIT_USER)}
+            className={`px-5 py-2.5 rounded-xl bg-ministry-orange text-white font-bold hover:bg-orange-600 transition-colors flex items-center shadow-lg shadow-orange-500/30 ${(isSubmitting || (!canEditProfile && !canEditRole && !canEditDept && modalType === ModalType.EDIT_USER)) ? 'opacity-70 cursor-not-allowed' : ''}`}
           >
             {isSubmitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> :
               modalType === ModalType.CREATE_USER ? <Send className="w-4 h-4 mr-2" /> :

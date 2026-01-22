@@ -27,11 +27,12 @@ interface SettingsViewProps {
     users?: User[];
     openModal?: (type: ModalType) => void;
     onDeleteUser?: (id: string) => void;
+    onEditUser?: (user: User) => void;
     currentUser?: User | null;
     initialTab?: SettingsTab;
 }
 
-const SettingsView: React.FC<SettingsViewProps> = ({ users = [], openModal, onDeleteUser, currentUser, initialTab }) => {
+const SettingsView: React.FC<SettingsViewProps> = ({ users = [], openModal, onDeleteUser, onEditUser, currentUser, initialTab }) => {
     const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab || 'users');
 
     // Profile State
@@ -307,6 +308,9 @@ const SettingsView: React.FC<SettingsViewProps> = ({ users = [], openModal, onDe
                                         </td>
                                         <td className="px-6 py-4 text-sm font-mono text-gray-500">{user.username}</td>
                                         <td className="px-6 py-4 text-right">
+                                            <button onClick={() => onEditUser && onEditUser(user)} className="text-gray-400 hover:text-ministry-orange transition-colors p-2 hover:bg-orange-50 rounded-lg mr-2">
+                                                <Edit2 className="w-4 h-4" />
+                                            </button>
                                             <button onClick={() => handleDeleteClick(user.id)} className="text-gray-400 hover:text-red-500 transition-colors p-2 hover:bg-red-50 rounded-lg">
                                                 <Trash2 className="w-4 h-4" />
                                             </button>

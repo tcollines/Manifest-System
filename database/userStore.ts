@@ -18,7 +18,8 @@ const mapUserFromDB = (u: any): User => ({
   stationId: u.station_id,
   eventId: u.event_id,
   invitationToken: u.invitation_token,
-  status: u.status
+  status: u.status,
+  createdBy: u.created_by
 });
 
 // Helper to map App camelCase to DB snake_case
@@ -35,7 +36,8 @@ const mapUserToDB = (u: User) => {
     station_id: u.stationId,
     event_id: u.eventId,
     invitation_token: u.invitationToken,
-    status: u.status
+    status: u.status,
+    created_by: u.createdBy
   };
   // Remove undefined keys to avoid sending them to Supabase (which might cause errors if cols are missing)
   return Object.fromEntries(Object.entries(data).filter(([_, v]) => v !== undefined));

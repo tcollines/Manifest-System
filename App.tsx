@@ -36,6 +36,7 @@ const App: React.FC = () => {
   const [loginError, setLoginError] = useState<string | null>(null);
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [targetUser, setTargetUser] = useState<User | null>(null);
 
   // Helper functions defined before effects to avoid hoisting issues logic-wise
   const refreshData = async () => {
@@ -329,6 +330,17 @@ const App: React.FC = () => {
     setAllUsers(updatedUsers);
   };
 
+  const handleUpdateUser = async (updatedUser: User) => {
+    try {
+      const users = await UserStore.update(updatedUser);
+      setAllUsers(users);
+      alert("User updated successfully!");
+    } catch (e: any) {
+      alert(e.message || "Failed to update user");
+      throw e;
+    }
+  };
+
   const handleSetupComplete = (updatedUser: User) => {
     setCurrentUser(updatedUser);
     UserStore.saveSession(updatedUser);
@@ -427,6 +439,7 @@ const App: React.FC = () => {
               openModal={setModalType}
               onDeleteUser={handleDeleteUser}
               currentUser={currentUser}
+              onEditUser={(u) => { setTargetUser(u); setModalType(ModalType.EDIT_USER); }}
             />
           )}
           {activeTab === 'manifest-settings' && (
@@ -436,6 +449,7 @@ const App: React.FC = () => {
               onDeleteUser={handleDeleteUser}
               currentUser={currentUser}
               initialTab="manifest"
+              onEditUser={(u) => { setTargetUser(u); setModalType(ModalType.EDIT_USER); }}
             />
           )}
           {activeTab === 'registration' && <RegistrationDashboard events={events} currentUser={currentUser} onOpenModal={setModalType} />}
@@ -475,7 +489,9 @@ const App: React.FC = () => {
         closeModal={() => setModalType(ModalType.NONE)}
         onSave={handleSaveEvent}
         onSaveUser={handleSaveUser}
+        onUpdateUser={handleUpdateUser}
         currentUser={currentUser}
+        targetUser={targetUser}
       />
       {modalType === ModalType.AI_INSIGHTS && <MinistryAI onClose={() => setModalType(ModalType.NONE)} />}
     </div>
