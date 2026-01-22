@@ -1,34 +1,47 @@
 
-import { isValidPhoneNumber, parsePhoneNumber } from 'react-phone-number-input';
+// import { isValidPhoneNumber, parsePhoneNumber } from 'react-phone-number-input';
 
 export const validateContact = (value: string): string => {
     if (!value) return '';
 
-    // Normalize: If it's 256... (legacy), prepend + for validation check
-    let checkVal = value;
-    if (!checkVal.startsWith('+')) {
-        if (checkVal.startsWith('256')) checkVal = '+' + checkVal;
-        else if (checkVal.startsWith('0')) checkVal = '+256' + checkVal.substring(1); // Assume local default to UG if 077...
-        else checkVal = '+256' + checkVal; // Assume raw digits need 256
+    // Remove all non-numeric characters (allow leading +)
+    let cleaned = value.trim();
+
+    // Check if it starts with +
+    const hasPlus = cleaned.startsWith('+');
+    cleaned = cleaned.replace(/\D/g, '');
+
+    if (cleaned.length === 0) return '';
+
+    // Ugandan Number Logic (Most common use case)
+    // 1. If starts with 256 (9 digits after), perfect.
+    // 2. If starts with 07... or 03... (10 digits), strip 0 adds 256.
+    // 3. If 9 digits, add 256.
+
+    // Case: 07XX XXX XXX (10 digits)
+    if (cleaned.startsWith('0') && cleaned.length === 10) {
+        return '+256' + cleaned.substring(1);
     }
 
-    // Try to parse and format
-    try {
-        if (isValidPhoneNumber(checkVal)) {
-            const p = parsePhoneNumber(checkVal);
-            return p ? p.number : checkVal; // Returns E.164 (+256...)
-        }
-    } catch (e) {
-        // ignore parse error, return best effort or raw
+    // Case: 256 7XX XXX XXX (12 digits)
+    if (cleaned.startsWith('256') && cleaned.length === 12) {
+        return '+' + cleaned;
     }
 
-    // Fallback to legacy behavior if parsing fails (to avoid breaking partial typing)
-    // But strict E.164 prefers we guide them. For now, strict cleaning:
-    const digits = value.replace(/\D/g, '');
-    if (digits.length === 0) return '';
-    if (digits.startsWith('256')) return digits.slice(0, 12); // Legacy format preservation
-    if (digits.startsWith('0')) return '256' + digits.slice(1, 10);
-    return '256' + digits.slice(0, 9);
+    // Case: 7XX XXX XXX (9 digits)
+    if (cleaned.length === 9) {
+        return '+256' + cleaned;
+    }
+
+    // Fallback: If generic international (starts with + originally or reasonable length)
+    if (hasPlus && cleaned.length > 7 && cleaned.length < 16) {
+        return '+' + cleaned;
+    }
+
+    // If strict formatting fails but we have digits, return them with + if originally present
+    // or just assume local if it looks like it. 
+    // For safety, let's return reasonable guesses for UG, else raw.
+    return hasPlus ? '+' + cleaned : cleaned;
 };
 
 export const isEventLocked = (eventDate: string): boolean => {

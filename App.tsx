@@ -247,12 +247,12 @@ const App: React.FC = () => {
     if (!currentUser) return;
 
     let timer: NodeJS.Timeout;
-    const INACTIVITY_LIMIT = 60 * 1000; // 1 minute
+    const INACTIVITY_LIMIT = 600 * 1000; // 10 minute
 
     const resetTimer = () => {
       clearTimeout(timer);
       timer = setTimeout(() => {
-        console.log("User inactive for 1 minute. Logging out...");
+        console.log("User inactive for 10 minute. Logging out...");
         handleLogout();
       }, INACTIVITY_LIMIT);
     };
@@ -472,7 +472,7 @@ const App: React.FC = () => {
             </div>
           )}
 
-          {activeTab !== 'dashboard' && activeTab !== 'team-dashboard' && activeTab !== 'departments' && activeTab !== 'events' && activeTab !== 'reports' && activeTab !== 'settings' && activeTab !== 'manifest-settings' && activeTab !== 'registration' && activeTab !== 'next-gen' && activeTab !== 'transportation' && activeTab !== 'finance' && activeTab !== 'follow-up' && activeTab !== 'parking' && activeTab !== 'requisitions' && activeTab !== 'assets' && (
+          {activeTab !== 'dashboard' && activeTab !== 'team-dashboard' && activeTab !== 'departments' && activeTab !== 'events' && activeTab !== 'reports' && activeTab !== 'settings' && activeTab !== 'manifest-settings' && activeTab !== 'registration' && activeTab !== 'next-gen' && activeTab !== 'transportation' && activeTab !== 'finance' && activeTab !== 'follow-up' && activeTab !== 'parking' && activeTab !== 'requisitions' && activeTab !== 'assets' && activeTab !== 'schools' && (
             <div className="flex items-center justify-center h-full text-gray-500">
               <div className="text-center">
                 <h2 className="text-2xl font-bold text-gray-700 mb-2">Work in Progress</h2>

@@ -1,6 +1,5 @@
 import React from 'react';
-import PhoneInputFromLib, { isPossiblePhoneNumber, getCountryCallingCode, Country } from 'react-phone-number-input';
-import 'react-phone-number-input/style.css';
+import { Phone } from 'lucide-react';
 
 interface PhoneInputProps {
     value: string;
@@ -13,109 +12,51 @@ interface PhoneInputProps {
 }
 
 const PhoneInput: React.FC<PhoneInputProps> = ({ value, onChange, placeholder = "Enter phone number", required = false, className, disabled, error }) => {
-    const [country, setCountry] = React.useState<Country>('UG');
     const [touched, setTouched] = React.useState(false);
 
-    // Ensure value has + if missing (for correct display of legacy 256 numbers)
-    const displayValue = value && !value.startsWith('+') && value.startsWith('256')
-        ? `+${value}`
-        : value;
+    // Basic Logic: Allow typing, but maybe format on blur?
+    // For now, just a controlled input.
 
-    const handleChange = (val: string | undefined) => {
-        // react-phone-number-input returns undefined if empty
-        onChange(val || '');
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const val = e.target.value;
+        onChange(val);
     };
 
-    // Check validity
-    const isValid = displayValue ? isPossiblePhoneNumber(displayValue) : true;
-
-    // Check if it's just the country code (incomplete)
-    // Check if it's just the country code (incomplete)
-    // We strip spaces to handle formatting like "+256 "
-    const isJustCountryCode = displayValue && country && getCountryCallingCode(country) && displayValue.replace(/\s/g, '') === `+${getCountryCallingCode(country)}`;
+    // Simple validation for display
+    const isValid = !value || /^[+]?[\d\s-]{10,15}$/.test(value.trim());
 
     return (
         <div className={`phone-input-container group ${className} ${disabled ? 'opacity-50 pointer-events-none' : ''}`}>
             <div className={`
                 relative flex items-center bg-white border rounded-xl overflow-hidden transition-all duration-200
-                ${error || (!isValid && displayValue && !isJustCountryCode) ? 'border-red-500 focus-within:ring-red-200' : 'border-gray-200 focus-within:border-ministry-orange focus-within:ring-4 focus-within:ring-orange-500/10'}
+                ${error || (touched && !isValid) ? 'border-red-500 focus-within:ring-red-200' : 'border-gray-200 focus-within:border-ministry-orange focus-within:ring-4 focus-within:ring-orange-500/10'}
             `}>
-                <PhoneInputFromLib
-                    international
-                    defaultCountry="UG"
-                    country={country}
-                    onCountryChange={setCountry}
-                    value={displayValue}
+                <div className="pl-4 pr-2 text-gray-400">
+                    <Phone className="w-5 h-5" />
+                </div>
+                <input
+                    type="tel"
+                    value={value || ''}
                     onChange={handleChange}
+                    onBlur={() => setTouched(true)}
                     placeholder={placeholder}
+                    required={required}
                     disabled={disabled}
-                    limitMaxLength={true}
-                    className="w-full px-4 py-3 bg-transparent outline-none"
-                    numberInputProps={{
-                        required: required,
-                        disabled: disabled,
-                        onBlur: () => setTouched(true),
-                        className: "focus:outline-none w-full bg-transparent text-ministry-text placeholder-gray-400 font-medium"
-                    }}
+                    className="w-full px-2 py-3 bg-transparent outline-none text-ministry-text placeholder-gray-400 font-medium"
                 />
             </div>
-            {(error || (touched && !isValid && displayValue && !isJustCountryCode)) && (
+            {(error || (touched && !isValid)) && (
                 <p className="mt-1 text-xs text-red-500 font-medium ml-1">
                     {error || "Invalid phone number format"}
                 </p>
             )}
-
-            <style>{`
-                .PhoneInput {
-                    display: flex;
-                    align-items: center;
-                    width: 100%;
-                }
-                .PhoneInputCountry {
-                    margin-right: 1rem;
-                    padding-right: 1rem;
-                    border-right: 1px solid #f3f4f6;
-                    display: flex;
-                    align-items: center;
-                    position: relative;
-                }
-                .PhoneInputCountrySelect {
-                    position: absolute;
-                    top: 0;
-                    left: 0;
-                    height: 100%;
-                    width: 100%;
-                    z-index: 1;
-                    border: 0;
-                    opacity: 0;
-                    cursor: pointer;
-                }
-                .PhoneInputCountryIcon {
-                    width: 1.5em;
-                    height: 1.0em;
-                    border-radius: 2px;
-                    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
-                }
-                .PhoneInputCountrySelectArrow {
-                    margin-left: 0.5rem;
-                    opacity: 0.5;
-                    border-color: currentColor;
-                    color: inherit;
-                }
-                .PhoneInputInput {
-                    flex: 1;
-                    min-width: 0;
-                    background-color: transparent;
-                    outline: none;
-                    font-size: 0.95rem;
-                }
-            `}</style>
         </div>
     );
 };
 
 export const validateE164 = (val: string): boolean => {
-    return val ? isPossiblePhoneNumber(val) : false;
+    // Simple regex for E.164-ish
+    return /^\+?[1-9]\d{1,14}$/.test(val);
 };
 
 export default PhoneInput;
