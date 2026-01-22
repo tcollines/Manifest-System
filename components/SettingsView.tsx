@@ -151,11 +151,10 @@ const SettingsView: React.FC<SettingsViewProps> = ({ users = [], openModal, onDe
                             <div className="space-y-2">
                                 <label className="text-sm font-bold text-gray-700">Contact Number</label>
                                 <div className="relative">
-                                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                                     <input
                                         value={manifestData.contact}
                                         onChange={e => setManifestData({ ...manifestData, contact: validateContact(e.target.value) })}
-                                        className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-xl focus:border-ministry-orange outline-none"
+                                        className="w-full p-3 bg-white border border-gray-200 rounded-xl focus:border-ministry-orange outline-none"
                                         placeholder="256..."
                                     />
                                 </div>

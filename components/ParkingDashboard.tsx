@@ -23,6 +23,8 @@ import {
 } from 'lucide-react';
 import { ParkingStore } from '../database/parkingStore';
 import { supabase } from '../services/supabaseClient';
+import NumberPlateInput from './NumberPlateInput';
+import PhoneInput from './PhoneInput';
 
 
 interface ParkingDashboardProps {
@@ -565,16 +567,12 @@ const ParkingDashboard: React.FC<ParkingDashboardProps> = ({ events = [], onOpen
                             <div className="space-y-4">
                                 <div className="space-y-2">
                                     <label className="text-sm font-bold text-gray-700">Number Plate</label>
-                                    <div className="relative">
-                                        <Car className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                                        <input
-                                            required
-                                            value={formData.number_plate}
-                                            onChange={e => setFormData({ ...formData, number_plate: e.target.value.toUpperCase() })}
-                                            className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-xl focus:border-ministry-orange outline-none font-mono uppercase text-lg"
-                                            placeholder="UBA 000X"
-                                        />
-                                    </div>
+                                    <NumberPlateInput
+                                        required
+                                        value={formData.number_plate}
+                                        onChange={(val) => setFormData({ ...formData, number_plate: val })}
+                                        placeholder="UBA 000X"
+                                    />
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -590,16 +588,12 @@ const ParkingDashboard: React.FC<ParkingDashboardProps> = ({ events = [], onOpen
                                     </div>
                                     <div className="space-y-2">
                                         <label className="text-sm font-bold text-gray-700">Driver Contact</label>
-                                        <div className="relative">
-                                            <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                                            <input
-                                                required
-                                                value={formData.driverContact}
-                                                onChange={e => setFormData({ ...formData, driverContact: validateContact(e.target.value) })}
-                                                className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-xl focus:border-ministry-orange outline-none"
-                                                placeholder="256..."
-                                            />
-                                        </div>
+                                        <PhoneInput
+                                            required
+                                            value={formData.driverContact}
+                                            onChange={(val) => setFormData({ ...formData, driverContact: val })}
+                                            placeholder="700 000 000"
+                                        />
                                     </div>
                                 </div>
                             </div>
@@ -625,16 +619,12 @@ const ParkingDashboard: React.FC<ParkingDashboardProps> = ({ events = [], onOpen
                             <div className="space-y-4">
                                 <div className="space-y-2">
                                     <label className="text-sm font-bold text-gray-700">Number Plate</label>
-                                    <div className="relative">
-                                        <Car className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                                        <input
-                                            required
-                                            value={formData.number_plate}
-                                            onChange={e => setFormData({ ...formData, number_plate: e.target.value.toUpperCase() })}
-                                            className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-xl focus:border-ministry-orange outline-none font-mono uppercase text-lg"
-                                            placeholder="UBA 000X"
-                                        />
-                                    </div>
+                                    <NumberPlateInput
+                                        required
+                                        value={formData.number_plate}
+                                        onChange={(val) => setFormData({ ...formData, number_plate: val })}
+                                        placeholder="UBA 000X"
+                                    />
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -650,16 +640,13 @@ const ParkingDashboard: React.FC<ParkingDashboardProps> = ({ events = [], onOpen
                                     </div>
                                     <div className="space-y-2">
                                         <label className="text-sm font-bold text-gray-700">Driver Contact</label>
-                                        <div className="relative">
-                                            <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                                            <input
-                                                required
-                                                value={formData.driverContact}
-                                                onChange={e => setFormData({ ...formData, driverContact: validateContact(e.target.value) })}
-                                                className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-xl focus:border-ministry-orange outline-none"
-                                                placeholder="256..."
-                                            />
-                                        </div>
+                                        <input
+                                            required
+                                            value={formData.driverContact}
+                                            onChange={e => setFormData({ ...formData, driverContact: validateContact(e.target.value) })}
+                                            className="w-full p-3 bg-white border border-gray-200 rounded-xl focus:border-ministry-orange outline-none"
+                                            placeholder="256..."
+                                        />
                                     </div>
                                 </div>
                             </div>

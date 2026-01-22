@@ -1,22 +1,34 @@
 
+import { isValidPhoneNumber, parsePhoneNumber } from 'react-phone-number-input';
+
 export const validateContact = (value: string): string => {
-    // Remove all non-digit characters
+    if (!value) return '';
+
+    // Normalize: If it's 256... (legacy), prepend + for validation check
+    let checkVal = value;
+    if (!checkVal.startsWith('+')) {
+        if (checkVal.startsWith('256')) checkVal = '+' + checkVal;
+        else if (checkVal.startsWith('0')) checkVal = '+256' + checkVal.substring(1); // Assume local default to UG if 077...
+        else checkVal = '+256' + checkVal; // Assume raw digits need 256
+    }
+
+    // Try to parse and format
+    try {
+        if (isValidPhoneNumber(checkVal)) {
+            const p = parsePhoneNumber(checkVal);
+            return p ? p.number : checkVal; // Returns E.164 (+256...)
+        }
+    } catch (e) {
+        // ignore parse error, return best effort or raw
+    }
+
+    // Fallback to legacy behavior if parsing fails (to avoid breaking partial typing)
+    // But strict E.164 prefers we guide them. For now, strict cleaning:
     const digits = value.replace(/\D/g, '');
-
     if (digits.length === 0) return '';
-
-    // If it already starts with 256, just truncate to 12
-    if (digits.startsWith('256')) {
-        return digits.slice(0, 12);
-    }
-
-    // If it starts with 0 (e.g. 077...), replace 0 with 256
-    if (digits.startsWith('0')) {
-        return ('256' + digits.slice(1)).slice(0, 12);
-    }
-
-    // Otherwise, prepend 256
-    return ('256' + digits).slice(0, 12);
+    if (digits.startsWith('256')) return digits.slice(0, 12); // Legacy format preservation
+    if (digits.startsWith('0')) return '256' + digits.slice(1, 10);
+    return '256' + digits.slice(0, 9);
 };
 
 export const isEventLocked = (eventDate: string): boolean => {
