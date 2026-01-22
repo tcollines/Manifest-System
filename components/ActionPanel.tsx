@@ -136,6 +136,22 @@ const ActionPanel: React.FC<ActionPanelProps> = ({ modalType, closeModal, onSave
         alert("Please enter an email address.");
         return;
       }
+
+      const cleanEmail = formData.email.trim();
+      const cleanName = formData.fullname.trim();
+      const cleanContact = formData.contact.trim();
+
+      // Basic Email Validation
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(cleanEmail)) {
+        alert("Please enter a valid email address.");
+        return;
+      }
+      if (cleanEmail.startsWith('www.')) {
+        alert("Email addresses should not start with 'www.'. Please enter a valid email (e.g. name@gmail.com).");
+        return;
+      }
+
       setIsSubmitting(true);
       try {
         // 1. Generate Token
@@ -144,14 +160,14 @@ const ActionPanel: React.FC<ActionPanelProps> = ({ modalType, closeModal, onSave
         // 2. Create User Profile FIRST
         const newUser: User = {
           id: crypto.randomUUID(),
-          name: formData.fullname,
+          name: cleanName,
           role: formData.role,
           departmentId: formData.departmentId,
-          contact: formData.contact,
+          contact: cleanContact,
           createdBy: currentUser?.id, // Track who added the user
-          email: formData.email,
+          email: cleanEmail,
           username: undefined, // Not set yet (triggers Setup flow)
-          password: undefined,  // Not set yet
+          password: `PENDING_${invitationToken}`,  // Placeholder to satisfy NOT NULL constraint
           invitationToken: invitationToken,
           status: 'Pending'
         };
@@ -164,21 +180,26 @@ const ActionPanel: React.FC<ActionPanelProps> = ({ modalType, closeModal, onSave
         }
 
         // 3. Send Magic Link (Delivery Mechanism Only)
-        // We append the token to the redirect URL so it persists
-        const { error } = await supabase.auth.signInWithOtp({
-          email: formData.email,
-          options: {
-            emailRedirectTo: `${window.location.origin}/setup-account?token=${invitationToken}`
-          }
-        });
+        try {
+          const { error } = await supabase.auth.signInWithOtp({
+            email: cleanEmail,
+            options: {
+              emailRedirectTo: `${window.location.origin}/setup-account?token=${invitationToken}`
+            }
+          });
+          if (error) throw error;
 
-        if (error) throw error;
+          alert(`User created and invite sent to ${cleanEmail}!`);
+        } catch (inviteError: any) {
+          console.error("Invite sending failed:", inviteError);
+          // User is created, but invite failed.
+          alert(`User "${cleanName}" was created successfully, but the invite email failed to send (Error: ${inviteError.message}).\n\nPlease contact the user manually or try re-inviting later.`);
+        }
 
-        alert(`Invite sent to ${formData.email}! They can click the link to sign in and set their password.`);
         closeModal();
       } catch (err: any) {
-        console.error("Invite Error:", err);
-        alert(`Failed to send invite: ${err.message}`);
+        console.error("User Creation Error:", err);
+        alert(`Failed to create user: ${err.message}`);
       } finally {
         setIsSubmitting(false);
       }
