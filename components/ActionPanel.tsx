@@ -215,7 +215,9 @@ const ActionPanel: React.FC<ActionPanelProps> = ({ modalType, closeModal, onSave
   const Icon = getIcon();
 
   const isCreator = currentUser?.id === targetUser?.createdBy; // Kept for legacy/fallback reference if needed, but primary logic is Role-based now.
-  const isHeadOfTheirDept = currentUser?.role === 'Head of Dept' && currentUser?.departmentId === targetUser?.departmentId;
+  // Refined Permissions Logic
+  const isHeadOfTheirDept = modalType === ModalType.CREATE_USER ? (currentUser?.role === 'Head of Dept') : (currentUser?.role === 'Head of Dept' && currentUser?.departmentId === targetUser?.departmentId);
+  const isDeptAdminOfTheirDept = modalType === ModalType.CREATE_USER ? (currentUser?.role === 'Dept Admin') : (currentUser?.role === 'Dept Admin' && (targetUser ? currentUser?.departmentId === targetUser.departmentId : true));
 
   const isTargetTeamLeader = targetUser?.role === 'TeamLeader';
   const isSelf = currentUser?.id === targetUser?.id;
@@ -223,9 +225,9 @@ const ActionPanel: React.FC<ActionPanelProps> = ({ modalType, closeModal, onSave
   // Permissions
   // 1. Team Leader: Can edit everything (except themselves target is TL logic below).
   // 2. Administrator: Can edit Role AND Department of anyone (except TL).
-  // 3. Head of Dept: Can edit Role ONLY, and ONLY for members of their own department.
+  // 3. Head of Dept / Dept Admin: Can edit Role ONLY, and ONLY for members of their own department.
 
-  let canEditRole = isTeamLeader || isAdmin || isHeadOfTheirDept;
+  let canEditRole = isTeamLeader || isAdmin || isHeadOfTheirDept || isDeptAdminOfTheirDept;
   let canEditDept = isTeamLeader || isAdmin;
   let canEditProfile = true;
 
