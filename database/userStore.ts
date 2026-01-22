@@ -37,7 +37,7 @@ const mapUserToDB = (u: User) => {
     event_id: u.eventId,
     invitation_token: u.invitationToken,
     status: u.status,
-    created_by: u.createdBy
+    // created_by: u.createdBy // Disabled to prevent SQL error if migration not successful
   };
   // Remove undefined keys to avoid sending them to Supabase (which might cause errors if cols are missing)
   return Object.fromEntries(Object.entries(data).filter(([_, v]) => v !== undefined));

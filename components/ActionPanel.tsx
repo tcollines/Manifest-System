@@ -151,7 +151,7 @@ const ActionPanel: React.FC<ActionPanelProps> = ({ modalType, closeModal, onSave
           createdBy: currentUser?.id, // Track who added the user
           email: formData.email,
           username: undefined, // Not set yet (triggers Setup flow)
-          password: `PENDING_${invitationToken}`,  // Placeholder to satisfy NOT NULL constraint
+          password: undefined,  // Not set yet
           invitationToken: invitationToken,
           status: 'Pending'
         };
