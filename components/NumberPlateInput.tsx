@@ -17,7 +17,7 @@ const PATTERNS = {
     NEW_GOVT: /^UG\s\d{2}\s\d{5}$/,           // UG 32 00042
 
     // Existing / Outgoing
-    OLD_PRIVATE: /^U[A-B][A-Z]\s\d{3}[A-Z]$/, // UAA - UBZ (Never reached UCA)
+    OLD_PRIVATE: /^U[A-L][A-Z]\s\d{3}[A-Z]$/, // UAA - ULZ (Extended from UB)
     OLD_GOVT: /^UG\s\d{4}[A-Z]$/,             // UG 0123A
     DIPLOMATIC: /^CD\s\d{2}-\d{3}[A-Z]$/,     // CD 01-700U
     DUTY_FREE: /^EX\s\d{5}$/,                 // EX 12345
@@ -44,11 +44,20 @@ const NumberPlateInput: React.FC<NumberPlateInputProps> = ({ value, onChange, pl
             else formatted = `UMA ${clean.slice(3)}`;
         }
         else if (clean.startsWith('UG')) {
-            if (clean.length >= 4) {
-                if (clean.length > 7) formatted = `UG ${clean.slice(2, 4)} ${clean.slice(4, 9)}`;
-                else if (clean.length === 7 && /[A-Z]/.test(clean[6])) formatted = `UG ${clean.slice(2, 6)}${clean.slice(6)}`;
-                else formatted = `UG ${clean.slice(2)}`;
-            } else formatted = `UG ${clean.slice(2)}`;
+            // Distinguish between Govt (UG + Digits) and Old Private Series (UG + Letter, e.g. UGA, UGR)
+            const isPrivateSeries = clean.length > 2 && /[A-Z]/.test(clean[2]);
+
+            if (isPrivateSeries) {
+                // Formatting for Private Series: UGR 123A (Space after 3rd char)
+                if (clean.length > 3) formatted = `${clean.slice(0, 3)} ${clean.slice(3, 6)}${clean.slice(6)}`;
+            } else {
+                // Formatting for Govt: UG 0123... (Space after 2nd char)
+                if (clean.length >= 4) {
+                    if (clean.length > 7) formatted = `UG ${clean.slice(2, 4)} ${clean.slice(4, 9)}`;
+                    else if (clean.length === 7 && /[A-Z]/.test(clean[6])) formatted = `UG ${clean.slice(2, 6)}${clean.slice(6)}`;
+                    else formatted = `UG ${clean.slice(2)}`;
+                } else formatted = `UG ${clean.slice(2)}`;
+            }
         }
         else if (clean.startsWith('UA')) {
             if (clean.length > 2) {
@@ -115,15 +124,55 @@ const NumberPlateInput: React.FC<NumberPlateInputProps> = ({ value, onChange, pl
 
         // 3. New Govt: UG + 2 Digits + 5 Digits (Total 9 chars: UG3200042)
         // OR Old Govt: UG + 4 Digits + 1 Letter (Total 7 chars: UG0123A)
+        // OR Old Private Series starting with G: UGA... (UGA 123 A)
         else if (clean.startsWith('UG')) {
             const index = clean.length - 1;
 
             // 0-1: UG
             if (index < 2) return { valid: true };
 
-            // 2-3: Digits always (common to both)
-            // Clean: UG32... or UG01...
+            // Check Index 2: distinguishing factor
+            // If Index 2 is a Letter -> It's Old Private series (UGA, UGB...)
+            // If Index 2 is a Digit -> It's Government (UG 0... or UG 3...)
+
+            // If we are PAST index 2, check what index 2 WAS.
+            const thirdChar = clean[2];
+            const isOldPrivateSeries = /[A-Z]/.test(thirdChar); // e.g. 'A' in UGA
+
+            if (isOldPrivateSeries) {
+                // Follow Old Private Logic: U + Letter + Letter + 3 Digits + 1 Letter
+                // We are at UG (already 2 letters).
+                // Index 2: Letter (Already validated by logic below or context)
+                if (index === 2) {
+                    if (!/[A-Z]/.test(nextChar.toUpperCase())) return { valid: false, error: "Expected a letter (UGA... series) or digit (Govt)" };
+                }
+
+                // Index 3-5: Digits
+                if (index >= 3 && index <= 5) {
+                    if (!/\d/.test(nextChar)) return { valid: false, error: "Expected a digit" };
+                }
+                // Index 6: Letter
+                if (index === 6) {
+                    if (!/[A-Z]/.test(nextChar.toUpperCase())) return { valid: false, error: "Expected a letter" };
+                }
+                if (index > 6) return { valid: false, error: "Max length reached" };
+
+                return { valid: true };
+            }
+
+            // --- GOVERNMENT PATH (Third char is Digit) ---
+
+            // 2-3: Digits always (common to both Old/New Govt)
+            // clean: UG[Digit]...
             if (index >= 2 && index <= 3) {
+                // If we are AT index 2, we allow Digit OR Letter (to branch).
+                if (index === 2) {
+                    const isLetter = /[A-Z]/.test(nextChar.toUpperCase());
+                    const isDigit = /\d/.test(nextChar);
+                    if (!isLetter && !isDigit) return { valid: false, error: "Expected digit (Govt) or letter (UGA series)" };
+                    return { valid: true };
+                }
+                // If index 3
                 if (!/\d/.test(nextChar)) return { valid: false, error: "Expected a digit" };
             }
 
@@ -254,13 +303,14 @@ const NumberPlateInput: React.FC<NumberPlateInputProps> = ({ value, onChange, pl
             // 0: U
             if (index < 1) return { valid: true };
 
-            // 1: Second Char must be A or B (Old Private) OR M (Motorcycle)
+            // 1: Second Char must be A-L (Old Private) OR M (Motorcycle)
+            // EXTENDED FROM [A-B] TO [A-L]
             if (index === 1) {
                 const char = nextChar.toUpperCase();
-                const isOldPrivate = /[A-B]/.test(char);
+                const isOldPrivate = /[A-L]/.test(char);
                 const isMoto = char === 'M';
 
-                if (!isOldPrivate && !isMoto) return { valid: false, error: "Expected 'A', 'B' (Old Private) or 'M' (Motorcycle)" };
+                if (!isOldPrivate && !isMoto) return { valid: false, error: "Expected 'A'-'L' (Old Private) or 'M' (Motorcycle)" };
             }
 
             // 2: Third Char
