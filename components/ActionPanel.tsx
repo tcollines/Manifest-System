@@ -341,13 +341,26 @@ const ActionPanel: React.FC<ActionPanelProps> = ({ modalType, closeModal, onSave
                       disabled={!canEditRole}
                       className={`w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-ministry-text focus:outline-none focus:border-ministry-orange ${!canEditRole ? 'opacity-60 bg-gray-100 cursor-not-allowed' : ''}`}
                     >
-                      <option value="Dept Admin">Dept Admin</option>
-                      <option value="Member">Member</option>
-                      <option value="Head of Dept">Head of Dept</option>
-                      <option value="Administrator">Administrator</option>
-                      <option value="TeamLeader">TeamLeader</option>
-                      <option value="Logistics">Logistics</option>
-                      <option value="Coordinator">Coordinator</option>
+                      {/* Dynamic Role Options based on Permissions */}
+                      {(() => {
+                        const allRoles = ['Dept Admin', 'Member', 'Head of Dept', 'Administrator', 'TeamLeader', 'Logistics', 'Coordinator'];
+                        let allowedRoles = allRoles;
+
+                        if (isAdmin || isTeamLeader) {
+                          allowedRoles = allRoles;
+                        } else if (currentUser?.role === 'Head of Dept') {
+                          allowedRoles = ['Dept Admin', 'Member'];
+                        } else if (currentUser?.role === 'Dept Admin') {
+                          allowedRoles = ['Member'];
+                        }
+
+                        // Ensure current value is shown even if technically not allowed (e.g. viewing someone else), or fall back
+                        // But for editing/creating, we restrict.
+
+                        return allowedRoles.map(r => (
+                          <option key={r} value={r}>{r}</option>
+                        ));
+                      })()}
                     </select>
                   </div>
                   <div className="space-y-2">
