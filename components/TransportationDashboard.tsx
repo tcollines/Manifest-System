@@ -36,7 +36,6 @@ import {
     ArrowLeft,
     LayoutList,
     Activity,
-    Packet,
     Heart,
     Phone,
     Package
