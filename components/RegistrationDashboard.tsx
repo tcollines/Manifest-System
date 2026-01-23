@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { isEventLocked, isServiceClosed, validatePlate, validateContact } from '../utils';
+import { isEventLocked, isServiceClosed, validatePlate, validateContact, validateDriverIdentity } from '../utils';
 import { VEHICLE_TYPES } from '../constants';
 import { ModalType, MinistryEvent, User, Vehicle, Passenger, PickUpStation, PersonalVehicle, Member } from '../types';
 
@@ -831,6 +831,13 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
     const { valid, formatted } = validatePlate(vehicleForm.number_plate);
     if (!valid) {
       alert(`Invalid Number Plate Format: "${vehicleForm.number_plate}".\nAllowed formats: UAA 123A or UA 123AA (e.g. UBA 123A)`);
+      return;
+    }
+
+    // 1b. Validate Driver Identity (NIN / Permit)
+    const idValidation = validateDriverIdentity(vehicleForm.driverNin);
+    if (!idValidation.valid) {
+      alert(`Driver ID Error: ${idValidation.error}`);
       return;
     }
 
@@ -2658,11 +2665,23 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-bold text-gray-700">Driver NIN / Permit No.</label>
+                  <div className="flex justify-between items-center">
+                    <label className="text-sm font-bold text-gray-700">Driver NIN / Permit No.</label>
+                    {vehicleForm.driverNin && (
+                      <div className={`w-3 h-3 rounded-full ${validateDriverIdentity(vehicleForm.driverNin).valid ? 'bg-green-500' : 'bg-red-500'}`} title={validateDriverIdentity(vehicleForm.driverNin).error || "Valid ID"} />
+                    )}
+                  </div>
                   <input
                     required
                     value={vehicleForm.driverNin}
-                    onChange={e => setVehicleForm({ ...vehicleForm, driverNin: e.target.value })}
+                    onChange={e => {
+                      let val = e.target.value.toUpperCase();
+                      // Enforce NIN limit (14 chars) if it looks like a NIN (Starts with C)
+                      if (val.startsWith('C') && val.length > 14) {
+                        return; // Ignore input if it exceeds 14 chars for NINs
+                      }
+                      setVehicleForm({ ...vehicleForm, driverNin: val })
+                    }}
                     className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-ministry-blue uppercase"
                     placeholder="NIN or Permit Number"
                   />

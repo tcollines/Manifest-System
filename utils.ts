@@ -112,3 +112,33 @@ export const validatePlate = (val: string) => {
 
     return { valid: false, formatted: val };
 };
+
+// Helper for Driver Identity (NIN or Permit) Validation
+export const validateDriverIdentity = (val: string) => {
+    // 1. Clean input: Remove spaces and special chars
+    const clean = val.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+
+    if (!clean) return { valid: false, formatted: '', error: 'ID is required' };
+
+    // 2. Logic: "If detected that the NIN or permit number is Ugandan..."
+    // Most Ugandan NINs start with 'C' (e.g. CM, CF).
+    // If it looks like a NIN (starts with C), enforce strict 14 characters.
+    if (clean.startsWith('C')) {
+        if (clean.length !== 14) {
+            return {
+                valid: false,
+                formatted: clean,
+                error: `Invalid Ugandan NIN format. Expected 14 characters (e.g. CM...), got ${clean.length}.`
+            };
+        }
+        return { valid: true, formatted: clean, type: 'Ugandan NIN' };
+    }
+
+    // 3. Ugandan Driving Permits (Old & New)
+    // For non-NIN (doesn't start with C), we strictly enforce a sensible minimum length (5).
+    if (clean.length < 5) {
+        return { valid: false, formatted: clean, error: 'ID Number is too short.' };
+    }
+
+    return { valid: true, formatted: clean, type: 'Permit/Foreign' };
+};
