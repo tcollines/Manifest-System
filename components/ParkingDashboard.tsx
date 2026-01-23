@@ -56,7 +56,7 @@ const ParkingDashboard: React.FC<ParkingDashboardProps> = ({ events = [], onOpen
 
         const channel = supabase.channel('parking-live')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'personal_vehicles' }, (payload) => {
-                console.log('Realtime Parking Update:', payload);
+
                 refreshData();
                 forceUpdate(n => n + 1);
             })
@@ -88,7 +88,7 @@ const ParkingDashboard: React.FC<ParkingDashboardProps> = ({ events = [], onOpen
             });
 
             if (staleVehicles.length > 0) {
-                console.log(`Resetting ${staleVehicles.length} stale vehicles...`);
+
                 // Update sequentially or in parallel
                 staleVehicles.forEach(async (v) => {
                     // Reset to Absent

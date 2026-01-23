@@ -58,13 +58,16 @@ const App: React.FC = () => {
   const getDashboardForUser = (user: User): string => {
     if (user.role === 'Super Admin' || user.role === 'Administrator') return 'dashboard';
 
+    // Role-specific overrides (BEFORE Department Check)
+    if (user.role === 'Logistics') return 'registration'; // Logistics view is within RegistrationDashboard
+    if (user.role === 'Coordinator') return 'transportation';
+
     // Map Department ID to Dashboard View
     switch (user.departmentId) {
       case 'd1': return 'registration';
       case 'd2': return 'next-gen';
       case 'd3': return 'parking';
       case 'd4': return 'finance';
-      case 'd5': return 'transportation';
       case 'd5': return 'transportation';
       case 'd6': return 'follow-up';
       case 'd7': return 'schools';
@@ -105,11 +108,6 @@ const App: React.FC = () => {
       setActiveTab('public-soul-entry');
     }
 
-    // Check for Public Soul Collection Link
-    if (window.location.pathname.startsWith('/collect-souls/')) {
-      setActiveTab('public-soul-entry');
-    }
-
     // Check for errors in the URL hash (e.g. invalid/expired link)
     const hash = window.location.hash;
     if (hash && hash.includes('error=')) {
@@ -129,25 +127,25 @@ const App: React.FC = () => {
     const subscription = supabase
       .channel('public:db_changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, (payload) => {
-        console.log('Realtime change detected in users:', payload);
+
         refreshData();
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'ministry_events' }, (payload) => {
-        console.log('Realtime change detected in ministry_events:', payload);
+
         refreshData();
       })
       .subscribe();
 
     // Supabase Auth Listener
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log("Auth State Change:", event, session?.user?.email);
+
 
       if (event === 'SIGNED_IN' && session?.user?.email) {
         // Fetch specific user profile to ensure we get it even if RLS restricts 'getAll'
         const matchingUser = await UserStore.getByEmail(session.user.email);
 
         if (matchingUser) {
-          console.log("Logged in user found:", matchingUser);
+
           setCurrentUser(matchingUser);
           UserStore.saveSession(matchingUser);
 
@@ -155,15 +153,9 @@ const App: React.FC = () => {
           if (!matchingUser.username) {
             setActiveTab('setup-account');
           } else {
-            // Redirect logic based on Role
-            if (matchingUser.role === 'Logistics') setActiveTab('registration');
-            else if (matchingUser.role === 'Coordinator') setActiveTab('transportation');
-            else if (matchingUser.role === 'Team Leader') setActiveTab('team-dashboard'); // Fixed role string
-            else if (matchingUser.role === 'Dept Admin') setActiveTab('registration'); // Updated from Reg. Admin
-            else if (matchingUser.role === 'Next Gen Member') setActiveTab('next-gen');
-            else if (matchingUser.role === 'Member' && matchingUser.departmentId === 'd2') setActiveTab('next-gen');
-            else if (matchingUser.role === 'Member') setActiveTab('registration');
-            else setActiveTab('dashboard');
+            // Redirect logic based on Role using specific helper
+            const target = getDashboardForUser(matchingUser);
+            setActiveTab(target);
           }
           setLoginError(null);
         } else {
@@ -233,9 +225,12 @@ const App: React.FC = () => {
     // 1. Clear Supabase Auth Session (Critical for preventing auto-relogin of same user)
     await supabase.auth.signOut();
 
-    // 2. Clear Local App Session
+    // 2. Clear Local App Session and View States
     UserStore.clearSession();
     localStorage.removeItem('ministry_active_tab');
+    localStorage.removeItem('registration_view_mode'); // Fix for persisting view state across users
+    localStorage.removeItem('registration_active_tab');
+
     setCurrentUser(null);
     setActiveTab('dashboard');
     setLoginError(null);
@@ -252,7 +247,7 @@ const App: React.FC = () => {
     const resetTimer = () => {
       clearTimeout(timer);
       timer = setTimeout(() => {
-        console.log("User inactive for 10 minute. Logging out...");
+
         handleLogout();
       }, INACTIVITY_LIMIT);
     };

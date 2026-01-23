@@ -225,7 +225,7 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
                 'postgres_changes',
                 { event: '*', schema: 'public', table: 'vehicles' },
                 (payload) => {
-                    console.log('Realtime vehicle update:', payload);
+
                     refreshDataRef.current();
                     forceUpdate(n => n + 1);
                 }
@@ -234,7 +234,7 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
                 'postgres_changes',
                 { event: '*', schema: 'public', table: 'users' },
                 (payload) => {
-                    console.log('Realtime user update:', payload);
+
                     refreshCoordinators();
                     forceUpdate(n => n + 1);
                 }
@@ -243,7 +243,7 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
                 'postgres_changes',
                 { event: '*', schema: 'public', table: 'passengers' },
                 (payload) => {
-                    console.log('Realtime passenger update:', payload);
+
                     refreshDataRef.current();
                     forceUpdate(n => n + 1);
                 }
@@ -455,7 +455,7 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
             try {
                 await SoulsStore.add(newSoul);
                 // Ideally show toast
-                console.log("Soul added to Follow Up");
+
             } catch (error) {
                 console.error("Failed to add soul", error);
             }

@@ -76,20 +76,33 @@ type ViewMode = 'list' | 'service-active' | 'service-review' | 'Vehicle-view' | 
 
 const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, currentUser, onOpenModal }) => {
   /* Persistence Logic */
-  const [activeTab, setActiveTab] = useState<Tab>(() =>
-    (localStorage.getItem('registration_active_tab') as Tab) || 'checkin'
-  );
+  const [activeTab, setActiveTab] = useState<Tab>(() => {
+    if (currentUser.role === 'Logistics') return 'events';
+    return (localStorage.getItem('registration_active_tab') as Tab) || 'checkin';
+  });
 
   // Force re-render state
   const [, forceUpdate] = useState(0);
 
-  const [viewMode, setViewMode] = useState<ViewMode>(() =>
-    (localStorage.getItem('registration_view_mode') as ViewMode) || 'list'
-  );
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    const saved = (localStorage.getItem('registration_view_mode') as ViewMode) || 'list';
+    // Immediate Guard: Functionally force 'list' for Logistics user if they are in an invalid view for their role
+    if (currentUser.role === 'Logistics' && saved === 'register-new') {
+      return 'list';
+    }
+    return saved;
+  });
 
   useEffect(() => {
     localStorage.setItem('registration_active_tab', activeTab);
   }, [activeTab]);
+
+  // Force 'events' tab for Logistics users to prevent flicker if role updates late
+  useEffect(() => {
+    if (currentUser.role === 'Logistics' && activeTab !== 'events') {
+      setActiveTab('events');
+    }
+  }, [currentUser.role]);
 
   useEffect(() => {
     localStorage.setItem('registration_view_mode', viewMode);
@@ -109,7 +122,11 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
     if (viewMode === 'service-active' && !selectedService) {
       setViewMode('list');
     }
-  }, [viewMode, selectedService]);
+    // Force reset viewMode for Logistics (they don't use register-new or other Check-In views)
+    if (currentUser.role === 'Logistics' && (viewMode === 'register-new' || viewMode === 'checkin')) {
+      setViewMode('list');
+    }
+  }, [viewMode, selectedService, currentUser.role]);
 
   // Logistics Hierarchy State
   const [selectedLogisticsEvent, setSelectedLogisticsEvent] = useState<MinistryEvent | null>(null); // Level 1 -> 2
@@ -143,6 +160,8 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
     entrantPassword: ''
   };
   const [stationForm, setStationForm] = useState(initialStationForm);
+
+
 
   // Data Entrant - Add Entrant State
   const [isAddEntrantOpen, setIsAddEntrantOpen] = useState(false);
@@ -243,9 +262,53 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 100000;
 
-  const isLogisticsRole = currentUser.role === 'Logistics';
+  // Robust Role Check: Case-insensitive and includes Department ID 'd5' (Transportation/Logistics) - Fixes Data Entrant Guard
+  const isLogisticsRole = (currentUser.role && currentUser.role.trim().toLowerCase() === 'logistics') || currentUser.departmentId === 'd5';
+
+
+
+  const effectiveTab = isLogisticsRole ? 'events' : activeTab; // Force 'events' for Logistics to prevents flicker
+  // Force 'list' viewMode for Logistics if they somehow landed on 'register-new' (which is for Check-In)
+  if (isLogisticsRole && viewMode === 'register-new') {
+    // This is a side-effect in render, but react specific pattern is to use useEffect
+    // We will handle this in useEffect below, but valid for effectiveView logic.
+  }
   const isMember = currentUser.role === 'Member';
   const canCreateService = ['Administrator', 'Head of Dept', 'Reg. Admin'].includes(currentUser.role);
+
+  // Auto-Navigation for Logistics Users
+  useEffect(() => {
+    // Only proceed if user has role, is assigned a station, and stations data is loaded
+    if (isLogisticsRole && currentUser.stationId && stations.length > 0) {
+      // Find the user's station
+      const myStation = stations.find(s => s.id === currentUser.stationId);
+
+
+      if (myStation) {
+        // Auto-select the event (Level 1) - Ideally connected to the station or just the active one
+        // For now, if no event is selected, just pick the one the station belongs to or the first "Event" type
+        if (!selectedLogisticsEvent) {
+          // Try to find the event from the station (if we had eventId on station) or just pick active event
+          const activeEvent = events.find(e => e.type === 'Event'); // Simplified: Pick first event
+          if (activeEvent) {
+            setSelectedLogisticsEvent(activeEvent);
+          }
+
+        }
+
+        // Auto-select the station (Level 2)
+        if (!selectedStation) {
+          setSelectedStation(myStation);
+        }
+
+        // Auto-switch view to details
+        if (viewMode !== 'station-detail') {
+          setViewMode('station-detail');
+        }
+      }
+
+    }
+  }, [isLogisticsRole, currentUser.stationId, stations, events, selectedLogisticsEvent, selectedStation, viewMode]);
 
   // Derived State - Filters
   const services = events.filter(e => e.type === 'Service').sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -270,17 +333,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
       setTotalMembers(fetchedMembersResult.count);
       setCoordinators(fetchedUsers.filter(u => u.role === 'Coordinator'));
 
-      // If Logistics user, auto-select their station and event
-      if (isLogisticsRole && currentUser.stationId) {
-        const myStation = fetchedStations.find(s => s.id === currentUser.stationId);
-        if (myStation) {
-          handleSelectStation(myStation);
-          // Find associated event
-          const myEvent = events.find(e => e.id === myStation.eventId);
-          if (myEvent) setSelectedLogisticsEvent(myEvent);
-          setActiveTab('events');
-        }
-      }
+
     } catch (error) {
       console.error("Error refreshing data:", error);
     }
@@ -1421,7 +1474,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
       <div className={`${isLogisticsRole ? '' : 'bg-ministry-card border border-gray-200'} rounded-2xl md:p-6 shadow-sm min-h-[500px]`}>
 
         {/* ... (Checkin Tab Code) ... */}
-        {activeTab === 'checkin' && viewMode === 'list' && (
+        {!isLogisticsRole && effectiveTab === 'checkin' && viewMode === 'list' && (
           <div className="space-y-6 p-4 md:p-0">
             <div className="flex justify-between items-center">
               <h3 className="text-lg font-bold text-gray-800">Active Services</h3>
@@ -1628,7 +1681,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
         )}
 
         {/* ... (Register New Form Code) ... */}
-        {viewMode === 'register-new' && (
+        {!isLogisticsRole && viewMode === 'register-new' && (
           <div className="max-w-5xl mx-auto space-y-6 p-4 md:p-0">
             <div className="flex items-center space-x-3 border-b border-gray-100 pb-4">
               <button onClick={handleBackRegistration} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><ArrowLeft className="w-5 h-5 text-gray-600" /></button>
@@ -1796,7 +1849,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
         )}
 
         {/* === EVENTS & LOGISTICS TAB (UPDATED HIERARCHY) === */}
-        {activeTab === 'events' && (
+        {effectiveTab === 'events' && (
           <div className="space-y-6">
 
             {/* LEVEL 1: EVENTS LIST */}
