@@ -346,15 +346,19 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
                 // Update DB and state before switching
                 VehicleStore.updateVehicle(updated);
                 setMyVehicle(updated);
+
+                showToast("Ongoing Journey Completed. Switching to Return...", "success");
+
                 // Auto switch to return journey using the updated object
                 setTimeout(() => {
                     switchJourneyTab('Return', updated);
-                }, 500);
+                }, 1500); // Increased delay slightly for toast visibility
                 return; // Prevent double update below
             } else {
                 updated.returnArrivalTime = now;
                 updated.status = 'Completed';
                 updated.currentStage = 'Completed';
+                showToast("Return Journey Completed!", "success");
             }
         }
 
@@ -464,10 +468,11 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
 
             try {
                 await SoulsStore.add(newSoul);
-                // Ideally show toast
+                showToast(`${firstName} marked as Soul Won!`, 'success');
 
             } catch (error) {
                 console.error("Failed to add soul", error);
+                showToast("Failed to save to Souls Database", 'error');
             }
         }
     };

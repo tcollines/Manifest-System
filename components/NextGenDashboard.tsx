@@ -84,9 +84,26 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
     const [bulkText, setBulkText] = useState('');
 
     const filteredChildren = children.filter(c => {
-        const matchesSearch = c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            c.parentName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            c.parentContact.includes(searchQuery);
+        const tokens = searchQuery.toLowerCase().split(/\s+/).filter(Boolean);
+
+        let matchesSearch = true;
+        if (tokens.length > 0) {
+            const childName = c.name.toLowerCase();
+            const parentName = c.parentName.toLowerCase();
+
+            // Normalize contact
+            const contactRaw = c.parentContact || '';
+            const contactClean = contactRaw.replace(/\D/g, '');
+
+            matchesSearch = tokens.every(token => {
+                if (childName.includes(token) || parentName.includes(token)) return true;
+
+                const tokenClean = token.replace(/\D/g, '');
+                if (tokenClean.length > 0 && contactClean.includes(tokenClean)) return true;
+
+                return false;
+            });
+        }
 
         // If in checkout mode, only show children who are currently checked in (using attendedServiceIds if service selected)
         if (activeTab === 'checkout' && viewMode === 'service-active' && selectedService) {

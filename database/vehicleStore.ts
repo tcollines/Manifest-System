@@ -39,7 +39,8 @@ const mapPassengerFromDB = (p: any): Passenger => ({
     studentClass: p.student_class,
     boardingType: p.boarding_type,
     gender: p.gender,
-    parentContact: p.parent_contact
+    parentContact: p.parent_contact,
+    soulWon: p.soul_won
 });
 
 export const VehicleStore = {
@@ -189,7 +190,8 @@ export const VehicleStore = {
             student_class: passenger.studentClass,
             boarding_type: passenger.boardingType,
             gender: passenger.gender,
-            parent_contact: passenger.parentContact
+            parent_contact: passenger.parentContact,
+            soul_won: passenger.soulWon
         };
         try {
             const { error } = await supabase.from('passengers').insert([payload]);
@@ -213,7 +215,8 @@ export const VehicleStore = {
             student_class: passenger.studentClass,
             boarding_type: passenger.boardingType,
             gender: passenger.gender,
-            parent_contact: passenger.parentContact
+            parent_contact: passenger.parentContact,
+            soul_won: passenger.soulWon
         };
         try {
             const { error } = await supabase.from('passengers').update(payload).eq('id', passenger.id);

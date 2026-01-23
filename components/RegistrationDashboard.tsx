@@ -836,11 +836,12 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
     setMembers(prev => prev.map(m => m.id === memberId ? { ...m, status: 'Checked In', checkInTime: new Date().toLocaleTimeString() } : m));
 
     // Refresh Stats
-    // Refresh Stats
     const stats = await MemberStore.getServiceStats(selectedService.id, selectedService.date);
     const childrenCount = selectedService.stats?.manualChildrenCount || 0;
     setCheckInStats({ total: stats.total + childrenCount, firstTimers: stats.firstTimers });
     setCheckedInIds(new Set(stats.memberIds));
+
+    showToast("Member Checking In...", "success");
   };
 
   // --- MEMBER DETAILS & EDIT ---
@@ -1111,10 +1112,27 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
 
 
 
-  const filteredMembers = members.filter(m =>
-    m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    m.phone.includes(searchQuery)
-  );
+  const filteredMembers = members.filter(m => {
+    const tokens = searchQuery.toLowerCase().split(/\s+/).filter(Boolean);
+    if (tokens.length === 0) return true;
+
+    const name = m.name.toLowerCase();
+    const phoneRaw = m.phone || '';
+    const phoneClean = phoneRaw.replace(/\D/g, ''); // Strip non-digits from stored phone
+
+    return tokens.every(token => {
+      // 1. Check Name (Standard)
+      if (name.includes(token)) return true;
+
+      // 2. Check Phone (Flexible)
+      // Strip non-digits from token to handle "123-456" input or just "123"
+      const tokenClean = token.replace(/\D/g, '');
+      // Only check phone if token has digits (prevents "John" matching empty string)
+      if (tokenClean.length > 0 && phoneClean.includes(tokenClean)) return true;
+
+      return false;
+    });
+  });
 
   // Bulk Selection Handlers
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {

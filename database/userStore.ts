@@ -47,18 +47,27 @@ export const UserStore = {
   // Login now queries the DB
   login: async (username: string, password: string): Promise<User | null> => {
     try {
-      const { data, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('username', username)
-        .eq('password', password) // Note: Plaintext check for migration compatibility. Recommended: Hash comparison.
-        .single();
+      // Create a timeout promise that rejects after 5 seconds
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Connection timeout')), 5000)
+      );
+
+      // Race against the Supabase query
+      const { data, error } = await Promise.race([
+        supabase
+          .from('users')
+          .select('*')
+          .eq('username', username)
+          .eq('password', password) // Note: Plaintext check for migration compatibility. Recommended: Hash comparison.
+          .single(),
+        timeoutPromise
+      ]) as any;
 
       if (data && !error) {
         return mapUserFromDB(data);
       }
     } catch (e) {
-      console.warn('Supabase login failed or not configured, checking mock users...');
+      console.warn('Supabase login failed or not configured (or timed out), checking mock users...', e);
     }
 
     // Fallback: Check mock users if DB fails or returns no match

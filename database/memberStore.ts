@@ -43,7 +43,16 @@ export const MemberStore = {
         .select('*', { count: 'exact' });
 
       if (searchQuery) {
-        query = query.ilike('name', `%${searchQuery}%`);
+        // Flexible Search: Split by space
+        const tokens = searchQuery.split(/\s+/).filter(Boolean);
+        tokens.forEach(token => {
+          const tokenClean = token.replace(/\D/g, '');
+          if (tokenClean.length > 0) {
+            query = query.or(`name.ilike.%${token}%,phone.ilike.%${tokenClean}%`);
+          } else {
+            query = query.or(`name.ilike.%${token}%`);
+          }
+        });
       }
 
       const from = (page - 1) * pageSize;
@@ -235,11 +244,23 @@ export const MemberStore = {
   searchMembersWithStatus: async (serviceId: string, query: string): Promise<Member[]> => {
     try {
       // 1. Search Members matching query (Global Search)
-      const { data: members, error: memError } = await supabase
+      let queryBuilder = supabase
         .from('members')
-        .select('*')
-        .ilike('name', `%${query}%`)
-        .limit(20);
+        .select('*');
+
+      if (query) {
+        const tokens = query.split(/\s+/).filter(Boolean);
+        tokens.forEach(token => {
+          const tokenClean = token.replace(/\D/g, '');
+          if (tokenClean.length > 0) {
+            queryBuilder = queryBuilder.or(`name.ilike.%${token}%,phone.ilike.%${tokenClean}%`);
+          } else {
+            queryBuilder = queryBuilder.or(`name.ilike.%${token}%`);
+          }
+        });
+      }
+
+      const { data: members, error: memError } = await queryBuilder.limit(20);
 
       if (memError || !members || members.length === 0) return [];
 
