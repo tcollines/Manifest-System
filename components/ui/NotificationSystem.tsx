@@ -12,7 +12,7 @@ interface Toast {
 
 interface ConfirmOptions {
     title: string;
-    message: string;
+    message: React.ReactNode;
     confirmText?: string;
     cancelText?: string;
     isDestructive?: boolean;
@@ -20,7 +20,7 @@ interface ConfirmOptions {
 
 interface NotificationContextType {
     showToast: (message: string, type?: NotificationType) => void;
-    confirm: (message: string, options?: Partial<ConfirmOptions>) => Promise<boolean>;
+    confirm: (message: React.ReactNode, options?: Partial<ConfirmOptions>) => Promise<boolean>;
 }
 
 // --- Context ---
@@ -145,7 +145,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }, []);
 
     // Confirm Logic
-    const confirm = useCallback((message: string, options?: Partial<ConfirmOptions>): Promise<boolean> => {
+    const confirm = useCallback((message: React.ReactNode, options?: Partial<ConfirmOptions>): Promise<boolean> => {
         return new Promise((resolve) => {
             setConfirmOptions({
                 title: options?.title || 'Confirmation',

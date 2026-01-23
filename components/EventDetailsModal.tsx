@@ -3,6 +3,8 @@ import { MinistryEvent, User } from '../types';
 import { VehicleStore } from '../database/vehicleStore';
 import { LogisticsStore } from '../database/logisticsStore';
 import { UserStore } from '../database/userStore';
+import { MemberStore } from '../database/memberStore';
+import { SoulsStore } from '../database/soulsStore';
 import { X, Users, Heart, GraduationCap, DollarSign, Baby, Download, Calendar, MapPin, Bus, Building2 } from 'lucide-react';
 
 interface EventDetailsModalProps {
@@ -55,33 +57,37 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({ event, onClose })
       try {
         const allVehicles = await VehicleStore.getVehicles();
         const allStations = await LogisticsStore.getStations();
+        const allPassengers = await VehicleStore.getPassengers();
 
-        // Find stations linked to this event
+        // 1. Logistics Stats
         const eventStations = allStations.filter(s => s.eventId === event.id);
         const eventStationIds = eventStations.map(s => s.id);
-
-        // Find vehicles linked to these stations
         const eventVehicles = allVehicles.filter(v => eventStationIds.includes(v.stationId));
-
-        const allPassengers = await VehicleStore.getPassengers();
         const eventPassengers = allPassengers.filter(p => eventVehicles.some(v => v.id === p.vehicleId));
 
-        // Calculate metrics
-        const firstTimersCount = eventPassengers.filter(p => p.isFirstTime === 'Yes').length;
-        const childrenCount = eventVehicles.reduce((sum, v) => sum + (v.childrenCount || 0), 0);
-        const totalAttendees = eventPassengers.length + childrenCount; // Passengers + Children
-
-        // Calculate Souls Won from Passenger flags + any event level tracking
+        const logisticsFirstTimers = eventPassengers.filter(p => p.isFirstTime === 'Yes').length;
+        const logisticsChildren = eventVehicles.reduce((sum, v) => sum + (v.childrenCount || 0), 0);
+        const logisticsAttendees = eventPassengers.length + logisticsChildren;
         const soulsWonCount = eventPassengers.filter(p => p.soulWon).length;
 
-        // Calculate Expenditure
         const totalExpenditure = eventVehicles.reduce((sum, v) => {
-          // In FinanceDashboard, 'Total Paid' or 'Vehicle Cost' is represented by ongoingDispatch 
-          // (which mathematically equals ongoingBalance + returnDispatch in the dispatch logic).
-          // We sum only ongoingDispatch to avoid double counting.
           const dispatchAmount = parseFloat(v.financeDetails?.ongoingDispatch || '0');
           return sum + dispatchAmount;
         }, 0);
+
+        // 2. Service Stats (General Check-in)
+        let totalAttendees = logisticsAttendees;
+        let firstTimersCount = logisticsFirstTimers;
+
+        if (event.type === 'Service') {
+          const serviceStats = await MemberStore.getServiceStats(event.id, event.date);
+          // Use the greater of the two or combine logic?
+          // ServiceStats.total is the Single Source of Truth for "Total People in Service" (if everyone is checked in).
+          // Logistics are people who used transport. They SHOULD be in ServiceStats if checked in.
+          // To be safe and show the MAX known audience:
+          totalAttendees = Math.max(logisticsAttendees, serviceStats.total);
+          firstTimersCount = Math.max(logisticsFirstTimers, serviceStats.firstTimers);
+        }
 
         setStats({
           vehicles: eventVehicles.length,
@@ -90,7 +96,7 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({ event, onClose })
           attendees: totalAttendees,
           firstTimers: firstTimersCount,
           soulsWon: soulsWonCount,
-          children: childrenCount,
+          children: logisticsChildren, // Ideally this should also come from NextGen Store if possible
           expenditure: totalExpenditure.toLocaleString()
         });
 
@@ -106,10 +112,10 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({ event, onClose })
 
   return (
     <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
-      <div className="bg-white w-full max-w-3xl rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+      <div className="bg-white w-full max-w-3xl rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] flex flex-col">
 
         {/* Header */}
-        <div className="bg-ministry-card p-6 border-b border-gray-200 flex justify-between items-start">
+        <div className="bg-ministry-card p-6 border-b border-gray-200 flex justify-between items-start shrink-0">
           <div>
             <div className={`inline-block px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider mb-3 ${event.type === 'Service'
               ? 'bg-blue-100 text-blue-700'
@@ -129,7 +135,7 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({ event, onClose })
         </div>
 
         {/* Content */}
-        <div className="p-8">
+        <div className="p-8 overflow-y-auto">
           <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">Performance Metrics</h3>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
@@ -159,7 +165,7 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({ event, onClose })
         </div>
 
         {/* Footer */}
-        <div className="p-6 bg-gray-50 border-t border-gray-200 flex justify-end">
+        <div className="p-6 bg-gray-50 border-t border-gray-200 flex justify-end shrink-0">
           <button
             onClick={() => {
               const printWindow = window.open('', '_blank');

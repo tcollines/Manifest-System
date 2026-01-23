@@ -58,6 +58,7 @@ import {
   Baby,
   CalendarCheck,
   History,
+  Settings,
   User as UserIcon
 } from 'lucide-react';
 import EventDetailsModal from './EventDetailsModal';
@@ -159,7 +160,8 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
     // Data Entrant Initials
     entrantName: '',
     entrantUsername: '',
-    entrantPassword: ''
+    entrantPassword: '',
+    id: '' // Track ID for edits
   };
   const [stationForm, setStationForm] = useState(initialStationForm);
 
@@ -228,6 +230,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
   const [coordinators, setCoordinators] = useState<User[]>([]);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deletePassword, setDeletePassword] = useState('');
+  const [eventToDelete, setEventToDelete] = useState<MinistryEvent | null>(null);
 
   // Import State
   const [isImporting, setIsImporting] = useState(false);
@@ -266,6 +269,11 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
 
   // Robust Role Check: Case-insensitive and includes Department ID 'd5' (Transportation/Logistics) - Fixes Data Entrant Guard
   const isLogisticsRole = (currentUser.role && currentUser.role.trim().toLowerCase() === 'logistics') || currentUser.departmentId === 'd5';
+
+  // Permission for Deletion: Head of Dept or Administration Department (d0) or Administrator
+  const canDeleteLogistics = currentUser.role === 'Head of Dept' || currentUser.departmentId === 'd0' || currentUser.role === 'Administrator';
+
+
 
 
 
@@ -367,7 +375,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
       .on('postgres_changes', { event: '*', schema: 'public', table: 'ministry_events' }, () => {
         window.location.reload();
       })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'manifest_passengers' }, () => { refreshDataRef.current(); forceUpdate(n => n + 1); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'passengers' }, () => { refreshDataRef.current(); forceUpdate(n => n + 1); })
       .subscribe();
 
     return () => {
@@ -1154,22 +1162,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
     setIsDeleteModalOpen(true);
   };
 
-  const confirmDelete = async () => {
-    // Hardcoded check as requested for specific "Head of Dept Registration Password"
-    if (deletePassword !== 'admin123') {
-      showToast('Incorrect Head of Dept Registration Password.', 'error');
-      return;
-    }
 
-    await MemberStore.delete(Array.from(selectedMemberIds));
-
-    const remainingMembers = members.filter(m => !selectedMemberIds.has(m.id));
-    setMembers(remainingMembers);
-    setSelectedMemberIds(new Set());
-    setIsDeleteModalOpen(false);
-    setDeletePassword('');
-    showToast('Selected members deleted successfully.', 'success');
-  };
 
   // --- LOGISTICS LOGIC ---
   const handleAddStation = async (e: React.FormEvent) => {
@@ -1185,12 +1178,79 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
 
     if (stationForm.entrantUsername) {
       const users = await UserStore.getAll();
-      if (users.some(u => u.username?.toLowerCase() === stationForm.entrantUsername.toLowerCase())) {
+      // Check for duplicates, but exclude current entrant if editing
+      const duplicate = users.find(u =>
+        u.username?.toLowerCase() === stationForm.entrantUsername.toLowerCase() &&
+        (!stationForm.id || (stationEntrants[0] && u.id !== stationEntrants[0].id))
+      );
+
+      if (duplicate) {
         showToast(`The username "${stationForm.entrantUsername}" is already taken.`, 'error');
         return;
       }
     }
 
+    // UPDATE LOGIC
+    if (stationForm.id) {
+      const updatedStation: ExtendedStation = {
+        ...selectedStation!, // Keep existing props
+        name: stationForm.name,
+        location: stationForm.location,
+        coordinatorName: stationForm.coordinatorName,
+        coordinatorContact: stationForm.coordinatorContact
+      };
+
+      try {
+        await LogisticsStore.updateStation(updatedStation);
+
+        // Update Entrant if info provided
+        if (stationForm.entrantName && stationForm.entrantUsername && stationForm.entrantPassword) {
+          // Check if entrant exists for this station
+          const existingEntrant = stationEntrants[0];
+
+          if (existingEntrant) {
+            const updatedUser: User = {
+              ...existingEntrant,
+              name: stationForm.entrantName,
+              username: stationForm.entrantUsername,
+              password: stationForm.entrantPassword,
+              contact: stationForm.coordinatorContact // Optional: sync contact or keep separate? Let's keep separate usually but here we just update creds.
+            };
+            await UserStore.update(updatedUser);
+          } else {
+            // Create new if none existed but added in edit
+            const newEntrant: User = {
+              id: `u-${Date.now()}`,
+              name: stationForm.entrantName,
+              username: stationForm.entrantUsername,
+              password: stationForm.entrantPassword,
+              role: 'Logistics',
+              stationId: stationForm.id,
+              departmentId: 'd5'
+            };
+            await UserStore.add(newEntrant);
+          }
+        }
+
+        // Update local state
+        setStations(stations.map(s => s.id === stationForm.id ? updatedStation : s));
+        setIsAddStationOpen(false);
+        setStationForm(initialStationForm);
+        showToast("Station and User updated successfully.", 'success');
+
+        // Refresh entrants list if we are still viewing this station
+        if (selectedStation && selectedStation.id === stationForm.id) {
+          const allUsers = await UserStore.getAll();
+          setStationEntrants(allUsers.filter(u => u.role === 'Logistics' && u.stationId === stationForm.id));
+        }
+
+      } catch (err: any) {
+        showToast("Error updating station: " + err.message, 'error');
+      }
+      return;
+    }
+
+    // CREATE LOGIC
     const stationId = `s-${Date.now()}`;
     const newStation: ExtendedStation = {
       id: stationId,
@@ -1283,41 +1343,58 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
 
     // Contact Logic: Check if "Parent Contact" was selected
     let finalContact = passengerForm.contact;
-    let finalParentContact = undefined;
+    let finalParentContact = passengerForm.parentContact;
 
     // Use type casting to check the temporary UI flag we added
     if ((passengerForm as any).isParentContact === true) {
       finalParentContact = passengerForm.contact; // The input value goes to parentContact
-      finalContact = ''; // Clear regular contact
+      finalContact = '256'; // Default placeholder for Contact if Parent Contact is used
     }
 
-    // Contact Confirmation
-    if ((!finalContact || finalContact === '256' || finalContact.length <= 3) && (!finalParentContact || finalParentContact === '256' || finalParentContact.length <= 3)) {
+    // Contact Confirmation (Hardened)
+    const isContactEmpty = !finalContact || finalContact === '256' || finalContact.length <= 3;
+    const isParentContactEmpty = !finalParentContact || finalParentContact === '256' || finalParentContact.length <= 3;
+
+    if (isContactEmpty && isParentContactEmpty) {
       if (!(await askConfirm("Missing Contact Info", "No contact number entered. Are you sure you want to proceed?"))) {
         return;
       }
     }
+
+    // Sanitize Helper: Convert empty strings to undefined to avoid DB constraint issues
+    const sanitize = (val: string | undefined) => (!val || val.trim() === '') ? undefined : val;
 
     const newPassenger: Passenger = {
       id: `p-${Date.now()}`,
       vehicleId: selectedVehicle.id,
       name: passengerForm.name,
       category: passengerForm.category as 'Member' | 'Student' | 'Institution',
-      contact: finalContact, // Use processed contact 
-      parentContact: finalParentContact, // Use processed parent contact
-      residence: passengerForm.residence,
+      contact: sanitize(finalContact) || '256', // Ensure at least a default if required, or let it be '256'
+      parentContact: sanitize(finalParentContact),
+      residence: sanitize(passengerForm.residence) || '',
       isFirstTime: passengerForm.isFirstTime as 'Yes' | 'No',
       verified: false,
       gender: passengerForm.gender as 'Male' | 'Female',
-      school: passengerForm.school,
-      studentClass: passengerForm.studentClass,
-      boardingType: passengerForm.boardingType as 'Day' | 'Boarding'
+      school: sanitize(passengerForm.school),
+      studentClass: sanitize(passengerForm.studentClass),
+      boardingType: passengerForm.boardingType as 'Day' | 'Boarding',
+      soulWon: false // Default
     };
-    await VehicleStore.addPassenger(newPassenger);
-    setPassengers([...passengers, newPassenger]);
-    setIsAddPassengerOpen(false);
-    setPassengerForm(initialPassengerForm);
-    refreshData(); // Force full refresh to ensure consistency
+
+    // Special handling for Institution: Use 'school' field for Institute Name mapping if needed, 
+    // but based on form, 'school' is used for Institute Name.
+
+    try {
+      await VehicleStore.addPassenger(newPassenger);
+      setPassengers([...passengers, newPassenger]);
+      setIsAddPassengerOpen(false);
+      setPassengerForm(initialPassengerForm);
+      showToast("Passenger added successfully", "success");
+      refreshData(); // Force full refresh to ensure consistency
+    } catch (error: any) {
+      console.error("Failed to add passenger:", error);
+      showToast("Failed to add passenger: " + (error.message || "Unknown error"), "error");
+    }
   };
 
   const openAddMember = () => {
@@ -1398,8 +1475,98 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
       setIsAddChildrenOpen(false);
     } catch (err) {
       console.error("Error updating children count", err);
+      showToast("Failed to update children count.", 'error');
     }
   };
+
+  const handleDeleteStation = async () => {
+    if (!selectedStation) return;
+    if (await askConfirm("Delete Station", `Are you sure you want to delete ${selectedStation.name}?\n\nWARNING: This will delete ALL vehicles, passengers, and data entrants associated with this station!`)) {
+      try {
+        await LogisticsStore.deleteStation(selectedStation.id);
+        setStations(prev => prev.filter(s => s.id !== selectedStation.id));
+        setVehicles(prev => prev.filter(v => v.stationId !== selectedStation.id)); // Cleanup local vehicles
+        setSelectedStation(null); // Go back
+        showToast("Station deleted successfully.", 'success');
+      } catch (err: any) {
+        console.error("Error deleting station:", err);
+        showToast("Failed to delete station.", 'error');
+      }
+    }
+  };
+
+  const handleDeleteVehicle = async () => {
+    if (!selectedVehicle) return;
+    if (await askConfirm("Delete Vehicle", `Are you sure you want to delete ${selectedVehicle.number_plate}?\n\nWARNING: This will delete ALL passengers in this vehicle!`)) {
+      try {
+        await VehicleStore.deleteVehicle(selectedVehicle.id);
+        setVehicles(prev => prev.filter(v => v.id !== selectedVehicle.id));
+        setSelectedVehicle(null); // Go back
+        showToast("Vehicle deleted successfully.", 'success');
+      } catch (err: any) {
+        console.error("Error deleting vehicle:", err);
+        showToast("Failed to delete vehicle.", 'error');
+      }
+    }
+  };
+
+
+
+  const confirmDelete = async () => {
+    // 1. Password Check
+    if (deletePassword !== currentUser.password) {
+      showToast("Incorrect Password", 'error');
+      return;
+    }
+
+    // 2. Handle Event/Service Deletion
+    if (eventToDelete) {
+      try {
+        await EventStore.delete(eventToDelete.id);
+        setIsDeleteModalOpen(false);
+        setDeletePassword('');
+        setEventToDelete(null);
+        window.location.reload(); // Hard reload
+      } catch (err) {
+        console.error("Error deleting event:", err);
+        showToast("Failed to delete event.", 'error');
+      }
+      return;
+    }
+
+    // 3. Handle Bulk Member Deletion (Existing Logic)
+    try {
+      const idsToDelete = Array.from(selectedMemberIds) as string[];
+      await MemberStore.delete(idsToDelete);
+
+      // Update UI
+      setMembers(prev => prev.filter(m => !selectedMemberIds.has(m.id)));
+      setTotalMembers(prev => prev - idsToDelete.length);
+      setSelectedMemberIds(new Set());
+      setIsDeleteModalOpen(false);
+      setDeletePassword('');
+      showToast(`Successfully deleted ${idsToDelete.length} members.`, 'success');
+    } catch (err) {
+      console.error("Error deleting members:", err);
+      showToast("Failed to delete members.", 'error');
+    }
+  };
+
+  const handleDeleteEvent = async (event: MinistryEvent) => {
+    // Strict Guard
+    const canDeleteEvent = currentUser.role === 'TeamLeader';
+    if (!canDeleteEvent) {
+      showToast("Access Denied: Only Team Leader can delete events/services.", 'error');
+      return;
+    }
+
+    // Initial Warning (Still good to have before asking for password)
+    if (await askConfirm("Delete Service/Event", `Are you sure you want to delete "${event.title}"?\n\nWARNING: This will delete ALL associated Pickup Stations, Vehicles, and Passengers.\n\nAttendance histories will be unlinked (preserved on member verification, but removed from this event).\n\nContinue to Password Verification?`)) {
+      setEventToDelete(event);
+      setIsDeleteModalOpen(true);
+    }
+  };
+
 
   const handleUpdateManualCount = async (count: number) => {
     if (!selectedService) return;
@@ -1440,16 +1607,27 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
           <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full border border-gray-200">
             <div className="flex items-center space-x-3 mb-6 text-red-600">
               <AlertTriangle className="w-8 h-8" />
-              <h3 className="text-xl font-bold">Delete Members?</h3>
+              <h3 className="text-xl font-bold">{eventToDelete ? 'Delete Event/Service?' : 'Delete Members?'}</h3>
             </div>
             <p className="text-gray-600 mb-6">
-              You are about to delete <span className="font-bold text-gray-900">{selectedMemberIds.size}</span> members from the database.
-              This action cannot be undone.
+              {eventToDelete ? (
+                <>
+                  You are about to PERMANENTLY delete <span className="font-bold text-gray-900">{eventToDelete.title}</span>.
+                  <br /><br />
+                  This includes all pickup stations, vehicles, and passenger manifests.
+                </>
+              ) : (
+                <>
+                  You are about to delete <span className="font-bold text-gray-900">{selectedMemberIds.size}</span> members from the database.
+                  This action cannot be undone.
+                </>
+              )}
             </p>
             <div className="space-y-2 mb-6">
-              <label className="text-sm font-bold text-gray-700">Enter Head of Dept Registration Password</label>
+              <label className="text-sm font-bold text-gray-700">Enter Admin/Head Password to Confirm</label>
               <input
                 type="password"
+                autoComplete="new-password"
                 autoFocus
                 value={deletePassword}
                 onChange={e => setDeletePassword(e.target.value)}
@@ -1459,7 +1637,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
             </div>
             <div className="flex justify-end gap-3">
               <button
-                onClick={() => { setIsDeleteModalOpen(false); setDeletePassword(''); }}
+                onClick={() => { setIsDeleteModalOpen(false); setDeletePassword(''); setEventToDelete(null); }}
                 className="px-5 py-2.5 rounded-xl font-bold text-gray-600 hover:bg-gray-100"
               >
                 Cancel
@@ -1556,6 +1734,14 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
                     >
                       {isClosed ? 'View Highlights' : 'Open Check-In'}
                     </button>
+                    {currentUser.role === 'TeamLeader' && (
+                      <button
+                        onClick={() => handleDeleteEvent(service)}
+                        className="mt-2 w-full py-2 rounded-lg font-bold text-red-500 bg-red-50 hover:bg-red-100 transition-colors flex items-center justify-center border border-red-100"
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" /> Delete Service
+                      </button>
+                    )}
                   </div>
                 )
               })}
@@ -1942,6 +2128,14 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
                       >
                         {isEventLocked(event.date) ? 'Preview Highlights' : 'View Stations'}
                       </button>
+                      {currentUser.role === 'TeamLeader' && (
+                        <button
+                          onClick={() => handleDeleteEvent(event)}
+                          className="mt-2 w-full py-2 rounded-lg font-bold text-red-500 bg-red-50 hover:bg-red-100 transition-colors flex items-center justify-center border border-red-100"
+                        >
+                          <Trash2 className="w-4 h-4 mr-2" /> Delete Event
+                        </button>
+                      )}
                     </div>
                   ))}
                   {logisticsEvents.length === 0 && (
@@ -2052,6 +2246,38 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
                             <Plus className="w-5 h-5" />
                             <span>Add Vehicle</span>
                           </button>
+                        )}
+
+                        {canDeleteLogistics && (
+                          <div className="flex space-x-2 mt-2 md:mt-0">
+                            <button
+                              onClick={() => {
+                                setStationForm({
+                                  id: selectedStation.id,
+                                  name: selectedStation.name,
+                                  location: selectedStation.location,
+                                  coordinatorName: selectedStation.coordinatorName || '',
+                                  coordinatorContact: selectedStation.coordinatorContact || '',
+                                  // Pre-fill first entrant if available
+                                  entrantName: stationEntrants[0] ? stationEntrants[0].name : '',
+                                  entrantUsername: stationEntrants[0] ? stationEntrants[0].username || '' : '',
+                                  entrantPassword: stationEntrants[0] ? stationEntrants[0].password || '' : ''
+                                });
+                                setIsAddStationOpen(true);
+                              }}
+                              className="bg-gray-100 text-gray-700 p-3 rounded-xl hover:bg-gray-200 transition-colors"
+                              title="Edit Station"
+                            >
+                              <Settings className="w-5 h-5" />
+                            </button>
+                            <button
+                              onClick={handleDeleteStation}
+                              className="bg-red-50 text-red-600 p-3 rounded-xl hover:bg-red-100 transition-colors border border-red-100"
+                              title="Delete Station"
+                            >
+                              <Trash2 className="w-5 h-5" />
+                            </button>
+                          </div>
                         )}
                       </div>
                     </div>
@@ -2191,7 +2417,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
                       </div>
                     </div>
 
-                    <div className="flex flex-wrap lg:flex-nowrap gap-2 w-full lg:w-auto overflow-x-auto lg:overflow-visible pb-2 lg:pb-0">
+                    <div className="flex flex-wrap gap-2 w-full lg:w-auto items-center justify-start lg:justify-end">
                       {(() => {
 
                         // Allow approval for Administrator, TeamLeader, and Lead
@@ -2272,6 +2498,37 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
                               <div className="flex items-center space-x-2 bg-gray-100 text-gray-500 px-4 py-2 rounded-lg font-bold border border-gray-200 cursor-not-allowed">
                                 <Lock className="w-4 h-4" />
                                 <span>Vehicle Locked ({selectedVehicle.currentStage})</span>
+                              </div>
+                            )}
+
+                            {/* LOGISTICS ACTIONS (Edit/Delete) - Moved to end for better layout flow */}
+                            {canDeleteLogistics && (
+                              <div className="flex space-x-2">
+                                <button
+                                  onClick={() => {
+                                    setVehicleForm({
+                                      number_plate: selectedVehicle.number_plate,
+                                      driverName: selectedVehicle.driverName,
+                                      driverContact: selectedVehicle.driverContact,
+                                      driverNin: selectedVehicle.driverNin || '',
+                                      type: selectedVehicle.type,
+                                      capacity: '',
+                                      coordinator: selectedVehicle.coordinator || ''
+                                    });
+                                    setIsAddVehicleOpen(true);
+                                  }}
+                                  className="bg-gray-100 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-200 transition-colors"
+                                  title="Edit Vehicle"
+                                >
+                                  <Settings className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={handleDeleteVehicle}
+                                  className="bg-red-50 text-red-600 px-3 py-2 rounded-lg hover:bg-red-100 transition-colors border border-red-100"
+                                  title="Delete Vehicle"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
                               </div>
                             )}
                           </>
@@ -2442,47 +2699,49 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
                 </div>
               </div>
 
-              <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
-                <table className="w-full text-left">
-                  <thead className="bg-gray-50 border-b border-gray-100">
-                    <tr>
-                      <th className="p-4 w-10"><input type="checkbox" onChange={handleSelectAll} checked={selectedMemberIds.size === members.length && members.length > 0} className="rounded border-gray-300" /></th>
-                      <th className="p-4 text-xs font-bold text-gray-500 uppercase">Name</th>
-                      <th className="p-4 text-xs font-bold text-gray-500 uppercase">Category</th>
-                      <th className="p-4 text-xs font-bold text-gray-500 uppercase">Phone</th>
-                      <th className="p-4 text-xs font-bold text-gray-500 uppercase">Status</th>
-                      <th className="p-4 text-xs font-bold text-gray-500 uppercase text-right">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {members.map((member) => (
-                      <tr key={member.id} className="hover:bg-gray-50 transition-colors group">
-                        <td className="p-4"><input type="checkbox" checked={selectedMemberIds.has(member.id)} onChange={() => handleSelectOne(member.id)} className="rounded border-gray-300" /></td>
-                        <td className="p-4 font-bold text-gray-900">{member.name}</td>
-                        <td className="p-4 text-sm text-gray-600">{member.category}</td>
-                        <td className="p-4 text-sm font-mono text-gray-600">{member.phone}</td>
-                        <td className="p-4">
-                          <span className={`text-xs px-2 py-1 rounded-full font-bold ${member.status === 'Checked In' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-                            {member.status}
-                          </span>
-                        </td>
-                        <td className="p-4 text-right">
-                          <button onClick={() => handleViewMember(member.id)} className="text-ministry-blue font-bold text-xs hover:underline bg-blue-50 px-3 py-1.5 rounded-lg flex items-center gap-1">
-                            <Eye className="w-3 h-3" /> View
-                          </button>
-                        </td>
+              <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm flex flex-col max-h-[70vh]">
+                <div className="overflow-y-auto flex-1">
+                  <table className="w-full text-left relative">
+                    <thead className="bg-gray-50 border-b border-gray-100 sticky top-0 z-20 shadow-sm">
+                      <tr>
+                        <th className="p-4 w-10"><input type="checkbox" onChange={handleSelectAll} checked={selectedMemberIds.size === members.length && members.length > 0} className="rounded border-gray-300" /></th>
+                        <th className="p-4 text-xs font-bold text-gray-500 uppercase">Name</th>
+                        <th className="p-4 text-xs font-bold text-gray-500 uppercase">Category</th>
+                        <th className="p-4 text-xs font-bold text-gray-500 uppercase">Phone</th>
+                        <th className="p-4 text-xs font-bold text-gray-500 uppercase">Status</th>
+                        <th className="p-4 text-xs font-bold text-gray-500 uppercase text-right">Action</th>
                       </tr>
-                    ))}
-                    {filteredMembers.length === 0 && (
-                      <tr><td colSpan={6} className="p-12 text-center text-gray-400">No members found matching your search.</td></tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-              {/* Bottom Pagination Info */}
-              <div className="flex justify-center mt-4">
-                <div className="text-xs text-gray-500">
-                  Page {currentPage} of {Math.ceil(totalMembers / itemsPerPage)}
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {members.map((member) => (
+                        <tr key={member.id} className="hover:bg-gray-50 transition-colors group">
+                          <td className="p-4"><input type="checkbox" checked={selectedMemberIds.has(member.id)} onChange={() => handleSelectOne(member.id)} className="rounded border-gray-300" /></td>
+                          <td className="p-4 font-bold text-gray-900">{member.name}</td>
+                          <td className="p-4 text-sm text-gray-600">{member.category}</td>
+                          <td className="p-4 text-sm font-mono text-gray-600">{member.phone}</td>
+                          <td className="p-4">
+                            <span className={`text-xs px-2 py-1 rounded-full font-bold ${member.status === 'Checked In' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                              {member.status}
+                            </span>
+                          </td>
+                          <td className="p-4 text-right">
+                            <button onClick={() => handleViewMember(member.id)} className="text-ministry-blue font-bold text-xs hover:underline bg-blue-50 px-3 py-1.5 rounded-lg flex items-center gap-1">
+                              <Eye className="w-3 h-3" /> View
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                      {filteredMembers.length === 0 && (
+                        <tr><td colSpan={6} className="p-12 text-center text-gray-400">No members found matching your search.</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+                {/* Bottom Pagination Info */}
+                <div className="flex justify-center mt-4">
+                  <div className="text-xs text-gray-500">
+                    Page {currentPage} of {Math.ceil(totalMembers / itemsPerPage)}
+                  </div>
                 </div>
               </div>
             </div>
@@ -2616,7 +2875,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
         {isAddStationOpen && (
           <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
             <div className="bg-white w-full max-w-lg p-6 rounded-2xl shadow-xl max-h-[90vh] overflow-y-auto">
-              <h3 className="text-xl font-bold mb-4">Add Pickup Station</h3>
+              <h3 className="text-xl font-bold mb-4">{stationForm.id ? 'Edit Pickup Station' : 'Add Pickup Station'}</h3>
               <form onSubmit={handleAddStation} className="space-y-4">
                 <div className="space-y-4 border-b border-gray-100 pb-4">
                   <h4 className="text-xs font-bold text-gray-400 uppercase">Station Details</h4>
@@ -2652,17 +2911,19 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <label className="text-sm font-bold text-gray-700">Username</label>
-                      <input required value={stationForm.entrantUsername} onChange={e => setStationForm({ ...stationForm, entrantUsername: e.target.value })} className="w-full p-3 border rounded-xl bg-white" placeholder="jdoe" />
+                      <input required autoComplete="off" value={stationForm.entrantUsername} onChange={e => setStationForm({ ...stationForm, entrantUsername: e.target.value })} className="w-full p-3 border rounded-xl bg-white" placeholder="jdoe" />
                     </div>
                     <div className="space-y-2">
                       <label className="text-sm font-bold text-gray-700">Password</label>
-                      <input required type="password" value={stationForm.entrantPassword} onChange={e => setStationForm({ ...stationForm, entrantPassword: e.target.value })} className="w-full p-3 border rounded-xl bg-white" placeholder="••••••" />
+                      <input required autoComplete="new-password" type="password" value={stationForm.entrantPassword} onChange={e => setStationForm({ ...stationForm, entrantPassword: e.target.value })} className="w-full p-3 border rounded-xl bg-white" placeholder="••••••" />
                     </div>
                   </div>
                 </div>
                 <div className="flex justify-end pt-4 gap-3">
                   <button type="button" onClick={() => setIsAddStationOpen(false)} className="px-4 py-2 text-gray-600 font-bold">Cancel</button>
-                  <button type="submit" className="px-6 py-2 bg-ministry-text text-white font-bold rounded-xl hover:bg-ministry-orange">Create Station & User</button>
+                  <button type="submit" className="px-6 py-2 bg-ministry-text text-white font-bold rounded-xl hover:bg-ministry-orange">
+                    {stationForm.id ? 'Update Station & User' : 'Create Station & User'}
+                  </button>
                 </div>
               </form>
             </div>
@@ -2693,6 +2954,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
                 <label className="text-sm font-bold text-gray-700">Username</label>
                 <input
                   required
+                  autoComplete="off"
                   value={newEntrant.username}
                   onChange={e => setNewEntrant({ ...newEntrant, username: e.target.value })}
                   className="w-full p-3 bg-white border border-gray-200 rounded-xl outline-none focus:border-ministry-orange"
@@ -2703,6 +2965,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
                 <label className="text-sm font-bold text-gray-700">Password</label>
                 <input
                   required
+                  autoComplete="new-password"
                   type="password"
                   value={newEntrant.password}
                   onChange={e => setNewEntrant({ ...newEntrant, password: e.target.value })}
@@ -3002,6 +3265,34 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
                 <button type="submit" className="px-6 py-2 bg-ministry-text text-white font-bold rounded-xl hover:bg-ministry-orange transition-colors shadow-md">
                   Create {eventFormType}
                 </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Children Count Modal */}
+      {isAddChildrenOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-sm p-6 rounded-2xl shadow-xl">
+            <h3 className="text-xl font-bold mb-4">Children Count</h3>
+            <p className="text-sm text-gray-500 mb-4">Adding children count for {selectedVehicle?.number_plate}</p>
+            <form onSubmit={handleUpdateChildrenCount} className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-gray-700">Number of Children</label>
+                <input
+                  type="number"
+                  min="0"
+                  required
+                  value={childrenForm.count}
+                  onChange={e => setChildrenForm({ ...childrenForm, count: e.target.value })}
+                  className="w-full p-3 border rounded-xl bg-white text-lg font-bold"
+                  autoFocus
+                />
+              </div>
+              <div className="flex justify-end pt-4 gap-3">
+                <button type="button" onClick={() => setIsAddChildrenOpen(false)} className="px-4 py-2 text-gray-600 font-bold">Cancel</button>
+                <button type="submit" className="px-6 py-2 bg-ministry-text text-white font-bold rounded-xl hover:bg-ministry-orange">Save Count</button>
               </div>
             </form>
           </div>

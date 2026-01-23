@@ -138,6 +138,7 @@ const SetupAccount: React.FC<SetupAccountProps> = ({ currentUser, onComplete, on
                                 <input
                                     name="username"
                                     type="text"
+                                    autoComplete="off"
                                     value={formData.username}
                                     onChange={handleInputChange}
                                     className="w-full pl-10 pr-4 py-3.5 bg-black/20 border border-white/10 rounded-xl text-white placeholder-gray-600 focus:outline-none focus:bg-black/40 focus:border-ministry-orange/50 focus:ring-1 focus:ring-ministry-orange/50 transition-all"
@@ -154,6 +155,7 @@ const SetupAccount: React.FC<SetupAccountProps> = ({ currentUser, onComplete, on
                                 <input
                                     name="password"
                                     type="password"
+                                    autoComplete="new-password"
                                     value={formData.password}
                                     onChange={handleInputChange}
                                     className="w-full pl-10 pr-4 py-3.5 bg-black/20 border border-white/10 rounded-xl text-white placeholder-gray-600 focus:outline-none focus:bg-black/40 focus:border-ministry-orange/50 focus:ring-1 focus:ring-ministry-orange/50 transition-all"
@@ -170,6 +172,7 @@ const SetupAccount: React.FC<SetupAccountProps> = ({ currentUser, onComplete, on
                                 <input
                                     name="confirmPassword"
                                     type="password"
+                                    autoComplete="new-password"
                                     value={formData.confirmPassword}
                                     onChange={handleInputChange}
                                     className="w-full pl-10 pr-4 py-3.5 bg-black/20 border border-white/10 rounded-xl text-white placeholder-gray-600 focus:outline-none focus:bg-black/40 focus:border-ministry-orange/50 focus:ring-1 focus:ring-ministry-orange/50 transition-all"

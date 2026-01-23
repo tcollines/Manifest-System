@@ -172,17 +172,17 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, currentUser,
               </button>
             );
           })}
-        </nav>
 
-        <div className="p-4 border-t border-gray-200">
-          <button
-            onClick={onLogout}
-            className="w-full flex items-center space-x-3 px-4 py-3 text-red-500 hover:bg-red-50 rounded-xl transition-colors"
-          >
-            <LogOut className="w-5 h-5" />
-            <span>Sign Out</span>
-          </button>
-        </div>
+          <div className="pt-4 mt-2 border-t border-gray-100 pb-8">
+            <button
+              onClick={onLogout}
+              className="w-full flex items-center space-x-3 px-4 py-3 text-red-500 hover:bg-red-50 rounded-xl transition-colors"
+            >
+              <LogOut className="w-5 h-5" />
+              <span>Sign Out</span>
+            </button>
+          </div>
+        </nav>
       </div>
     </>
   );

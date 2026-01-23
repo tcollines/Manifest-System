@@ -4,8 +4,8 @@ import { supabase } from '../services/supabaseClient';
 import { PICKUP_STATIONS } from '../constants';
 
 export interface ExtendedStation extends PickUpStation {
-    coordinatorName?: string;
-    coordinatorContact?: string;
+  coordinatorName?: string;
+  coordinatorContact?: string;
 }
 
 const mapStationFromDB = (s: any): ExtendedStation => ({
@@ -60,6 +60,40 @@ export const LogisticsStore = {
       if (error) console.error('Error updating station:', error.message);
     } catch (e: any) {
       console.error('Unexpected error updating station:', e.message || e);
+    }
+  },
+
+  deleteStation: async (id: string): Promise<void> => {
+    try {
+      // 1. Get all vehicles in station
+      const { data: vehicles } = await supabase.from('vehicles').select('id').eq('station_id', id);
+
+      if (vehicles && vehicles.length > 0) {
+        const vehicleIds = vehicles.map(v => v.id);
+
+        // 2. Delete all passengers in these vehicles
+        const { error: pError } = await supabase.from('passengers').delete().in('vehicle_id', vehicleIds);
+        if (pError) throw pError;
+
+        // 3. Delete the vehicles
+        const { error: vError } = await supabase.from('vehicles').delete().in('id', vehicleIds);
+        if (vError) throw vError;
+      }
+
+      // 4. Delete associated Data Entrants (Users)
+      const { error: uError } = await supabase.from('users').delete().eq('station_id', id);
+      if (uError) {
+        console.warn('Warning: Failed to delete associated users:', uError.message);
+        throw uError;
+      }
+
+      // 5. Delete the station
+      const { error } = await supabase.from('pickup_stations').delete().eq('id', id);
+      if (error) throw error;
+
+    } catch (e: any) {
+      console.error('Unexpected error deleting station:', e.message || e);
+      throw e;
     }
   }
 };

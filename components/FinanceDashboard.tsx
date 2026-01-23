@@ -208,6 +208,19 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, onOpen
         setTransForm({ type: 'Income', category: 'Tithes', amount: '', description: '', eventId: '', method: 'Cash' });
     };
 
+    // Helper to format input value with commas
+    const formatMoneyInput = (val: string) => {
+        if (!val) return '';
+        const parts = val.split('.');
+        parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+        return parts.join('.');
+    };
+
+    // Helper to strip commas for state
+    const parseMoneyInput = (val: string) => {
+        return val.replace(/,/g, '');
+    };
+
     const handleRequestAction = async (id: string, action: 'Approved' | 'Rejected') => {
         await FinanceStore.updateRequest(id, action);
         setRequests(await FinanceStore.getRequests());
@@ -269,8 +282,7 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, onOpen
         const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
         // Ensure we use the latest values (either from form if just typed, or from vehicle object)
-        // Ideally user should 'Update' first, but if they click Dispatch directly, we might want to save current form values too.
-        // Let's assume we save current form values to be safe.
+        // We explicitly prioritize the form values if we are in the 'Ongoing' tab, effectively doing an "Update & Dispatch".
 
         const updatedVehicle: Vehicle = {
             ...selectedVehicle,
@@ -284,20 +296,32 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, onOpen
                 ...selectedVehicle.financeDetails,
                 ongoingDispatch: fleetJourneyTab === 'Ongoing' ? financeForm.dispatch : (selectedVehicle.financeDetails?.ongoingDispatch || ''),
                 ongoingBalance: fleetJourneyTab === 'Ongoing' ? financeForm.balance : (selectedVehicle.financeDetails?.ongoingBalance || ''),
+
+                // Return Logic: If dispatching return, calculate logic
                 returnDispatch: fleetJourneyTab === 'Return'
                     ? String(parseFloat(selectedVehicle.financeDetails?.ongoingDispatch || '0') - parseFloat(selectedVehicle.financeDetails?.ongoingBalance || '0'))
                     : (selectedVehicle.financeDetails?.returnDispatch || ''),
                 returnBalance: fleetJourneyTab === 'Return' ? '0' : (selectedVehicle.financeDetails?.returnBalance || ''),
+
                 processedAt: new Date().toISOString()
             },
             currentStage: selectedVehicle.currentStage === 'FinanceApproval' ? 'Transit' : selectedVehicle.currentStage,
             journeyDirection: fleetJourneyTab === 'Return' ? 'Return' : selectedVehicle.journeyDirection
         };
 
+        if (fleetJourneyTab === 'Ongoing' && (!updatedVehicle.financeDetails?.ongoingDispatch || updatedVehicle.financeDetails.ongoingDispatch === '0')) {
+            if (!confirm("Total Vehicle Cost is 0 or empty. Are you sure you want to dispatch?")) return;
+        }
+
         await VehicleStore.updateVehicle(updatedVehicle);
         setVehicles(prev => prev.map(v => v.id === updatedVehicle.id ? updatedVehicle : v));
         setSelectedVehicle(null);
-        showToast(fleetJourneyTab === 'Ongoing' ? 'Vehicle Dispatched to Transit' : 'Return Journey Cleared', 'success');
+        showToast(
+            fleetJourneyTab === 'Ongoing'
+                ? 'Finance Updated & Vehicle Dispatched to Transit'
+                : 'Return Journey Cleared & Vehicle Released',
+            'success'
+        );
     };
 
     const handlePrintFleetReport = () => {
@@ -946,7 +970,22 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, onOpen
 
                                 <div className="space-y-2">
                                     <label className="text-xs font-bold text-gray-500 uppercase">Amount ({currency})</label>
-                                    <input required type="number" value={transForm.amount} onChange={e => setTransForm({ ...transForm, amount: e.target.value })} className="w-full p-3 border rounded-xl" placeholder="0.00" />
+                                    <input
+                                        required
+                                        type="text"
+                                        inputMode="numeric"
+                                        onWheel={(e) => e.currentTarget.blur()}
+                                        onKeyDown={(e) => { if (["ArrowUp", "ArrowDown"].includes(e.key)) e.preventDefault(); }}
+                                        value={formatMoneyInput(transForm.amount)}
+                                        onChange={e => {
+                                            const raw = parseMoneyInput(e.target.value);
+                                            if (!isNaN(Number(raw))) {
+                                                setTransForm({ ...transForm, amount: raw });
+                                            }
+                                        }}
+                                        className="w-full p-3 border rounded-xl"
+                                        placeholder="0.00"
+                                    />
                                 </div>
 
                                 <div className="space-y-2">
@@ -995,11 +1034,19 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, onOpen
                             <div>
                                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Payment Amount (UGX)</label>
                                 <input
-                                    type="number"
+                                    type="text"
+                                    inputMode="numeric"
+                                    onWheel={(e) => e.currentTarget.blur()}
+                                    onKeyDown={(e) => { if (["ArrowUp", "ArrowDown"].includes(e.key)) e.preventDefault(); }}
                                     required
                                     max={selectedRequisition.totalAmount - (selectedRequisition.amountPaid || 0)}
-                                    value={payForm.amount}
-                                    onChange={(e) => setPayForm({ ...payForm, amount: e.target.value })}
+                                    value={formatMoneyInput(payForm.amount)}
+                                    onChange={(e) => {
+                                        const raw = parseMoneyInput(e.target.value);
+                                        if (!isNaN(Number(raw))) {
+                                            setPayForm({ ...payForm, amount: raw });
+                                        }
+                                    }}
                                     className="w-full p-3 border border-gray-200 rounded-xl font-mono text-lg font-bold"
                                 />
                             </div>
@@ -1089,9 +1136,17 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, onOpen
                                                     <div className="space-y-2">
                                                         <label className="text-sm font-bold text-ministry-text uppercase">Total Vehicle Cost ({currency})</label>
                                                         <input
-                                                            type="number"
-                                                            value={financeForm.dispatch}
-                                                            onChange={e => setFinanceForm({ ...financeForm, dispatch: e.target.value })}
+                                                            type="text"
+                                                            inputMode="numeric"
+                                                            onWheel={(e) => e.currentTarget.blur()}
+                                                            onKeyDown={(e) => { if (["ArrowUp", "ArrowDown"].includes(e.key)) e.preventDefault(); }}
+                                                            value={formatMoneyInput(financeForm.dispatch)}
+                                                            onChange={e => {
+                                                                const raw = parseMoneyInput(e.target.value);
+                                                                if (!isNaN(Number(raw))) {
+                                                                    setFinanceForm({ ...financeForm, dispatch: raw });
+                                                                }
+                                                            }}
                                                             className="w-full p-4 border-2 border-gray-200 rounded-xl text-lg font-bold focus:border-ministry-orange outline-none"
                                                             placeholder="0"
                                                         />
@@ -1099,9 +1154,17 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, onOpen
                                                     <div className="space-y-2">
                                                         <label className="text-sm font-bold text-ministry-text uppercase">Booking Fee Paid ({currency})</label>
                                                         <input
-                                                            type="number"
-                                                            value={financeForm.balance}
-                                                            onChange={e => setFinanceForm({ ...financeForm, balance: e.target.value })}
+                                                            type="text"
+                                                            inputMode="numeric"
+                                                            onWheel={(e) => e.currentTarget.blur()}
+                                                            onKeyDown={(e) => { if (["ArrowUp", "ArrowDown"].includes(e.key)) e.preventDefault(); }}
+                                                            value={formatMoneyInput(financeForm.balance)}
+                                                            onChange={e => {
+                                                                const raw = parseMoneyInput(e.target.value);
+                                                                if (!isNaN(Number(raw))) {
+                                                                    setFinanceForm({ ...financeForm, balance: raw });
+                                                                }
+                                                            }}
                                                             className="w-full p-4 border-2 border-gray-200 rounded-xl text-lg font-bold focus:border-ministry-orange outline-none"
                                                             placeholder="0"
                                                         />

@@ -920,11 +920,21 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
                                                     </button>
                                                 ) : (
                                                     <button
-                                                        onClick={() => {
+                                                        onClick={async () => {
                                                             const unverifiedCount = passengers.filter(p => !p.verified).length;
                                                             if (activeJourneyTab === 'Return' && unverifiedCount > 0) {
                                                                 const verifiedCount = passengers.length - unverifiedCount;
-                                                                if (window.confirm(`You have confirmed ${verifiedCount}/${passengers.length} members. Are you sure you want to continue?`)) {
+                                                                // Use custom confirm implementation
+                                                                const confirmed = await askConfirm(
+                                                                    <span>You have confirmed <strong>{verifiedCount}/{passengers.length}</strong> members. Are you sure you want to continue?</span>,
+                                                                    {
+                                                                        title: 'Confirm Verification',
+                                                                        confirmText: 'Yes, Continue',
+                                                                        cancelText: 'Go Back'
+                                                                    }
+                                                                );
+
+                                                                if (confirmed) {
                                                                     handleStageUpdate('FinanceApproval');
                                                                 }
                                                             } else {
@@ -1511,6 +1521,7 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
                                         <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                                         <input
                                             required
+                                            autoComplete="off"
                                             value={newCoordinator.username}
                                             onChange={e => setNewCoordinator({ ...newCoordinator, username: e.target.value })}
                                             className="w-full pl-10 pr-3 py-3 bg-white border border-gray-200 rounded-xl focus:border-ministry-orange outline-none"
@@ -1525,6 +1536,7 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
                                         <input
                                             required
                                             type="password"
+                                            autoComplete="new-password"
                                             value={newCoordinator.password}
                                             onChange={e => setNewCoordinator({ ...newCoordinator, password: e.target.value })}
                                             className="w-full pl-10 pr-3 py-3 bg-white border border-gray-200 rounded-xl focus:border-ministry-orange outline-none"

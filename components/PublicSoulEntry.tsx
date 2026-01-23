@@ -121,7 +121,7 @@ const PublicSoulEntry: React.FC = () => {
                 </div>
 
                 <SoulEntryForm
-                    sourceType="Event"
+                    sourceType={eventData?.type || 'Event'}
                     sourceId={eventId!}
                     onSubmit={handleSubmit}
                 />

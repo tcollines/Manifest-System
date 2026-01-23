@@ -347,11 +347,11 @@ const SettingsView: React.FC<SettingsViewProps> = ({ users = [], openModal, onDe
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div className="space-y-2">
                                         <label className="text-sm font-bold text-gray-700">Current Password</label>
-                                        <input type="password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} className="w-full p-3 bg-white border border-gray-200 rounded-xl" />
+                                        <input type="password" autoComplete="current-password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} className="w-full p-3 bg-white border border-gray-200 rounded-xl" />
                                     </div>
                                     <div className="space-y-2">
                                         <label className="text-sm font-bold text-gray-700">New Password</label>
-                                        <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} className="w-full p-3 bg-white border border-gray-200 rounded-xl" />
+                                        <input type="password" autoComplete="new-password" value={newPassword} onChange={e => setNewPassword(e.target.value)} className="w-full p-3 bg-white border border-gray-200 rounded-xl" />
                                     </div>
                                 </div>
                             </div>

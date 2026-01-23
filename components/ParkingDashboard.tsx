@@ -98,7 +98,10 @@ const ParkingDashboard: React.FC<ParkingDashboardProps> = ({ events = [], onOpen
                         ...v,
                         status: 'Absent' as const,
                         checkOutTime: 'Auto-Reset',
-                        currentServiceId: undefined // Will be mapped to null in store
+                        currentServiceId: undefined, // Will be mapped to null in store
+                        // attendedServiceIds preserved implicitly as they are part of ...v, assuming they are in the object.
+                        // However, to be safe, we can explicitly pass them if needed, but spread ...v covers it IF getAll() returns it.
+                        // Since we updated ParkingStore.getAll() to return it, it should be in 'v'.
                     };
                     await ParkingStore.update(updated);
                 });
@@ -167,11 +170,16 @@ const ParkingDashboard: React.FC<ParkingDashboardProps> = ({ events = [], onOpen
         if (!selectedService) return;
         const vehicle = vehicles.find(v => v.id === vehicleId);
         if (vehicle) {
+            // Check if serviceId is already in history, if not add it
+            const history = vehicle.attendedServiceIds || [];
+            const newHistory = history.includes(selectedService.id) ? history : [...history, selectedService.id];
+
             const updated = {
                 ...vehicle,
                 status: 'Checked In' as const,
                 currentServiceId: selectedService.id,
-                checkInTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                checkInTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                attendedServiceIds: newHistory
             };
             await ParkingStore.update(updated);
             // Optimistic Update

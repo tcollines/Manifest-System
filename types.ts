@@ -171,6 +171,7 @@ export interface PersonalVehicle {
   checkOutTime?: string;
   currentServiceId?: string;
   registeredDate: string;
+  attendedServiceIds?: string[]; // History of attendance
 }
 
 export interface Passenger {

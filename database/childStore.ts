@@ -76,5 +76,24 @@ export const ChildStore = {
     } catch (e: any) {
       console.error('Unexpected error updating child:', e.message || e);
     }
+  },
+
+  getServiceAttendance: async (serviceId: string): Promise<number> => {
+    try {
+      // Query children where attended_service_ids contains serviceId
+      const { count, error } = await supabase
+        .from('children')
+        .select('*', { count: 'exact', head: true })
+        .contains('attended_service_ids', [serviceId]);
+
+      if (error) {
+        console.error('Error fetching child attendance:', error.message);
+        return 0;
+      }
+      return count || 0;
+    } catch (e) {
+      console.error('Unexpected error fetching child attendance:', e);
+      return 0;
+    }
   }
 };

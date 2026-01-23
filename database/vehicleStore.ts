@@ -145,6 +145,21 @@ export const VehicleStore = {
         }
     },
 
+    deleteVehicle: async (id: string): Promise<void> => {
+        try {
+            // Cascade delete passengers first
+            const { error: pError } = await supabase.from('passengers').delete().eq('vehicle_id', id);
+            if (pError) throw pError;
+
+            // Delete vehicle
+            const { error } = await supabase.from('vehicles').delete().eq('id', id);
+            if (error) throw error;
+        } catch (e: any) {
+            console.error('Error deleting vehicle:', e.message || e);
+            throw e;
+        }
+    },
+
     updateVehicleLocation: async (id: string, location: { lat: number, lng: number }): Promise<void> => {
         try {
             const { error } = await supabase.from('vehicles').update({ location }).eq('id', id);
@@ -195,7 +210,7 @@ export const VehicleStore = {
         };
         try {
             const { error } = await supabase.from('passengers').insert([payload]);
-            if (error) console.error('Error adding passenger:', error.message);
+            if (error) throw error;
         } catch (e: any) {
             console.error('Unexpected error adding passenger:', e.message || e);
             throw e;

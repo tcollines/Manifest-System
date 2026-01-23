@@ -79,5 +79,29 @@ export const SoulsStore = {
     update: async (soul: Soul): Promise<void> => {
         const { error } = await supabase.from('souls').update(mapSoulToDB(soul)).eq('id', soul.id);
         if (error) throw error;
+    },
+
+    getServiceStats: async (serviceId: string): Promise<number> => {
+        try {
+            const { count, error } = await supabase
+                .from('souls')
+                .select('*', { count: 'exact', head: true })
+                .eq('source_type', 'Service')
+                .eq('source_id', serviceId);
+
+            if (error) {
+                console.error('Error fetching souls stats:', error);
+                return 0;
+            }
+            return count || 0;
+        } catch (e) {
+            console.error('Unexpected error fetching souls stats:', e);
+            return 0;
+        }
+    },
+
+    delete: async (id: string): Promise<void> => {
+        const { error } = await supabase.from('souls').delete().eq('id', id);
+        if (error) throw error;
     }
 };

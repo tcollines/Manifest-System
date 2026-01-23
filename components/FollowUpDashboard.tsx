@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNotification } from './ui/NotificationSystem';
 import { supabase } from '../services/supabaseClient';
-import { Users, Calendar, Database, Plus, Search, Link as LinkIcon, Share2, Copy, Check, Filter, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { Users, Calendar, Database, Plus, Search, Link as LinkIcon, Share2, Copy, Check, Filter, ChevronLeft, ChevronRight, X, Trash2 } from 'lucide-react';
 import { MinistryEvent, Soul, Member, ModalType } from '../types';
 import { isEventLocked, isServiceClosed } from '../utils';
 import { EventStore } from '../database/eventStore';
@@ -18,7 +18,7 @@ interface FollowUpDashboardProps {
 }
 
 const FollowUpDashboard: React.FC<FollowUpDashboardProps> = ({ onOpenModal }) => {
-    const { showToast } = useNotification();
+    const { showToast, confirm: showConfirm } = useNotification();
     const [activeTab, setActiveTab] = useState<Tab>('services');
     const [events, setEvents] = useState<MinistryEvent[]>([]);
     const [services, setServices] = useState<MinistryEvent[]>([]);
@@ -265,6 +265,7 @@ const FollowUpDashboard: React.FC<FollowUpDashboardProps> = ({ onOpenModal }) =>
                                 <th className="px-6 py-3">Phone</th>
                                 <th className="px-6 py-3">Residence</th>
                                 <th className="px-6 py-3">Status</th>
+                                <th className="px-6 py-3 text-right">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-50">
@@ -277,6 +278,29 @@ const FollowUpDashboard: React.FC<FollowUpDashboardProps> = ({ onOpenModal }) =>
                                         <span className={`px-2 py-0.5 rounded text-xs font-bold ${soul.status === 'Confirmed' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>
                                             {soul.status}
                                         </span>
+                                    </td>
+                                    <td className="px-6 py-3 text-right">
+                                        <button
+                                            onClick={async () => {
+                                                const confirmed = await showConfirm(
+                                                    <span>Are you sure you want to delete <strong>{soul.firstName} {soul.lastName}</strong>? This cannot be undone.</span>,
+                                                    { title: 'Delete Soul', confirmText: 'Delete', isDestructive: true }
+                                                );
+                                                if (confirmed) {
+                                                    try {
+                                                        await SoulsStore.delete(soul.id || '');
+                                                        showToast('Soul deleted successfully', 'success');
+                                                        loadData();
+                                                    } catch (e) {
+                                                        showToast('Failed to delete soul', 'error');
+                                                    }
+                                                }
+                                            }}
+                                            className="text-gray-400 hover:text-red-600 transition-colors p-1"
+                                            title="Delete Soul"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
                                     </td>
                                 </tr>
                             ))}
@@ -528,6 +552,7 @@ const FollowUpDashboard: React.FC<FollowUpDashboardProps> = ({ onOpenModal }) =>
                                                 <th className="px-6 py-3">Residence</th>
                                                 <th className="px-6 py-3">Gender</th>
                                                 <th className="px-6 py-3">Status</th>
+                                                <th className="px-6 py-3 text-right">Actions</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-gray-50">
@@ -541,6 +566,30 @@ const FollowUpDashboard: React.FC<FollowUpDashboardProps> = ({ onOpenModal }) =>
                                                         <span className={`px-2 py-0.5 rounded text-xs font-bold ${soul.status === 'New' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>
                                                             {soul.status}
                                                         </span>
+                                                    </td>
+                                                    <td className="px-6 py-3 text-right">
+                                                        <button
+                                                            onClick={async () => {
+                                                                const confirmed = await showConfirm(
+                                                                    <span>Are you sure you want to delete <strong>{soul.firstName} {soul.lastName}</strong>? This cannot be undone.</span>,
+                                                                    { title: 'Delete Soul', confirmText: 'Delete', isDestructive: true }
+                                                                );
+                                                                if (confirmed) {
+                                                                    try {
+                                                                        await SoulsStore.delete(soul.id || '');
+                                                                        showToast('Soul deleted successfully', 'success');
+                                                                        loadData();
+                                                                    } catch (e) {
+                                                                        showToast('Failed to delete soul', 'error');
+                                                                    }
+                                                                }
+                                                            }}
+                                                            disabled={activeTab === 'services' && selectedEventId && isServiceClosed(services.find(s => s.id === selectedEventId)?.date || '')}
+                                                            className={`transition-colors p-1 ${activeTab === 'services' && selectedEventId && isServiceClosed(services.find(s => s.id === selectedEventId)?.date || '') ? 'text-gray-300 cursor-not-allowed' : 'text-gray-400 hover:text-red-600'}`}
+                                                            title="Delete Soul"
+                                                        >
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </button>
                                                     </td>
                                                 </tr>
                                             ))}
