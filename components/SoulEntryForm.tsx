@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNotification } from './ui/NotificationSystem';
 import PhoneInput from './PhoneInput';
 import { UserPlus, Save, X } from 'lucide-react';
 import { Soul } from '../types';
@@ -13,6 +14,7 @@ interface SoulEntryFormProps {
 }
 
 const SoulEntryForm: React.FC<SoulEntryFormProps> = ({ sourceType, sourceId, sourceName, existingMember, onSubmit, onCancel }) => {
+    const { confirm: askConfirm } = useNotification();
     const [formData, setFormData] = useState<any>({
         firstName: '',
         lastName: '',
@@ -44,8 +46,16 @@ const SoulEntryForm: React.FC<SoulEntryFormProps> = ({ sourceType, sourceId, sou
 
     const [entryType, setEntryType] = useState<'Soul' | 'Confirmation'>('Soul');
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        // Contact Confirmation
+        if (!formData.phone || formData.phone === '256' || formData.phone.length <= 3) {
+            if (!(await askConfirm("Missing Contact", "No contact number provided. Are you sure you want to proceed?"))) {
+                return;
+            }
+        }
+
         onSubmit({
             ...formData,
             status: entryType === 'Confirmation' ? 'Confirmed' : 'New',
@@ -128,7 +138,7 @@ const SoulEntryForm: React.FC<SoulEntryFormProps> = ({ sourceType, sourceId, sou
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number *</label>
                         <PhoneInput
-                            required
+                            // required - Removed to allow empty submission with confirmation
                             value={formData.phone}
                             onChange={(val) => setFormData({ ...formData, phone: val })}
                             placeholder="700 000 000"

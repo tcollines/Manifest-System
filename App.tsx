@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNotification } from './components/ui/NotificationSystem';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import DepartmentsView from './components/DepartmentsView';
@@ -29,6 +30,7 @@ import TeamLeaderRequisitions from './components/TeamLeaderRequisitions';
 import SchoolsDashboard from './components/SchoolsDashboard';
 
 const App: React.FC = () => {
+  const { showToast } = useNotification();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [activeTab, setActiveTab] = useState(() => localStorage.getItem('ministry_active_tab') || 'dashboard');
   const [modalType, setModalType] = useState<ModalType>(ModalType.NONE);
@@ -282,10 +284,10 @@ const App: React.FC = () => {
       const updatedEvents = await EventStore.getAll();
       setEvents(updatedEvents);
 
-      alert(`${newEvent.type} created successfully!`);
+      showToast(`${newEvent.type} created successfully!`, 'success');
     } catch (error: any) {
       console.error("Failed to save event:", error);
-      alert(`Failed to save event: ${error.message || 'Unknown error'}`);
+      showToast(`Failed to save event: ${error.message || 'Unknown error'}`, 'error');
       // Revert optimistic update on failure
       refreshData();
     }
@@ -335,9 +337,9 @@ const App: React.FC = () => {
     try {
       const users = await UserStore.update(updatedUser);
       setAllUsers(users);
-      alert("User updated successfully!");
+      showToast("User updated successfully!", 'success');
     } catch (e: any) {
-      alert(e.message || "Failed to update user");
+      showToast(e.message || "Failed to update user", 'error');
       throw e;
     }
   };
@@ -345,7 +347,7 @@ const App: React.FC = () => {
   const handleSetupComplete = (updatedUser: User) => {
     setCurrentUser(updatedUser);
     UserStore.saveSession(updatedUser);
-    alert("Account setup complete!");
+    showToast("Account setup complete!", 'success');
 
     // Redirect after setup
     const targetTab = getDashboardForUser(updatedUser);

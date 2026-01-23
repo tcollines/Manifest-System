@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { useNotification } from './ui/NotificationSystem';
 import { UserStore } from '../database/userStore';
 import { User } from '../types';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Lock, User as UserIcon, ShieldCheck, AlertTriangle, Loader2, Save } from 'lucide-react';
 
 const AcceptInvite: React.FC = () => {
+    const { showToast } = useNotification();
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
     const token = searchParams.get('token');
@@ -50,7 +52,7 @@ const AcceptInvite: React.FC = () => {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (formData.password !== formData.confirmPassword) {
-            alert("Passwords do not match!");
+            showToast("Passwords do not match!", 'error');
             return;
         }
         if (!user) return;
@@ -67,10 +69,10 @@ const AcceptInvite: React.FC = () => {
             };
 
             await UserStore.update(updatedUser);
-            alert("Account setup successful! You can now sign in.");
+            showToast("Account setup successful! You can now sign in.", 'success');
             navigate('/');
         } catch (err: any) {
-            alert("Failed to setup account: " + err.message);
+            showToast("Failed to setup account: " + err.message, 'error');
         } finally {
             setIsSubmitting(false);
         }

@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { useNotification } from './ui/NotificationSystem';
 import { Check, Eye, X, FileText, ArrowRight, AlertCircle, Clock } from 'lucide-react';
 import { Requisition, RequisitionItem } from '../types';
 import { RequisitionStore } from '../database/requisitionStore';
 import { DEPARTMENTS } from '../constants';
 
 const DepartmentRequests: React.FC = () => {
+  const { showToast } = useNotification();
   const [requests, setRequests] = useState<Requisition[]>([]);
   const [selectedReq, setSelectedReq] = useState<Requisition | null>(null);
   const [loading, setLoading] = useState(true);
@@ -42,7 +44,7 @@ const DepartmentRequests: React.FC = () => {
       setActionComment('');
     } catch (error) {
       console.error(`Failed to ${status} request:`, error);
-      alert(`Failed to ${status} request. Please try again.`);
+      showToast(`Failed to ${status} request. Please try again.`, 'error');
     } finally {
       setProcessing(false);
     }

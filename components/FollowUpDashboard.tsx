@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNotification } from './ui/NotificationSystem';
 import { supabase } from '../services/supabaseClient';
 import { Users, Calendar, Database, Plus, Search, Link as LinkIcon, Share2, Copy, Check, Filter, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { MinistryEvent, Soul, Member, ModalType } from '../types';
@@ -17,6 +18,7 @@ interface FollowUpDashboardProps {
 }
 
 const FollowUpDashboard: React.FC<FollowUpDashboardProps> = ({ onOpenModal }) => {
+    const { showToast } = useNotification();
     const [activeTab, setActiveTab] = useState<Tab>('services');
     const [events, setEvents] = useState<MinistryEvent[]>([]);
     const [services, setServices] = useState<MinistryEvent[]>([]);
@@ -112,7 +114,7 @@ const FollowUpDashboard: React.FC<FollowUpDashboardProps> = ({ onOpenModal }) =>
             // Optional: Show toast
         } catch (e) {
             console.error("Failed to save soul", e);
-            alert("Failed to save. Please try again.");
+            showToast("Failed to save. Please try again.", 'error');
         }
     };
 

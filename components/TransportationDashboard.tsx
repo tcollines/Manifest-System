@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
+import { useNotification } from './ui/NotificationSystem';
 import PhoneInput from './PhoneInput';
 import { MOCK_EVENTS, PICKUP_STATIONS } from '../constants';
 import { MinistryEvent, Vehicle, User, Passenger, JourneyStage, ModalType, Soul } from '../types';
@@ -73,6 +74,7 @@ interface TrackedVehicle extends Omit<Vehicle, 'status'> {
 }
 
 const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ currentUser, events = MOCK_EVENTS, onOpenModal }) => {
+    const { showToast, confirm: askConfirm } = useNotification();
     const [activeTab, setActiveTab] = useState<'overview' | 'coordinators' | 'assets'>(() =>
         (localStorage.getItem('transportation_active_tab') as 'overview' | 'coordinators' | 'assets') || 'overview'
     );
@@ -380,9 +382,17 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
         }
     };
 
-    const handleAddReturnPassenger = (e: React.FormEvent) => {
+    const handleAddReturnPassenger = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!myVehicle || !returnPassengerForm.name.trim()) return;
+
+        // Contact Confirmation
+        if (!returnPassengerForm.contact || returnPassengerForm.contact === '256' || returnPassengerForm.contact.length <= 3) {
+            if (!(await askConfirm("Missing Contact Info", "No contact number provided. Are you sure you want to proceed?"))) {
+                return;
+            }
+        }
+
         const newP: Passenger = {
             id: `p-new-${Date.now()}`,
             vehicleId: myVehicle.id,
@@ -478,9 +488,17 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
 
 
 
-    const handleAddCoordinator = (e: React.FormEvent) => {
+    const handleAddCoordinator = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!newCoordinator.name || !newCoordinator.username || !newCoordinator.password) return;
+
+        // Contact Confirmation
+        if (!newCoordinator.contact || newCoordinator.contact === '256' || newCoordinator.contact.length <= 3) {
+            if (!(await askConfirm("Missing Coordinator Contact", "No coordinator contact provided. Are you sure you want to proceed?"))) {
+                return;
+            }
+        }
+
         const newUser: User = {
             id: `u-coord-${Date.now()}`,
             name: newCoordinator.name.trim(),
@@ -495,14 +513,14 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
             UserStore.add(newUser);
             setNewCoordinator({ name: '', username: '', password: '', contact: '' });
             refreshCoordinators();
-            alert(`Coordinator ${newUser.name} created successfully.`);
+            showToast(`Coordinator ${newUser.name} created successfully.`, 'success');
         } catch (error: any) {
-            alert(error.message);
+            showToast(error.message, 'error');
         }
     };
 
-    const handleDeleteCoordinator = (id: string) => {
-        if (confirm('Are you sure you want to delete this coordinator?')) {
+    const handleDeleteCoordinator = async (id: string) => {
+        if (await askConfirm("Delete Coordinator", 'Are you sure you want to delete this coordinator?')) {
             UserStore.remove(id);
             refreshCoordinators();
         }
@@ -527,7 +545,7 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
     };
 
     const handleRemovePassenger = async (passengerId: string) => {
-        if (confirm('Are you sure you want to remove this passenger from the vehicle?')) {
+        if (await askConfirm("Remove Passenger", 'Are you sure you want to remove this passenger from the vehicle?')) {
             await VehicleStore.deletePassenger(passengerId);
             setPassengers(prev => prev.filter(p => p.id !== passengerId));
         }

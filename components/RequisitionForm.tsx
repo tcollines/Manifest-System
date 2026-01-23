@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNotification } from './ui/NotificationSystem';
 import { Plus, Trash2, Save, X, DollarSign } from 'lucide-react';
 import { Requisition, RequisitionItem } from '../types';
 import { RequisitionStore } from '../database/requisitionStore';
@@ -18,6 +19,7 @@ interface FormItem {
 }
 
 const RequisitionForm: React.FC<RequisitionFormProps> = ({ onClose, onSuccess, currentUser, initialData }) => {
+    const { showToast } = useNotification();
     // Initialize state properly whether strictly new or editing
     const [title, setTitle] = useState(initialData?.title || '');
     // If editing, map existing items. If new, default one empty item.
@@ -59,11 +61,11 @@ const RequisitionForm: React.FC<RequisitionFormProps> = ({ onClose, onSuccess, c
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!title.trim()) {
-            alert("Please enter a title for this requisition.");
+            showToast("Please enter a title for this requisition.", 'error');
             return;
         }
         if (items.some(i => !i.description.trim())) {
-            alert("Please ensure all items have a description.");
+            showToast("Please ensure all items have a description.", 'error');
             return;
         }
 
@@ -84,7 +86,7 @@ const RequisitionForm: React.FC<RequisitionFormProps> = ({ onClose, onSuccess, c
                     notes
                 };
                 await RequisitionStore.update(initialData.id, updatedReq, reqItems);
-                alert("Requisition updated and resubmitted successfully!");
+                showToast("Requisition updated and resubmitted successfully!", 'success');
             } else {
                 // CREATE MODE
                 const newReq: any = {
@@ -96,13 +98,13 @@ const RequisitionForm: React.FC<RequisitionFormProps> = ({ onClose, onSuccess, c
                     notes
                 };
                 await RequisitionStore.create(newReq, reqItems);
-                alert("Requisition submitted successfully!");
+                showToast("Requisition submitted successfully!", 'success');
             }
 
             onSuccess();
         } catch (error: any) {
             console.error("Failed to submit requisition:", error);
-            alert(`Error submitting requisition: ${error.message}`);
+            showToast(`Error submitting requisition: ${error.message}`, 'error');
         } finally {
             setIsSubmitting(false);
         }

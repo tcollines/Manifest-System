@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNotification } from './ui/NotificationSystem';
 import { Globe, ArrowLeft, CheckCircle } from 'lucide-react';
 import SoulEntryForm from './SoulEntryForm';
 import { EventStore } from '../database/eventStore';
@@ -6,6 +7,7 @@ import { SoulsStore } from '../database/soulsStore';
 import { MinistryEvent, Soul } from '../types';
 
 const PublicSoulEntry: React.FC = () => {
+    const { showToast } = useNotification();
     // Manually parse ID from URL since we aren't using React Router provider
     const pathParts = window.location.pathname.split('/');
     // Assuming /collect-souls/:eventId
@@ -50,7 +52,7 @@ const PublicSoulEntry: React.FC = () => {
             setStatus('success');
         } catch (e) {
             console.error(e);
-            alert("Failed to submit. Please check connection.");
+            showToast("Failed to submit. Please check connection.", 'error');
         }
     };
 

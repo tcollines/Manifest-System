@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNotification } from './ui/NotificationSystem';
 import { X, Plus, FileText, CheckCircle, Clock, AlertCircle, ChevronRight, Filter, DollarSign } from 'lucide-react';
 import { Requisition } from '../types';
 import { RequisitionStore } from '../database/requisitionStore';
@@ -9,6 +10,7 @@ interface RequisitionsViewProps {
 }
 
 const RequisitionsView: React.FC<RequisitionsViewProps> = ({ currentUser }) => {
+    const { showToast, confirm: askConfirm } = useNotification();
     const [activeTab, setActiveTab] = useState<'Pending' | 'Approved'>('Pending');
     const [viewMode, setViewMode] = useState<'list' | 'create'>('list');
     const [requisitions, setRequisitions] = useState<Requisition[]>([]);
@@ -65,7 +67,7 @@ const RequisitionsView: React.FC<RequisitionsViewProps> = ({ currentUser }) => {
     });
 
     const handleApprove = async (req: Requisition) => {
-        if (!confirm(`Are you sure you want to approve "${req.title}"?`)) return;
+        if (!await askConfirm("Approve Request?", `Are you sure you want to approve "${req.title}"?`)) return;
 
         try {
             let nextStatus: 'Pending Team Leader' | 'Pending Finance' | 'Approved' = 'Approved';
@@ -76,9 +78,10 @@ const RequisitionsView: React.FC<RequisitionsViewProps> = ({ currentUser }) => {
             else if (req.status === 'Pending Finance') nextStatus = 'Approved';
 
             await RequisitionStore.updateStatus(req.id, nextStatus);
+            showToast("Requisition status updated.", 'success');
             fetchRequisitions();
         } catch (e: any) {
-            alert('Error updating status: ' + e.message);
+            showToast('Error updating status: ' + e.message, 'error');
         }
     };
 
@@ -89,9 +92,10 @@ const RequisitionsView: React.FC<RequisitionsViewProps> = ({ currentUser }) => {
         try {
             // Rejection always goes back to 'Rejected' (Head of Dept to fix)
             await RequisitionStore.updateStatus(req.id, 'Rejected', reason);
+            showToast("Requisition rejected.", 'success');
             fetchRequisitions();
         } catch (e: any) {
-            alert('Error rejected requisition: ' + e.message);
+            showToast('Error rejecting requisition: ' + e.message, 'error');
         }
     };
 

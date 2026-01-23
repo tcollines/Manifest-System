@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNotification } from './ui/NotificationSystem';
 import { RequisitionStore } from '../database/requisitionStore';
 import { Requisition } from '../types';
 import { CheckCircle, XCircle, FileText, ChevronRight, Filter, Clock } from 'lucide-react';
@@ -8,6 +9,7 @@ interface TeamLeaderRequisitionsProps {
 }
 
 const TeamLeaderRequisitions: React.FC<TeamLeaderRequisitionsProps> = ({ currentUser }) => {
+    const { showToast, confirm: askConfirm } = useNotification();
     const [requisitions, setRequisitions] = useState<Requisition[]>([]);
     const [activeTab, setActiveTab] = useState<'Pending' | 'History'>('Pending');
     const [isLoading, setIsLoading] = useState(false);
@@ -43,12 +45,13 @@ const TeamLeaderRequisitions: React.FC<TeamLeaderRequisitionsProps> = ({ current
     });
 
     const handleApprove = async (req: Requisition) => {
-        if (!confirm(`Approve "${req.title}" and forward to Finance?`)) return;
+        if (!await askConfirm("Approve Request?", `Approve "${req.title}" and forward to Finance?`)) return;
         try {
             await RequisitionStore.updateStatus(req.id, 'Pending Finance');
+            showToast("Requisition approved.", 'success');
             fetchRequisitions();
         } catch (e: any) {
-            alert('Error approving requisition: ' + e.message);
+            showToast('Error approving requisition: ' + e.message, 'error');
         }
     };
 
@@ -57,9 +60,10 @@ const TeamLeaderRequisitions: React.FC<TeamLeaderRequisitionsProps> = ({ current
         if (!reason) return;
         try {
             await RequisitionStore.updateStatus(req.id, 'Rejected', reason);
+            showToast("Requisition rejected.", 'success');
             fetchRequisitions();
         } catch (e: any) {
-            alert('Error rejecting requisition: ' + e.message);
+            showToast('Error rejecting requisition: ' + e.message, 'error');
         }
     };
 

@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import { useNotification } from './ui/NotificationSystem';
 import { isServiceClosed, validatePlate } from '../utils';
 import { PersonalVehicle, MinistryEvent, ModalType } from '../types';
 import {
@@ -36,6 +37,7 @@ type ParkingTab = 'checkin' | 'database';
 type ViewMode = 'list' | 'service-active' | 'register-new' | 'add-vehicle-db' | 'bulk-add';
 
 const ParkingDashboard: React.FC<ParkingDashboardProps> = ({ events = [], onOpenModal }) => {
+    const { showToast } = useNotification();
     const [activeTab, setActiveTab] = useState<ParkingTab>('checkin');
     const [viewMode, setViewMode] = useState<ViewMode>('list');
     const [searchQuery, setSearchQuery] = useState('');
@@ -174,7 +176,7 @@ const ParkingDashboard: React.FC<ParkingDashboardProps> = ({ events = [], onOpen
             await ParkingStore.update(updated);
             // Optimistic Update
             setVehicles(vehicles.map(v => v.id === vehicleId ? updated : v));
-            alert("Vehicle Checked In Successfully!");
+            showToast("Vehicle Checked In Successfully!", 'success');
         }
     };
 
@@ -199,7 +201,7 @@ const ParkingDashboard: React.FC<ParkingDashboardProps> = ({ events = [], onOpen
         // 1. Validate Plate Format
         const { valid, formatted } = validatePlate(formData.number_plate);
         if (!valid) {
-            alert(`Invalid Number Plate Format: "${formData.number_plate}".\nAllowed formats: UAA 123A or UA 123AA (e.g. UBA 123A)`);
+            showToast(`Invalid Number Plate Format: "${formData.number_plate}".\nAllowed formats: UAA 123A or UA 123AA (e.g. UBA 123A)`, 'error');
             return;
         }
 
@@ -207,7 +209,7 @@ const ParkingDashboard: React.FC<ParkingDashboardProps> = ({ events = [], onOpen
         // If vehicle exists ANYWHERE in the system with this plate
         const duplicate = vehicles.find(v => v.number_plate === formatted);
         if (duplicate) {
-            alert(`Error: Vehicle "${formatted}" already exists in the system.\nPlease search for it and Check In.`);
+            showToast(`Error: Vehicle "${formatted}" already exists in the system.\nPlease search for it and Check In.`, 'error');
             return;
         }
 
@@ -227,7 +229,7 @@ const ParkingDashboard: React.FC<ParkingDashboardProps> = ({ events = [], onOpen
         setVehicles([newVehicle, ...vehicles]);
         setFormData(initialFormState);
         setViewMode('service-active');
-        alert(`Vehicle ${newVehicle.number_plate} Registered & Checked In!`);
+        showToast(`Vehicle ${newVehicle.number_plate} Registered & Checked In!`, 'success');
     };
 
     const handleAddDatabaseVehicle = async (e: React.FormEvent) => {
@@ -237,14 +239,14 @@ const ParkingDashboard: React.FC<ParkingDashboardProps> = ({ events = [], onOpen
         // 1. Validate Plate Format
         const { valid, formatted } = validatePlate(formData.number_plate);
         if (!valid) {
-            alert(`Invalid Number Plate Format: "${formData.number_plate}".\nAllowed formats: UAA 123A or UA 123AA (e.g. UBA 123A)`);
+            showToast(`Invalid Number Plate Format: "${formData.number_plate}".\nAllowed formats: UAA 123A or UA 123AA (e.g. UBA 123A)`, 'error');
             return;
         }
 
         // 2. Check Duplicates
         const duplicate = vehicles.find(v => v.number_plate === formatted);
         if (duplicate) {
-            alert(`Error: Vehicle "${formatted}" already exists in the system.`);
+            showToast(`Error: Vehicle "${formatted}" already exists in the system.`, 'error');
             return;
         }
 
@@ -261,7 +263,7 @@ const ParkingDashboard: React.FC<ParkingDashboardProps> = ({ events = [], onOpen
         setVehicles([newVehicle, ...vehicles]);
         setFormData(initialFormState);
         setViewMode('list');
-        alert(`Vehicle ${newVehicle.number_plate} added to database.`);
+        showToast(`Vehicle ${newVehicle.number_plate} added to database.`, 'success');
     };
 
     const handleBulkSubmit = async (e: React.FormEvent) => {
@@ -300,14 +302,14 @@ const ParkingDashboard: React.FC<ParkingDashboardProps> = ({ events = [], onOpen
             setVehicles([...newVehicles, ...vehicles]);
             setBulkText('');
             setViewMode('list');
-            alert(`${count} vehicles imported successfully.`);
+            showToast(`${count} vehicles imported successfully.`, 'success');
         } else {
-            alert("No valid data found to import.");
+            showToast("No valid data found to import.", 'error');
         }
     };
 
     const handleScanQR = () => {
-        alert("Scanning Interface Active... (Camera integration placeholder)");
+        showToast("Scanning Interface Active... (Camera integration placeholder)", 'info');
     };
 
     // --- Render ---

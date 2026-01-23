@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNotification } from './ui/NotificationSystem';
 import { User, MinistryEvent, SchoolOutreachReport, ModalType, Passenger } from '../types';
 import { SchoolsStore } from '../database/schoolsStore';
 import { EventStore } from '../database/eventStore';
@@ -21,6 +22,7 @@ interface SchoolsDashboardProps {
 }
 
 const SchoolsDashboard: React.FC<SchoolsDashboardProps> = ({ currentUser, onOpenModal }) => {
+    const { showToast } = useNotification();
     const [activeTab, setActiveTab] = useState<'reports' | 'events'>('reports');
     const [reports, setReports] = useState<SchoolOutreachReport[]>([]);
     const [events, setEvents] = useState<MinistryEvent[]>([]);
@@ -85,9 +87,9 @@ const SchoolsDashboard: React.FC<SchoolsDashboardProps> = ({ currentUser, onOpen
                 date: new Date().toISOString().split('T')[0],
                 labourers: [{ name: '', contact: '' }]
             });
-            alert('Report submitted successfully!');
+            showToast('Report submitted successfully!', 'success');
         } catch (error) {
-            alert('Failed to submit report');
+            showToast('Failed to submit report', 'error');
         }
     };
 
@@ -174,7 +176,7 @@ const SchoolsDashboard: React.FC<SchoolsDashboardProps> = ({ currentUser, onOpen
 
         } catch (error) {
             console.error("Error fetching event details:", error);
-            alert("Failed to load student list. Please try again.");
+            showToast("Failed to load student list. Please try again.", 'error');
         }
     };
 

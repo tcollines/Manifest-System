@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNotification } from './ui/NotificationSystem';
 import {
     Plus, Search, FileSpreadsheet, Trash2,
     LayoutGrid, List, Filter, Download,
@@ -15,6 +16,7 @@ interface AssetsTabProps {
 }
 
 export const AssetsTab: React.FC<AssetsTabProps> = ({ departmentId, currentUser }) => {
+    const { showToast, confirm: askConfirm } = useNotification();
     const [assets, setAssets] = useState<Asset[]>([]);
     const [loading, setLoading] = useState(true);
     const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
@@ -86,18 +88,19 @@ export const AssetsTab: React.FC<AssetsTabProps> = ({ departmentId, currentUser 
             });
             setIsAddAssetOpen(false);
             setFormData(initialFormState);
-            alert('Asset added successfully');
+            showToast('Asset added successfully', 'success');
         } catch (error: any) {
-            alert('Error adding asset: ' + error.message);
+            showToast('Error adding asset: ' + error.message, 'error');
         }
     };
 
     const handleDelete = async (id: string) => {
-        if (window.confirm('Are you sure you want to delete this asset?')) {
+        if (await askConfirm("Delete Asset?", 'Are you sure you want to delete this asset?')) {
             try {
                 await AssetStore.delete(id);
+                showToast("Asset deleted.", 'success');
             } catch (error: any) {
-                alert('Error deleting asset: ' + error.message);
+                showToast('Error deleting asset: ' + error.message, 'error');
             }
         }
     };

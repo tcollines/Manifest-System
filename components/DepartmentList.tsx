@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { useNotification } from './ui/NotificationSystem';
 import { DEPARTMENTS } from '../constants';
 import { MoreHorizontal, Users, Car, CreditCard, ClipboardCheck, Phone, Bus, BookOpen } from 'lucide-react';
 
@@ -21,6 +22,7 @@ const getIcon = (name: string) => {
 }
 
 const DepartmentList: React.FC<DepartmentListProps> = ({ onNavigate }) => {
+  const { showToast } = useNotification();
 
   const handleViewDashboard = (deptName: string) => {
     if (deptName.toLowerCase() === 'registration' && onNavigate) {
@@ -38,7 +40,7 @@ const DepartmentList: React.FC<DepartmentListProps> = ({ onNavigate }) => {
     } else if (deptName.toLowerCase() === 'schools' && onNavigate) {
       onNavigate('schools');
     } else {
-      alert(`Navigating to ${deptName} Dashboard... (Module under construction)`);
+      showToast(`Navigating to ${deptName} Dashboard... (Module under construction)`, 'info');
     }
   };
 

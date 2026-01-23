@@ -1,5 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
+import { useNotification } from './ui/NotificationSystem';
+import PhoneInput from './PhoneInput';
 import { ModalType, MinistryEvent, User } from '../types';
 import { X, Save, UserPlus, Calendar, Briefcase, Target, Lock, Phone, Mail, Loader2, Send } from 'lucide-react';
 import { DEPARTMENTS } from '../constants';
@@ -16,6 +18,7 @@ interface ActionPanelProps {
 }
 
 const ActionPanel: React.FC<ActionPanelProps> = ({ modalType, closeModal, onSave, onSaveUser, onUpdateUser, currentUser, targetUser }) => {
+  const { showToast } = useNotification();
   const [formData, setFormData] = useState({
     title: '',
     date: new Date().toISOString().split('T')[0],
@@ -130,10 +133,10 @@ const ActionPanel: React.FC<ActionPanelProps> = ({ modalType, closeModal, onSave
       };
       if (onSave) onSave(newEvent);
     } else if (modalType === ModalType.SET_TARGETS) {
-      alert(`Target set to: ${formData.targetCount}`);
+      showToast(`Target set to: ${formData.targetCount}`, 'success');
     } else if (modalType === ModalType.CREATE_USER) {
       if (!formData.email) {
-        alert("Please enter an email address.");
+        showToast("Please enter an email address.", 'error');
         return;
       }
 
@@ -141,14 +144,20 @@ const ActionPanel: React.FC<ActionPanelProps> = ({ modalType, closeModal, onSave
       const cleanName = formData.fullname.trim();
       const cleanContact = formData.contact.trim();
 
+      // Mandate Contact Field
+      if (!cleanContact || cleanContact === '256' || cleanContact.length <= 3) {
+        showToast("Contact number is required for new users.", 'error');
+        return;
+      }
+
       // Basic Email Validation
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(cleanEmail)) {
-        alert("Please enter a valid email address.");
+        showToast("Please enter a valid email address.", 'error');
         return;
       }
       if (cleanEmail.startsWith('www.')) {
-        alert("Email addresses should not start with 'www.'. Please enter a valid email (e.g. name@gmail.com).");
+        showToast("Email addresses should not start with 'www.'. Please enter a valid email (e.g. name@gmail.com).", 'error');
         return;
       }
 
@@ -189,17 +198,17 @@ const ActionPanel: React.FC<ActionPanelProps> = ({ modalType, closeModal, onSave
           });
           if (error) throw error;
 
-          alert(`User created and invite sent to ${cleanEmail}!`);
+          showToast(`User created and invite sent to ${cleanEmail}!`, 'success');
         } catch (inviteError: any) {
           console.error("Invite sending failed:", inviteError);
           // User is created, but invite failed.
-          alert(`User "${cleanName}" was created successfully, but the invite email failed to send (Error: ${inviteError.message}).\n\nPlease contact the user manually or try re-inviting later.`);
+          showToast(`User "${cleanName}" created, but invite failed (Error: ${inviteError.message}).`, 'warning');
         }
 
         closeModal();
       } catch (err: any) {
         console.error("User Creation Error:", err);
-        alert(`Failed to create user: ${err.message}`);
+        showToast(`Failed to create user: ${err.message}`, 'error');
       } finally {
         setIsSubmitting(false);
       }
@@ -224,7 +233,7 @@ const ActionPanel: React.FC<ActionPanelProps> = ({ modalType, closeModal, onSave
         closeModal();
       } catch (e: any) {
         console.error("Update Error:", e);
-        alert("Failed to update user");
+        showToast("Failed to update user", 'error');
       } finally {
         setIsSubmitting(false);
       }
@@ -339,14 +348,11 @@ const ActionPanel: React.FC<ActionPanelProps> = ({ modalType, closeModal, onSave
 
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-500">Contact</label>
-                <input
-                  name="contact"
+                <PhoneInput
                   value={formData.contact}
-                  onChange={handleInputChange}
+                  onChange={(val) => setFormData({ ...formData, contact: val })}
                   disabled={!canEditProfile}
-                  type="text"
-                  className={`w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-ministry-text focus:outline-none focus:border-ministry-orange ${!canEditProfile ? 'opacity-60 bg-gray-100 cursor-not-allowed' : ''}`}
-                  placeholder="256..."
+                  placeholder="700 000 000"
                 />
               </div>
 

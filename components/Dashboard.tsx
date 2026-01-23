@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { useNotification } from './ui/NotificationSystem';
 import KPIGrid from './KPIGrid';
 import AnalyticsCharts from './AnalyticsCharts';
 import DepartmentList from './DepartmentList';
@@ -14,6 +15,7 @@ interface DashboardProps {
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ openModal, onNavigate }) => {
+   const { showToast } = useNotification();
    useEventLifecycle();
 
    return (
@@ -39,7 +41,7 @@ const Dashboard: React.FC<DashboardProps> = ({ openModal, onNavigate }) => {
                </button>
                <button
                   className="flex items-center space-x-2 bg-white border border-gray-200 text-gray-700 px-4 py-2.5 rounded-xl hover:bg-gray-50 transition-colors font-medium shadow-sm flex-1 md:flex-none justify-center"
-                  onClick={() => { alert("Report Exported Successfully!") }}
+                  onClick={() => { showToast("Report Exported Successfully!", 'success'); }}
                >
                   <Download className="w-4 h-4" />
                   <span>Export Report</span>

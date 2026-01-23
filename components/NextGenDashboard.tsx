@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNotification } from './ui/NotificationSystem';
 import PhoneInput from './PhoneInput';
 import { Child, MinistryEvent, ModalType, User } from '../types';
 import * as XLSX from 'xlsx';
@@ -35,6 +36,7 @@ type Tab = 'checkin' | 'checkout' | 'database';
 type ViewMode = 'list' | 'service-active' | 'add-child' | 'bulk-import';
 
 const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpenModal, currentUser }) => {
+    const { showToast } = useNotification();
     const [activeTab, setActiveTab] = useState<Tab>('checkin');
     const [viewMode, setViewMode] = useState<ViewMode>('list');
     const [children, setChildren] = useState<Child[]>([]);
@@ -185,10 +187,10 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
         setFormData(initialForm);
 
         if (isServiceActive) {
-            alert(`${newChild.name} registered and checked in successfully!`);
+            showToast(`${newChild.name} registered and checked in successfully!`, 'success');
             // Stay in service view
         } else {
-            alert(`${newChild.name} added to Next Gen database.`);
+            showToast(`${newChild.name} added to Next Gen database.`, 'success');
             setViewMode('list');
         }
     };
@@ -280,9 +282,9 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
             setChildren([...newChildren, ...children]);
             setBulkText('');
             setViewMode('list');
-            alert(`${count} children profiles imported successfully.`);
+            showToast(`${count} children profiles imported successfully.`, 'success');
         } else {
-            alert("No valid data found. Ensure format matches instructions.");
+            showToast("No valid data found. Ensure format matches instructions.", 'error');
         }
     };
 

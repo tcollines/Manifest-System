@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import { useNotification } from './ui/NotificationSystem';
 import {
     DollarSign,
     TrendingUp,
@@ -37,6 +38,7 @@ interface FinanceDashboardProps {
 }
 
 const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, onOpenModal }) => { // Accept props properly
+    const { showToast } = useNotification();
     /* Persistence Logic */
     const [activeTab, setActiveTab] = useState<'income' | 'expenses' | 'requisitions' | 'fleet'>(() =>
         (localStorage.getItem('finance_active_tab') as 'income' | 'expenses' | 'requisitions' | 'fleet') || 'income'
@@ -147,16 +149,16 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, onOpen
         const newTotal = alreadyPaid + amount;
 
         if (amount <= 0) {
-            alert("Amount must be greater than 0");
+            showToast("Amount must be greater than 0", 'error');
             return;
         }
         if (amount > remaining) {
-            alert(`Amount cannot exceed remaining balance of ${formatMoney(remaining)}`);
+            showToast(`Amount cannot exceed remaining balance of ${formatMoney(remaining)}`, 'error');
             return;
         }
 
         if (payForm.method === 'Mobile Money' && !payForm.transactionId) {
-            alert("Please enter a Transaction ID for Mobile Money");
+            showToast("Please enter a Transaction ID for Mobile Money", 'error');
             return;
         }
 
@@ -171,7 +173,7 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, onOpen
                 recordedBy: currentUser?.name || 'Finance Officer'
             }, newTotal, isFullPayment);
 
-            alert("Payment recorded successfully!");
+            showToast("Payment recorded successfully!", 'success');
             setPayModalOpen(false);
             refreshData(); // Refresh list to update progress/status
 
@@ -180,7 +182,7 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, onOpen
 
         } catch (error) {
             console.error("Payment failed", error);
-            alert("Failed to record payment.");
+            showToast("Failed to record payment.", 'error');
         }
     };
 
@@ -258,7 +260,7 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, onOpen
         await VehicleStore.updateVehicle(updatedVehicle);
         setVehicles(prev => prev.map(v => v.id === updatedVehicle.id ? updatedVehicle : v));
         setSelectedVehicle(updatedVehicle); // Update local state to reflect changes immediately
-        alert('Finance Details Updated Successfully');
+        showToast('Finance Details Updated Successfully', 'success');
     };
 
     // --- REFACTORED: Dispatch Vehicle (Stage Transition) ---
@@ -295,7 +297,7 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, onOpen
         await VehicleStore.updateVehicle(updatedVehicle);
         setVehicles(prev => prev.map(v => v.id === updatedVehicle.id ? updatedVehicle : v));
         setSelectedVehicle(null);
-        alert(fleetJourneyTab === 'Ongoing' ? 'Vehicle Dispatched to Transit' : 'Return Journey Cleared');
+        showToast(fleetJourneyTab === 'Ongoing' ? 'Vehicle Dispatched to Transit' : 'Return Journey Cleared', 'success');
     };
 
     const handlePrintFleetReport = () => {
@@ -327,7 +329,7 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, onOpen
 
         // Generate HTML
         const printWindow = window.open('', '_blank');
-        if (!printWindow) return alert('Please allow popups to print report');
+        if (!printWindow) return showToast('Please allow popups to print report', 'warning');
 
         const html = `
       <html>
@@ -754,7 +756,7 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, onOpen
 
                                                     <div className="flex justify-between items-center pt-4 border-t border-gray-100">
                                                         <button
-                                                            onClick={() => alert(`Items: \n${req.items?.map(i => `- ${i.description} (${i.quantity} x ${i.unitCost})`).join('\n')}`)}
+                                                            onClick={() => showToast(`Items: \n${req.items?.map(i => `- ${i.description} (${i.quantity} x ${i.unitCost})`).join('\n')}`, 'info')}
                                                             className="text-sm font-bold text-gray-500 hover:text-gray-900 flex items-center gap-1"
                                                         >
                                                             <FileText className="w-4 h-4" /> View Items

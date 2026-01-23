@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNotification } from './ui/NotificationSystem';
 import { DEPARTMENTS, CURRENCIES } from '../constants';
 import { User, ModalType, ManifestDetails } from '../types';
 import { ManifestStore } from '../database/manifestStore';
@@ -33,6 +34,7 @@ interface SettingsViewProps {
 }
 
 const SettingsView: React.FC<SettingsViewProps> = ({ users = [], openModal, onDeleteUser, onEditUser, currentUser, initialTab }) => {
+    const { showToast, confirm: askConfirm } = useNotification();
     const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab || 'users');
 
     // Profile State
@@ -77,27 +79,28 @@ const SettingsView: React.FC<SettingsViewProps> = ({ users = [], openModal, onDe
         return digits;
     };
 
-    const handleDeleteClick = (id: string) => {
-        if (confirm('Are you sure you want to remove this user?')) {
+    const handleDeleteClick = async (id: string) => {
+        if (await askConfirm("Delete User?", 'Are you sure you want to remove this user? This action cannot be undone.')) {
             if (onDeleteUser) onDeleteUser(id);
+            showToast("User deleted.", 'success');
         }
     };
 
     const handleUpdateProfile = (e: React.FormEvent) => {
         e.preventDefault();
-        alert("Profile credentials updated successfully!");
+        showToast("Profile credentials updated successfully!", 'success');
         setCurrentPassword("");
         setNewPassword("");
     };
 
     const handleShapefileUpload = () => {
-        alert("Shapefile uploaded successfully! The Manifest Coverage Map on the dashboard has been updated.");
+        showToast("Shapefile uploaded successfully! The Manifest Coverage Map on the dashboard has been updated.", 'success');
     };
 
     const handleSaveManifest = async (e: React.FormEvent) => {
         e.preventDefault();
         await ManifestStore.save(manifestData);
-        alert("Manifest details updated successfully!");
+        showToast("Manifest details updated successfully!", 'success');
     };
 
     const handleGPSCapture = () => {
@@ -105,12 +108,12 @@ const SettingsView: React.FC<SettingsViewProps> = ({ users = [], openModal, onDe
             navigator.geolocation.getCurrentPosition((pos) => {
                 const { latitude, longitude } = pos.coords;
                 setManifestData({ ...manifestData, coordinates: { lat: latitude, lng: longitude } });
-                alert(`Coordinates captured: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
+                showToast(`Coordinates captured: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`, 'success');
             }, (err) => {
-                alert("Unable to retrieve location. Please ensure location services are enabled.");
+                showToast("Unable to retrieve location. Please ensure location services are enabled.", 'error');
             });
         } else {
-            alert("Geolocation is not supported by this browser.");
+            showToast("Geolocation is not supported by this browser.", 'error');
         }
     };
 

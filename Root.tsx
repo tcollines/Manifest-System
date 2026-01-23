@@ -4,16 +4,20 @@ import App from './App';
 import PublicSoulEntry from './components/PublicSoulEntry';
 import AcceptInvite from './components/AcceptInvite';
 
+import { NotificationProvider } from './components/ui/NotificationSystem';
+
 const Root: React.FC = () => {
     return (
-        <Router>
-            <Routes>
-                <Route path="/collect-souls/:eventId" element={<PublicSoulEntry />} />
-                <Route path="/accept-invite" element={<AcceptInvite />} />
-                <Route path="/setup-account" element={<AcceptInvite />} />
-                <Route path="*" element={<App />} />
-            </Routes>
-        </Router>
+        <NotificationProvider>
+            <Router>
+                <Routes>
+                    <Route path="/collect-souls/:eventId" element={<PublicSoulEntry />} />
+                    <Route path="/accept-invite" element={<AcceptInvite />} />
+                    <Route path="/setup-account" element={<AcceptInvite />} />
+                    <Route path="*" element={<App />} />
+                </Routes>
+            </Router>
+        </NotificationProvider>
     );
 };
 

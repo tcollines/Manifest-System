@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
+import { useNotification } from './ui/NotificationSystem';
 import { isEventLocked, isServiceClosed, validatePlate, validateContact, validateDriverIdentity } from '../utils';
 import { VEHICLE_TYPES } from '../constants';
 import { ModalType, MinistryEvent, User, Vehicle, Passenger, PickUpStation, PersonalVehicle, Member } from '../types';
@@ -75,6 +76,7 @@ type ViewMode = 'list' | 'service-active' | 'service-review' | 'Vehicle-view' | 
 
 
 const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, currentUser, onOpenModal }) => {
+  const { showToast, confirm: askConfirm } = useNotification();
   /* Persistence Logic */
   const [activeTab, setActiveTab] = useState<Tab>(() => {
     if (currentUser.role === 'Logistics') return 'events';
@@ -764,8 +766,13 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
     // FIX: use selectedService to detect active session, because viewMode is 'register-new' here
     const isServiceActive = !!selectedService;
 
-    if (formData.phone.length < 12) {
-      alert("Phone number is too short. Must start with 256 and have at least 9 digits.");
+    // Phone validation (Optional but Confirm if empty)
+    if (!formData.phone || formData.phone === '256' || formData.phone.length <= 3) {
+      if (!(await askConfirm("Missing Contact Info", "No contact number provided. Are you sure you want to proceed?"))) {
+        return;
+      }
+    } else if (formData.phone.length < 12) {
+      showToast("Phone number is too short. Must start with 256 and have at least 9 digits.", 'error');
       return;
     }
 
@@ -804,9 +811,9 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
         setCheckInStats({ total: stats.total + childrenCount, firstTimers: stats.firstTimers });
         setCheckedInIds(new Set(stats.memberIds));
 
-        alert(`${newMember.name} registered and checked in!`);
+        showToast(`${newMember.name} registered and checked in!`, 'success');
       } else {
-        alert(`${newMember.name} added to database.`);
+        showToast(`${newMember.name} added to database.`, 'success');
         setViewMode('list');
       }
 
@@ -815,7 +822,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
 
     } catch (err) {
       console.error(err);
-      alert("Failed to register member.");
+      showToast("Failed to register member.", 'error');
     }
   };
 
@@ -846,7 +853,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
       setViewMode('member-detail');
     } catch (e) {
       console.error("Error viewing member:", e);
-      alert("Could not load member details.");
+      showToast("Could not load member details.", 'error');
     }
   };
 
@@ -868,10 +875,12 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
       const details = await MemberStore.getMemberDetails(updatedMember.id);
       setSelectedMemberDetails(details);
       setIsEditingMember(false);
-      alert("Member updated successfully.");
+      setSelectedMemberDetails(details);
+      setIsEditingMember(false);
+      showToast("Member updated successfully.", 'success');
     } catch (e) {
       console.error("Update failed", e);
-      alert("Failed to update member.");
+      showToast("Failed to update member.", 'error');
     }
   };
 
@@ -880,17 +889,24 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
     e.preventDefault();
     if (!selectedStation) return;
 
+    // Contact Confirmation
+    if (!vehicleForm.driverContact || vehicleForm.driverContact === '256' || vehicleForm.driverContact.length <= 3) {
+      if (!(await askConfirm("Missing Driver Contact", "No driver contact provided. Are you sure you want to proceed?"))) {
+        return;
+      }
+    }
+
     // 1. Validate Plate Format
     const { valid, formatted } = validatePlate(vehicleForm.number_plate);
     if (!valid) {
-      alert(`Invalid Number Plate Format: "${vehicleForm.number_plate}".\nAllowed formats: UAA 123A or UA 123AA (e.g. UBA 123A)`);
+      showToast(`Invalid Number Plate Format: "${vehicleForm.number_plate}".\nAllowed formats: UAA 123A or UA 123AA (e.g. UBA 123A)`, 'error');
       return;
     }
 
     // 1b. Validate Driver Identity (NIN / Permit)
     const idValidation = validateDriverIdentity(vehicleForm.driverNin);
     if (!idValidation.valid) {
-      alert(`Driver ID Error: ${idValidation.error}`);
+      showToast(`Driver ID Error: ${idValidation.error}`, 'error');
       return;
     }
 
@@ -898,7 +914,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
     // We check against 'vehicles' (Transportation Vehicles) state which should contain all fetched vehicles
     const duplicate = vehicles.find(v => v.number_plate === formatted);
     if (duplicate) {
-      alert(`Error: Vehicle "${formatted}" already exists in the system (Station: ${stations.find(s => s.id === duplicate.stationId)?.name || 'Unknown'}).`);
+      showToast(`Error: Vehicle "${formatted}" already exists in the system (Station: ${stations.find(s => s.id === duplicate.stationId)?.name || 'Unknown'}).`, 'error');
       return;
     }
 
@@ -911,7 +927,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
         coordinator: vehicleForm.coordinator || currentUser.name,
       });
 
-      alert("Vehicle Added Successfully");
+      showToast("Vehicle Added Successfully", 'success');
       setIsAddVehicleOpen(false);
       setVehicleForm({
         number_plate: '',
@@ -924,13 +940,13 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
       refreshData();
     } catch (e) {
       console.error(e);
-      alert("Failed to add vehicle");
+      showToast("Failed to add vehicle", 'error');
     }
   };
 
   const handleParkingAction = async (car: PersonalVehicle, action: 'Check In' | 'Check Out') => {
     if (action === 'Check In' && !selectedService) {
-      alert("Please select an Active Service first (go to Check-in tab and select a service)");
+      showToast("Please select an Active Service first (go to Check-in tab and select a service)", 'warning');
       return;
     }
     try {
@@ -943,7 +959,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
         currentServiceId: action === 'Check In' ? selectedService?.id : c.currentServiceId
       } : c));
     } catch (error) {
-      alert("Failed to update status");
+      showToast("Failed to update status", 'error');
     }
   };
 
@@ -1015,16 +1031,16 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
         setMembers(prev => [...prev, ...newMembers]); // Optimistic update or fetch fresh? Appending is faster.
         setBulkMemberText('');
         setIsImporting(false);
-        alert(`${processed} members imported successfully.`);
+        showToast(`${processed} members imported successfully.`, 'success');
         setViewMode('list');
       } catch (err: any) {
         console.error("Bulk Import Error:", err);
         setIsImporting(false);
-        alert("Error importing members: " + err.message);
+        showToast("Error importing members: " + err.message, 'error');
       }
     } else {
       setIsImporting(false);
-      alert("No valid records found. Please check format.");
+      showToast("No valid records found. Please check format.", 'error');
     }
   };
 
@@ -1086,10 +1102,10 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
       refreshData(); // Refresh parent data
       setIsAddEventOpen(false);
       setEventForm({ title: '', date: new Date().toISOString().split('T')[0], time: '17:00', location: 'Phaneroo Grounds', description: '' });
-      alert(`${eventFormType} created successfully.`);
+      showToast(`${eventFormType} created successfully.`, 'success');
     } catch (error: any) {
       console.error("Error creating event:", error);
-      alert("Failed to create event: " + error.message);
+      showToast("Failed to create event: " + error.message, 'error');
     }
   };
 
@@ -1123,7 +1139,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
   const confirmDelete = async () => {
     // Hardcoded check as requested for specific "Head of Dept Registration Password"
     if (deletePassword !== 'admin123') {
-      alert('Incorrect Head of Dept Registration Password.');
+      showToast('Incorrect Head of Dept Registration Password.', 'error');
       return;
     }
 
@@ -1134,7 +1150,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
     setSelectedMemberIds(new Set());
     setIsDeleteModalOpen(false);
     setDeletePassword('');
-    alert('Selected members deleted successfully.');
+    showToast('Selected members deleted successfully.', 'success');
   };
 
   // --- LOGISTICS LOGIC ---
@@ -1142,10 +1158,17 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
     e.preventDefault();
     if (!selectedLogisticsEvent) return;
 
+    // Contact Confirmation
+    if (!stationForm.coordinatorContact || stationForm.coordinatorContact === '256' || stationForm.coordinatorContact.length <= 3) {
+      if (!(await askConfirm("Missing Coordinator Contact", "No coordinator contact provided. Are you sure you want to proceed?"))) {
+        return;
+      }
+    }
+
     if (stationForm.entrantUsername) {
       const users = await UserStore.getAll();
       if (users.some(u => u.username?.toLowerCase() === stationForm.entrantUsername.toLowerCase())) {
-        alert(`The username "${stationForm.entrantUsername}" is already taken.`);
+        showToast(`The username "${stationForm.entrantUsername}" is already taken.`, 'error');
         return;
       }
     }
@@ -1179,9 +1202,9 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
       setStations([...stations, newStation]);
       setIsAddStationOpen(false);
       setStationForm(initialStationForm);
-      alert("Station created successfully.");
+      showToast("Station created successfully.", 'success');
     } catch (err: any) {
-      alert("Error creating station: " + err.message);
+      showToast("Error creating station: " + err.message, 'error');
     }
   };
 
@@ -1192,7 +1215,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
 
     // Basic Validation
     if (!newEntrant.name || !newEntrant.username || !newEntrant.password) {
-      alert("All fields are required.");
+      showToast("All fields are required.", 'warning');
       return;
     }
 
@@ -1210,9 +1233,9 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
       await UserStore.add(newUser);
       setIsAddEntrantOpen(false);
       setNewEntrant({ name: '', username: '', password: '' });
-      alert("Data entrant added successfully.");
+      showToast("Data entrant added successfully.", 'success');
     } catch (error: any) {
-      alert("Error adding entrant: " + error.message);
+      showToast("Error adding entrant: " + error.message, 'error');
     }
   };
 
@@ -1224,7 +1247,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
     e.preventDefault();
     if (!selectedVehicle) return;
     if (selectedVehicle.approvals?.registration === 'Approved') {
-      alert("This vehicle is locked (Registration Approved). No more passengers can be added.");
+      showToast("This vehicle is locked (Registration Approved). No more passengers can be added.", 'info');
       return;
     }
 
@@ -1236,7 +1259,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
     );
 
     if (isDuplicate) {
-      alert(`${passengerForm.name} is already in this vehicle.`);
+      showToast(`${passengerForm.name} is already in this vehicle.`, 'warning');
       return;
     }
 
@@ -1248,6 +1271,13 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
     if ((passengerForm as any).isParentContact === true) {
       finalParentContact = passengerForm.contact; // The input value goes to parentContact
       finalContact = ''; // Clear regular contact
+    }
+
+    // Contact Confirmation
+    if ((!finalContact || finalContact === '256' || finalContact.length <= 3) && (!finalParentContact || finalParentContact === '256' || finalParentContact.length <= 3)) {
+      if (!(await askConfirm("Missing Contact Info", "No contact number entered. Are you sure you want to proceed?"))) {
+        return;
+      }
     }
 
     const newPassenger: Passenger = {
@@ -1288,7 +1318,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
   };
 
   const handleDeletePassenger = async (passengerId: string) => {
-    if (confirm('Are you sure you want to remove this passenger from the vehicle?')) {
+    if (await askConfirm("Remove Passenger", "Are you sure you want to remove this passenger from the vehicle?")) {
       try {
         // Optimistic update: remove from UI immediately
         setPassengers(prev => prev.filter(p => p.id !== passengerId));
@@ -1297,7 +1327,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
       } catch (error) {
         console.error("Error deleting passenger", error);
         // Fallback: If DB delete fails, maybe reload to get correct state or alert user
-        alert("Could not delete from database. Please refresh.");
+        showToast("Could not delete from database. Please refresh.", 'error');
       }
     }
   };
@@ -1309,7 +1339,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
   const handleApproveVehicle = async () => {
     if (!selectedVehicle) return;
 
-    if (window.confirm(`Are you sure you want to approve vehicle ${selectedVehicle.number_plate} and send it to Finance?`)) {
+    if (await askConfirm("Approve Vehicle", `Are you sure you want to approve vehicle ${selectedVehicle.number_plate} and send it to Finance?`)) {
       try {
         const nextStage = 'FinanceApproval';
         const updatedApprovals = {
@@ -1331,10 +1361,10 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
         setVehicles(prev => prev.map(v => v.id === updatedVehicle.id ? updatedVehicle : v));
         setSelectedVehicle(updatedVehicle);
 
-        alert("Vehicle successfully approved and sent to Finance Dashboard.");
+        showToast("Vehicle successfully approved and sent to Finance Dashboard.", 'success');
       } catch (err: any) {
         console.error("Error approving vehicle:", err);
-        alert("Failed to approve vehicle: " + err.message);
+        showToast("Failed to approve vehicle: " + err.message, 'error');
       }
     }
   };
@@ -1377,10 +1407,10 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
         firstTimers: memberStats.firstTimers
       });
 
-      alert(`Children count updated to ${count}`);
+      showToast(`Children count updated to ${count}`, 'success');
     } catch (error) {
       console.error("Failed to update manual count", error);
-      alert("Failed to update count. Please try again.");
+      showToast("Failed to update count. Please try again.", 'error');
     }
   };
 
@@ -1547,7 +1577,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
                         if (!isNaN(num) && num >= 0) {
                           handleUpdateManualCount(num);
                         } else {
-                          alert("Please enter a valid number.");
+                          showToast("Please enter a valid number.", 'error');
                         }
                       }
                     }}
