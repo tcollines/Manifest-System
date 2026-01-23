@@ -125,11 +125,12 @@ export const UserStore = {
   update: async (user: User): Promise<User[]> => {
     try {
       const { error } = await supabase.from('users').update(mapUserToDB(user)).eq('id', user.id);
-      if (error) console.error('Error updating user:', error);
-    } catch (e) {
-      console.error(e);
+      if (error) throw new Error('Error updating user: ' + error.message);
+      return UserStore.getAll();
+    } catch (e: any) {
+      console.error("UserStore Update Error:", e);
+      throw e;
     }
-    return UserStore.getAll();
   },
 
   // Session Persistence
