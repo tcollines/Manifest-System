@@ -919,11 +919,12 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
       return;
     }
 
-    // 2. Check Duplicates (Global System Check - Across ALL stations)
-    // We check against 'vehicles' (Transportation Vehicles) state which should contain all fetched vehicles
-    const duplicate = vehicles.find(v => v.number_plate === formatted);
+    // 2. Check Duplicates (Station Scope)
+    // Only prevent adding if it exists IN THE SAME STATION.
+    // Use Case: Same car can be in multiple stations (e.g. dropping off at different points) or different events.
+    const duplicate = vehicles.find(v => v.number_plate === formatted && v.stationId === selectedStation.id);
     if (duplicate) {
-      showToast(`Error: Vehicle "${formatted}" already exists in the system (Station: ${stations.find(s => s.id === duplicate.stationId)?.name || 'Unknown'}).`, 'error');
+      showToast(`Error: Vehicle "${formatted}" is already registered in this station.`, 'error');
       return;
     }
 
