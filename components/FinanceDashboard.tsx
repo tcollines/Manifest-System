@@ -71,7 +71,7 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, onOpen
     // Fleet Logistics Navigation State
     const [fleetViewMode, setFleetViewMode] = useState<'events' | 'vehicles'>('events');
     const [selectedFleetEvent, setSelectedFleetEvent] = useState<MinistryEvent | null>(null);
-    const [fleetJourneyTab, setFleetJourneyTab] = useState<'Ongoing' | 'Return' | 'Cleared'>('Ongoing');
+    const [fleetJourneyTab, setFleetJourneyTab] = useState<'Ongoing' | 'Return' | 'Cleared' | 'All'>('Ongoing');
     const [availableCoordinators, setAvailableCoordinators] = useState<User[]>([]);
 
     // Vehicle Detail Modal State
@@ -329,10 +329,9 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, onOpen
 
         const eventStationIds = pickupStations.filter(s => s.eventId === selectedFleetEvent.id).map(s => s.id);
 
-        // Get all approved vehicles for this event (regardless of current tab filter)
+        // Get all vehicles for this event linked via station
         const allEventVehicles = vehicles.filter(v =>
-            eventStationIds.includes(v.stationId) &&
-            v.approvals?.registration === 'Approved'
+            eventStationIds.includes(v.stationId)
         );
 
         // Calculate Stats
@@ -343,12 +342,24 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, onOpen
             allEventVehicles.some(v => v.id === p.vehicleId)
         ).length;
 
-        // Calculate Total Expenditure
+        // Calculate Total Expenditure and Column Totals
         let totalExpenditure = 0;
+        let sumBookingFee = 0;
+        let sumBalancePayment = 0;
+        let sumTotalCost = 0;
+        let sumFinalBalance = 0;
+
         allEventVehicles.forEach(v => {
+            const totalCost = parseFloat(v.financeDetails?.ongoingDispatch || '0');
             const bookingFee = parseFloat(v.financeDetails?.ongoingBalance || '0');
             const balancePayment = parseFloat(v.financeDetails?.returnDispatch || '0');
+            const balance = totalCost - (bookingFee + balancePayment);
+
             totalExpenditure += (bookingFee + balancePayment);
+            sumBookingFee += bookingFee;
+            sumBalancePayment += balancePayment;
+            sumTotalCost += totalCost;
+            sumFinalBalance += balance;
         });
 
         // Generate HTML
@@ -393,6 +404,7 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, onOpen
               <th>Plate</th>
               <th>Driver</th>
               <th>Contact</th>
+              <th>No. Pax</th>
               <th class="money">Booking Fee</th>
               <th class="money">Balance</th>
               <th class="money">Total Cost</th>
@@ -412,6 +424,7 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, onOpen
                     <td>${v.number_plate}</td>
                     <td>${v.driverName || '-'}</td>
                     <td>${v.driverContact || '-'}</td>
+                    <td>${passengers.filter(p => p.vehicleId === v.id).length}</td>
                     <td class="money">${formatMoney(bookingFee)}</td>
                     <td class="money">${formatMoney(balancePayment)}</td>
                     <td class="money">${formatMoney(totalCost)}</td>
@@ -419,6 +432,14 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, onOpen
                   </tr>
                 `;
         }).join('')}
+             <tr style="font-weight: bold; background-color: #f0f0f0; border-top: 2px solid #000;">
+                <td colspan="4" style="text-align: right;">TOTALS:</td>
+                <td>${totalPax}</td>
+                <td class="money">${formatMoney(sumBookingFee)}</td>
+                <td class="money">${formatMoney(sumBalancePayment)}</td>
+                <td class="money">${formatMoney(sumTotalCost)}</td>
+                <td class="money">${formatMoney(sumFinalBalance)}</td>
+             </tr>
           </tbody>
         </table>
 
@@ -602,10 +623,14 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, onOpen
         if (!selectedFleetEvent) return [];
         const eventStationIds = pickupStations.filter(s => s.eventId === selectedFleetEvent.id).map(s => s.id);
 
-        const approvedVehicles = vehicles.filter(v =>
-            eventStationIds.includes(v.stationId) &&
-            v.approvals?.registration === 'Approved'
-        );
+        const allVehicles = vehicles.filter(v => eventStationIds.includes(v.stationId));
+
+        if (fleetJourneyTab === 'All') {
+            return allVehicles;
+        }
+
+        // For workflow tabs, only show Approved vehicles
+        const approvedVehicles = allVehicles.filter(v => v.approvals?.registration === 'Approved');
 
         if (fleetJourneyTab === 'Ongoing') {
             return approvedVehicles.filter(v => !v.financeDetails?.ongoingDispatch || v.financeDetails.ongoingDispatch === '');
@@ -914,6 +939,12 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, onOpen
                                             <CheckCircle className="w-4 h-4 mr-2" /> Cleared
                                         </button>
                                         <button
+                                            onClick={() => setFleetJourneyTab('All')}
+                                            className={`flex-1 md:flex-none px-6 py-2 rounded-md text-sm font-bold transition-all flex items-center justify-center ${fleetJourneyTab === 'All' ? 'bg-white shadow text-gray-800' : 'text-gray-500'}`}
+                                        >
+                                            <Bus className="w-4 h-4 mr-2" /> All
+                                        </button>
+                                        <button
                                             onClick={handlePrintFleetReport}
                                             className="flex-1 md:flex-none px-6 py-2 rounded-md text-sm font-bold text-gray-700 hover:text-gray-900 transition-all flex items-center justify-center border-l border-gray-200 ml-1"
                                             title="Print Fleet Report"
@@ -929,7 +960,15 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, onOpen
                                     ) : (
                                         eventVehicles.map(v => (
                                             <div key={v.id} className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow">
-                                                <h4 className="text-lg font-bold font-mono text-gray-900">{v.number_plate}</h4>
+                                                <div className="flex justify-between items-start mb-2">
+                                                    <h4 className="text-lg font-bold font-mono text-gray-900">{v.number_plate}</h4>
+                                                    {fleetJourneyTab === 'All' && (
+                                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${v.approvals?.registration === 'Approved' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                                                            {v.approvals?.registration === 'Approved' ? 'Active' : 'Pending'}
+                                                        </span>
+                                                    )}
+                                                </div>
+
                                                 {fleetJourneyTab === 'Cleared' ? (
                                                     <div className="mt-4 p-3 bg-green-50 border border-green-100 rounded-lg text-center">
                                                         <p className="text-xs text-green-700 font-bold uppercase mb-1">Total Paid</p>
@@ -943,7 +982,7 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, onOpen
                                                         disabled={(selectedFleetEvent.type === 'Service' && isServiceClosed(selectedFleetEvent.date)) || (selectedFleetEvent.type === 'Event' && isEventLocked(selectedFleetEvent.date))}
                                                         className={`py-2 rounded-lg text-sm font-bold transition-colors w-full mt-4 ${(selectedFleetEvent.type === 'Service' && isServiceClosed(selectedFleetEvent.date)) || (selectedFleetEvent.type === 'Event' && isEventLocked(selectedFleetEvent.date)) ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-ministry-text text-white hover:bg-ministry-orange'}`}
                                                     >
-                                                        {(selectedFleetEvent.type === 'Service' && isServiceClosed(selectedFleetEvent.date)) || (selectedFleetEvent.type === 'Event' && isEventLocked(selectedFleetEvent.date)) ? 'View Only' : 'Process Finance'}
+                                                        {(selectedFleetEvent.type === 'Service' && isServiceClosed(selectedFleetEvent.date)) || (selectedFleetEvent.type === 'Event' && isEventLocked(selectedFleetEvent.date)) ? 'View Only' : (fleetJourneyTab === 'All' ? 'View Details' : 'Process Finance')}
                                                     </button>
                                                 )}
                                             </div>
@@ -966,6 +1005,22 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, onOpen
                                 <div className="flex bg-gray-100 p-1 rounded-lg mb-4">
                                     <button type="button" onClick={() => setTransForm({ ...transForm, type: 'Income' })} className={`flex-1 py-2 rounded-md text-sm font-bold ${transForm.type === 'Income' ? 'bg-white shadow-sm text-green-600' : 'text-gray-500'}`}>Income</button>
                                     <button type="button" onClick={() => setTransForm({ ...transForm, type: 'Expense' })} className={`flex-1 py-2 rounded-md text-sm font-bold ${transForm.type === 'Expense' ? 'bg-white shadow-sm text-red-600' : 'text-gray-500'}`}>Expense</button>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <label className="text-xs font-bold text-gray-500 uppercase">Related Event (Optional)</label>
+                                    <select
+                                        value={transForm.eventId}
+                                        onChange={e => setTransForm({ ...transForm, eventId: e.target.value })}
+                                        className="w-full p-3 border rounded-xl bg-white"
+                                    >
+                                        <option value="">-- General / None --</option>
+                                        {events.map(ev => (
+                                            <option key={ev.id} value={ev.id}>
+                                                {ev.date} - {ev.title}
+                                            </option>
+                                        ))}
+                                    </select>
                                 </div>
 
                                 <div className="space-y-2">

@@ -65,6 +65,7 @@ import EventDetailsModal from './EventDetailsModal';
 import { AssetsTab } from './AssetsTab';
 import NumberPlateInput from './NumberPlateInput';
 import PhoneInput from './PhoneInput';
+import ManualCountModal from './ManualCountModal';
 
 interface RegistrationDashboardProps {
   events: MinistryEvent[];
@@ -186,7 +187,8 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
     driverNin: '',
     type: 'Taxi' as 'Car' | 'Taxi' | 'Coaster' | 'Bus',
     capacity: '',
-    coordinator: ''
+    coordinator: '',
+    id: '' // Added ID field for tracking edits
   });
 
   // Add Passenger Modal State
@@ -250,6 +252,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
   // Highlights Modal State
   const [showHighlights, setShowHighlights] = useState(false);
   const [highlightEvent, setHighlightEvent] = useState<MinistryEvent | null>(null);
+  const [isChildCountModalOpen, setIsChildCountModalOpen] = useState(false);
 
   // Check-in Stats State
   const [checkInStats, setCheckInStats] = useState({ total: 0, firstTimers: 0 });
@@ -493,7 +496,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
                 @media print {
                     @page { size: landscape; margin: 5mm; }
                     body { -webkit-print-color-adjust: exact; }
-                    .page-break { page-break-after: always; }
+                    .page-break { page-break-after: always; break-after: page; display: block; height: 0; }
                 }
                 body { font-family: 'Arial', sans-serif; font-size: 10px; margin: 0; padding: 10px; }
                 .header-wrapper { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; border-bottom: 2px solid black; padding-bottom: 5px; }
@@ -517,6 +520,13 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
                 .col-left h4 { margin: 4px 0 2px 0; font-size: 9px; text-decoration: underline; }
                 .col-right h4 { margin: 4px 0 2px 0; font-size: 9px; }
                 ol { margin: 2px 0; padding-left: 15px; }
+
+                .page-container { 
+                    page-break-after: always;
+                    break-after: page;
+                    display: flex; 
+                    flex-direction: column;
+                }
             </style>
         </head>
         <body>
@@ -580,7 +590,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
                     <th style="width: 60px;">DAY / BOARDING</th>
                     <th style="width: 50px;">CLASS</th>
                     <th style="width: 50px;">VACIST</th>
-                    <th>CONSENT TO STORE YOUR INFO</th>
+                    <th style="width: 80px; font-size: 9px;">CONSENT TO STORE YOUR INFO</th>
                 </tr>
             `;
       } else if (category === 'Institutions') {
@@ -592,7 +602,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
                     <th>CONTACT</th>
                     <th>PLACE OF RESIDENCE</th>
                     <th>NAME OF INSTITUTION</th>
-                    <th>CONSENT TO STORE YOUR INFO</th>
+                    <th style="width: 80px; font-size: 9px;">CONSENT TO STORE YOUR INFO</th>
                 </tr>
             `;
       } else {
@@ -628,11 +638,11 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
           const db = p?.boardingType ? (p.boardingType === 'Day' ? 'D' : 'B') : '';
           rowContent = `
                     <td class="center">${no}.</td>
-                    <td>${name}</td>
+                    <td style="white-space: nowrap; overflow: hidden; max-width: 150px; font-size: 9px; text-overflow: ellipsis;">${name}</td>
                     <td class="center">${gender}</td>
                     <td>${contact}</td>
                     <td>${residence}</td>
-                    <td>${school}</td>
+                    <td style="font-size: 9px;">${school}</td>
                     <td class="center">${db}</td>
                     <td class="center">${studentClass}</td>
                     <td></td>
@@ -642,11 +652,11 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
           const institution = p?.school?.toUpperCase() || ''; // Using school field for institution name
           rowContent = `
                     <td class="center">${no}.</td>
-                    <td>${name}</td>
+                    <td style="white-space: nowrap; overflow: hidden; max-width: 150px; font-size: 9px; text-overflow: ellipsis;">${name}</td>
                     <td class="center">${gender}</td>
                     <td>${contact}</td>
                     <td>${residence}</td>
-                    <td>${institution}</td>
+                    <td style="font-size: 9px;">${institution}</td>
                     <td></td>
                 `;
         } else {
@@ -654,7 +664,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
           const isFirstTime = p?.isFirstTime === 'Yes' ? 'YES' : (p ? 'NO' : '');
           rowContent = `
                     <td class="center">${no}.</td>
-                    <td>${name}</td>
+                    <td style="white-space: nowrap; overflow: hidden; max-width: 150px; font-size: 9px; text-overflow: ellipsis;">${name}</td>
                     <td class="center">${gender}</td>
                     <td>${contact}</td>
                     <td>${residence}</td>
@@ -672,7 +682,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
       };
 
       return `
-            <div class="${(pageNum < totalPages - 1) ? 'page-break' : ''}">
+            <div class="page-container ${pageNum < totalPages - 1 ? '' : ''}">
                 <div class="header-wrapper">
                     <div class="logo-container">
                         ${globalManifest?.logoUrl
@@ -736,9 +746,6 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
 
       chunks.forEach((chunk, i) => {
         htmlContent += createPage(category, chunk, i, chunks.length, catPassengers.length);
-        if (i < chunks.length - 1 || catIndex < catArray.length - 1) {
-          htmlContent += '<div class="page-break"></div>';
-        }
       });
     });
 
@@ -758,6 +765,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
       printWindow.close();
     }, 500);
   };
+
 
   // --- REGISTRATION LOGIC ---
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -922,9 +930,60 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
     // 2. Check Duplicates (Station Scope)
     // Only prevent adding if it exists IN THE SAME STATION.
     // Use Case: Same car can be in multiple stations (e.g. dropping off at different points) or different events.
-    const duplicate = vehicles.find(v => v.number_plate === formatted && v.stationId === selectedStation.id);
+    const duplicate = vehicles.find(v =>
+      v.number_plate === formatted &&
+      v.stationId === selectedStation.id &&
+      v.id !== vehicleForm.id // Fix: Exclude self if updating
+    );
     if (duplicate) {
       showToast(`Error: Vehicle "${formatted}" is already registered in this station.`, 'error');
+      return;
+    }
+
+    // 3. Handle Update Logic (if ID exists)
+    if (vehicleForm.id) {
+      try {
+        // Find existing vehicle to preserve other fields
+        const existingVehicle = vehicles.find(v => v.id === vehicleForm.id) || selectedVehicle;
+        if (!existingVehicle) throw new Error("Vehicle not found");
+
+        const updatedVehicle: Vehicle = {
+          ...existingVehicle,
+          number_plate: formatted,
+          driverName: vehicleForm.driverName,
+          driverContact: vehicleForm.driverContact,
+          driverNin: vehicleForm.driverNin,
+          type: vehicleForm.type,
+          coordinator: vehicleForm.coordinator || currentUser.name,
+          // Preserve stationId if needed or update it
+          stationId: selectedStation.id,
+        };
+
+        await VehicleStore.updateVehicle(updatedVehicle);
+
+        // Update Local State
+        setVehicles(prev => prev.map(v => v.id === updatedVehicle.id ? updatedVehicle : v));
+        if (selectedVehicle && selectedVehicle.id === updatedVehicle.id) {
+          setSelectedVehicle(updatedVehicle);
+        }
+
+        showToast("Vehicle Updated Successfully", 'success');
+        setIsAddVehicleOpen(false);
+        setVehicleForm({
+          number_plate: '',
+          driverName: '',
+          driverContact: '256',
+          type: 'Taxi',
+          driverNin: '',
+          coordinator: '',
+          id: ''
+        });
+        // We don't strictly need refreshData if we did optimistic update, but keeping it for safety
+        refreshData();
+      } catch (error) {
+        console.error("Update failed", error);
+        showToast("Failed to update vehicle", 'error');
+      }
       return;
     }
 
@@ -945,7 +1004,8 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
         driverContact: '256',
         type: 'Taxi',
         driverNin: '',
-        coordinator: ''
+        coordinator: '',
+        id: ''
       });
       refreshData();
     } catch (e) {
@@ -1654,6 +1714,14 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
         </div>
       )}
 
+      {/* Manual Count Modal */}
+      <ManualCountModal
+        isOpen={isChildCountModalOpen}
+        onClose={() => setIsChildCountModalOpen(false)}
+        onConfirm={handleUpdateManualCount}
+        initialCount={selectedService?.stats?.manualChildrenCount || 0}
+      />
+
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold text-ministry-text flex items-center gap-3">
@@ -1774,18 +1842,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
               {!isServiceClosed(selectedService.date) && (
                 <div className="flex space-x-2">
                   <button
-                    onClick={() => {
-                      const currentCount = selectedService.stats?.manualChildrenCount || 0;
-                      const countStr = prompt("Enter total manual children count:", currentCount.toString());
-                      if (countStr !== null) {
-                        const num = parseInt(countStr);
-                        if (!isNaN(num) && num >= 0) {
-                          handleUpdateManualCount(num);
-                        } else {
-                          showToast("Please enter a valid number.", 'error');
-                        }
-                      }
-                    }}
+                    onClick={() => setIsChildCountModalOpen(true)}
                     className="flex items-center space-x-2 bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 border border-gray-200 shadow-sm"
                   >
                     <Baby className="w-4 h-4" />
@@ -2241,7 +2298,19 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
 
                         {isLogisticsRole && (
                           <button
-                            onClick={() => setIsAddVehicleOpen(true)}
+                            onClick={() => {
+                              setVehicleForm({
+                                number_plate: '',
+                                driverName: '',
+                                driverContact: '256',
+                                driverNin: '',
+                                type: 'Taxi',
+                                capacity: '',
+                                coordinator: '',
+                                id: ''
+                              });
+                              setIsAddVehicleOpen(true);
+                            }}
                             className="flex items-center justify-center space-x-2 bg-ministry-orange text-white px-6 py-3 rounded-xl hover:bg-orange-600 shadow-lg shadow-orange-200 transition-transform active:scale-95 font-bold"
                           >
                             <Plus className="w-5 h-5" />
@@ -2514,7 +2583,8 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
                                       driverNin: selectedVehicle.driverNin || '',
                                       type: selectedVehicle.type,
                                       capacity: '',
-                                      coordinator: selectedVehicle.coordinator || ''
+                                      coordinator: selectedVehicle.coordinator || '',
+                                      id: selectedVehicle.id // Set ID for edit mode
                                     });
                                     setIsAddVehicleOpen(true);
                                   }}
@@ -2997,7 +3067,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
       {isAddVehicleOpen && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-md p-6 rounded-2xl shadow-xl max-h-[90vh] overflow-y-auto">
-            <h3 className="text-xl font-bold mb-4">Add Vehicle</h3>
+            <h3 className="text-xl font-bold mb-4">{vehicleForm.id ? 'Edit Vehicle' : 'Add Vehicle'}</h3>
             <form onSubmit={handleAddVehicle} className="space-y-4">
 
               <div className="space-y-2">
@@ -3073,7 +3143,9 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
               </div>
               <div className="flex justify-end pt-4 gap-3">
                 <button type="button" onClick={() => setIsAddVehicleOpen(false)} className="px-4 py-2 text-gray-600 font-bold">Cancel</button>
-                <button type="submit" className="px-6 py-2 bg-ministry-text text-white font-bold rounded-xl hover:bg-ministry-orange">Register Vehicle</button>
+                <button type="submit" className="px-6 py-2 bg-ministry-text text-white font-bold rounded-xl hover:bg-ministry-orange">
+                  {vehicleForm.id ? 'Update Vehicle' : 'Register Vehicle'}
+                </button>
               </div>
             </form>
           </div>
@@ -3101,7 +3173,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
                   </select>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-sm font-bold text-gray-700">Contact</label>
                   <PhoneInput required value={passengerForm.contact} onChange={(val) => setPassengerForm({ ...passengerForm, contact: val })} placeholder="700 000 000" />

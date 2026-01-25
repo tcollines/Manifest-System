@@ -12,6 +12,7 @@
     "@google/genai": "^1.34.0",
     "@react-google-maps/api": "^2.20.8",
     "@supabase/supabase-js": "^2.89.0",
+    "html2pdf.js": "^0.14.0",
     "libphonenumber-js": "^1.12.35",
     "lucide-react": "^0.562.0",
     "mapbox-gl": "^3.17.0",

@@ -27,7 +27,7 @@ import { EventStore } from './database/eventStore';
 import { Bell, Search, Menu } from 'lucide-react';
 import { supabase } from './services/supabaseClient';
 import TeamLeaderRequisitions from './components/TeamLeaderRequisitions';
-import SchoolsDashboard from './components/SchoolsDashboard';
+import { SchoolsDashboard } from './components/SchoolsDashboard';
 
 const App: React.FC = () => {
   const { showToast } = useNotification();
@@ -461,7 +461,7 @@ const App: React.FC = () => {
           {activeTab === 'finance' && <FinanceDashboard currentUser={currentUser} onOpenModal={setModalType} />}
           {activeTab === 'follow-up' && <FollowUpDashboard onOpenModal={setModalType} />}
           {activeTab === 'parking' && <ParkingDashboard events={events} onOpenModal={setModalType} />}
-          {activeTab === 'schools' && <SchoolsDashboard currentUser={currentUser} onOpenModal={setModalType} />}
+          {activeTab === 'schools' && <SchoolsDashboard currentUser={currentUser} events={events} onOpenModal={setModalType} />}
           {activeTab === 'requisitions' && (
             currentUser?.role === 'TeamLeader'
               ? <TeamLeaderRequisitions currentUser={currentUser} />

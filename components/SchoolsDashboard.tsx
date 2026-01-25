@@ -1,120 +1,113 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useEffect, useRef } from 'react';
 import { useNotification } from './ui/NotificationSystem';
 import { User, MinistryEvent, SchoolOutreachReport, ModalType, Passenger } from '../types';
 import { SchoolsStore } from '../database/schoolsStore';
 import { EventStore } from '../database/eventStore';
+import { ManifestStore } from '../database/manifestStore'; // Added ManifestStore
 import { supabase } from '../services/supabaseClient';
 import * as XLSX from 'xlsx';
 import {
-    BookOpen,
-    Calendar,
+    ClipboardCheck,
+    Search,
     Plus,
-    FileText,
-    Download,
+    CheckCircle,
+    Calendar,
     Users,
+    FileText,
+    BookOpen,
+    Trash2,
     Save,
-    UserPlus
+    X,
+    Filter,
+    Download
 } from 'lucide-react';
+import html2pdf from 'html2pdf.js';
 
 interface SchoolsDashboardProps {
-    currentUser: User | null;
+    currentUser: User;
+    events: MinistryEvent[];
     onOpenModal: (type: ModalType) => void;
 }
 
-const SchoolsDashboard: React.FC<SchoolsDashboardProps> = ({ currentUser, onOpenModal }) => {
+export const SchoolsDashboard: React.FC<SchoolsDashboardProps> = ({
+    currentUser,
+    events,
+    onOpenModal
+}) => {
     const { showToast } = useNotification();
     const [activeTab, setActiveTab] = useState<'reports' | 'events'>('reports');
     const [reports, setReports] = useState<SchoolOutreachReport[]>([]);
-    const [events, setEvents] = useState<MinistryEvent[]>([]);
-    const [selectedEvent, setSelectedEvent] = useState<MinistryEvent | null>(null);
-    const [eventPassengers, setEventPassengers] = useState<Passenger[]>([]);
-
-    // New Report State
     const [isAddingReport, setIsAddingReport] = useState(false);
     const [newReport, setNewReport] = useState<Partial<SchoolOutreachReport>>({
         date: new Date().toISOString().split('T')[0],
-        labourers: [{ name: '', contact: '' }]
+        labourers: []
     });
 
-    const refreshData = async () => {
-        const [fetchedReports, fetchedEvents] = await Promise.all([
-            SchoolsStore.getAllReports(),
-            EventStore.getAll()
-        ]);
-        setReports(fetchedReports);
-        setEvents(fetchedEvents);
-    };
+    const [selectedEvent, setSelectedEvent] = useState<MinistryEvent | null>(null);
+    const [eventPassengers, setEventPassengers] = useState<Passenger[]>([]);
 
     useEffect(() => {
-        refreshData();
-
-        // Realtime subscription
-        const channel = supabase.channel('schools_dashboard')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'school_outreach_reports' }, () => refreshData())
-            .subscribe();
-
-        return () => {
-            supabase.removeChannel(channel);
-        };
+        loadReports();
     }, []);
 
-    // -- Report Handling --
+    const loadReports = async () => {
+        const data = await SchoolsStore.getAllReports();
+        setReports(data.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+    };
 
     const handleAddLabourer = () => {
-        setNewReport(prev => ({
-            ...prev,
-            labourers: [...(prev.labourers || []), { name: '', contact: '' }]
-        }));
+        const current = newReport.labourers || [];
+        setNewReport({ ...newReport, labourers: [...current, { name: '', contact: '' }] });
     };
 
     const handleLabourerChange = (index: number, field: 'name' | 'contact', value: string) => {
-        const updatedLabourers = [...(newReport.labourers || [])];
-        updatedLabourers[index] = { ...updatedLabourers[index], [field]: value };
-        setNewReport(prev => ({ ...prev, labourers: updatedLabourers }));
+        const current = [...(newReport.labourers || [])];
+        current[index] = { ...current[index], [field]: value };
+        setNewReport({ ...newReport, labourers: current });
     };
 
     const handleSubmitReport = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!currentUser) return;
-
         try {
+            if (!newReport.date || !newReport.centreName || !newReport.purpose) {
+                showToast("Please fill in all required fields", 'error');
+                return;
+            }
+
             await SchoolsStore.addReport({
                 ...newReport,
-                submittedBy: currentUser.id
-            } as any); // Type cast for simpler draft handling
+                submittedBy: currentUser.name,
+                submittedAt: new Date().toISOString()
+            } as Omit<SchoolOutreachReport, 'id'>);
+
+            showToast("Report submitted successfully");
             setIsAddingReport(false);
-            setNewReport({
-                date: new Date().toISOString().split('T')[0],
-                labourers: [{ name: '', contact: '' }]
-            });
-            showToast('Report submitted successfully!', 'success');
+            setNewReport({ date: new Date().toISOString().split('T')[0], labourers: [] });
+            loadReports();
         } catch (error) {
-            showToast('Failed to submit report', 'error');
+            console.error("Error submitting report:", error);
+            showToast("Failed to submit report", 'error');
         }
     };
 
-    // -- Event Handling --
-
     const handleViewEvent = async (event: MinistryEvent) => {
         setSelectedEvent(event);
-
-        // Fetch passengers for this event that are students
-        // NOTE: This assumes we have a way to query passengers by event. 
-        // Since we don't have a direct store method for this in the context, 
-        // we'll fetch from Supabase manually or assume a store update later.
-        // For now, let's try to query public.passengers linked via vehicles to event stations?
-        // Simplified: Query all passengers where vehicle->eventId matches.
-        // Assuming 'passengers' table exists with 'category'='Student'.
-
         try {
+            // Need to fetch passengers linked to this event via vehicles?
+            // "Student" passengers might be linked to a vehicle which is linked to a station which is linked to this event.
+            // Or passengers might be directly linked? 
+            // In this schema, passengers -> vehicle -> station -> event.
+
             // 1. Get Stations for this Event
             const { data: stations, error: stationError } = await supabase
                 .from('pickup_stations')
-                .select('id')
+                .select('id, name')
                 .eq('event_id', event.id);
 
             if (stationError) throw stationError;
             const stationIds = stations.map(s => s.id);
+            const stationMap = new Map(stations.map(s => [s.id, s.name]));
 
             if (stationIds.length === 0) {
                 setEventPassengers([]);
@@ -124,7 +117,7 @@ const SchoolsDashboard: React.FC<SchoolsDashboardProps> = ({ currentUser, onOpen
             // 2. Get Vehicles for these Stations
             const { data: vehicles, error: vehicleError } = await supabase
                 .from('vehicles')
-                .select('id, number_plate, driver_name, driver_contact')
+                .select('id, number_plate, driver_name, driver_contact, coordinator, station_id')
                 .in('station_id', stationIds);
 
             if (vehicleError) throw vehicleError;
@@ -145,6 +138,10 @@ const SchoolsDashboard: React.FC<SchoolsDashboardProps> = ({ currentUser, onOpen
 
             if (passengerError) throw passengerError;
 
+            // 3b. Fetch Coordinators to map contacts
+            const { data: usersData } = await supabase.from('users').select('name, contact').eq('role', 'Coordinator');
+            const coordinatorMap = new Map(usersData?.map(u => [u.name?.trim().toLowerCase(), u.contact]) || []);
+
             // 4. Merge Data and Filter
             // We want to show all Students.
             // For "First Timers", we only show them if they seem to be students (have school/class info)
@@ -154,21 +151,39 @@ const SchoolsDashboard: React.FC<SchoolsDashboardProps> = ({ currentUser, onOpen
             // Use 'school' or 'student_class' presence as a heuristic for First Timers.
             const mappedPassengers = passengers
                 .filter((p: any) => {
+                    // Logic: Must be Student or First Timer
+                    // AND must NOT be an Institution (unless we treat institution students as individual students? User said "not institution")
+                    if (p.category === 'Institution') return false;
+
                     if (p.category === 'Student') return true;
                     if (p.category === 'First Timer') {
-                        // Show if they have school info OR simply include them because they are on a school bus?
-                        // Let's rely on school/class presence to distinguish from Adults
+                        // Include if has school info (Student First Timer)
                         return p.school || p.student_class;
                     }
+                    // Fallback: If they are on a school bus and have school info, include them even if category is 'Member'
+                    if (p.school || p.student_class) return true;
+
                     return false;
                 })
                 .map((p: any) => {
                     const vehicle = vehicleMap.get(p.vehicle_id);
+                    const coordName = vehicle?.coordinator || '';
+                    const coordContact = coordinatorMap.get(coordName.trim().toLowerCase()) || 'N/A';
+                    const stationName = vehicle?.station_id ? stationMap.get(vehicle.station_id) : 'Unknown Station';
+
                     return {
                         ...p,
+                        // Map snake_case to camelCase
+                        isFirstTime: p.is_first_time,
+                        soulWon: p.soul_won,
+                        studentClass: p.student_class,
+
                         vehicleNumberPlate: vehicle?.number_plate,
                         vehicleDriver: vehicle?.driver_name,
-                        vehicleContact: vehicle?.driver_contact
+                        vehicleContact: vehicle?.driver_contact,
+                        vehicleCoordinator: coordName, // Mapped coordinator name
+                        vehicleCoordinatorContact: coordContact, // Mapped coordinator contact
+                        vehicleStationName: stationName
                     };
                 });
 
@@ -192,6 +207,8 @@ const SchoolsDashboard: React.FC<SchoolsDashboardProps> = ({ currentUser, onOpen
             'First Timer': p.isFirstTime,
             'Soul Won': p.soulWon ? 'Yes' : 'No',
             'Vehicle Plate': (p as any).vehicleNumberPlate,
+            'Coordinator': (p as any).vehicleCoordinator,
+            'Coord Contact': (p as any).vehicleCoordinatorContact,
             'Driver Name': (p as any).vehicleDriver,
             'Driver Contact': (p as any).vehicleContact,
         }));
@@ -200,6 +217,239 @@ const SchoolsDashboard: React.FC<SchoolsDashboardProps> = ({ currentUser, onOpen
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Students");
         XLSX.writeFile(wb, `${selectedEvent.title}_Students.xlsx`);
+    };
+
+    const handlePrintAllManifests = async () => {
+        if (!selectedEvent || eventPassengers.length === 0) return;
+
+        // Group passengers by Vehicle
+        const vehicleGroups: { [key: string]: typeof eventPassengers } = {};
+        const vehicleDetails: { [key: string]: { numberPlate: string, driver: string, contact: string, coordinator: string, stationName: string } } = {};
+
+        eventPassengers.forEach((p: any) => {
+            const vId = p.vehicle_id || 'unknown';
+            if (!vehicleGroups[vId]) {
+                vehicleGroups[vId] = [];
+                vehicleDetails[vId] = {
+                    numberPlate: p.vehicleNumberPlate || 'Unknown',
+                    driver: p.vehicleDriver || '',
+                    contact: p.vehicleContact || '',
+                    coordinator: p.vehicleCoordinator || '',
+                    stationName: p.vehicleStationName || 'Unknown Station'
+                };
+            }
+            vehicleGroups[vId].push(p);
+        });
+
+        const eventDate = selectedEvent.date;
+        const globalManifest = await ManifestStore.get(); // Fetch manifest for Logo
+
+        const template = {
+            title: `Batch Manifests - ${selectedEvent.title}`,
+            style: `
+                @media print {
+                    @page { size: landscape; margin: 5mm; }
+                    body { -webkit-print-color-adjust: exact; }
+                    .page-break { page-break-after: always; break-after: page; display: block; height: 0; }
+                }
+                body { font-family: 'Arial', sans-serif; font-size: 10px; margin: 0; padding: 0; }
+                .header-wrapper { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; border-bottom: 2px solid black; padding-bottom: 5px; height: 80px; overflow: hidden; white-space: nowrap; }
+                .logo-container { width: 80px; text-align: left; height: 70px; display: flex; align-items: center; }
+                .main-title { text-align: center; flex: 1; }
+                .main-title h1 { font-size: 20px; font-weight: 900; margin: 0; text-transform: uppercase; line-height: 1.2; }
+                .main-title h2 { font-size: 14px; font-weight: bold; margin: 2px 0 0 0; text-transform: uppercase; color: #333; line-height: 1.2; }
+                
+                .meta-table { width: 100%; border-collapse: collapse; margin-bottom: 5px; font-size: 11px; font-weight: bold; table-layout: fixed; }
+                .meta-table td { padding: 2px 5px; border: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+                .meta-label { text-transform: uppercase; }
+                .meta-value { border-bottom: 1px solid black; min-width: 150px; display: inline-block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+                table.data-table { width: 100%; border-collapse: collapse; margin-bottom: 5px; }
+                table.data-table th, table.data-table td { border: 1px solid black; padding: 4px; text-align: left; height: 22px; vertical-align: middle; }
+                table.data-table th { background-color: white; font-weight: 900; text-align: center; text-transform: uppercase; font-size: 10px; }
+                .center { text-align: center; }
+                
+                .footer-consent { display: flex; gap: 20px; font-size: 9px; line-height: 1.2; margin-top: 5px; }
+                .col-left, .col-right { flex: 1; text-align: justify; }
+                .col-left h4 { margin: 4px 0 2px 0; font-size: 9px; text-decoration: underline; }
+                .col-right h4 { margin: 4px 0 2px 0; font-size: 9px; }
+                ol { margin: 2px 0; padding-left: 15px; }
+                
+
+
+                .page-container { 
+                    page-break-after: always;
+                    break-after: page;
+                    height: 195mm; /* Safe buffer within 200mm available space */
+                    overflow: hidden;
+                    display: block; 
+                    position: relative;
+                }
+            `,
+            consent: `
+                <div class="footer-consent">
+                    <div class="col-left">
+                        <strong>*CONSENT TO HOLD AND USE YOUR PERSONAL DATA</strong><br/>
+                        By appending my signature on this form, I consent to Phaneroo Ministries International (hereinafter referred to as PMI) holding and using my personal information for the purposes only;
+                        <ol>
+                            <li>To keep you informed of events, services and other related communications from the ministry.</li>
+                            <li>To share your contact details with our teams for experience sharing with the ministry.</li>
+                            <li>To use your photograph(s) and video(s) taken during any of our events on our communication materials.</li>
+                        </ol>
+                        <br/>
+                        <strong>CONSENT TO BE TRANSPORTED BY A PMI CHARTERED VEHICLE</strong><br/>
+                        By appending my signature to this document I consent to be transported in a vehicle chartered by Phaneroo Ministries International (hereinafter referred to as PMI)
+                        to........................................... and/ from........................................... for...........................................
+                    </div>
+                    <div class="col-right">
+                        I also acknowledge the following;
+                        <ol>
+                            <li>To be transported in a vehicle chartered by PMI to and fro the ongoing PMI church service or event.</li>
+                            <li>I acknowledge that PMI Transportation Department has taken reasonable measures to ensure that the vehicle is in proper mechanical condition, safe and that it has the right to establish rules and regulations regarding the use of this vehicle.</li>
+                            <li>I agree to comply with any such rules and regulations, including but not limited to wearing a seatbelt and refraining from engaging in distracted driving behavior.</li>
+                            <li>I absolve PMI of any responsibility that arises out of accidents, damage and/ or malfunctions to my person and/ or property whilst abode the said vehicle.</li>
+                            <li>I understand that PMI reserves the right to admit anyone into the vehicle chartered by it.</li>
+                            <li>I have read and understood the above terms and conditions and I voluntarily agree to the same and I so consent.</li>
+                        </ol>
+                    </div>
+                </div>
+            `
+        };
+
+        let htmlContent = `
+            <html>
+            <head>
+                <title>${template.title}</title>
+                <style>${template.style}</style>
+            </head>
+            <body>
+        `;
+
+        const createPage = (vId: string, chunk: any[], pageNum: number, totalPages: number) => {
+            const vInfo = vehicleDetails[vId];
+            const vehicleFirstTimers = chunk.filter(p => p.isFirstTime === 'Yes' || p.is_first_time === 'Yes').length;
+
+            let rowsHtml = '';
+            for (let i = 0; i < 15; i++) {
+                const p = chunk[i];
+                const no = (pageNum * 15) + (i + 1);
+
+                if (p) {
+                    const name = p.name ? p.name.toUpperCase() : '';
+                    const contact = p.contact ? p.contact : '';
+                    const residence = p.residence ? p.residence.toUpperCase() : '';
+                    const gender = p.gender === 'Male' ? 'M' : 'F';
+                    const school = p.school ? p.school.toUpperCase() : '';
+                    const studentClass = p.studentClass ? p.studentClass.toUpperCase() : '';
+                    const db = p.boardingType ? (p.boardingType === 'Day' ? 'D' : 'B') : '';
+
+                    rowsHtml += `
+                        <tr>
+                            <td class="center">${no}.</td>
+                            <td style="white-space: nowrap; overflow: hidden; max-width: 150px; font-size: 9px; text-overflow: ellipsis;">${name}</td>
+                            <td class="center">${gender}</td>
+                            <td>${contact}</td>
+                            <td>${residence}</td>
+                            <td>${school}</td>
+                            <td class="center">${db}</td>
+                            <td class="center">${studentClass}</td>
+                            <td></td>
+                            <td></td>
+                        </tr>
+                    `;
+                } else {
+                    rowsHtml += `<tr><td class="center">${no}.</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>`;
+                }
+            }
+
+            return `
+                <div class="page-container ${pageNum < totalPages - 1 ? '' : ''}">
+                    <div class="header-wrapper">
+                         <div class="logo-container">
+                            ${globalManifest?.logoUrl
+                    ? `<img src="${globalManifest.logoUrl}" style="width: 50px; height: 50px; object-fit: contain;" alt="Logo" />`
+                    : `<div style="width: 40px; height: 40px; background: black; border-radius: 50%; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 8px;">LOGO</div>`
+                }
+                        </div>
+                        <div class="main-title">
+                            <h1>${selectedEvent.title}</h1>
+                            <h2>SCHOOLS REGISTRATION FORM</h2>
+                        </div>
+                        <div class="logo-container"></div>
+                    </div>
+
+                    <table class="meta-table">
+                        <tr>
+                            <td style="width: 10%;">MANIFEST NAME:</td>
+                            <td style="width: 30%; border-bottom: 1px solid black;">${vInfo.stationName}</td>
+                            <td style="width: 10%;">REGION:</td>
+                            <td style="width: 20%; border-bottom: 1px solid black;">CENTRAL</td>
+                            <td style="width: 10%;">TOTAL:</td>
+                            <td style="width: 20%; border-bottom: 1px solid black;">${chunk.length}</td>
+                        </tr>
+                         <tr>
+                            <td>MANIFEST ID:</td>
+                            <td style="border-bottom: 1px solid black;">CTL/EBB01R</td>
+                            <td>EVENT DATE:</td>
+                            <td style="border-bottom: 1px solid black;">${eventDate}</td>
+                            <td>FIRST TIMERS:</td>
+                            <td style="border-bottom: 1px solid black;">${vehicleFirstTimers}</td>
+                        </tr>
+                    </table>
+
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 30px;">No.</th>
+                                <th>FULL NAME</th>
+                                <th style="width: 40px;">GENDER</th>
+                                <th>CONTACT</th>
+                                <th>PLACE OF RESIDENCE</th>
+                                <th>NAME OF SCHOOL</th>
+                                <th style="width: 60px;">DAY / BOARDING</th>
+                                <th style="width: 50px;">CLASS</th>
+                                <th style="width: 50px;">VACIST</th>
+                                <th>CONSENT TO STORE YOUR INFO</th>
+                            </tr>
+                        </thead>
+                        <tbody>${rowsHtml}</tbody>
+                    </table>
+
+                    ${template.consent}
+                </div>
+            `;
+        };
+
+        const vehicleIds = Object.keys(vehicleGroups);
+        vehicleIds.forEach((vId, index) => {
+            const passengers = vehicleGroups[vId];
+            const chunkSize = 15;
+            const chunks = [];
+            for (let i = 0; i < passengers.length; i += chunkSize) {
+                chunks.push(passengers.slice(i, i + chunkSize));
+            }
+
+            chunks.forEach((chunk, i) => {
+                htmlContent += createPage(vId, chunk, i, chunks.length);
+            });
+        });
+
+        htmlContent += `</body></html>`;
+
+        // Generate PDF
+        const element = document.createElement('div');
+        element.innerHTML = htmlContent;
+
+        const opt = {
+            margin: [5, 5, 5, 5],
+            filename: `${selectedEvent.title.replace(/\s+/g, '_')}_Manifests.pdf`,
+            image: { type: 'jpeg' as const, quality: 0.98 },
+            html2canvas: { scale: 2, scrollY: 0, useCORS: true },
+            jsPDF: { unit: 'mm' as const, format: 'a4' as const, orientation: 'landscape' as const },
+            pagebreak: { mode: 'css', after: '.page-container' }
+        };
+
+        html2pdf().set(opt).from(element).save();
     };
 
     return (
@@ -437,6 +687,14 @@ const SchoolsDashboard: React.FC<SchoolsDashboardProps> = ({ currentUser, onOpen
                                         <p className="text-gray-500 text-xs uppercase font-bold">Souls Won</p>
                                         <p className="text-2xl font-black text-green-600">{eventPassengers.filter(p => p.soulWon).length}</p>
                                     </div>
+                                    <div className="bg-white p-4 rounded-xl border border-gray-200 flex items-center justify-center">
+                                        <button
+                                            onClick={handlePrintAllManifests}
+                                            className="flex flex-col items-center justify-center space-y-1 text-gray-600 hover:text-ministry-orange transition-colors"
+                                        >
+                                            <span className="text-xs font-bold uppercase">Download PDF</span>
+                                        </button>
+                                    </div>
                                 </div>
 
                                 {/* List */}
@@ -448,6 +706,7 @@ const SchoolsDashboard: React.FC<SchoolsDashboardProps> = ({ currentUser, onOpen
                                                 <th className="p-4">School / Class</th>
                                                 <th className="p-4">Contact</th>
                                                 <th className="p-4">Vehicle</th>
+                                                <th className="p-4">Coordinator</th>
                                                 <th className="p-4">Status</th>
                                             </tr>
                                         </thead>
@@ -460,6 +719,10 @@ const SchoolsDashboard: React.FC<SchoolsDashboardProps> = ({ currentUser, onOpen
                                                     <td className="p-4 text-sm">
                                                         <div className="text-gray-800 font-bold">{(p as any).vehicleNumberPlate}</div>
                                                         <div className="text-xs text-gray-500">{(p as any).vehicleDriver}</div>
+                                                    </td>
+                                                    <td className="p-4 text-sm">
+                                                        <div className="text-gray-800 font-bold">{(p as any).vehicleCoordinator || 'N/A'}</div>
+                                                        <div className="text-xs text-gray-500">{(p as any).vehicleCoordinatorContact}</div>
                                                     </td>
                                                     <td className="p-4">
                                                         {p.soulWon && <span className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-bold mr-2">Soul Won</span>}
@@ -482,5 +745,3 @@ const SchoolsDashboard: React.FC<SchoolsDashboardProps> = ({ currentUser, onOpen
         </div>
     );
 };
-
-export default SchoolsDashboard;

@@ -5,6 +5,7 @@ import { LogisticsStore } from '../database/logisticsStore';
 import { UserStore } from '../database/userStore';
 import { MemberStore } from '../database/memberStore';
 import { SoulsStore } from '../database/soulsStore';
+import { FinanceStore } from '../database/financeStore';
 import { X, Users, Heart, GraduationCap, DollarSign, Baby, Download, Calendar, MapPin, Bus, Building2 } from 'lucide-react';
 
 interface EventDetailsModalProps {
@@ -39,25 +40,14 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({ event, onClose })
   React.useEffect(() => {
     if (!event) return;
 
-    // Utilize snapshot stats if available (for locked events)
-    if (event.stats.vehicles !== undefined) {
-      setStats({
-        vehicles: event.stats.vehicles || 0,
-        students: event.stats.students || 0,
-        institutions: event.stats.institutions || 0,
-        attendees: event.stats.attendees,
-        firstTimers: event.stats.firstTimers,
-        children: event.stats.children || 0,
-        expenditure: event.stats.expenditure || '0'
-      });
-      return;
-    }
+
 
     const calculateStats = async () => {
       try {
         const allVehicles = await VehicleStore.getVehicles();
         const allStations = await LogisticsStore.getStations();
         const allPassengers = await VehicleStore.getPassengers();
+        const allTransactions = await FinanceStore.getTransactions();
 
         // 1. Logistics Stats
         const eventStations = allStations.filter(s => s.eventId === event.id);
@@ -70,10 +60,18 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({ event, onClose })
         const logisticsAttendees = eventPassengers.length + logisticsChildren;
         const soulsWonCount = eventPassengers.filter(p => p.soulWon).length;
 
-        const totalExpenditure = eventVehicles.reduce((sum, v) => {
+        // Fleet Expenditure
+        const fleetExpenditure = eventVehicles.reduce((sum, v) => {
           const dispatchAmount = parseFloat(v.financeDetails?.ongoingDispatch || '0');
           return sum + dispatchAmount;
         }, 0);
+
+        // Finance Transactions Expenditure (Expenses linked to this event)
+        const financeExpenditure = allTransactions
+          .filter(t => String(t.eventId) === String(event.id) && t.type === 'Expense')
+          .reduce((sum, t) => sum + t.amount, 0);
+
+        const totalExpenditure = fleetExpenditure + financeExpenditure;
 
         // 2. Service Stats (General Check-in)
         let totalAttendees = logisticsAttendees;
