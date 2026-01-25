@@ -4,8 +4,13 @@ import { Check, Eye, X, FileText, ArrowRight, AlertCircle, Clock } from 'lucide-
 import { Requisition, RequisitionItem } from '../types';
 import { RequisitionStore } from '../database/requisitionStore';
 import { DEPARTMENTS } from '../constants';
+import { useParams } from 'react-router-dom';
 
-const DepartmentRequests: React.FC = () => {
+interface DepartmentRequestsProps {
+  departmentId?: string;
+}
+
+const DepartmentRequests: React.FC<DepartmentRequestsProps> = ({ departmentId: propDepartmentId }) => {
   const { showToast } = useNotification();
   const [requests, setRequests] = useState<Requisition[]>([]);
   const [selectedReq, setSelectedReq] = useState<Requisition | null>(null);
@@ -13,9 +18,12 @@ const DepartmentRequests: React.FC = () => {
   const [actionComment, setActionComment] = useState('');
   const [processing, setProcessing] = useState(false);
 
+  const { departmentId: paramDepartmentId } = useParams<{ departmentId: string }>();
+  const targetDepartmentId = propDepartmentId || paramDepartmentId;
+
   useEffect(() => {
     fetchRequests();
-  }, []);
+  }, [targetDepartmentId]);
 
   const fetchRequests = async () => {
     setLoading(true);
@@ -23,7 +31,12 @@ const DepartmentRequests: React.FC = () => {
       // Fetch all requisitions and filter for 'Pending'
       // In a larger app, we'd have a specific DB query for this.
       const allReqs = await RequisitionStore.getAll();
-      const pending = allReqs.filter(r => r.status === 'Pending');
+      let pending = allReqs.filter(r => r.status === 'Pending');
+
+      if (targetDepartmentId) {
+        pending = pending.filter(r => r.departmentId === targetDepartmentId);
+      }
+
       setRequests(pending);
     } catch (error) {
       console.error("Failed to fetch requests:", error);

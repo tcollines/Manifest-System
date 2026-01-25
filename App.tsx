@@ -3,6 +3,8 @@ import { useNotification } from './components/ui/NotificationSystem';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import DepartmentsView from './components/DepartmentsView';
+import DepartmentDetail from './components/DepartmentDetail';
+import DepartmentRequests from './components/DepartmentRequests';
 import EventsView from './components/EventsView';
 import ReportsView from './components/ReportsView';
 import SettingsView from './components/SettingsView';
@@ -21,24 +23,29 @@ import RequisitionsView from './components/RequisitionsView';
 import PublicSoulEntry from './components/PublicSoulEntry';
 import { AssetsTab } from './components/AssetsTab';
 import { ModalType, MinistryEvent, User } from './types';
-import { MOCK_EVENTS, DEPARTMENTS } from './constants';
+import { DEPARTMENTS } from './constants';
 import { UserStore } from './database/userStore';
 import { EventStore } from './database/eventStore';
 import { Bell, Search, Menu } from 'lucide-react';
 import { supabase } from './services/supabaseClient';
 import TeamLeaderRequisitions from './components/TeamLeaderRequisitions';
 import { SchoolsDashboard } from './components/SchoolsDashboard';
+import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
+import { getDashboardForUser } from './utils';
+import RoleRedirect from './components/RoleRedirect';
 
 const App: React.FC = () => {
   const { showToast } = useNotification();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [activeTab, setActiveTab] = useState(() => localStorage.getItem('ministry_active_tab') || 'dashboard');
   const [modalType, setModalType] = useState<ModalType>(ModalType.NONE);
   const [events, setEvents] = useState<MinistryEvent[]>([]);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [targetUser, setTargetUser] = useState<User | null>(null);
+
+  const navigate = useNavigate();
+  const location = useLocation();
 
   // Helper functions defined before effects to avoid hoisting issues logic-wise
   const refreshData = async () => {
@@ -56,58 +63,14 @@ const App: React.FC = () => {
     }
   };
 
-  // Helper to determine default dashboard based on role/department
-  const getDashboardForUser = (user: User): string => {
-    if (user.role === 'Super Admin' || user.role === 'Administrator') return 'dashboard';
-
-    // Role-specific overrides (BEFORE Department Check)
-    if (user.role === 'Logistics') return 'registration'; // Logistics view is within RegistrationDashboard
-    if (user.role === 'Coordinator') return 'transportation';
-
-    // Map Department ID to Dashboard View
-    switch (user.departmentId) {
-      case 'd1': return 'registration';
-      case 'd2': return 'next-gen';
-      case 'd3': return 'parking';
-      case 'd4': return 'finance';
-      case 'd5': return 'transportation';
-      case 'd6': return 'follow-up';
-      case 'd7': return 'schools';
-      default: return 'team-dashboard'; // Fallback for members/leaders without specific department dashboard
-    }
-  };
-
-  const handleNavigate = (view: string) => {
-    setActiveTab(view);
-    localStorage.setItem('ministry_active_tab', view);
-    setIsSidebarOpen(false);
-  };
-
   // Initialize Users and Events from Store and check for session
   useEffect(() => {
     // Check for persisted session
     const persistedUser = UserStore.getSession();
     if (persistedUser) {
       setCurrentUser(persistedUser);
-
-      // Enforce Role-Based Routing on Load
-      // If user is NOT admin, prevent them from seeing the main dashboard
-      const allowedDashboard = getDashboardForUser(persistedUser);
-      const currentTab = localStorage.getItem('ministry_active_tab') || 'dashboard';
-
-      if (allowedDashboard !== 'dashboard' && currentTab === 'dashboard') {
-        setActiveTab(allowedDashboard);
-      }
-    }
-
-    // Check if redirected to setup-account
-    if (window.location.pathname === '/setup-account') {
-      setActiveTab('setup-account');
-    }
-
-    // Check for Public Soul Collection Link
-    if (window.location.pathname.startsWith('/collect-souls/')) {
-      setActiveTab('public-soul-entry');
+      // We rely on Router to handle the view based on URL. 
+      // If we are at root /, RoleRedirect will handle it.
     }
 
     // Check for errors in the URL hash (e.g. invalid/expired link)
@@ -129,43 +92,39 @@ const App: React.FC = () => {
     const subscription = supabase
       .channel('public:db_changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, (payload) => {
-
         refreshData();
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'ministry_events' }, (payload) => {
-
         refreshData();
       })
       .subscribe();
 
     // Supabase Auth Listener
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-
-
       if (event === 'SIGNED_IN' && session?.user?.email) {
         // Fetch specific user profile to ensure we get it even if RLS restricts 'getAll'
         const matchingUser = await UserStore.getByEmail(session.user.email);
 
         if (matchingUser) {
-
           setCurrentUser(matchingUser);
           UserStore.saveSession(matchingUser);
 
           // Check if new user needs to setup account
           if (!matchingUser.username) {
-            setActiveTab('setup-account');
+            navigate('/setup-account');
           } else {
-            // Redirect logic based on Role using specific helper
-            const target = getDashboardForUser(matchingUser);
-            setActiveTab(target);
+            // If we are strictly at / or /login, redirect. Else stay.
+            if (location.pathname === '/' || location.pathname === '/login') {
+              const target = getDashboardForUser(matchingUser);
+              navigate(target);
+            }
           }
           setLoginError(null);
         } else {
           console.warn("User authenticated but no profile found for:", session.user.email);
-          // FALLBACK: If user is authenticated via Magic Link but DB profile is missing/RLS blocked
-          // We FORCE them to Setup Account so they can at least try to recover/create profile.
-          if (window.location.pathname === '/setup-account') {
-            const tempUser: User = {
+          if (location.pathname === '/setup-account') {
+            // Handle setup flow
+            const tempUser: User = { /* ... placeholder ... */
               id: session.user.id,
               email: session.user.email || '',
               username: '',
@@ -176,17 +135,12 @@ const App: React.FC = () => {
               password: ''
             };
             setCurrentUser(tempUser);
-            setActiveTab('setup-account');
-          } else {
-            // If not on setup page, treat as logged out or potentially show an error/loading
-            // For now, we won't set currentUser, so SignIn will show.
-            console.warn("User authenticated but no profile found. Not on setup page, causing SignIn to render.");
           }
         }
       } else if (event === 'SIGNED_OUT') {
         setCurrentUser(null);
         UserStore.clearSession();
-        setActiveTab('dashboard');
+        navigate('/');
       }
     });
 
@@ -203,16 +157,13 @@ const App: React.FC = () => {
         setCurrentUser(user);
         UserStore.saveSession(user);
 
-        // Check if new user needs setup (Invite flow or incomplete profile)
         if (!user.username) {
-          setActiveTab('setup-account');
+          navigate('/setup-account');
           return;
         }
 
-        // Route to appropriate dashboard based on Role/Department
         const targetTab = getDashboardForUser(user);
-        setActiveTab(targetTab);
-        localStorage.setItem('ministry_active_tab', targetTab);
+        navigate(targetTab);
         setLoginError(null);
       }
     } catch (error) {
@@ -223,40 +174,34 @@ const App: React.FC = () => {
 
   const handleGoogleLogin = async (email: string) => {
     try {
-      // Find user by email
       const user = await UserStore.getByEmail(email);
 
       if (user) {
         setCurrentUser(user);
         UserStore.saveSession(user);
 
-        // Check if new user needs setup (Invite flow or incomplete profile)
-        // For Google Auth, we auto-complete setup if username is missing
         if (!user.username) {
           const generatedUsername = user.email ? user.email.split('@')[0] : `user_${Date.now()}`;
-          const updatedUser: User = { ...user, username: generatedUsername, status: 'Active' }; // Activate user
+          const updatedUser: User = { ...user, username: generatedUsername, status: 'Active' };
 
           try {
-            await UserStore.update(updatedUser); // Save to DB
+            await UserStore.update(updatedUser);
             setCurrentUser(updatedUser);
             UserStore.saveSession(updatedUser);
 
             const targetTab = getDashboardForUser(updatedUser);
-            setActiveTab(targetTab);
-            localStorage.setItem('ministry_active_tab', targetTab);
+            navigate(targetTab);
             setLoginError(null);
             return;
           } catch (err) {
             console.error("Failed to auto-update username", err);
-            // If update fails, fallback to setup
-            setActiveTab('setup-account');
+            navigate('/setup-account');
             return;
           }
         }
 
         const targetTab = getDashboardForUser(user);
-        setActiveTab(targetTab);
-        localStorage.setItem('ministry_active_tab', targetTab);
+        navigate(targetTab);
         setLoginError(null);
       } else {
         setLoginError('No account found with this Google email.');
@@ -268,107 +213,47 @@ const App: React.FC = () => {
   };
 
   const handleLogout = async () => {
-    // 1. Clear Supabase Auth Session (Critical for preventing auto-relogin of same user)
     await supabase.auth.signOut();
-
-    // 2. Clear Local App Session and View States
     UserStore.clearSession();
-    localStorage.removeItem('ministry_active_tab');
-    localStorage.removeItem('registration_view_mode'); // Fix for persisting view state across users
-    localStorage.removeItem('registration_active_tab');
-
     setCurrentUser(null);
-    setActiveTab('dashboard');
     setLoginError(null);
     setIsSidebarOpen(false);
+    navigate('/');
   };
-
-  // Auto-Logout on Inactivity
-  useEffect(() => {
-    if (!currentUser) return;
-
-    let timer: NodeJS.Timeout;
-    const INACTIVITY_LIMIT = 600 * 1000; // 10 minute
-
-    const resetTimer = () => {
-      clearTimeout(timer);
-      timer = setTimeout(() => {
-
-        handleLogout();
-      }, INACTIVITY_LIMIT);
-    };
-
-    const activityEvents = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart'];
-
-    // Initial start
-    resetTimer();
-
-    // Attach listeners
-    activityEvents.forEach(event => {
-      window.addEventListener(event, resetTimer);
-    });
-
-    return () => {
-      clearTimeout(timer);
-      activityEvents.forEach(event => {
-        window.removeEventListener(event, resetTimer);
-      });
-    };
-  }, [currentUser]); // Re-attach when user login status changes
 
   const handleSaveEvent = async (newEvent: MinistryEvent) => {
     try {
-      // Optimistic update
       setEvents(prev => [newEvent, ...prev]);
-
-      // Save to DB
       await EventStore.add(newEvent);
-
-      // Refresh from DB to ensure sync
       const updatedEvents = await EventStore.getAll();
       setEvents(updatedEvents);
-
       showToast(`${newEvent.type} created successfully!`, 'success');
     } catch (error: any) {
       console.error("Failed to save event:", error);
       showToast(`Failed to save event: ${error.message || 'Unknown error'}`, 'error');
-      // Revert optimistic update on failure
       refreshData();
     }
   };
 
   const handleSaveUser = async (newUser: User) => {
     try {
-      // Pre-check for duplicates to avoid DB constraint error
       const users = await UserStore.getAll();
       if (users.some(u => u.username?.toLowerCase() === newUser.username?.toLowerCase())) {
-        // If username is empty (invite flow), allow it (no username to check yet)
         if (newUser.username) {
           alert(`Error: The username "${newUser.username}" is already taken. Please choose another.`);
           return;
         }
       }
-
-      // Check for duplicate EMAIL (Critical for invites)
       if (newUser.email && users.some(u => u.email?.toLowerCase() === newUser.email?.toLowerCase())) {
-        alert(`Error: The email "${newUser.email}" is already registered.`);
+        // handle error appropriately
         throw new Error(`The email "${newUser.email}" is already registered.`);
       }
 
       const updatedUsers = await UserStore.add(newUser);
       setAllUsers(updatedUsers);
-      // Wait, in invite flow we already alerted. But this might be generic "Add User".
-      // ActionPanel handles alerts for invite flow.
-      // But ActionPanel calls this.
-      // If ActionPanel triggered Invite, it called alert() already?
-      // No, ActionPanel calls onSaveUser THEN alert.
-      // handleSaveUser alerts "created successfully".
-      // We can check if it's invite flow? ActionPanel handles the flow.
-      // But ActionPanel calls onSaveUser.
-
     } catch (e: any) {
       alert(e.message || "Failed to add user");
-      throw e; // Re-throw so ActionPanel knows to stop
+      throw e;
     }
   };
 
@@ -392,23 +277,24 @@ const App: React.FC = () => {
     setCurrentUser(updatedUser);
     UserStore.saveSession(updatedUser);
     showToast("Account setup complete!", 'success');
-
-    // Redirect after setup
     const targetTab = getDashboardForUser(updatedUser);
-    setActiveTab(targetTab);
-    localStorage.setItem('ministry_active_tab', targetTab);
+    navigate(targetTab);
   };
 
-
+  // Auth Guard
   if (!currentUser) {
-    // If on setup-account valid path but waiting for Auth?
-    // We can show Loading... 
-    // But SignIn handles login.
+    if (location.pathname === '/setup-account') {
+      // Let Root handle it? Or we can render it here but we don't have user.
+      // If user is null but path is setup-account, it implies we might be waiting for auth
+      // or user manually navigated there. 
+      // We'll let existing logic hold: without currentUser, show SignIn unless explicit public route
+      // But Root handles public routes. If we are here, it means we hit * which maps to App.
+      return <SignIn onLogin={handleLogin} onGoogleLogin={handleGoogleLogin} error={loginError} />;
+    }
     return <SignIn onLogin={handleLogin} onGoogleLogin={handleGoogleLogin} error={loginError} />;
   }
 
-  // FORCE Setup if username is missing
-  if (activeTab === 'setup-account' || !currentUser.username) {
+  if (location.pathname === '/setup-account' || !currentUser.username) {
     return <SetupAccount currentUser={currentUser} onComplete={handleSetupComplete} onLogout={handleLogout} />;
   }
 
@@ -423,8 +309,6 @@ const App: React.FC = () => {
       )}
 
       <Sidebar
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
         currentUser={currentUser}
         onLogout={handleLogout}
         isOpen={isSidebarOpen}
@@ -473,60 +357,71 @@ const App: React.FC = () => {
           </div>
         </header>
 
-        {/* Dynamic Content */}
+        {/* Dynamic Content via Router */}
         <div className="flex-1 overflow-y-auto scroll-smooth">
-          {activeTab === 'dashboard' && <Dashboard openModal={setModalType} onNavigate={handleNavigate} />}
-          {activeTab === 'team-dashboard' && <TeamLeaderDashboard onNavigate={handleNavigate} />}
-          {activeTab === 'departments' && <DepartmentsView onNavigate={handleNavigate} currentUser={currentUser} />}
-          {activeTab === 'events' && <EventsView events={events} />}
-          {activeTab === 'reports' && <ReportsView />}
-          {activeTab === 'settings' && (
-            <SettingsView
-              users={allUsers}
-              openModal={setModalType}
-              onDeleteUser={handleDeleteUser}
-              currentUser={currentUser}
-              onEditUser={(u) => { setTargetUser(u); setModalType(ModalType.EDIT_USER); }}
-            />
-          )}
-          {activeTab === 'manifest-settings' && (
-            <SettingsView
-              users={allUsers}
-              openModal={setModalType}
-              onDeleteUser={handleDeleteUser}
-              currentUser={currentUser}
-              initialTab="manifest"
-              onEditUser={(u) => { setTargetUser(u); setModalType(ModalType.EDIT_USER); }}
-            />
-          )}
-          {activeTab === 'registration' && <RegistrationDashboard events={events} currentUser={currentUser} onOpenModal={setModalType} />}
-          {activeTab === 'next-gen' && <NextGenDashboard events={events} currentUser={currentUser} onOpenModal={setModalType} />}
-          {activeTab === 'transportation' && <TransportationDashboard currentUser={currentUser} events={events} onOpenModal={setModalType} />}
-          {activeTab === 'finance' && <FinanceDashboard currentUser={currentUser} onOpenModal={setModalType} />}
-          {activeTab === 'follow-up' && <FollowUpDashboard onOpenModal={setModalType} currentUser={currentUser} />}
-          {activeTab === 'parking' && <ParkingDashboard events={events} onOpenModal={setModalType} />}
-          {activeTab === 'schools' && <SchoolsDashboard currentUser={currentUser} events={events} onOpenModal={setModalType} />}
-          {activeTab === 'requisitions' && (
-            currentUser?.role === 'TeamLeader'
-              ? <TeamLeaderRequisitions currentUser={currentUser} />
-              : <RequisitionsView currentUser={currentUser} />
-          )}
-          {activeTab === 'public-soul-entry' && <PublicSoulEntry />}
-          {activeTab === 'assets' && (
-            <div className="p-4 md:p-8">
-              <h1 className="text-3xl font-bold text-ministry-text mb-6">Assets Management</h1>
-              <AssetsTab currentUser={currentUser} />
-            </div>
-          )}
+          <Routes>
+            <Route index element={<RoleRedirect user={currentUser} />} />
+            <Route path="dashboard" element={<Dashboard openModal={setModalType} />} />
+            <Route path="team-dashboard" element={<TeamLeaderDashboard />} />
 
-          {activeTab !== 'dashboard' && activeTab !== 'team-dashboard' && activeTab !== 'departments' && activeTab !== 'events' && activeTab !== 'reports' && activeTab !== 'settings' && activeTab !== 'manifest-settings' && activeTab !== 'registration' && activeTab !== 'next-gen' && activeTab !== 'transportation' && activeTab !== 'finance' && activeTab !== 'follow-up' && activeTab !== 'parking' && activeTab !== 'requisitions' && activeTab !== 'assets' && activeTab !== 'schools' && (
-            <div className="flex items-center justify-center h-full text-gray-500">
-              <div className="text-center">
-                <h2 className="text-2xl font-bold text-gray-700 mb-2">Work in Progress</h2>
-                <p>The {activeTab} module is currently under development.</p>
+            <Route path="departments">
+              <Route index element={<DepartmentsView currentUser={currentUser} />} />
+              <Route path=":departmentId" element={<DepartmentDetail />}>
+                <Route path="requests" element={<DepartmentRequests />} />
+              </Route>
+            </Route>
+
+            <Route path="events" element={<EventsView events={events} />} />
+            <Route path="reports" element={<ReportsView />} />
+
+            <Route path="settings" element={
+              <SettingsView
+                users={allUsers}
+                openModal={setModalType}
+                onDeleteUser={handleDeleteUser}
+                currentUser={currentUser}
+                onEditUser={(u) => { setTargetUser(u); setModalType(ModalType.EDIT_USER); }}
+              />
+            } />
+
+            <Route path="manifest-settings" element={
+              <SettingsView
+                users={allUsers}
+                openModal={setModalType}
+                onDeleteUser={handleDeleteUser}
+                currentUser={currentUser}
+                initialTab="manifest"
+                onEditUser={(u) => { setTargetUser(u); setModalType(ModalType.EDIT_USER); }}
+              />
+            } />
+
+            <Route path="registration" element={<RegistrationDashboard events={events} currentUser={currentUser} onOpenModal={setModalType} />} />
+            <Route path="next-gen" element={<NextGenDashboard events={events} currentUser={currentUser} onOpenModal={setModalType} />} />
+            <Route path="transportation" element={<TransportationDashboard currentUser={currentUser} events={events} onOpenModal={setModalType} />} />
+            <Route path="finance" element={<FinanceDashboard currentUser={currentUser} onOpenModal={setModalType} />} />
+            <Route path="follow-up" element={<FollowUpDashboard onOpenModal={setModalType} currentUser={currentUser} />} />
+            <Route path="parking" element={<ParkingDashboard events={events} onOpenModal={setModalType} />} />
+            <Route path="schools" element={<SchoolsDashboard currentUser={currentUser} events={events} onOpenModal={setModalType} />} />
+
+            <Route path="requisitions" element={
+              currentUser?.role === 'TeamLeader'
+                ? <TeamLeaderRequisitions currentUser={currentUser} />
+                : <RequisitionsView currentUser={currentUser} />
+            } />
+
+            <Route path="public-soul-entry" element={<PublicSoulEntry />} />
+            <Route path="assets" element={<div className="p-4 md:p-8"><h1 className="text-3xl font-bold text-ministry-text mb-6">Assets Management</h1><AssetsTab currentUser={currentUser} /></div>} />
+
+            {/* Catch-all for sub-routes not matched (could default to dashboard or 404) */}
+            <Route path="*" element={
+              <div className="flex items-center justify-center h-full text-gray-500">
+                <div className="text-center">
+                  <h2 className="text-2xl font-bold text-gray-700 mb-2">Page Not Found</h2>
+                  <p>The requested page check: {location.pathname}</p>
+                </div>
               </div>
-            </div>
-          )}
+            } />
+          </Routes>
         </div>
       </main>
 

@@ -1,4 +1,5 @@
 
+import { User } from './types';
 // import { isValidPhoneNumber, parsePhoneNumber } from 'react-phone-number-input';
 
 export const validateContact = (value: string): string => {
@@ -141,4 +142,24 @@ export const validateDriverIdentity = (val: string) => {
     }
 
     return { valid: true, formatted: clean, type: 'Permit/Foreign' };
+};
+
+export const getDashboardForUser = (user: User): string => {
+    if (user.role === 'Super Admin' || user.role === 'Administrator') return '/dashboard';
+
+    // Role-specific overrides (BEFORE Department Check)
+    if (user.role === 'Logistics') return '/registration';
+    if (user.role === 'Coordinator') return '/transportation';
+
+    // Map Department ID to Dashboard View
+    switch (user.departmentId) {
+        case 'd1': return '/registration';
+        case 'd2': return '/next-gen';
+        case 'd3': return '/parking';
+        case 'd4': return '/finance';
+        case 'd5': return '/transportation';
+        case 'd6': return '/follow-up';
+        case 'd7': return '/schools';
+        default: return '/team-dashboard'; // TeamLeader or Member
+    }
 };

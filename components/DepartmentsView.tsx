@@ -4,11 +4,10 @@ import DepartmentRequests from './DepartmentRequests';
 
 
 interface DepartmentsViewProps {
-  onNavigate: (view: string) => void;
   currentUser: any;
 }
 
-const DepartmentsView: React.FC<DepartmentsViewProps> = ({ onNavigate, currentUser }) => {
+const DepartmentsView: React.FC<DepartmentsViewProps> = ({ currentUser }) => {
   const isTeamLeader = currentUser?.role === 'TeamLeader';
   return (
     <div className="p-8 space-y-8 animate-in fade-in duration-500">
@@ -22,7 +21,7 @@ const DepartmentsView: React.FC<DepartmentsViewProps> = ({ onNavigate, currentUs
         </button>
       </div>
 
-      <DepartmentList onNavigate={onNavigate} />
+      <DepartmentList />
 
       {!isTeamLeader && (
         <div id="requests-section">

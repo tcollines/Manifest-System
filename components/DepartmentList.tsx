@@ -3,9 +3,10 @@ import React from 'react';
 import { useNotification } from './ui/NotificationSystem';
 import { DEPARTMENTS } from '../constants';
 import { MoreHorizontal, Users, Car, CreditCard, ClipboardCheck, Phone, Bus, BookOpen } from 'lucide-react';
+import { useNavigate, Link } from 'react-router-dom';
 
 interface DepartmentListProps {
-  onNavigate?: (view: string) => void;
+  onNavigate?: (view: string) => void; // Keeping optional to prevent break if passed
 }
 
 const getIcon = (name: string) => {
@@ -21,24 +22,25 @@ const getIcon = (name: string) => {
   }
 }
 
-const DepartmentList: React.FC<DepartmentListProps> = ({ onNavigate }) => {
+const DepartmentList: React.FC<DepartmentListProps> = () => {
   const { showToast } = useNotification();
+  const navigate = useNavigate();
 
   const handleViewDashboard = (deptName: string) => {
-    if (deptName.toLowerCase() === 'registration' && onNavigate) {
-      onNavigate('registration');
-    } else if (deptName.toLowerCase() === 'next gen' && onNavigate) {
-      onNavigate('next-gen');
-    } else if (deptName.toLowerCase() === 'transportation' && onNavigate) {
-      onNavigate('transportation');
-    } else if (deptName.toLowerCase() === 'finance' && onNavigate) {
-      onNavigate('finance');
-    } else if (deptName.toLowerCase() === 'parking' && onNavigate) {
-      onNavigate('parking');
-    } else if (deptName.toLowerCase() === 'follow-up' && onNavigate) {
-      onNavigate('follow-up');
-    } else if (deptName.toLowerCase() === 'schools' && onNavigate) {
-      onNavigate('schools');
+    if (deptName.toLowerCase() === 'registration') {
+      navigate('/registration');
+    } else if (deptName.toLowerCase() === 'next gen') {
+      navigate('/next-gen');
+    } else if (deptName.toLowerCase() === 'transportation') {
+      navigate('/transportation');
+    } else if (deptName.toLowerCase() === 'finance') {
+      navigate('/finance');
+    } else if (deptName.toLowerCase() === 'parking') {
+      navigate('/parking');
+    } else if (deptName.toLowerCase() === 'follow-up') {
+      navigate('/follow-up');
+    } else if (deptName.toLowerCase() === 'schools') {
+      navigate('/schools');
     } else {
       showToast(`Navigating to ${deptName} Dashboard... (Module under construction)`, 'info');
     }
@@ -63,15 +65,17 @@ const DepartmentList: React.FC<DepartmentListProps> = ({ onNavigate }) => {
                 </div>
                 <div className="flex space-x-2 items-center">
                   <span className="px-2 py-1 bg-green-100 text-green-700 text-[10px] font-bold uppercase tracking-wider rounded-full">{dept.status}</span>
-                  <button className="text-gray-300 hover:text-gray-500">
+                  <Link to={`/departments/${dept.id}`} className="text-gray-300 hover:text-gray-500">
                     <MoreHorizontal className="w-4 h-4" />
-                  </button>
+                  </Link>
                 </div>
               </div>
 
               {/* Content */}
               <div className="mb-5">
-                <h4 className="text-lg font-bold text-ministry-text mb-1">{dept.name}</h4>
+                <Link to={`/departments/${dept.id}`}>
+                  <h4 className="text-lg font-bold text-ministry-text mb-1 hover:text-ministry-orange transition-colors">{dept.name}</h4>
+                </Link>
                 <div className="flex items-center text-sm text-gray-500">
                   <span className="truncate">Head: {dept.head}</span>
                 </div>

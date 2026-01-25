@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard,
   Users,
@@ -25,15 +26,13 @@ import {
 import { ModalType, User } from '../types';
 
 interface SidebarProps {
-  activeTab: string;
-  setActiveTab: (tab: string) => void;
   currentUser: User;
   onLogout: () => void;
   isOpen: boolean;
   onClose: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, currentUser, onLogout, isOpen, onClose }) => {
+const Sidebar: React.FC<SidebarProps> = ({ currentUser, onLogout, isOpen, onClose }) => {
 
   // Custom Menus based on Department Leads
   const isRegistrationHead = currentUser.role === 'Head of Dept' && currentUser.departmentId === 'd1';
@@ -127,14 +126,14 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, currentUser,
   } else {
     // Standard logic for Admin and others
     const allMenuItems = [
-      { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['Administrator', 'Head of Dept', 'Staff', 'Volunteer'] },
+      { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['Administrator', 'Head of Dept', 'Staff', 'Volunteer'], path: '/dashboard' },
       // Finance removed from main sidebar for Admin, accessed via Department Card
-      { id: 'departments', label: 'Departments', icon: Users, roles: ['Administrator'] },
-      { id: 'events', label: 'Events & Services', icon: Calendar, roles: ['Administrator', 'Head of Dept', 'Staff'] },
-      { id: 'reports', label: 'Reports', icon: BarChart2, roles: ['Administrator', 'Head of Dept'] },
-      { id: 'requisitions', label: 'Requisitions', icon: FileText, roles: ['Administrator', 'Head of Dept', 'Staff'] },
-      { id: 'assets', label: 'Assets', icon: Package, roles: ['Administrator', 'Head of Dept'] },
-      { id: 'settings', label: 'Settings', icon: Settings, roles: ['Administrator', 'Head of Dept', 'Staff', 'Volunteer'] },
+      { id: 'departments', label: 'Departments', icon: Users, roles: ['Administrator'], path: '/departments' },
+      { id: 'events', label: 'Events & Services', icon: Calendar, roles: ['Administrator', 'Head of Dept', 'Staff'], path: '/events' },
+      { id: 'reports', label: 'Reports', icon: BarChart2, roles: ['Administrator', 'Head of Dept'], path: '/reports' },
+      { id: 'requisitions', label: 'Requisitions', icon: FileText, roles: ['Administrator', 'Head of Dept', 'Staff'], path: '/requisitions' },
+      { id: 'assets', label: 'Assets', icon: Package, roles: ['Administrator', 'Head of Dept'], path: '/assets' },
+      { id: 'settings', label: 'Settings', icon: Settings, roles: ['Administrator', 'Head of Dept', 'Staff', 'Volunteer'], path: '/settings' },
     ];
 
     menuItems = allMenuItems.filter(item => {
@@ -144,12 +143,51 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, currentUser,
     });
   }
 
-  const handleItemClick = (id: string) => {
-    setActiveTab(id);
+  // Helper to get path for dynamically built menus above
+  // Since I didn't update the if/else blocks specific menus, I need to map them or update them.
+  // Let's check the if/else blocks and update them to include paths.
+
+  // Wait, I can't inject logic in replacement chunk easily.
+  // I should update the menu definitions in the logic flow.
+  // Since I can't easily replace the whole block effectively without huge context.
+
+  // I will assume for now I will fix the menu items in a second pass or broader replace.
+  // Actually, let's look at the previous lines. I can replace the whole logic block if I am careful.
+
+  // Better yet, I will use a separate replacement for the menu logic or just map IDs to paths afterwards if needed.
+  // But NavLink needs `to`.
+
+  // Let's redefine menuItems construction.
+
+
+
+  const getPath = (id: string) => {
+    switch (id) {
+      case 'dashboard': return '/dashboard';
+      case 'team-dashboard': return '/team-dashboard';
+      case 'departments': return '/departments';
+      case 'events': return '/events';
+      case 'reports': return '/reports';
+      case 'requisitions': return '/requisitions';
+      case 'assets': return '/assets';
+      case 'manifest-settings': return '/manifest-settings';
+      case 'settings': return '/settings';
+      case 'registration': return '/registration';
+      case 'next-gen': return '/next-gen';
+      case 'parking': return '/parking';
+      case 'finance': return '/finance';
+      case 'transportation': return '/transportation';
+      case 'schools': return '/schools';
+      case 'follow-up': return '/follow-up';
+      default: return '/dashboard';
+    }
+  }
+
+  const handleItemClick = () => {
     if (window.innerWidth < 768) {
       onClose();
     }
-  };
+  }
 
   return (
     <>
@@ -172,19 +210,20 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, currentUser,
         <nav className="flex-1 px-4 py-4 space-y-2 overflow-y-auto">
           {menuItems.map((item) => {
             const Icon = item.icon;
-            const isActive = activeTab === item.id;
+            const path = item.path || getPath(item.id);
             return (
-              <button
+              <NavLink
                 key={item.id}
-                onClick={() => handleItemClick(item.id)}
-                className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 group ${isActive
+                to={path}
+                onClick={handleItemClick}
+                className={({ isActive }) => `w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 group ${isActive
                   ? 'bg-ministry-neon text-black font-semibold shadow-md'
                   : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'
                   }`}
               >
-                <Icon className={`w-5 h-5 ${isActive ? 'text-black' : 'text-gray-400 group-hover:text-ministry-orange'}`} />
+                <Icon className="w-5 h-5 group-hover:text-ministry-orange text-current" />
                 <span>{item.label}</span>
-              </button>
+              </NavLink>
             );
           })}
 

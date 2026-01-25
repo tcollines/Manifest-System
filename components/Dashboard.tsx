@@ -11,10 +11,9 @@ import { useEventLifecycle } from '../hooks/useEventLifecycle';
 
 interface DashboardProps {
    openModal: (type: ModalType) => void;
-   onNavigate: (view: string) => void;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ openModal, onNavigate }) => {
+const Dashboard: React.FC<DashboardProps> = ({ openModal }) => {
    const { showToast } = useNotification();
    useEventLifecycle();
 
@@ -110,7 +109,7 @@ const Dashboard: React.FC<DashboardProps> = ({ openModal, onNavigate }) => {
                      </div>
                   </div>
 
-                  <DepartmentList onNavigate={onNavigate} />
+                  <DepartmentList />
                </div>
 
                {/* Right Column: Quick Actions & Status */}
