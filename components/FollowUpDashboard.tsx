@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNotification } from './ui/NotificationSystem';
 import { supabase } from '../services/supabaseClient';
-import { Users, Calendar, Database, Plus, Search, Link as LinkIcon, Share2, Copy, Check, Filter, ChevronLeft, ChevronRight, X, Trash2 } from 'lucide-react';
-import { MinistryEvent, Soul, Member, ModalType } from '../types';
+import { Users, Calendar, Database, Plus, Search, Link as LinkIcon, Share2, Copy, Check, Filter, ChevronLeft, ChevronRight, X, Trash2, Pencil } from 'lucide-react';
+import { MinistryEvent, Soul, Member, ModalType, User } from '../types';
 import { isEventLocked, isServiceClosed } from '../utils';
 import { EventStore } from '../database/eventStore';
 import { SoulsStore } from '../database/soulsStore';
@@ -15,9 +15,10 @@ type Tab = 'services' | 'events' | 'database';
 
 interface FollowUpDashboardProps {
     onOpenModal?: (type: ModalType) => void;
+    currentUser: User;
 }
 
-const FollowUpDashboard: React.FC<FollowUpDashboardProps> = ({ onOpenModal }) => {
+const FollowUpDashboard: React.FC<FollowUpDashboardProps> = ({ onOpenModal, currentUser }) => {
     const { showToast, confirm: showConfirm } = useNotification();
     const [activeTab, setActiveTab] = useState<Tab>('services');
     const [events, setEvents] = useState<MinistryEvent[]>([]);
@@ -25,22 +26,28 @@ const FollowUpDashboard: React.FC<FollowUpDashboardProps> = ({ onOpenModal }) =>
     const [souls, setSouls] = useState<Soul[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
+    const isMember = currentUser.role === 'Member';
+    const canViewDatabase = !isMember;
+
     // Selection State
+
     const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
     const [showAddSoulForm, setShowAddSoulForm] = useState(false);
 
     // Link Copy State
     const [copiedLinkId, setCopiedLinkId] = useState<string | null>(null);
 
+    // Search & Edit State
+    const [searchQuery, setSearchQuery] = useState('');
+    const [editingSoul, setEditingSoul] = useState<Soul | null>(null);
+
     // Member Search State
-    const [memberSearchTerm, setMemberSearchTerm] = useState('');
     const [memberSearchResults, setMemberSearchResults] = useState<Member[]>([]);
     const [isSearchingMembers, setIsSearchingMembers] = useState(false);
-    const [preFilledMember, setPreFilledMember] = useState<Member | null>(null);
 
     // Debounce Search
     useEffect(() => {
-        if (memberSearchTerm.length < 3) {
+        if (searchQuery.length < 3) {
             setMemberSearchResults([]);
             return;
         }
@@ -50,14 +57,12 @@ const FollowUpDashboard: React.FC<FollowUpDashboardProps> = ({ onOpenModal }) =>
             try {
                 let results: Member[] = [];
                 // If we are in a specific service view, search ALL members but check their status for this service
-                if (selectedEventId && activeTab === 'services') {
-                    results = await MemberStore.searchMembersWithStatus(selectedEventId, memberSearchTerm);
-                } else {
-                    // Fallback or generic search if needed (though UI currently only shows this in ServiceDetail)
-                    // Keeping generic search for safety or other views
-                    const { data } = await MemberStore.getMembers(1, 10, memberSearchTerm);
-                    results = data;
-                }
+                /* 
+                   NOTE: Users want to find members to add as souls. 
+                   We should search the global member database.
+                */
+                const { data } = await MemberStore.getMembers(1, 5, searchQuery);
+                results = data;
                 setMemberSearchResults(results);
             } catch (error) {
                 console.error("Search failed", error);
@@ -67,7 +72,7 @@ const FollowUpDashboard: React.FC<FollowUpDashboardProps> = ({ onOpenModal }) =>
         }, 500);
 
         return () => clearTimeout(delayDebounceFn);
-    }, [memberSearchTerm]);
+    }, [searchQuery]);
 
     useEffect(() => {
         loadData();
@@ -107,11 +112,19 @@ const FollowUpDashboard: React.FC<FollowUpDashboardProps> = ({ onOpenModal }) =>
 
     const handleAddSoul = async (soulData: Omit<Soul, 'id' | 'createdAt'>) => {
         try {
-            await SoulsStore.add(soulData as Soul); // Type assertion, id/created handled by DB/Store mapping
+            if (editingSoul) {
+                // UPDATE Existing
+                await SoulsStore.update({ ...soulData, id: editingSoul.id, createdAt: editingSoul.createdAt } as Soul);
+                showToast("Soul updated successfully", 'success');
+            } else {
+                // CREATE New
+                await SoulsStore.add(soulData as Soul);
+                showToast("Soul added successfully", 'success');
+            }
             // Refresh
             await loadData();
             setShowAddSoulForm(false);
-            // Optional: Show toast
+            setEditingSoul(null);
         } catch (e) {
             console.error("Failed to save soul", e);
             showToast("Failed to save. Please try again.", 'error');
@@ -477,13 +490,15 @@ const FollowUpDashboard: React.FC<FollowUpDashboardProps> = ({ onOpenModal }) =>
                     <Users className={`w-4 h-4 ${activeTab === 'events' ? 'text-ministry-neon' : ''}`} />
                     <span>Events</span>
                 </button>
-                <button
-                    onClick={() => setActiveTab('database')}
-                    className={`flex items-center space-x-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${activeTab === 'database' ? 'bg-black text-white shadow-md' : 'text-gray-500 hover:text-gray-900'}`}
-                >
-                    <Database className={`w-4 h-4 ${activeTab === 'database' ? 'text-ministry-neon' : ''}`} />
-                    <span>Souls Database</span>
-                </button>
+                {canViewDatabase && (
+                    <button
+                        onClick={() => setActiveTab('database')}
+                        className={`flex items-center space-x-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${activeTab === 'database' ? 'bg-black text-white shadow-md' : 'text-gray-500 hover:text-gray-900'}`}
+                    >
+                        <Database className={`w-4 h-4 ${activeTab === 'database' ? 'text-ministry-neon' : ''}`} />
+                        <span>Souls Database</span>
+                    </button>
+                )}
             </div>
 
             {/* Main Content Area */}
@@ -515,20 +530,77 @@ const FollowUpDashboard: React.FC<FollowUpDashboardProps> = ({ onOpenModal }) =>
 
                                 {/* Registration-Style Search Interface */}
 
-                                <MemberSearchInput
-                                    onSearch={(term) => setMemberSearchTerm(term)}
-                                    isSearching={isSearchingMembers}
-                                    searchResults={memberSearchResults}
-                                    onSelectMember={(member) => {
-                                        setPreFilledMember(member);
-                                        setShowAddSoulForm(true);
-                                    }}
-                                    onAddNew={() => {
-                                        setPreFilledMember(null);
-                                        setShowAddSoulForm(true);
-                                    }}
-                                    disabled={selectedEventId ? isServiceClosed(services.find(s => s.id === selectedEventId)?.date || '') : false}
-                                />
+                                {/* Search and Edit Logic */}
+                                <div className="relative group z-50">
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                                    <input
+                                        type="text"
+                                        className="w-full pl-10 pr-4 py-4 bg-white border border-gray-200 rounded-xl text-lg focus:outline-none focus:border-ministry-orange focus:ring-1 focus:ring-ministry-orange transition-all shadow-sm"
+                                        placeholder="Search member by name..."
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                    />
+
+                                    {/* Global Search Results Dropdown */}
+                                    {searchQuery.length > 2 && (memberSearchResults.length > 0 || isSearchingMembers) && (
+                                        <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                                            {isSearchingMembers ? (
+                                                <div className="p-4 text-center text-gray-400 text-sm">Searching global database...</div>
+                                            ) : (
+                                                <div className="divide-y divide-gray-50 max-h-60 overflow-y-auto">
+                                                    {memberSearchResults.map(member => {
+                                                        const isAlreadyAdded = souls.some(s => s.sourceId === selectedEventId && (
+                                                            (s.phone && member.phone && s.phone === member.phone) ||
+                                                            (s.firstName + ' ' + s.lastName === member.name)
+                                                        ));
+
+                                                        return (
+                                                            <div key={member.id} className="p-3 hover:bg-gray-50 flex justify-between items-center transition-colors">
+                                                                <div>
+                                                                    <div className="flex items-center gap-2">
+                                                                        <p className="font-bold text-gray-800">{member.name}</p>
+                                                                        {member.status === 'Checked In' && <span className="text-[10px] bg-green-50 text-green-600 px-1.5 py-0.5 rounded-full border border-green-100 font-bold">Checked In</span>}
+                                                                    </div>
+                                                                    <p className="text-xs text-gray-500">{member.phone} • {member.residency}</p>
+                                                                </div>
+                                                                <div>
+                                                                    {isAlreadyAdded ? (
+                                                                        <span className="text-xs font-bold text-gray-400 flex items-center bg-gray-100 px-2 py-1 rounded">
+                                                                            <Check className="w-3 h-3 mr-1" /> Added
+                                                                        </span>
+                                                                    ) : (
+                                                                        <button
+                                                                            onClick={() => {
+                                                                                // Add as Soul
+                                                                                handleAddSoul({
+                                                                                    firstName: member.name.split(' ')[0],
+                                                                                    lastName: member.name.split(' ').slice(1).join(' '),
+                                                                                    phone: member.phone,
+                                                                                    gender: member.gender,
+                                                                                    residence: member.residency,
+                                                                                    email: '',
+                                                                                    status: 'New',
+                                                                                    notes: 'From Member Database',
+                                                                                    sourceType: activeTab === 'events' ? 'Event' : 'Service',
+                                                                                    sourceId: selectedEventId || '',
+                                                                                    capturedBy: 'System'
+                                                                                });
+                                                                                setSearchQuery(''); // Clear search to reset view
+                                                                            }}
+                                                                            className="text-xs bg-ministry-orange text-white px-3 py-1.5 rounded-lg font-bold hover:bg-orange-600 transition-colors shadow-sm flex items-center"
+                                                                        >
+                                                                            <Plus className="w-3 h-3 mr-1" /> Add Soul
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
 
                                 {/* Stats Cards */}
                                 <div className="grid grid-cols-1 gap-4">
@@ -556,51 +628,71 @@ const FollowUpDashboard: React.FC<FollowUpDashboardProps> = ({ onOpenModal }) =>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-gray-50">
-                                            {souls.filter(s => s.sourceId === selectedEventId).map(soul => (
-                                                <tr key={soul.id} className="hover:bg-gray-50 transition-colors">
-                                                    <td className="px-6 py-3 font-bold text-gray-900">{soul.firstName} {soul.lastName}</td>
-                                                    <td className="px-6 py-3 text-gray-600 font-mono">{soul.phone}</td>
-                                                    <td className="px-6 py-3 text-gray-600">{soul.residence}</td>
-                                                    <td className="px-6 py-3 text-gray-600">{soul.gender}</td>
-                                                    <td className="px-6 py-3">
-                                                        <span className={`px-2 py-0.5 rounded text-xs font-bold ${soul.status === 'New' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>
-                                                            {soul.status}
-                                                        </span>
-                                                    </td>
-                                                    <td className="px-6 py-3 text-right">
-                                                        <button
-                                                            onClick={async () => {
-                                                                const confirmed = await showConfirm(
-                                                                    <span>Are you sure you want to delete <strong>{soul.firstName} {soul.lastName}</strong>? This cannot be undone.</span>,
-                                                                    { title: 'Delete Soul', confirmText: 'Delete', isDestructive: true }
-                                                                );
-                                                                if (confirmed) {
-                                                                    try {
-                                                                        await SoulsStore.delete(soul.id || '');
-                                                                        showToast('Soul deleted successfully', 'success');
-                                                                        loadData();
-                                                                    } catch (e) {
-                                                                        showToast('Failed to delete soul', 'error');
+                                            {souls
+                                                .filter(s => s.sourceId === selectedEventId)
+                                                .filter(s =>
+                                                    s.firstName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                                                    s.lastName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                                                    (s.phone && s.phone.includes(searchQuery))
+                                                )
+                                                .map(soul => (
+                                                    <tr key={soul.id} className="hover:bg-gray-50 transition-colors">
+                                                        <td className="px-6 py-3 font-bold text-gray-900">{soul.firstName} {soul.lastName}</td>
+                                                        <td className="px-6 py-3 text-gray-600 font-mono">{soul.phone}</td>
+                                                        <td className="px-6 py-3 text-gray-600">{soul.residence}</td>
+                                                        <td className="px-6 py-3 text-gray-600">{soul.gender}</td>
+                                                        <td className="px-6 py-3">
+                                                            <span className={`px-2 py-0.5 rounded text-xs font-bold ${soul.status === 'New' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>
+                                                                {soul.status}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-6 py-3 text-right flex justify-end gap-2">
+                                                            <button
+                                                                onClick={() => {
+                                                                    setEditingSoul(soul);
+                                                                    setShowAddSoulForm(true);
+                                                                }}
+                                                                disabled={activeTab === 'services' && selectedEventId && isServiceClosed(services.find(s => s.id === selectedEventId)?.date || '')}
+                                                                className={`transition-colors p-1 ${activeTab === 'services' && selectedEventId && isServiceClosed(services.find(s => s.id === selectedEventId)?.date || '') ? 'text-gray-300 cursor-not-allowed' : 'text-gray-400 hover:text-blue-600'}`}
+                                                                title="Edit Soul"
+                                                            >
+                                                                <Pencil className="w-4 h-4" />
+                                                            </button>
+                                                            <button
+                                                                onClick={async () => {
+                                                                    const confirmed = await showConfirm(
+                                                                        <span>Are you sure you want to delete <strong>{soul.firstName} {soul.lastName}</strong>? This cannot be undone.</span>,
+                                                                        { title: 'Delete Soul', confirmText: 'Delete', isDestructive: true }
+                                                                    );
+                                                                    if (confirmed) {
+                                                                        try {
+                                                                            await SoulsStore.delete(soul.id || '');
+                                                                            showToast('Soul deleted successfully', 'success');
+                                                                            loadData();
+                                                                        } catch (e) {
+                                                                            showToast('Failed to delete soul', 'error');
+                                                                        }
                                                                     }
-                                                                }
-                                                            }}
-                                                            disabled={activeTab === 'services' && selectedEventId && isServiceClosed(services.find(s => s.id === selectedEventId)?.date || '')}
-                                                            className={`transition-colors p-1 ${activeTab === 'services' && selectedEventId && isServiceClosed(services.find(s => s.id === selectedEventId)?.date || '') ? 'text-gray-300 cursor-not-allowed' : 'text-gray-400 hover:text-red-600'}`}
-                                                            title="Delete Soul"
-                                                        >
-                                                            <Trash2 className="w-4 h-4" />
-                                                        </button>
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                            {souls.filter(s => s.sourceId === selectedEventId).length === 0 && (
+                                                                }}
+                                                                disabled={activeTab === 'services' && selectedEventId && isServiceClosed(services.find(s => s.id === selectedEventId)?.date || '')}
+                                                                className={`transition-colors p-1 ${activeTab === 'services' && selectedEventId && isServiceClosed(services.find(s => s.id === selectedEventId)?.date || '') ? 'text-gray-300 cursor-not-allowed' : 'text-gray-400 hover:text-red-600'}`}
+                                                                title="Delete Soul"
+                                                            >
+                                                                <Trash2 className="w-4 h-4" />
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                        </tbody>
+                                        {souls.filter(s => s.sourceId === selectedEventId).length === 0 && (
+                                            <tbody>
                                                 <tr>
-                                                    <td colSpan={5} className="px-6 py-10 text-center text-gray-400">
+                                                    <td colSpan={6} className="px-6 py-10 text-center text-gray-400">
                                                         No souls recorded for this service yet. click "Add Souls Won" to begin.
                                                     </td>
                                                 </tr>
-                                            )}
-                                        </tbody>
+                                            </tbody>
+                                        )}
                                     </table>
                                 </div>
                             </div>
@@ -610,7 +702,7 @@ const FollowUpDashboard: React.FC<FollowUpDashboardProps> = ({ onOpenModal }) =>
                             <>
                                 {activeTab === 'services' && <ServicesList />}
                                 {activeTab === 'events' && <EventsList />}
-                                {activeTab === 'database' && <SoulsDatabase />}
+                                {activeTab === 'database' && canViewDatabase && <SoulsDatabase />}
                             </>
                         )}
                     </>
@@ -618,24 +710,30 @@ const FollowUpDashboard: React.FC<FollowUpDashboardProps> = ({ onOpenModal }) =>
             </div>
 
             {/* Modal for Adding Soul manually */}
-            {showAddSoulForm && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-                    <div className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl overflow-y-auto max-h-[90vh] animate-in zoom-in-95 duration-200">
-                        <SoulEntryForm
-                            sourceType={activeTab === 'events' ? 'Event' : 'Service'}
-                            sourceId={selectedEventId || ''}
-                            sourceName={
-                                (activeTab === 'events' ? events : services).find(e => e.id === selectedEventId)?.title
-                            }
-                            existingMember={preFilledMember || undefined}
-                            onSubmit={handleAddSoul}
-                            onCancel={() => setShowAddSoulForm(false)}
-                        />
+            {
+                showAddSoulForm && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+                        <div className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl overflow-y-auto max-h-[90vh] animate-in zoom-in-95 duration-200">
+                            <SoulEntryForm
+                                sourceType={activeTab === 'events' ? 'Event' : 'Service'}
+                                sourceId={selectedEventId || ''}
+                                sourceName={
+                                    (activeTab === 'events' ? events : services).find(e => e.id === selectedEventId)?.title
+                                }
+                                initialData={editingSoul || undefined}
+                                // existingMember={preFilledMember || undefined} // Removed legacy prop
+                                onSubmit={handleAddSoul}
+                                onCancel={() => {
+                                    setShowAddSoulForm(false);
+                                    setEditingSoul(null);
+                                }}
+                            />
+                        </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
-        </div>
+        </div >
     );
 };
 

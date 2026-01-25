@@ -25,7 +25,7 @@ const AcceptInvite: React.FC = () => {
 
     useEffect(() => {
         const fetchUser = async () => {
-            console.log("AcceptInvite: Checking token:", token);
+
             if (!token) {
                 setError('Invalid invitation link (No token provided).');
                 setLoading(false);
@@ -33,7 +33,7 @@ const AcceptInvite: React.FC = () => {
             }
             try {
                 const foundUser = await UserStore.getUserByToken(token);
-                console.log("AcceptInvite: foundUser:", foundUser);
+
                 if (foundUser) {
                     setUser(foundUser);
                 } else {

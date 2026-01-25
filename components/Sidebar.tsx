@@ -18,7 +18,9 @@ import {
   X,
   FileText,
   Package,
-  BookOpen
+  BookOpen,
+  Phone,
+  UserPlus
 } from 'lucide-react';
 import { ModalType, User } from '../types';
 
@@ -43,6 +45,8 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, currentUser,
   const isCoordinator = currentUser.role === 'Coordinator';
   const isLogisticsEntrant = currentUser.role === 'Logistics';
   const isTeamLeader = currentUser.role === 'TeamLeader';
+  const isFollowUpHead = (currentUser.role === 'Head of Dept' || currentUser.role === 'Dept Admin') && currentUser.departmentId === 'd6';
+  const isFollowUpMember = currentUser.role === 'Member' && currentUser.departmentId === 'd6';
 
   let menuItems: any[] = [];
 
@@ -88,6 +92,17 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, currentUser,
       { id: 'settings', label: 'Team Management', icon: Users },
       { id: 'requisitions', label: 'Requisitions', icon: FileText },
       { id: 'assets', label: 'Assets', icon: Package },
+    ];
+  } else if (isFollowUpHead) {
+    menuItems = [
+      { id: 'follow-up', label: 'Follow Up Dashboard', icon: UserPlus },
+      { id: 'settings', label: 'Team Management', icon: Users },
+      { id: 'requisitions', label: 'Requisitions', icon: FileText },
+      { id: 'assets', label: 'Assets', icon: Package },
+    ];
+  } else if (isFollowUpMember) {
+    menuItems = [
+      { id: 'follow-up', label: 'Follow Up Dashboard', icon: UserPlus },
     ];
   } else if (isCoordinator) {
     menuItems = [

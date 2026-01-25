@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useNotification } from './ui/NotificationSystem';
 import PhoneInput from './PhoneInput';
-import { Child, MinistryEvent, ModalType, User } from '../types';
+import { Child, MinistryEvent, ModalType, User, Soul } from '../types';
 import * as XLSX from 'xlsx';
 import { validateContact, isServiceClosed } from '../utils';
 import { EventStore } from '../database/eventStore';
 import { ChildStore } from '../database/childStore';
+import { SoulsStore } from '../database/soulsStore';
+import { NextGenSoulsStore, NextGenSoul } from '../database/nextGenSoulsStore';
 import { supabase } from '../services/supabaseClient';
+import ConfirmationModal from './ConfirmationModal';
 import {
     Users,
     UserPlus,
@@ -18,9 +21,6 @@ import {
     Clock,
     ArrowLeft,
     Activity,
-    Phone,
-    MapPin,
-    Smile,
     LogOut,
     FileText,
     Upload,
@@ -28,7 +28,8 @@ import {
     CalendarCheck,
     History,
     User as UserIcon,
-    Trash2
+    Trash2,
+    Heart
 } from 'lucide-react';
 
 interface NextGenDashboardProps {
@@ -37,7 +38,7 @@ interface NextGenDashboardProps {
     currentUser?: User | null;
 }
 
-type Tab = 'checkin' | 'checkout' | 'database';
+type Tab = 'checkin' | 'checkout' | 'database' | 'followup' | 'souls';
 type ViewMode = 'list' | 'service-active' | 'add-child' | 'bulk-import' | 'child-detail';
 
 const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpenModal, currentUser }) => {
@@ -45,12 +46,37 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
     const [activeTab, setActiveTab] = useState<Tab>('checkin');
     const [viewMode, setViewMode] = useState<ViewMode>('list');
     const [children, setChildren] = useState<Child[]>([]);
+    const [nextGenSouls, setNextGenSouls] = useState<NextGenSoul[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedService, setSelectedService] = useState<MinistryEvent | null>(null);
+
+    // Stats Filter State
+    const [activeStatsFilter, setActiveStatsFilter] = useState<'All' | 'CheckIn' | 'CheckedOut' | 'FirstTimer' | 'Souls'>('CheckIn');
+
+    // Confirmation Modal State
+    const [confirmModal, setConfirmModal] = useState<{
+        isOpen: boolean;
+        title: string;
+        message: string;
+        type: 'danger' | 'info';
+        onConfirm: () => void;
+        confirmText?: string;
+    }>({
+        isOpen: false,
+        title: '',
+        message: '',
+        type: 'info',
+        onConfirm: () => { }
+    });
+
+    const closeConfirmModal = () => setConfirmModal(prev => ({ ...prev, isOpen: false }));
 
     // Detail View State
     const [selectedChild, setSelectedChild] = useState<Child | null>(null);
     const [isEditingChild, setIsEditingChild] = useState(false);
+
+    // Stats State
+    const [soulsWonCount, setSoulsWonCount] = useState(0);
 
     // Pagination State
     const [currentPage, setCurrentPage] = useState(1);
@@ -59,15 +85,30 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
     // Bulk Selection State
     const [selectedChildIds, setSelectedChildIds] = useState<Set<string>>(new Set());
 
-    // Force re-render
-    const [, forceUpdate] = useState(0);
+
 
     const isRestrictedUser = currentUser?.role === 'Next Gen Member' || currentUser?.role === 'Member';
 
     const refreshData = async () => {
-        const data = await ChildStore.getAll();
-        setChildren(data);
+        const [kids, souls] = await Promise.all([
+            ChildStore.getAll(),
+            NextGenSoulsStore.getAll()
+        ]);
+        setChildren(kids);
+        setNextGenSouls(souls);
     };
+
+    // Fetch Souls Won for Service
+    useEffect(() => {
+        const fetchSouls = async () => {
+            if (selectedService) {
+                // Use NextGenSoulsStore for accurate filtering
+                const count = await NextGenSoulsStore.getCountByService(selectedService.id);
+                setSoulsWonCount(count);
+            }
+        };
+        fetchSouls();
+    }, [selectedService]);
 
     useEffect(() => {
         refreshData();
@@ -75,7 +116,6 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
         const channel = supabase.channel('nextgen-live')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'children' }, () => {
                 refreshData();
-                forceUpdate(n => n + 1);
             })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'ministry_events' }, () => {
                 // Avoiding full page reload. 
@@ -96,6 +136,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
         parentContact: '', // numbers only, max 12 digits
         age: '',
         gender: 'Male',
+        category: 'First Timer',
         residence: ''
     };
     const [formData, setFormData] = useState(initialForm);
@@ -123,9 +164,16 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
             });
         }
 
-        // If in checkout mode, only show children who are currently checked in (using attendedServiceIds if service selected)
-        if (activeTab === 'checkout' && viewMode === 'service-active' && selectedService) {
-            return matchesSearch && (c.status === 'Checked In' || c.attendedServiceIds.includes(selectedService.id));
+        // If in checkout mode (Active Service View)
+        if (viewMode === 'service-active' && selectedService) {
+            const isAttended = c.attendedServiceIds.includes(selectedService.id);
+            if (!isAttended) return false;
+
+            if (activeStatsFilter === 'CheckedOut') return matchesSearch && c.status === 'Checked Out';
+            if (activeStatsFilter === 'FirstTimer') return matchesSearch && (c.category === 'First Timer' || c.joinedDate === selectedService.date);
+            // 'CheckIn' shows ALL attendees for this service.
+            // We rely on status badges to show if they are currently Checked In / Out.
+            return matchesSearch;
         }
 
         return matchesSearch;
@@ -160,13 +208,13 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
     const handleDeleteSelected = async () => {
         if (selectedChildIds.size === 0) return;
 
-        if (window.confirm(`Are you sure you want to delete ${selectedChildIds.size} children? This action cannot be undone.`)) {
-            const idsToDelete = Array.from(selectedChildIds);
+        if (window.confirm(`Are you sure you want to delete ${selectedChildIds.size} ${selectedChildIds.size === 1 ? 'child' : 'children'}? This action cannot be undone.`)) {
+            const idsToDelete = Array.from(selectedChildIds) as string[];
             try {
                 await ChildStore.bulkDelete(idsToDelete);
                 setChildren(prev => prev.filter(c => !selectedChildIds.has(c.id)));
                 setSelectedChildIds(new Set());
-                showToast(`Successfully deleted ${idsToDelete.length} children.`, 'success');
+                showToast(`Successfully deleted ${idsToDelete.length} ${idsToDelete.length === 1 ? 'child' : 'children'}.`, 'success');
             } catch (error) {
                 console.error("Bulk delete failed", error);
                 showToast("Failed to delete children.", 'error');
@@ -229,6 +277,63 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
         await ChildStore.update(updatedChild);
     };
 
+    const handleAddNextGenSoul = async (child: Child) => {
+        if (!selectedService) return;
+
+        setConfirmModal({
+            isOpen: true,
+            title: 'Record Soul Won',
+            message: `Do you want to record ${child.name} as a Soul Won for the service "${selectedService.title}"?`,
+            type: 'info',
+            confirmText: 'Yes, Record Soul',
+            onConfirm: async () => {
+                try {
+                    const newSoul = {
+                        firstName: child.name.split(' ')[0],
+                        lastName: child.name.split(' ').slice(1).join(' ') || '.',
+                        phone: child.parentContact,
+                        age: child.age,
+                        gender: child.gender,
+                        residence: child.residence,
+                        serviceId: selectedService.id,
+                        status: 'New',
+                        capturedBy: currentUser?.name || 'Next Gen',
+                        notes: `Parent: ${child.parentName}`
+                    };
+
+                    await NextGenSoulsStore.add(newSoul);
+
+                    refreshData();
+
+                    setSoulsWonCount(prev => prev + 1);
+                    showToast(`${child.name} recorded as a soul!`, 'success');
+                } catch (e: any) {
+                    console.error("Failed to add soul - Full Error:", e);
+                    showToast(`Failed to record soul. ${e.message || e.error_description || ''}`, 'error');
+                }
+            }
+        });
+    };
+
+    const handleDeleteNextGenSoul = async (soulId: string) => {
+        if (!window.confirm('Are you sure you want to delete this soul check-in? This action cannot be undone.')) return;
+
+        try {
+            await NextGenSoulsStore.delete(soulId);
+            setNextGenSouls(prev => prev.filter(s => s.id !== soulId));
+
+            // Re-fetch aggregated count if needed or just decrement locally if we knew it was for this service
+            if (activeTab === 'followup' && selectedService) {
+                // simple refresh
+                // setSoulsWonCount(prev => Math.max(0, prev - 1));
+            }
+            showToast('Soul record deleted.', 'success');
+        } catch (e) {
+            console.error('Delete failed', e);
+            showToast('Failed to delete soul record.', 'error');
+        }
+    };
+
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
         if (name === 'parentContact') {
@@ -251,6 +356,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
             parentContact: formData.parentContact, // numbers only, max 12 digits
             age: parseInt(formData.age) || 0,
             gender: formData.gender as 'Male' | 'Female',
+            category: 'First Timer', // Auto-set for new registrations
             residence: formData.residence,
             status: isServiceActive ? 'Checked In' : 'Absent',
             checkInTime: isServiceActive ? new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : undefined,
@@ -385,6 +491,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
             parentContact: child.parentContact,
             age: String(child.age),
             gender: child.gender,
+            category: child.category || 'Member',
             residence: child.residence
         });
         setIsEditingChild(false);
@@ -403,6 +510,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                 parentContact: formData.parentContact,
                 age: parseInt(formData.age) || 0,
                 gender: formData.gender as 'Male' | 'Female',
+                category: formData.category,
                 residence: formData.residence
             };
 
@@ -422,24 +530,40 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
     const handleDeleteChild = async (childId: string, e?: React.MouseEvent) => {
         if (e) e.stopPropagation();
 
-        if (window.confirm('Are you sure you want to delete this child from the database? This action cannot be undone.')) {
-            try {
-                await ChildStore.delete(childId);
-                setChildren(prev => prev.filter(c => c.id !== childId));
-                // If in detail view, go back to list
-                if (viewMode === 'child-detail') {
-                    handleBack();
+        setConfirmModal({
+            isOpen: true,
+            title: 'Delete Child Profile',
+            message: 'Are you sure you want to delete this child from the database? This action cannot be undone and will remove all their check-in history.',
+            type: 'danger',
+            confirmText: 'Delete Forever',
+            onConfirm: async () => {
+                try {
+                    await ChildStore.delete(childId);
+                    setChildren(prev => prev.filter(c => c.id !== childId));
+                    if (viewMode === 'child-detail') {
+                        handleBack();
+                    }
+                    showToast('Child deleted successfully', 'success');
+                } catch (error) {
+                    console.error("Delete failed", error);
+                    showToast("Failed to delete child", 'error');
                 }
-                showToast('Child deleted successfully', 'success');
-            } catch (error) {
-                console.error("Delete failed", error);
-                showToast("Failed to delete child", 'error');
             }
-        }
+        });
     };
 
     return (
         <div className="p-4 md:p-8 space-y-8 animate-in fade-in duration-500">
+            <ConfirmationModal
+                isOpen={confirmModal.isOpen}
+                onClose={closeConfirmModal}
+                onConfirm={confirmModal.onConfirm}
+                title={confirmModal.title}
+                message={confirmModal.message}
+                type={confirmModal.type}
+                confirmText={confirmModal.confirmText}
+            />
+
             {/* Header */}
             <div className="flex justify-between items-center">
                 <div>
@@ -453,7 +577,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
 
             {/* Navigation Tabs */}
             {(viewMode === 'list' || viewMode === 'child-detail') && (
-                <div className="flex space-x-1 bg-gray-100 p-1.5 rounded-xl w-fit overflow-x-auto">
+                <div className="flex space-x-1 bg-gray-100 p-1.5 rounded-xl w-full md:w-fit overflow-x-auto scrollbar-hide">
                     <button
                         onClick={() => { setActiveTab('checkin'); setViewMode('list'); }}
                         className={`flex items-center space-x-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${activeTab === 'checkin'
@@ -474,6 +598,26 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                         <LogOut className={`w-4 h-4 ${activeTab === 'checkout' ? 'text-ministry-neon' : ''}`} />
                         <span>Check-Out</span>
                     </button>
+                    <button
+                        onClick={() => { setActiveTab('followup'); setViewMode('list'); }}
+                        className={`flex items-center space-x-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${activeTab === 'followup'
+                            ? 'bg-black text-white shadow-md'
+                            : 'text-gray-500 hover:text-gray-900'
+                            }`}
+                    >
+                        <UserPlus className={`w-4 h-4 ${activeTab === 'followup' ? 'text-ministry-neon' : ''}`} />
+                        <span>Follow Up</span>
+                    </button>
+                    <button
+                        onClick={() => { setActiveTab('souls'); setViewMode('list'); }}
+                        className={`flex items-center space-x-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${activeTab === 'souls'
+                            ? 'bg-black text-white shadow-md'
+                            : 'text-gray-500 hover:text-gray-900'
+                            }`}
+                    >
+                        <Heart className={`w-4 h-4 ${activeTab === 'souls' ? 'text-ministry-neon' : ''}`} />
+                        <span>Souls DB</span>
+                    </button>
                     {!isRestrictedUser && (
                         <button
                             onClick={() => { setActiveTab('database'); setViewMode('list'); }}
@@ -483,7 +627,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                                 }`}
                         >
                             <Users className={`w-4 h-4 ${activeTab === 'database' ? 'text-ministry-neon' : ''}`} />
-                            <span>Database</span>
+                            <span>Children DB</span>
                         </button>
                     )}
                 </div>
@@ -546,7 +690,104 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                     </div>
                 )}
 
-                {/* --- DATABASE TAB --- */}
+
+
+                {/* --- FOLLOW UP TAB --- */}
+                {activeTab === 'followup' && viewMode === 'list' && (
+                    <div className="space-y-6">
+                        <div className="flex justify-between items-center">
+                            <h3 className="text-lg font-bold text-gray-800">Select Service for Follow Up</h3>
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+                            {services.map(service => {
+                                const serviceDate = new Date(service.date);
+                                const today = new Date();
+                                today.setHours(0, 0, 0, 0);
+                                serviceDate.setHours(0, 0, 0, 0);
+                                const isPast = serviceDate < today;
+
+                                return (
+                                    <div key={service.id} className="bg-white border border-gray-200 rounded-xl p-5 hover:border-ministry-orange/40 hover:shadow-md transition-all group">
+                                        <div className="flex justify-between items-start mb-3">
+                                            <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded-full ${isPast ? 'bg-gray-100 text-gray-500' : 'bg-green-100 text-green-700'}`}>
+                                                {isPast ? 'Past Service' : 'Active / Upcoming'}
+                                            </span>
+                                            <Calendar className="w-4 h-4 text-gray-400" />
+                                        </div>
+                                        <h4 className="text-lg font-bold text-ministry-text mb-1">{service.title}</h4>
+                                        <p className="text-sm text-gray-500 mb-4 flex items-center">
+                                            <Clock className="w-3 h-3 mr-1" /> {service.date}
+                                        </p>
+                                        <button
+                                            onClick={() => handleOpenService(service)}
+                                            className="w-full text-white bg-ministry-text hover:bg-ministry-orange py-2.5 rounded-lg font-bold flex items-center justify-center transition-colors"
+                                        >
+                                            <UserPlus className="w-4 h-4 mr-2" /> Follow Up Souls
+                                        </button>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
+
+                {/* --- SOULS DATABASE TAB --- */}
+                {activeTab === 'souls' && viewMode === 'list' && (
+                    <div className="space-y-6">
+                        <div className="flex justify-between items-center">
+                            <h3 className="text-lg font-bold text-gray-800">Next Gen Souls Database</h3>
+                            <button onClick={() => refreshData()} className="text-sm text-ministry-orange hover:underline">Refresh</button>
+                        </div>
+
+                        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden overflow-x-auto">
+                            <table className="w-full text-left text-sm min-w-[600px]">
+                                <thead className="bg-gray-50 text-gray-500 font-bold border-b border-gray-100 uppercase text-xs">
+                                    <tr>
+                                        <th className="px-6 py-3">Name</th>
+                                        <th className="px-6 py-3">Phone</th>
+                                        <th className="px-6 py-3">Source Service</th>
+                                        <th className="px-6 py-3">Status</th>
+                                        <th className="px-6 py-3 text-right">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-50">
+                                    {nextGenSouls.map(soul => (
+                                        <tr key={soul.id} className="hover:bg-gray-50 transition-colors">
+                                            <td className="px-6 py-3 font-bold text-gray-900">{soul.firstName} {soul.lastName}</td>
+                                            <td className="px-6 py-3 text-gray-600 font-mono">{soul.phone}</td>
+                                            <td className="px-6 py-3 text-gray-600">
+                                                {services.find(s => s.id === soul.serviceId)?.title || 'Unknown Service'}
+                                            </td>
+                                            <td className="px-6 py-3">
+                                                <span className={`px-2 py-0.5 rounded text-xs font-bold ${soul.status === 'Confirmed' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>
+                                                    {soul.status}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-3 text-right">
+                                                <button
+                                                    onClick={() => handleDeleteNextGenSoul(soul.id)}
+                                                    className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                                                    title="Delete Record"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {nextGenSouls.length === 0 && (
+                                        <tr>
+                                            <td colSpan={5} className="px-6 py-10 text-center text-gray-400">
+                                                No souls recorded in Next Gen database yet.
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )}
+
+                {/* --- CHILDREN DATABASE TAB (Existing) --- */}
                 {activeTab === 'database' && viewMode === 'list' && (
                     <div className="space-y-6">
                         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -633,6 +874,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                                             />
                                         </th>
                                         <th className="px-6 py-4">Child Name</th>
+                                        <th className="px-6 py-4">Category</th>
                                         <th className="px-6 py-4">Age / Gender</th>
                                         <th className="px-6 py-4">Parent</th>
                                         <th className="px-6 py-4">Contact</th>
@@ -652,6 +894,11 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                                                 />
                                             </td>
                                             <td className="px-6 py-4 font-bold text-gray-900">{c.name}</td>
+                                            <td className="px-6 py-4">
+                                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${c.category === 'First Timer' ? 'bg-orange-100 text-orange-700' : 'bg-gray-100 text-gray-600'}`}>
+                                                    {c.category || 'Member'}
+                                                </span>
+                                            </td>
                                             <td className="px-6 py-4 text-sm text-gray-600">{c.age} yrs • {c.gender}</td>
                                             <td className="px-6 py-4 text-sm text-gray-600">{c.parentName}</td>
                                             <td className="px-6 py-4 text-sm font-mono text-gray-500">{c.parentContact}</td>
@@ -682,9 +929,102 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                     </div>
                 )}
 
-                {/* --- ACTIVE SERVICE CHECK-IN/OUT VIEW --- */}
-                {viewMode === 'service-active' && selectedService && (
+
+                {/* --- ACTIVE SERVICE FOLLOW UP VIEW --- */}
+                {/* Simplified view for searching and adding souls */}
+                {viewMode === 'service-active' && activeTab === 'followup' && selectedService && (
                     <div className="space-y-6">
+                        <div className="flex flex-col md:flex-row items-start md:items-center justify-between border-b border-gray-100 pb-4 gap-4">
+                            <div className="flex items-center space-x-3">
+                                <button onClick={handleBack} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+                                    <ArrowLeft className="w-5 h-5 text-gray-600" />
+                                </button>
+                                <div>
+                                    <h2 className="text-xl font-bold text-ministry-text">{selectedService.title}</h2>
+                                    <p className="text-sm text-gray-500">
+                                        Follow Up Souls • {selectedService.date}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="bg-ministry-text p-6 rounded-xl shadow-sm text-center relative overflow-hidden mb-6">
+                            <div className="absolute top-0 right-0 p-2 opacity-10">
+                                <Heart className="w-24 h-24 text-ministry-orange" />
+                            </div>
+                            <h4 className="text-ministry-orange font-bold uppercase text-xs mb-2">Total Next Gen Souls</h4>
+                            <p className="text-4xl font-black text-ministry-orange">
+                                {nextGenSouls.filter(s => s.serviceId === selectedService.id).length}
+                            </p>
+                            <p className="text-gray-400 text-xs mt-2">Captured for {selectedService.title}</p>
+                        </div>
+
+                        <div className="bg-white p-6 rounded-xl border border-gray-200">
+                            <h3 className="font-bold text-gray-800 mb-4">Search Next Gen Database</h3>
+                            <div className="relative group max-w-lg mb-6">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                                <input
+                                    className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:border-ministry-orange focus:ring-1 focus:ring-ministry-orange transition-all"
+                                    placeholder="Search child name..."
+                                    value={searchQuery}
+                                    onChange={e => setSearchQuery(e.target.value)}
+                                />
+                            </div>
+
+                            <div className="overflow-x-auto border border-gray-200 rounded-xl">
+                                <table className="w-full text-left text-sm min-w-[600px]">
+                                    <thead className="bg-gray-50 text-gray-500 font-bold border-b border-gray-100 uppercase text-xs">
+                                        <tr>
+                                            <th className="px-6 py-3">Child Name</th>
+                                            <th className="px-6 py-3">Age / Gender</th>
+                                            <th className="px-6 py-3">Parent</th>
+                                            <th className="px-6 py-3 text-right">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-50">
+                                        {filteredChildren.slice(0, 10).map(c => {
+                                            const isAlreadyAdded = nextGenSouls.some(s => s.serviceId === selectedService.id && (s.firstName + ' ' + s.lastName === c.name));
+                                            return (
+                                                <tr key={c.id} className="hover:bg-gray-50 transition-colors">
+                                                    <td className="px-6 py-3 font-bold text-gray-900">{c.name}</td>
+                                                    <td className="px-6 py-3 text-gray-600">{c.age} • {c.gender}</td>
+                                                    <td className="px-6 py-3 text-gray-600">
+                                                        <div>{c.parentName}</div>
+                                                        <div className="text-xs text-gray-400">{c.parentContact}</div>
+                                                    </td>
+                                                    <td className="px-6 py-3 text-right">
+                                                        {isAlreadyAdded ? (
+                                                            <span className="text-green-600 font-bold text-xs bg-green-50 px-2 py-1 rounded">Added</span>
+                                                        ) : (
+                                                            <button
+                                                                onClick={() => handleAddNextGenSoul(c)}
+                                                                className="bg-ministry-orange text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-orange-600 transition-colors"
+                                                            >
+                                                                Record Soul
+                                                            </button>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                        {filteredChildren.length === 0 && (
+                                            <tr>
+                                                <td colSpan={4} className="px-6 py-8 text-center text-gray-400">
+                                                    No children found matching search.
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* --- ACTIVE SERVICE CHECK-IN/OUT VIEW (Original) --- */}
+                {viewMode === 'service-active' && (activeTab === 'checkin' || activeTab === 'checkout') && selectedService && (
+                    <div className="space-y-6">
+
 
                         {/* --- SERVICE VIEW (ACTIVE) --- */}
                         {isServiceClosed(selectedService.date) ? (
@@ -706,23 +1046,39 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
-                                    <div className="bg-white border border-gray-200 p-6 rounded-xl shadow-sm text-center">
-                                        <h4 className="text-gray-500 font-bold uppercase text-xs mb-2">Total Children</h4>
-                                        <p className="text-3xl font-black text-ministry-text">
+                                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 md:gap-6">
+                                    {/* Card 1: TOTAL CHECK-INS (Dark) */}
+                                    <div className="bg-ministry-text border-l-4 border-ministry-neon p-6 rounded-xl shadow-sm text-center">
+                                        <h4 className="text-white font-bold uppercase text-xs mb-2">Total Check-Ins</h4>
+                                        <p className="text-4xl font-black text-white">
                                             {children.filter(c => c.attendedServiceIds.includes(selectedService.id)).length}
                                         </p>
                                     </div>
-                                    <div className="bg-white border border-gray-200 p-6 rounded-xl shadow-sm text-center">
-                                        <h4 className="text-gray-500 font-bold uppercase text-xs mb-2">First Timers</h4>
-                                        <p className="text-3xl font-black text-ministry-orange">
+
+                                    {/* Card 2: FIRST TIMERS (White with Orange Border) */}
+                                    <div className="bg-white border-2 border-ministry-orange p-6 rounded-xl shadow-sm text-center">
+                                        <h4 className="text-ministry-text font-bold uppercase text-xs mb-2">First Timers</h4>
+                                        <p className="text-4xl font-black text-gray-800">
                                             {children.filter(c => c.attendedServiceIds.includes(selectedService.id) && c.joinedDate === selectedService.date).length}
                                         </p>
                                     </div>
-                                    <div className="bg-white border border-gray-200 p-6 rounded-xl shadow-sm text-center">
-                                        <h4 className="text-gray-500 font-bold uppercase text-xs mb-2">Registered</h4>
-                                        <p className="text-3xl font-black text-blue-600">
-                                            {children.filter(c => c.attendedServiceIds.includes(selectedService.id)).length}
+
+                                    {/* Card 3: SOULS WON (Dark with Orange Text) */}
+                                    <div className="bg-ministry-text p-6 rounded-xl shadow-sm text-center relative overflow-hidden">
+                                        <div className="absolute top-0 right-0 p-2 opacity-10">
+                                            <UserPlus className="w-24 h-24 text-ministry-orange" />
+                                        </div>
+                                        <h4 className="text-ministry-orange font-bold uppercase text-xs mb-2">Souls Won</h4>
+                                        <p className="text-4xl font-black text-ministry-orange">
+                                            {soulsWonCount}
+                                        </p>
+                                    </div>
+
+                                    {/* Card 4: CHECKED OUT (White with Gray Border) */}
+                                    <div className="bg-white border border-gray-300 p-6 rounded-xl shadow-sm text-center">
+                                        <h4 className="text-gray-500 font-bold uppercase text-xs mb-2">Checked Out</h4>
+                                        <p className="text-4xl font-black text-gray-700">
+                                            {children.filter(c => c.attendedServiceIds.includes(selectedService.id) && c.status === 'Checked Out').length}
                                         </p>
                                     </div>
                                 </div>
@@ -761,100 +1117,160 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                                     </div>
                                 </div>
 
-                                {/* Search & List */}
-                                <div className="max-w-xl mx-auto space-y-4">
-                                    <div className="relative group">
-                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-ministry-orange" />
-                                        <input
-                                            className="w-full pl-10 pr-4 py-4 bg-white border border-gray-200 rounded-xl text-lg focus:outline-none focus:border-ministry-orange focus:ring-1 focus:ring-ministry-orange transition-all"
-                                            placeholder={activeTab === 'checkout' ? "Search Checked-In Children..." : "Search Child, Parent..."}
-                                            value={searchQuery}
-                                            onChange={e => setSearchQuery(e.target.value)}
-                                        />
-                                    </div>
+                                {/* Stats Grid for Active Service */}
+                                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 md:gap-6">
+                                    {/* Card 1: TOTAL CHECK-INS */}
+                                    <button
+                                        onClick={() => setActiveStatsFilter('CheckIn')}
+                                        className={`p-6 rounded-xl shadow-sm text-center transition-all ${activeStatsFilter === 'CheckIn' ? 'bg-ministry-text border-l-4 border-ministry-neon ring-2 ring-ministry-text ring-offset-2' : 'bg-gray-800 border-l-4 border-ministry-neon hover:bg-gray-700'}`}
+                                    >
+                                        <h4 className="text-white font-bold uppercase text-xs mb-2">Total Check-Ins</h4>
+                                        <p className="text-4xl font-black text-white">
+                                            {children.filter(c => c.attendedServiceIds.includes(selectedService.id)).length}
+                                        </p>
+                                    </button>
 
-                                    {searchQuery && (
+                                    {/* Card 2: CHECKED OUT */}
+                                    <button
+                                        onClick={() => setActiveStatsFilter('CheckedOut')}
+                                        className={`p-6 rounded-xl shadow-sm text-center transition-all ${activeStatsFilter === 'CheckedOut' ? 'bg-gray-100 border-2 border-gray-400 ring-2 ring-gray-400 ring-offset-2' : 'bg-white border border-gray-300 hover:bg-gray-50'}`}
+                                    >
+                                        <h4 className="text-gray-500 font-bold uppercase text-xs mb-2">Checked Out</h4>
+                                        <p className="text-4xl font-black text-gray-700">
+                                            {children.filter(c => c.attendedServiceIds.includes(selectedService.id) && c.status === 'Checked Out').length}
+                                        </p>
+                                    </button>
+
+                                    {/* Card 3: FIRST TIMERS */}
+                                    <button
+                                        onClick={() => setActiveStatsFilter('FirstTimer')}
+                                        className={`p-6 rounded-xl shadow-sm text-center transition-all ${activeStatsFilter === 'FirstTimer' ? 'bg-orange-50 border-2 border-ministry-orange ring-2 ring-ministry-orange ring-offset-2' : 'bg-white border-2 border-ministry-orange hover:bg-orange-50/50'}`}
+                                    >
+                                        <h4 className="text-ministry-text font-bold uppercase text-xs mb-2">First Timers</h4>
+                                        <p className="text-4xl font-black text-gray-800">
+                                            {children.filter(c => c.attendedServiceIds.includes(selectedService.id) && (c.category === 'First Timer' || c.joinedDate === selectedService.date)).length}
+                                        </p>
+                                    </button>
+
+                                    {/* Card 4: SOULS WON */}
+                                    <button
+                                        onClick={() => setActiveStatsFilter('Souls')}
+                                        className={`p-6 rounded-xl shadow-sm text-center relative overflow-hidden transition-all ${activeStatsFilter === 'Souls' ? 'bg-ministry-text ring-2 ring-ministry-orange ring-offset-2' : 'bg-ministry-text hover:bg-gray-900'}`}
+                                    >
+                                        <div className="absolute top-0 right-0 p-2 opacity-10">
+                                            <UserPlus className="w-24 h-24 text-ministry-orange" />
+                                        </div>
+                                        <h4 className="text-ministry-orange font-bold uppercase text-xs mb-2">Souls Won</h4>
+                                        <p className="text-4xl font-black text-ministry-orange">
+                                            {soulsWonCount}
+                                        </p>
+                                    </button>
+                                </div>
+
+                                {activeStatsFilter === 'Souls' ? (
+                                    <div className="space-y-4 animate-in fade-in">
                                         <div className="bg-white border border-gray-200 rounded-xl shadow-lg divide-y divide-gray-100 max-h-96 overflow-y-auto">
-                                            {filteredChildren.map(c => (
-                                                <div key={c.id} className="p-4 flex justify-between items-center hover:bg-gray-50 transition-colors">
-                                                    <div>
-                                                        <p className="font-bold text-gray-900">{c.name}</p>
-                                                        <p className="text-xs text-gray-500">{c.age} yrs • Parent: {c.parentName}</p>
-                                                    </div>
-                                                    <div>
-                                                        {(c.status === 'Checked In' || (selectedService && c.attendedServiceIds.includes(selectedService.id) && c.status !== 'Checked Out')) ? (
-                                                            <div className="flex items-center space-x-3">
-                                                                <span className="text-green-600 font-bold text-sm flex items-center"><Clock className="w-3 h-3 mr-1" /> {c.checkInTime || 'Active'}</span>
-                                                                <button
-                                                                    onClick={() => handleCheckOut(c.id)}
-                                                                    className="flex items-center space-x-1 bg-gray-100 hover:bg-gray-200 px-4 py-2 rounded-lg text-gray-700 font-bold text-sm transition-colors border border-gray-200"
-                                                                >
-                                                                    <LogOut className="w-3 h-3" />
-                                                                    <span>Check Out</span>
-                                                                </button>
-                                                            </div>
-                                                        ) : (
-                                                            <>
-                                                                {/* Only show Check In button if we are in Check In tab */}
-                                                                {activeTab === 'checkin' && (
-                                                                    <button
-                                                                        onClick={() => handleCheckIn(c.id)}
-                                                                        className="bg-green-100 text-green-700 px-4 py-2 rounded-lg font-bold text-sm hover:bg-green-200 transition-colors"
-                                                                    >
-                                                                        Check In
-                                                                    </button>
-                                                                )}
-                                                                {activeTab === 'checkout' && (
-                                                                    <span className="text-xs text-gray-400 italic">Not Checked In</span>
-                                                                )}
-                                                            </>
-                                                        )}
+                                            <div className="p-3 bg-gray-50 border-b border-gray-100 text-xs font-bold text-gray-500 uppercase">
+                                                Showing {nextGenSouls.filter(s => s.serviceId === selectedService.id).length} Souls Won
+                                            </div>
+                                            {nextGenSouls.filter(s => s.serviceId === selectedService.id).map(soul => (
+                                                <div key={soul.id} className="p-4 flex justify-between items-center hover:bg-gray-50 transition-colors">
+                                                    <div className="flex-1 min-w-0 mr-4">
+                                                        <div className="flex items-center gap-2">
+                                                            <p className="font-bold text-gray-900 truncate">{soul.firstName} {soul.lastName}</p>
+                                                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${soul.status === 'Confirmed' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>
+                                                                {soul.status}
+                                                            </span>
+                                                        </div>
+                                                        <p className="text-xs text-gray-500 truncate">{soul.phone} • Captured By: {soul.capturedBy}</p>
                                                     </div>
                                                 </div>
                                             ))}
-                                            {filteredChildren.length === 0 && (
+                                            {nextGenSouls.filter(s => s.serviceId === selectedService.id).length === 0 && (
                                                 <div className="p-4 text-center text-gray-500">
-                                                    {activeTab === 'checkout'
-                                                        ? "No checked-in children found matching search."
-                                                        : (
-                                                            <>
-                                                                No child found. <button onClick={() => setViewMode('add-child')} className="text-ministry-orange font-bold hover:underline">Register New?</button>
-                                                            </>
-                                                        )
-                                                    }
+                                                    No souls recorded for this service yet.
                                                 </div>
                                             )}
                                         </div>
-                                    )}
-                                </div>
-
-                                {/* Recent Check-Ins */}
-                                <div className="mt-8 pt-8 border-t border-gray-100">
-                                    <h3 className="font-bold text-gray-800 mb-4">
-                                        Recently Checked In
-                                    </h3>
-                                    <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                        {children.filter(c => selectedService && (c.attendedServiceIds.includes(selectedService.id) || c.status === 'Checked In')).slice(0, 6).map(c => (
-                                            <div key={c.id} className="bg-green-50 border border-green-100 p-4 rounded-xl flex justify-between items-center group">
-                                                <div>
-                                                    <p className="font-bold text-green-900">{c.name}</p>
-                                                    <p className="text-xs text-green-700">Checked in at {c.checkInTime || 'Recently'}</p>
-                                                </div>
-                                                <div className="flex items-center space-x-2">
-                                                    <span className="p-2 bg-white rounded-full"><Smile className="w-5 h-5 text-green-500" /></span>
-                                                    {activeTab === 'checkout' && (
-                                                        <button
-                                                            onClick={() => handleCheckOut(c.id)}
-                                                            className="text-xs font-bold bg-white border border-green-200 text-green-700 py-1.5 px-3 rounded-lg hover:bg-green-100 transition-colors shadow-sm"
-                                                        >
-                                                            Check Out
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        ))}
                                     </div>
-                                </div>
+                                ) : (
+                                    <div className="max-w-xl mx-auto space-y-4">
+                                        <div className="relative group">
+                                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-ministry-orange" />
+                                            <input
+                                                className="w-full pl-10 pr-4 py-4 bg-white border border-gray-200 rounded-xl text-lg focus:outline-none focus:border-ministry-orange focus:ring-1 focus:ring-ministry-orange transition-all"
+                                                placeholder={activeTab === 'checkout' ? "Search Checked-In Children..." : "Search Child, Parent..."}
+                                                value={searchQuery}
+                                                onChange={e => setSearchQuery(e.target.value)}
+                                            />
+                                        </div>
+
+                                        {(true) && (
+                                            <div className="bg-white border border-gray-200 rounded-xl shadow-lg divide-y divide-gray-100 max-h-96 overflow-y-auto">
+                                                <div className="p-3 bg-gray-50 border-b border-gray-100 text-xs font-bold text-gray-500 uppercase">
+                                                    Showing {filteredChildren.length} {activeStatsFilter === 'FirstTimer' ? 'First Timers' : activeStatsFilter === 'CheckedOut' ? 'Checked Out Children' : 'Children'}
+                                                </div>
+                                                {filteredChildren.map(c => (
+                                                    <div key={c.id} className="p-4 flex justify-between items-center hover:bg-gray-50 transition-colors">
+                                                        <div className="flex-1 min-w-0 mr-4">
+                                                            <div className="flex items-center gap-2">
+                                                                <p className="font-bold text-gray-900 truncate">{c.name}</p>
+                                                                {(c.status === 'Checked In' || (selectedService && c.attendedServiceIds.includes(selectedService.id))) && (
+                                                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${c.status === 'Checked Out' ? 'bg-gray-100 text-gray-500' : 'bg-green-100 text-green-700'}`}>
+                                                                        {c.status === 'Checked Out' ? 'Checked Out' : 'Checked In'}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                            <p className="text-xs text-gray-500 truncate">{c.age} yrs • Parent: {c.parentName} ({c.parentContact})</p>
+                                                        </div>
+                                                        <div>
+                                                            {(c.status === 'Checked In' || (selectedService && c.attendedServiceIds.includes(selectedService.id) && c.status !== 'Checked Out')) ? (
+                                                                <div className="flex items-center space-x-3">
+                                                                    <button
+                                                                        onClick={() => handleCheckOut(c.id)}
+                                                                        className="flex items-center space-x-1 bg-gray-100 hover:bg-gray-200 text-gray-800 px-3 py-1.5 rounded-lg font-bold text-xs transition-colors border border-gray-300 shadow-sm"
+                                                                    >
+                                                                        <LogOut className="w-3 h-3" />
+                                                                        <span>Check Out</span>
+                                                                    </button>
+                                                                </div>
+                                                            ) : (
+                                                                <>
+                                                                    {/* Check In Action for CheckIn Tab */}
+                                                                    {activeTab === 'checkin' && (
+                                                                        <button
+                                                                            onClick={() => handleCheckIn(c.id)}
+                                                                            className="bg-ministry-text text-white px-4 py-1.5 rounded-lg font-bold text-xs hover:bg-black transition-colors shadow-sm flex items-center"
+                                                                        >
+                                                                            <CheckCircle className="w-3 h-3 mr-1.5" />
+                                                                            Check In
+                                                                        </button>
+                                                                    )}
+                                                                    {/* If in Checkout tab but child not checked in */}
+                                                                    {activeTab === 'checkout' && (
+                                                                        <span className="text-xs text-gray-400 font-medium bg-gray-50 px-2 py-1 rounded">Not Checked In</span>
+                                                                    )}
+                                                                </>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                        {filteredChildren.length === 0 && (
+                                            <div className="p-4 text-center text-gray-500">
+                                                {activeTab === 'checkout'
+                                                    ? "No checked-in children found matching search."
+                                                    : (
+                                                        <>
+                                                            No child found. <button onClick={() => setViewMode('add-child')} className="text-ministry-orange font-bold hover:underline">Register New?</button>
+                                                        </>
+                                                    )
+                                                }
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>
@@ -950,6 +1366,13 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                                                 <select disabled={!isEditingChild} value={formData.gender} onChange={handleInputChange} name="gender" className={`w-full p-2 border rounded-lg ${!isEditingChild ? 'bg-gray-50 border-transparent' : 'bg-white border-gray-200'}`}>
                                                     <option value="Male">Male</option>
                                                     <option value="Female">Female</option>
+                                                </select>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="text-xs font-bold text-gray-500">Category</label>
+                                                <select disabled={!isEditingChild} value={formData.category} onChange={handleInputChange} name="category" className={`w-full p-2 border rounded-lg ${!isEditingChild ? 'bg-gray-50 border-transparent' : 'bg-white border-gray-200'}`}>
+                                                    <option value="Member">Member</option>
+                                                    <option value="First Timer">First Timer</option>
                                                 </select>
                                             </div>
                                             <div className="space-y-1">
@@ -1131,7 +1554,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                 )}
 
             </div>
-        </div>
+        </div >
     );
 };
 

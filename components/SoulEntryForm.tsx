@@ -9,11 +9,12 @@ interface SoulEntryFormProps {
     sourceId: string;
     sourceName?: string;
     existingMember?: any; // Ideally Member type
+    initialData?: Soul;
     onSubmit: (data: Omit<Soul, 'id' | 'createdAt'>) => void;
     onCancel?: () => void;
 }
 
-const SoulEntryForm: React.FC<SoulEntryFormProps> = ({ sourceType, sourceId, sourceName, existingMember, onSubmit, onCancel }) => {
+const SoulEntryForm: React.FC<SoulEntryFormProps> = ({ sourceType, sourceId, sourceName, existingMember, initialData, onSubmit, onCancel }) => {
     const { confirm: askConfirm } = useNotification();
     const [formData, setFormData] = useState<any>({
         firstName: '',
@@ -30,9 +31,28 @@ const SoulEntryForm: React.FC<SoulEntryFormProps> = ({ sourceType, sourceId, sou
         invitedBy: { name: '', contact: '' }
     });
 
-    // Pre-fill if member provided
+    // Device Pre-fill (Edit Mode or Member Select)
     React.useEffect(() => {
-        if (existingMember) {
+        if (initialData) {
+            setFormData({
+                firstName: initialData.firstName,
+                lastName: initialData.lastName,
+                phone: initialData.phone,
+                email: initialData.email || '',
+                gender: initialData.gender,
+                residence: initialData.residence,
+                notes: initialData.notes || '',
+                studentStatus: initialData.studentStatus || 'None',
+                age: initialData.age,
+                occupation: initialData.occupation || '',
+                preferredCallTime: initialData.preferredCallTime || '',
+                invitedBy: initialData.invitedBy || { name: '', contact: '' }
+            });
+            // Also set entry type based on status
+            if (initialData.status === 'Confirmed') {
+                setEntryType('Confirmation');
+            }
+        } else if (existingMember) {
             setFormData((prev: any) => ({
                 ...prev,
                 firstName: existingMember.name ? existingMember.name.split(' ')[0] : '',
@@ -42,7 +62,7 @@ const SoulEntryForm: React.FC<SoulEntryFormProps> = ({ sourceType, sourceId, sou
                 gender: existingMember.gender || 'Male',
             }));
         }
-    }, [existingMember]);
+    }, [existingMember, initialData]);
 
     const [entryType, setEntryType] = useState<'Soul' | 'Confirmation'>('Soul');
 
@@ -81,7 +101,7 @@ const SoulEntryForm: React.FC<SoulEntryFormProps> = ({ sourceType, sourceId, sou
             <div className="flex justify-between items-center mb-6">
                 <h3 className="text-xl font-bold flex items-center text-gray-800">
                     <UserPlus className="w-5 h-5 mr-2 text-ministry-orange" />
-                    Add Soul {sourceName ? `for ${sourceName}` : ''}
+                    {initialData ? 'Edit Soul Details' : `Add Soul ${sourceName ? `for ${sourceName}` : ''}`}
                 </h3>
                 {onCancel && (
                     <button onClick={onCancel} className="text-gray-400 hover:text-gray-600">

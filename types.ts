@@ -61,6 +61,7 @@ export interface MinistryEvent {
   location: string;
   description: string;
   stats: EventStats;
+  serviceNumber?: number;
 }
 
 export interface User {
@@ -109,6 +110,7 @@ export interface Child {
   parentContact: string;
   age: number;
   gender: 'Male' | 'Female';
+  category?: 'Member' | 'First Timer' | 'Guest'; // Added Category
   residence: string;
   allergies?: string;
   status: 'Checked In' | 'Checked Out' | 'Absent';
@@ -254,6 +256,7 @@ export interface Soul {
     name: string;
     contact: string;
   };
+  ministry?: 'Main' | 'Next Gen';
 }
 
 export enum ModalType {

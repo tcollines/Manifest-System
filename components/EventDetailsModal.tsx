@@ -88,6 +88,9 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({ event, onClose })
           firstTimersCount = Math.max(logisticsFirstTimers, serviceStats.firstTimers);
         }
 
+        // Fetch Aggregated Souls Count (Main + Next Gen)
+        const totalSouls = await SoulsStore.getServiceStats(event.id);
+
         setStats({
           vehicles: eventVehicles.length,
           personalCars: eventPersonalCars,
@@ -95,7 +98,9 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({ event, onClose })
           institutions: eventPassengers.filter(p => p.category === 'Institution').length,
           attendees: totalAttendees,
           firstTimers: firstTimersCount,
-          soulsWon: soulsWonCount,
+          firstTimers: firstTimersCount,
+          soulsWon: totalSouls || soulsWonCount, // Prefer DB stats, fallback to logistics count
+          children: logisticsChildren,
           children: logisticsChildren,
           expenditure: totalExpenditure.toLocaleString()
         });
@@ -191,6 +196,7 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({ event, onClose })
                                 <div class="header">
                                     <h1 class="title">${event.title}</h1>
                                     <div class="meta">${event.date} • ${event.time} | ${event.location}</div>
+                                    ${event.serviceNumber ? `<div class="meta" style="margin-top: 10px; font-weight: bold;">SERVICE NUMBER: ${event.serviceNumber}</div>` : ''}
                                 </div>
                                 <div class="grid">
                                     <div class="card"><div class="label">Total Attendees</div><div class="value">${stats.attendees}</div></div>

@@ -1,5 +1,6 @@
 import { Soul } from '../types';
 import { supabase } from '../services/supabaseClient';
+import { NextGenSoulsStore } from './nextGenSoulsStore';
 
 const mapSoulFromDB = (s: any): Soul => ({
     id: s.id,
@@ -19,7 +20,8 @@ const mapSoulFromDB = (s: any): Soul => ({
     studentStatus: s.student_status,
     age: s.age,
     occupation: s.occupation,
-    invitedBy: s.invited_by // Assumed JSONB or structured text
+    invitedBy: s.invited_by, // Assumed JSONB or structured text
+    ministry: s.ministry
 });
 
 const mapSoulToDB = (s: Soul) => ({
@@ -39,7 +41,8 @@ const mapSoulToDB = (s: Soul) => ({
     student_status: s.studentStatus,
     age: s.age,
     occupation: s.occupation,
-    invited_by: s.invitedBy // Supabase handles object -> JSONB auto conversion often, or check types
+    invited_by: s.invitedBy, // Supabase handles object -> JSONB auto conversion often, or check types
+    ministry: s.ministry
 });
 
 export const SoulsStore = {
@@ -71,6 +74,8 @@ export const SoulsStore = {
         }
     },
 
+
+
     add: async (soul: Soul): Promise<void> => {
         const { error } = await supabase.from('souls').insert([mapSoulToDB(soul)]);
         if (error) throw error;
@@ -83,7 +88,7 @@ export const SoulsStore = {
 
     getServiceStats: async (serviceId: string): Promise<number> => {
         try {
-            const { count, error } = await supabase
+            const { count: mainCount, error } = await supabase
                 .from('souls')
                 .select('*', { count: 'exact', head: true })
                 .eq('source_type', 'Service')
@@ -93,7 +98,11 @@ export const SoulsStore = {
                 console.error('Error fetching souls stats:', error);
                 return 0;
             }
-            return count || 0;
+
+            // Aggregate Next Gen Souls
+            const nextGenCount = await NextGenSoulsStore.getCountByService(serviceId);
+
+            return (mainCount || 0) + nextGenCount;
         } catch (e) {
             console.error('Unexpected error fetching souls stats:', e);
             return 0;

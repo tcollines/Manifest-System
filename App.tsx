@@ -503,7 +503,7 @@ const App: React.FC = () => {
           {activeTab === 'next-gen' && <NextGenDashboard events={events} currentUser={currentUser} onOpenModal={setModalType} />}
           {activeTab === 'transportation' && <TransportationDashboard currentUser={currentUser} events={events} onOpenModal={setModalType} />}
           {activeTab === 'finance' && <FinanceDashboard currentUser={currentUser} onOpenModal={setModalType} />}
-          {activeTab === 'follow-up' && <FollowUpDashboard onOpenModal={setModalType} />}
+          {activeTab === 'follow-up' && <FollowUpDashboard onOpenModal={setModalType} currentUser={currentUser} />}
           {activeTab === 'parking' && <ParkingDashboard events={events} onOpenModal={setModalType} />}
           {activeTab === 'schools' && <SchoolsDashboard currentUser={currentUser} events={events} onOpenModal={setModalType} />}
           {activeTab === 'requisitions' && (

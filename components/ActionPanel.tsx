@@ -26,6 +26,7 @@ const ActionPanel: React.FC<ActionPanelProps> = ({ modalType, closeModal, onSave
     description: '',
     location: 'Main Auditorium',
     targetCount: '',
+    serviceNumber: '',
     // User Form fields
     fullname: '',
     email: '',
@@ -48,6 +49,7 @@ const ActionPanel: React.FC<ActionPanelProps> = ({ modalType, closeModal, onSave
       description: '',
       location: 'Main Auditorium',
       targetCount: '',
+      serviceNumber: '',
       fullname: '',
       email: '',
       contact: '256', // Initialize with 256
@@ -129,7 +131,8 @@ const ActionPanel: React.FC<ActionPanelProps> = ({ modalType, closeModal, onSave
         time: formData.time,
         location: formData.location,
         description: formData.description || 'No description provided.',
-        stats: { attendees: 0, firstTimers: 0, soulsWon: 0, nextGen: 0, students: 0, expenditure: '$0.00' }
+        stats: { attendees: 0, firstTimers: 0, soulsWon: 0, nextGen: 0, students: 0, expenditure: '$0.00' },
+        serviceNumber: formData.serviceNumber ? parseInt(formData.serviceNumber) : undefined
       };
       if (onSave) onSave(newEvent);
     } else if (modalType === ModalType.SET_TARGETS) {
@@ -385,7 +388,6 @@ const ActionPanel: React.FC<ActionPanelProps> = ({ modalType, closeModal, onSave
                       disabled={!canEditDept}
                       className={`w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-ministry-text focus:outline-none focus:border-ministry-orange ${!canEditDept ? 'opacity-60 bg-gray-100 cursor-not-allowed' : ''}`}
                     >
-                      <option value="">None</option>
                       {DEPARTMENTS.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                     </select>
                   </div>
@@ -429,6 +431,20 @@ const ActionPanel: React.FC<ActionPanelProps> = ({ modalType, closeModal, onSave
                   placeholder="e.g. Main Auditorium"
                 />
               </div>
+
+              {modalType === ModalType.CREATE_SERVICE && (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-500">Service Number (e.g. 376)</label>
+                  <input
+                    name="serviceNumber"
+                    value={formData.serviceNumber}
+                    onChange={handleInputChange}
+                    type="number"
+                    className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-ministry-text focus:outline-none focus:border-ministry-orange"
+                    placeholder="376"
+                  />
+                </div>
+              )}
             </>
           )}
 

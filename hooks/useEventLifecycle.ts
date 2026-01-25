@@ -57,7 +57,7 @@ export const useEventLifecycle = () => {
                         }
                     };
 
-                    console.log(`[Lifecycle] Snapshotting stats for locked event: ${event.title}`);
+
                     await EventStore.update(updatedEvent);
                 }
             }
@@ -72,7 +72,7 @@ export const useEventLifecycle = () => {
             });
 
             if (usersToRemove.length > 0) {
-                console.log(`[Lifecycle] Removing ${usersToRemove.length} expired users linked to locked events...`);
+
                 for (const user of usersToRemove) {
                     await UserStore.remove(user.id);
                 }

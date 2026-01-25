@@ -458,17 +458,14 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, onOpen
         printWindow.document.close();
     };
 
-    // --- ACCOUNTABILITY PRINT LOGIC ---
-    const handlePrintAccountability = async (vehicle: Vehicle) => {
+    // --- ACCOUNTABILITY PRINT LOGIC (REFACTORED FOR BATCH) ---
+    const generateAccountabilityHTML = (vehicle: Vehicle, globalManifest: any, manifestName: string) => {
         const vPassengers = passengers.filter(p => p.vehicleId === vehicle.id);
-        const globalManifest = await ManifestStore.get();
-        const manifestName = globalManifest?.name || 'MINISTRY MANIFEST';
         const coordinator = availableCoordinators.find(u => u.name === vehicle.coordinator);
         const coordContact = coordinator?.contact || '______________________';
 
         // Stats
         const residents = vPassengers.filter(p => p.category === 'Member');
-        const schools = vPassengers.filter(p => p.category === 'Student'); // Assuming 'Student' covers both attached to school and institution for now, but screenshot implies separation. 
         // Logic check: 'Student' category usually has 'school' field. 'Institution' category has 'school' field too. 
         // Let's rely on p.category. 
         const schoolStudents = vPassengers.filter(p => p.category === 'Student');
@@ -479,43 +476,8 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, onOpen
         const vehicleCost = parseFloat(vehicle.financeDetails?.ongoingDispatch || '0');
         const costPerHead = totalSouls > 0 ? (vehicleCost / totalSouls) : 0;
 
-        const printWindow = window.open('', '_blank');
-        if (!printWindow) return;
-
-        const htmlContent = `
-            <html>
-            <head>
-                <title>Accountability Form - ${vehicle.number_plate}</title>
-                <style>
-                    @media print {
-                        @page { size: landscape; margin: 10mm; }
-                        body { -webkit-print-color-adjust: exact; }
-                    }
-                    body { font-family: 'Arial', sans-serif; font-size: 11px; padding: 20px; }
-                    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-                    .logo { font-size: 24px; font-weight: bold; }
-                    .title { font-size: 18px; font-weight: bold; text-transform: uppercase; text-align: center; width: 100%; }
-                    
-                    .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
-                    .meta-row { display: flex; margin-bottom: 5px; }
-                    .meta-label { font-weight: bold; width: 140px; }
-                    .meta-value { border-bottom: 1px dotted black; flex: 1; font-weight: bold; }
-
-                    .section-header { background: black; color: white; font-weight: bold; padding: 5px 10px; margin-top: 10px; text-transform: uppercase; font-size: 12px; }
-                    
-                    table.details-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-                    table.details-table td { border: 1px solid black; padding: 8px; vertical-align: top; }
-                    
-                    table.stats-table { width: 100%; border-collapse: collapse; margin-top: 5px; }
-                    table.stats-table th { background: white; border: 1px solid black; padding: 5px; font-weight: bold; text-align: center; }
-                    table.stats-table td { border: 1px solid black; padding: 5px; height: 30px; }
-                    
-                    .footer-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0; border: 1px solid black; }
-                    .footer-cell { padding: 10px; border-right: 1px solid black; }
-                    .footer-cell:last-child { border-right: none; }
-                </style>
-            </head>
-            <body>
+        return `
+            <div style="page-break-after: always; padding: 20px; border: 1px solid transparent; height: 95vh; box-sizing: border-box;">
                 <div class="header">
                     <div class="logo">
                         ${manifestName}
@@ -599,18 +561,67 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, onOpen
                         SIGNATURE: ___________________________________________________________
                     </div>
                 </div>
+            </div>
+        `;
+    };
 
+    const handlePrintBatchAccountability = async (batchVehicles: Vehicle[]) => {
+        const globalManifest = await ManifestStore.get();
+        const manifestName = globalManifest?.name || 'MINISTRY MANIFEST';
+
+        const pagesHtml = batchVehicles.map(v => generateAccountabilityHTML(v, globalManifest, manifestName)).join('');
+
+        const printWindow = window.open('', '_blank');
+        if (!printWindow) return;
+
+        const htmlContent = `
+            <html>
+            <head>
+                <title>Accountability Forms Batch</title>
+                <style>
+                    @media print {
+                        @page { size: landscape; margin: 10mm; }
+                        body { -webkit-print-color-adjust: exact; }
+                    }
+                    body { font-family: 'Arial', sans-serif; font-size: 11px; padding: 0; margin: 0; }
+                    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+                    .logo { font-size: 24px; font-weight: bold; }
+                    .title { font-size: 18px; font-weight: bold; text-transform: uppercase; text-align: center; width: 100%; }
+                    
+                    .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+                    .meta-row { display: flex; margin-bottom: 5px; }
+                    .meta-label { font-weight: bold; width: 140px; }
+                    .meta-value { border-bottom: 1px dotted black; flex: 1; font-weight: bold; }
+
+                    .section-header { background: black; color: white; font-weight: bold; padding: 5px 10px; margin-top: 10px; text-transform: uppercase; font-size: 12px; }
+                    
+                    table.details-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+                    table.details-table td { border: 1px solid black; padding: 8px; vertical-align: top; }
+                    
+                    table.stats-table { width: 100%; border-collapse: collapse; margin-top: 5px; }
+                    table.stats-table th { background: white; border: 1px solid black; padding: 5px; font-weight: bold; text-align: center; }
+                    table.stats-table td { border: 1px solid black; padding: 5px; height: 30px; }
+                    
+                    .footer-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0; border: 1px solid black; }
+                    .footer-cell { padding: 10px; border-right: 1px solid black; }
+                    .footer-cell:last-child { border-right: none; }
+                </style>
+            </head>
+            <body>
+                ${pagesHtml}
+                <script>
+                  window.onload = () => { setTimeout(() => { window.print(); window.close(); }, 500); };
+                </script>
             </body>
             </html>
         `;
 
         printWindow.document.write(htmlContent);
         printWindow.document.close();
-        printWindow.focus();
-        setTimeout(() => {
-            printWindow.print();
-            printWindow.close();
-        }, 500);
+    };
+
+    const handlePrintAccountability = async (vehicle: Vehicle) => {
+        await handlePrintBatchAccountability([vehicle]);
     };
 
     // --- STATS ---
@@ -954,41 +965,65 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, onOpen
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                    {eventVehicles.length === 0 ? (
-                                        <div className="col-span-3 text-center py-12 text-gray-400">No vehicles requiring finance attention.</div>
-                                    ) : (
-                                        eventVehicles.map(v => (
-                                            <div key={v.id} className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow">
-                                                <div className="flex justify-between items-start mb-2">
-                                                    <h4 className="text-lg font-bold font-mono text-gray-900">{v.number_plate}</h4>
-                                                    {fleetJourneyTab === 'All' && (
-                                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${v.approvals?.registration === 'Approved' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                                                            {v.approvals?.registration === 'Approved' ? 'Active' : 'Pending'}
-                                                        </span>
-                                                    )}
-                                                </div>
+                                {eventVehicles.length === 0 ? (
+                                    <div className="col-span-3 text-center py-12 text-gray-400">No vehicles requiring finance attention.</div>
+                                ) : (
+                                    <div className="col-span-full space-y-8">
+                                        {Array.from(new Set(eventVehicles.map(v => v.stationId))).sort().map(stationId => {
+                                            const stationVehicles = eventVehicles.filter(v => v.stationId === stationId);
+                                            const stationName = pickupStations.find(s => s.id === stationId)?.name || 'Unknown Station';
 
-                                                {fleetJourneyTab === 'Cleared' ? (
-                                                    <div className="mt-4 p-3 bg-green-50 border border-green-100 rounded-lg text-center">
-                                                        <p className="text-xs text-green-700 font-bold uppercase mb-1">Total Paid</p>
-                                                        <p className="text-lg font-black text-green-800">
-                                                            {formatMoney(parseFloat(v.financeDetails?.ongoingBalance || '0') + parseFloat(v.financeDetails?.returnDispatch || '0'))}
-                                                        </p>
+                                            return (
+                                                <div key={stationId} className="bg-gray-50 border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
+                                                    <div className="bg-white px-6 py-4 border-b border-gray-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                                                        <h4 className="text-lg font-bold text-gray-900 flex items-center gap-3">
+                                                            <div className="w-2 h-8 bg-ministry-orange rounded-full"></div>
+                                                            {stationName}
+                                                            <span className="text-sm font-normal text-gray-400">({stationVehicles.length} vehicles)</span>
+                                                        </h4>
+                                                        <button
+                                                            onClick={() => handlePrintBatchAccountability(stationVehicles)}
+                                                            className="flex items-center space-x-2 bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-black transition-colors shadow-sm"
+                                                        >
+                                                            <Printer className="w-4 h-4" /> <span>Print Station Batch</span>
+                                                        </button>
                                                     </div>
-                                                ) : (
-                                                    <button
-                                                        onClick={() => handleViewVehicle(v)}
-                                                        disabled={(selectedFleetEvent.type === 'Service' && isServiceClosed(selectedFleetEvent.date)) || (selectedFleetEvent.type === 'Event' && isEventLocked(selectedFleetEvent.date))}
-                                                        className={`py-2 rounded-lg text-sm font-bold transition-colors w-full mt-4 ${(selectedFleetEvent.type === 'Service' && isServiceClosed(selectedFleetEvent.date)) || (selectedFleetEvent.type === 'Event' && isEventLocked(selectedFleetEvent.date)) ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-ministry-text text-white hover:bg-ministry-orange'}`}
-                                                    >
-                                                        {(selectedFleetEvent.type === 'Service' && isServiceClosed(selectedFleetEvent.date)) || (selectedFleetEvent.type === 'Event' && isEventLocked(selectedFleetEvent.date)) ? 'View Only' : (fleetJourneyTab === 'All' ? 'View Details' : 'Process Finance')}
-                                                    </button>
-                                                )}
-                                            </div>
-                                        ))
-                                    )}
-                                </div>
+                                                    <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                                        {stationVehicles.map(v => (
+                                                            <div key={v.id} className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow">
+                                                                <div className="flex justify-between items-start mb-2">
+                                                                    <h4 className="text-lg font-bold font-mono text-gray-900">{v.number_plate}</h4>
+                                                                    {fleetJourneyTab === 'All' && (
+                                                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${v.approvals?.registration === 'Approved' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                                                                            {v.approvals?.registration === 'Approved' ? 'Active' : 'Pending'}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+
+                                                                {fleetJourneyTab === 'Cleared' ? (
+                                                                    <div className="mt-4 p-3 bg-green-50 border border-green-100 rounded-lg text-center">
+                                                                        <p className="text-xs text-green-700 font-bold uppercase mb-1">Total Paid</p>
+                                                                        <p className="text-lg font-black text-green-800">
+                                                                            {formatMoney(parseFloat(v.financeDetails?.ongoingBalance || '0') + parseFloat(v.financeDetails?.returnDispatch || '0'))}
+                                                                        </p>
+                                                                    </div>
+                                                                ) : (
+                                                                    <button
+                                                                        onClick={() => handleViewVehicle(v)}
+                                                                        disabled={(selectedFleetEvent.type === 'Service' && isServiceClosed(selectedFleetEvent.date)) || (selectedFleetEvent.type === 'Event' && isEventLocked(selectedFleetEvent.date))}
+                                                                        className={`py-2 rounded-lg text-sm font-bold transition-colors w-full mt-4 ${(selectedFleetEvent.type === 'Service' && isServiceClosed(selectedFleetEvent.date)) || (selectedFleetEvent.type === 'Event' && isEventLocked(selectedFleetEvent.date)) ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-ministry-text text-white hover:bg-ministry-orange'}`}
+                                                                    >
+                                                                        {(selectedFleetEvent.type === 'Service' && isServiceClosed(selectedFleetEvent.date)) || (selectedFleetEvent.type === 'Event' && isEventLocked(selectedFleetEvent.date)) ? 'View Only' : (fleetJourneyTab === 'All' ? 'View Details' : 'Process Finance')}
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>

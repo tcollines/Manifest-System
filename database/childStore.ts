@@ -10,6 +10,7 @@ const mapChildFromDB = (c: any): Child => ({
   parentContact: c.parent_contact,
   age: c.age,
   gender: c.gender,
+  category: c.category || 'Member', // Default to Member
   residence: c.residence,
   status: c.status || 'Absent',
   checkInTime: c.check_in_time,
@@ -25,6 +26,7 @@ const mapChildToDB = (c: Child) => ({
   parent_contact: c.parentContact,
   age: c.age,
   gender: c.gender,
+  category: c.category,
   residence: c.residence,
   status: c.status,
   check_in_time: c.checkInTime,

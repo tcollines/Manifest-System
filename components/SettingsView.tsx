@@ -19,7 +19,8 @@ import {
     FileText,
     Image,
     Globe,
-    Coins
+    Coins,
+    Search
 } from 'lucide-react';
 
 type SettingsTab = 'users' | 'map' | 'profile' | 'manifest';
@@ -36,6 +37,7 @@ interface SettingsViewProps {
 const SettingsView: React.FC<SettingsViewProps> = ({ users = [], openModal, onDeleteUser, onEditUser, currentUser, initialTab }) => {
     const { showToast, confirm: askConfirm } = useNotification();
     const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab || 'users');
+    const [searchQuery, setSearchQuery] = useState('');
 
     // Profile State
     const [profileName, setProfileName] = useState("James McGill");
@@ -65,9 +67,24 @@ const SettingsView: React.FC<SettingsViewProps> = ({ users = [], openModal, onDe
     }, []);
 
     // Filter users: Admins/Team Leaders see all, Leads see only their department
-    const filteredUsers = (isAdmin || isTeamLeader)
+    const baseUsers = (isAdmin || isTeamLeader)
         ? users
         : users.filter(u => u.departmentId === currentUser?.departmentId);
+
+    const filteredUsers = baseUsers.filter(user => {
+        if (!searchQuery) return true;
+        const query = searchQuery.toLowerCase();
+        const deptName = DEPARTMENTS.find(d => d.id === user.departmentId)?.name.toLowerCase() || '';
+
+        return (
+            user.name.toLowerCase().includes(query) ||
+            (user.email && user.email.toLowerCase().includes(query)) ||
+            (user.username && user.username.toLowerCase().includes(query)) ||
+            (user.contact && user.contact.includes(query)) ||
+            user.role.toLowerCase().includes(query) ||
+            deptName.includes(query)
+        );
+    });
 
     // Helper for contact validation
     const validateContact = (val: string) => {
@@ -267,7 +284,19 @@ const SettingsView: React.FC<SettingsViewProps> = ({ users = [], openModal, onDe
             {activeTab === 'users' && (
                 <div className="bg-ministry-card border border-gray-200 rounded-2xl p-6 shadow-sm min-h-[500px]">
                     <div className="flex justify-between items-center mb-6">
-                        <h3 className="text-lg font-bold text-gray-800">System Users</h3>
+                        <div className="flex items-center space-x-4">
+                            <h3 className="text-lg font-bold text-gray-800">System Users</h3>
+                            <div className="relative">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                                <input
+                                    type="text"
+                                    placeholder="Search users..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="pl-9 pr-4 py-2 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-ministry-orange focus:ring-1 focus:ring-ministry-orange w-64 transition-all"
+                                />
+                            </div>
+                        </div>
                         {openModal && (
                             <button
                                 onClick={() => openModal(ModalType.CREATE_USER)}

@@ -16,6 +16,7 @@ import { MemberStore } from '../database/memberStore';
 import { LogisticsStore, ExtendedStation } from '../database/logisticsStore';
 import { ManifestStore } from '../database/manifestStore';
 import { EventStore } from '../database/eventStore';
+import { SoulsStore } from '../database/soulsStore';
 import { supabase } from '../services/supabaseClient';
 import * as XLSX from 'xlsx';
 import {
@@ -59,7 +60,8 @@ import {
   CalendarCheck,
   History,
   Settings,
-  User as UserIcon
+  User as UserIcon,
+  Copy
 } from 'lucide-react';
 import EventDetailsModal from './EventDetailsModal';
 import { AssetsTab } from './AssetsTab';
@@ -1652,6 +1654,109 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
     }
   };
 
+  const handleCopyReport = async () => {
+    if (!selectedService) return;
+
+    // 1. Calculate Service Number
+    const getServiceNumber = () => {
+      const day = new Date(selectedService.date).getDay(); // 0 = Sunday, 4 = Thursday
+      const isThursday = day === 4;
+      const isSunday = day === 0;
+
+      if (!isThursday && !isSunday) return ""; // Only for Sun/Thu
+
+      // SEED LOGIC: Explicitly set numbers for specific start dates
+      if (selectedService.date === '2026-01-25') return "376";
+      if (selectedService.date === '2026-01-22') return "566";
+
+      // Filter events for the same day of week, BEFORE current date
+      const validPreviousServices = events
+        .filter(e => e.type === 'Service' && e.id !== selectedService.id) // Services only
+        .filter(e => {
+          const eDay = new Date(e.date).getDay();
+          const eDate = new Date(e.date);
+          const currentDate = new Date(selectedService.date);
+          // Same weekday (0 or 4) AND date is before current
+          return eDay === day && eDate < currentDate;
+        })
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()); // Descending (newest first)
+
+      const lastService = validPreviousServices[0];
+
+      if (!lastService) return "1"; // Default if none found
+
+      // Extract number from previous title (e.g. S376 -> 376, or #566 -> 566)
+      const match = lastService.title.match(/S(\d+)/i) || lastService.title.match(/(\d+)/);
+      if (match && match[1]) {
+        const num = parseInt(match[1]);
+        return (num + 1).toString();
+      }
+
+      // If title didn't have number, check if the PREVIOUS service was a seed date
+      if (lastService.date === '2026-01-25') return "377";
+      if (lastService.date === '2026-01-22') return "567";
+
+      return "1"; // Fallback
+    };
+
+    const serviceNum = getServiceNumber();
+    const dateObj = new Date(selectedService.date);
+
+    // Format Date: "22nd JANUARY 2026"
+    const dayOfMonth = dateObj.getDate();
+    const suffix = ["th", "st", "nd", "rd"][((dayOfMonth % 100) - 20) % 10] || ["th", "st", "nd", "rd"][dayOfMonth % 10] || "th";
+    const formattedDate = `${dayOfMonth}${suffix} ${dateObj.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }).toUpperCase()}`;
+
+    // Determine Header: THURSDAY FELLOWSHIP or SUNDAY SERVICE
+    const dayName = dateObj.toLocaleDateString('en-GB', { weekday: 'long' }).toUpperCase(); // THURSDAY
+    const headerTitle = dayName === 'THURSDAY' ? 'THURSDAY FELLOWSHIP' : 'SUNDAY SERVICE';
+    const mainHeader = dayName === 'THURSDAY' ? '*PHANEROO THURSDAY LIVE STREAM REPORT* 🌏' : '*PHANEROO SUNDAY SERVICE REPORT* 🌏';
+
+    // Fetch Fresh Souls Count
+    let freshSoulsWon = 0;
+    try {
+      freshSoulsWon = await SoulsStore.getServiceStats(selectedService.id);
+    } catch (e) {
+      console.error("Failed to fetch fresh souls count", e);
+    }
+
+    const attendance = checkInStats.total;
+    const firstTimers = checkInStats.firstTimers;
+    const soulsWon = freshSoulsWon;
+    const nextGen = selectedService.stats.manualChildrenCount || 0;
+
+    const reportText = `${mainHeader}
+  
+  💥 DATE: ${formattedDate}
+  
+  💥 REGION : Central.
+  
+  💥 ${headerTitle}: ${serviceNum}
+  
+  💥 LIVESTREAM CENTRE: ENTEBBE 👑
+  
+  💥 TOTAL ATTENDANCE: ${attendance}
+  
+  💥 FIRST TIMERS: ${firstTimers}
+  
+  💥 NUMBER OF SOULS WON: ${soulsWon}
+  
+  💥 TESTIMONIES:NONE
+  
+  👥NEXT GEN: ${nextGen}
+      `.trim();
+
+
+
+    try {
+      await navigator.clipboard.writeText(reportText);
+      showToast("Report copied to clipboard! 📋", 'success');
+    } catch (err) {
+      console.error("Failed to copy", err);
+      showToast("Failed to copy to clipboard", 'error');
+    }
+  };
+
   return (
     <div className="p-4 md:p-8 space-y-6 md:space-y-8 animate-in fade-in duration-500 relative pb-20 md:pb-8">
       {/* Delete Modal */}
@@ -1840,6 +1945,16 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
                     <Baby className="w-4 h-4" />
                     <span className="hidden md:inline">Children Count</span>
                   </button>
+                  {/* Copy Report Permission: Dept Admin, HOD, or Administration Dept (d0) */}
+                  {(['Administrator', 'Head of Dept', 'Reg. Admin'].includes(currentUser.role) || currentUser.departmentId === 'd0') && (
+                    <button
+                      onClick={handleCopyReport}
+                      className="flex items-center justify-center p-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 border border-gray-200 shadow-sm transition-colors"
+                      title="Copy WhatsApp Report"
+                    >
+                      <Copy className="w-4 h-4" />
+                    </button>
+                  )}
                   <button onClick={() => setViewMode('register-new')} className="flex items-center space-x-2 bg-ministry-orange text-white px-4 py-2 rounded-lg hover:bg-orange-600 shadow-md">
                     <UserPlus className="w-4 h-4" />
                     <span className="hidden md:inline">Register New</span>
