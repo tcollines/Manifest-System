@@ -188,22 +188,8 @@ const ActionPanel: React.FC<ActionPanelProps> = ({ modalType, closeModal, onSave
           console.warn("No onSaveUser handler provided");
         }
 
-        // 3. Send Magic Link (Delivery Mechanism Only)
-        try {
-          const { error } = await supabase.auth.signInWithOtp({
-            email: cleanEmail,
-            options: {
-              emailRedirectTo: `${window.location.origin}/setup-account?token=${invitationToken}`
-            }
-          });
-          if (error) throw error;
-
-          showToast(`User created and invite sent to ${cleanEmail}!`, 'success');
-        } catch (inviteError: any) {
-          console.error("Invite sending failed:", inviteError);
-          // User is created, but invite failed.
-          showToast(`User "${cleanName}" created, but invite failed (Error: ${inviteError.message}).`, 'warning');
-        }
+        // 3. No Invite Sent (User will use Google Login)
+        showToast(`User "${cleanName}" added. They can now login with Google.`, 'success');
 
         closeModal();
       } catch (err: any) {
@@ -497,8 +483,8 @@ const ActionPanel: React.FC<ActionPanelProps> = ({ modalType, closeModal, onSave
             {isSubmitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> :
               modalType === ModalType.CREATE_USER ? <Send className="w-4 h-4 mr-2" /> :
                 <Save className="w-4 h-4 mr-2" />}
-            {isTeamLeader && modalType === ModalType.CREATE_USER ? (isSubmitting ? 'Sending...' : 'Invite Administrator') :
-              modalType === ModalType.CREATE_USER ? (isSubmitting ? 'Sending...' : 'Send Invite') :
+            {isTeamLeader && modalType === ModalType.CREATE_USER ? (isSubmitting ? 'Adding...' : 'Add Administrator') :
+              modalType === ModalType.CREATE_USER ? (isSubmitting ? 'Adding...' : 'Add User') :
                 'Save Changes'}
           </button>
         </div>

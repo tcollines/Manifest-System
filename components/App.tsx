@@ -101,6 +101,23 @@ const App: React.FC = () => {
     }
   };
 
+  const handleGoogleLogin = async (email: string) => {
+    try {
+      const user = await UserStore.getByEmail(email);
+      if (user) {
+        setCurrentUser(user);
+        UserStore.saveSession(user);
+        setActiveTab('dashboard');
+        setLoginError(null);
+      } else {
+        setLoginError('No account found with this Google email.');
+      }
+    } catch (e) {
+      console.error("Google Login Error", e);
+      setLoginError('Google login failed. Please try again.');
+    }
+  };
+
   const handleLogout = () => {
     UserStore.clearSession(); // Clear session
     localStorage.removeItem('ministry_active_tab'); // Clear persisted tab
@@ -159,7 +176,7 @@ const App: React.FC = () => {
   };
 
   if (!currentUser) {
-    return <SignIn onLogin={handleLogin} error={loginError} />;
+    return <SignIn onLogin={handleLogin} onGoogleLogin={handleGoogleLogin} error={loginError} />;
   }
 
   return (

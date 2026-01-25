@@ -6,7 +6,8 @@ import { UserStore } from '../database/userStore';
 import { MemberStore } from '../database/memberStore';
 import { SoulsStore } from '../database/soulsStore';
 import { FinanceStore } from '../database/financeStore';
-import { X, Users, Heart, GraduationCap, DollarSign, Baby, Download, Calendar, MapPin, Bus, Building2 } from 'lucide-react';
+import { ParkingStore } from '../database/parkingStore';
+import { X, Users, Heart, GraduationCap, DollarSign, Baby, Download, Calendar, MapPin, Bus, Building2, Car } from 'lucide-react';
 
 interface EventDetailsModalProps {
   event: MinistryEvent | null;
@@ -28,6 +29,7 @@ const StatCard: React.FC<{ label: string; value: string | number; icon: React.FC
 const EventDetailsModal: React.FC<EventDetailsModalProps> = ({ event, onClose }) => {
   const [stats, setStats] = React.useState({
     vehicles: 0,
+    personalCars: 0,
     students: 0,
     institutions: 0,
     attendees: 0,
@@ -40,14 +42,13 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({ event, onClose })
   React.useEffect(() => {
     if (!event) return;
 
-
-
     const calculateStats = async () => {
       try {
         const allVehicles = await VehicleStore.getVehicles();
         const allStations = await LogisticsStore.getStations();
         const allPassengers = await VehicleStore.getPassengers();
         const allTransactions = await FinanceStore.getTransactions();
+        const allPersonalCars = await ParkingStore.getAll();
 
         // 1. Logistics Stats
         const eventStations = allStations.filter(s => s.eventId === event.id);
@@ -66,12 +67,16 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({ event, onClose })
           return sum + dispatchAmount;
         }, 0);
 
-        // Finance Transactions Expenditure (Expenses linked to this event)
+        // Finance Transactions Expenditure
         const financeExpenditure = allTransactions
           .filter(t => String(t.eventId) === String(event.id) && t.type === 'Expense')
           .reduce((sum, t) => sum + t.amount, 0);
 
         const totalExpenditure = fleetExpenditure + financeExpenditure;
+
+        // Personal Cars Stats
+        // Fetch from the source of truth (Table or Array Fallback)
+        const eventPersonalCars = await ParkingStore.getAttendanceCount(event.id);
 
         // 2. Service Stats (General Check-in)
         let totalAttendees = logisticsAttendees;
@@ -79,22 +84,19 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({ event, onClose })
 
         if (event.type === 'Service') {
           const serviceStats = await MemberStore.getServiceStats(event.id, event.date);
-          // Use the greater of the two or combine logic?
-          // ServiceStats.total is the Single Source of Truth for "Total People in Service" (if everyone is checked in).
-          // Logistics are people who used transport. They SHOULD be in ServiceStats if checked in.
-          // To be safe and show the MAX known audience:
           totalAttendees = Math.max(logisticsAttendees, serviceStats.total);
           firstTimersCount = Math.max(logisticsFirstTimers, serviceStats.firstTimers);
         }
 
         setStats({
           vehicles: eventVehicles.length,
+          personalCars: eventPersonalCars,
           students: eventPassengers.filter(p => p.category === 'Student').length,
           institutions: eventPassengers.filter(p => p.category === 'Institution').length,
           attendees: totalAttendees,
           firstTimers: firstTimersCount,
           soulsWon: soulsWonCount,
-          children: logisticsChildren, // Ideally this should also come from NextGen Store if possible
+          children: logisticsChildren,
           expenditure: totalExpenditure.toLocaleString()
         });
 
@@ -142,7 +144,8 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({ event, onClose })
             <StatCard label="Souls Won" value={stats.soulsWon || event.stats.soulsWon || 0} icon={Heart} colorClass="bg-red-500" />
 
             {/* Dynamic Stats */}
-            <StatCard label="Vehicles" value={stats.vehicles} icon={Bus} colorClass="bg-yellow-500" />
+            <StatCard label="Fleet Vehicles" value={stats.vehicles} icon={Bus} colorClass="bg-yellow-500" />
+            <StatCard label="Personal Cars" value={stats.personalCars} icon={Car} colorClass="bg-purple-500" />
             <StatCard label="Students" value={stats.students} icon={GraduationCap} colorClass="bg-indigo-500" />
             <StatCard label="Institutions" value={stats.institutions} icon={Building2} colorClass="bg-cyan-500" />
 
@@ -193,7 +196,8 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({ event, onClose })
                                     <div class="card"><div class="label">Total Attendees</div><div class="value">${stats.attendees}</div></div>
                                     <div class="card"><div class="label">First Timers</div><div class="value">${stats.firstTimers}</div></div>
                                     <div class="card"><div class="label">Souls Won</div><div class="value">${stats.soulsWon || event.stats?.soulsWon || 0}</div></div>
-                                    <div class="card"><div class="label">Vehicles</div><div class="value">${stats.vehicles}</div></div>
+                                    <div class="card"><div class="label">Fleet Vehicles</div><div class="value">${stats.vehicles}</div></div>
+                                    <div class="card"><div class="label">Personal Cars</div><div class="value">${stats.personalCars}</div></div>
                                     <div class="card"><div class="label">Students</div><div class="value">${stats.students}</div></div>
                                     <div class="card"><div class="label">Institutions</div><div class="value">${stats.institutions}</div></div>
                                     <div class="card"><div class="label">Children</div><div class="value">${stats.children}</div></div>

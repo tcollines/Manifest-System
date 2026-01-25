@@ -63,7 +63,10 @@ const ParkingDashboard: React.FC<ParkingDashboardProps> = ({ events = [], onOpen
                 forceUpdate(n => n + 1);
             })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'ministry_events' }, () => {
-                window.location.reload();
+                // Ideally we should refresh events, but since they are passed as props, 
+                // we rely on the parent (App.tsx) to handle global event updates or we could fetch manually if critical.
+                // For now, removing aggressive reload to prevent disruption.
+                refreshData();
             })
             .subscribe();
 
@@ -73,6 +76,8 @@ const ParkingDashboard: React.FC<ParkingDashboardProps> = ({ events = [], onOpen
     }, []);
 
     // Auto-Reset Stale Vehicles (Service Closed)
+    // Auto-Reset Stale Vehicles (Service Closed)
+    /* 
     useEffect(() => {
         // Only run if we have data to check
         if (vehicles.length > 0 && events.length > 0) {
@@ -110,6 +115,7 @@ const ParkingDashboard: React.FC<ParkingDashboardProps> = ({ events = [], onOpen
             }
         }
     }, [vehicles, events]); // Dependency on vehicles ensures it runs after fetch
+    */
 
     // New Vehicle Form State
     const initialFormState = {
@@ -123,10 +129,33 @@ const ParkingDashboard: React.FC<ParkingDashboardProps> = ({ events = [], onOpen
     const services = events.filter(e => e.type === 'Service').sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
     // Filtered lists
-    const filteredVehicles = vehicles.filter(v =>
-        v.number_plate.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        v.driverName.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    // Filtered lists
+    const filteredVehicles = vehicles.filter(v => {
+        const lowerQuery = searchQuery.toLowerCase().trim();
+        if (!lowerQuery) return true;
+
+        const tokens = lowerQuery.split(/\s+/).filter(Boolean);
+        const plate = v.number_plate.toLowerCase();
+        const name = v.driverName.toLowerCase();
+        // Normalize contact for searching (remove spaces/dashes) to allow partial match like '772' matching '0772...'
+        const contact = v.driverContact.replace(/\D/g, '');
+
+        return tokens.every(token => {
+            // Check Plate
+            // Remove space from plate for flex search? e.g. "UBA123" vs "UBA 123"
+            const cleanPlate = plate.replace(/\s/g, '');
+            if (plate.includes(token) || cleanPlate.includes(token)) return true;
+
+            // Check Name
+            if (name.includes(token)) return true;
+
+            // Check Contact (only if token contains digits)
+            const cleanToken = token.replace(/\D/g, '');
+            if (cleanToken.length > 0 && contact.includes(cleanToken)) return true;
+
+            return false;
+        });
+    });
 
     const checkedInVehicles = vehicles.filter(v => v.status === 'Checked In' && v.currentServiceId === selectedService?.id);
 
@@ -170,20 +199,22 @@ const ParkingDashboard: React.FC<ParkingDashboardProps> = ({ events = [], onOpen
         if (!selectedService) return;
         const vehicle = vehicles.find(v => v.id === vehicleId);
         if (vehicle) {
-            // Check if serviceId is already in history, if not add it
+            // Check In via Store (updates DB + Attendance Log)
+            await ParkingStore.checkIn(vehicleId, selectedService.id);
+
+            // Optimistic Update UI
             const history = vehicle.attendedServiceIds || [];
             const newHistory = history.includes(selectedService.id) ? history : [...history, selectedService.id];
 
-            const updated = {
+            const updated: PersonalVehicle = {
                 ...vehicle,
-                status: 'Checked In' as const,
+                status: 'Checked In',
                 currentServiceId: selectedService.id,
                 checkInTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
                 attendedServiceIds: newHistory
             };
-            await ParkingStore.update(updated);
-            // Optimistic Update
-            setVehicles(vehicles.map(v => v.id === vehicleId ? updated : v));
+
+            setVehicles(prev => prev.map(v => v.id === vehicleId ? updated : v));
             showToast("Vehicle Checked In Successfully!", 'success');
         }
     };
@@ -191,13 +222,16 @@ const ParkingDashboard: React.FC<ParkingDashboardProps> = ({ events = [], onOpen
     const handleCheckOut = async (vehicleId: string) => {
         const vehicle = vehicles.find(v => v.id === vehicleId);
         if (vehicle) {
-            const updated = {
+            await ParkingStore.checkOut(vehicleId);
+
+            // Optimistic Update UI
+            const updated: PersonalVehicle = {
                 ...vehicle,
-                status: 'Checked Out' as const,
+                status: 'Checked Out',
                 checkOutTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
             };
-            await ParkingStore.update(updated);
-            setVehicles(vehicles.map(v => v.id === vehicleId ? updated : v));
+
+            setVehicles(prev => prev.map(v => v.id === vehicleId ? updated : v));
         }
     };
 
@@ -221,20 +255,36 @@ const ParkingDashboard: React.FC<ParkingDashboardProps> = ({ events = [], onOpen
             return;
         }
 
+        // Create as ABSENT first, then Check In
         const newVehicle: PersonalVehicle = {
             id: `pv-${Date.now()}`,
             number_plate: formatted,
             driverName: formData.driverName,
             driverContact: formData.driverContact, // numbers only, max 12 digits
+            status: 'Absent',
+            registeredDate: new Date().toISOString().split('T')[0],
+            attendedServiceIds: []
+        };
+
+        // Add to DB
+        await ParkingStore.add(newVehicle);
+
+        // Update Local State (Absent)
+        // setVehicles([newVehicle, ...vehicles]); // We wait to update state until check-in for cleaner UI transition
+
+        // Perform Check In
+        await ParkingStore.checkIn(newVehicle.id, selectedService.id);
+
+        // Optimistic Final State
+        const checkedInVehicle: PersonalVehicle = {
+            ...newVehicle,
             status: 'Checked In',
             checkInTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             currentServiceId: selectedService.id,
-            registeredDate: new Date().toISOString().split('T')[0]
+            attendedServiceIds: [selectedService.id]
         };
 
-        await ParkingStore.add(newVehicle);
-        // Optimistic
-        setVehicles([newVehicle, ...vehicles]);
+        setVehicles([checkedInVehicle, ...vehicles]);
         setFormData(initialFormState);
         setViewMode('service-active');
         showToast(`Vehicle ${newVehicle.number_plate} Registered & Checked In!`, 'success');

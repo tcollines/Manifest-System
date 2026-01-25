@@ -78,6 +78,24 @@ export const ChildStore = {
     }
   },
 
+  delete: async (id: string): Promise<void> => {
+    try {
+      const { error } = await supabase.from('children').delete().eq('id', id);
+      if (error) console.error('Error deleting child:', error.message);
+    } catch (e: any) {
+      console.error('Unexpected error deleting child:', e.message || e);
+    }
+  },
+
+  bulkDelete: async (ids: string[]): Promise<void> => {
+    try {
+      const { error } = await supabase.from('children').delete().in('id', ids);
+      if (error) console.error('Error bulk deleting children:', error.message);
+    } catch (e: any) {
+      console.error('Unexpected error bulk deleting children:', e.message || e);
+    }
+  },
+
   getServiceAttendance: async (serviceId: string): Promise<number> => {
     try {
       // Query children where attended_service_ids contains serviceId

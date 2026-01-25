@@ -1,16 +1,18 @@
 
 import React, { useState } from 'react';
-import { ShieldCheck, Globe, Instagram, Facebook, Twitter, ArrowRight, KeyRound, ArrowLeft } from 'lucide-react';
+import { ShieldCheck, Globe, Instagram, Facebook, Twitter, ArrowRight, KeyRound, ArrowLeft, Eye, EyeOff } from 'lucide-react';
 import { supabase } from '../services/supabaseClient';
 
 interface SignInProps {
   onLogin: (username: string, password: string) => Promise<void>;
+  onGoogleLogin: (email: string) => Promise<void>;
   error?: string | null;
 }
 
-const SignIn: React.FC<SignInProps> = ({ onLogin, error }) => {
+const SignIn: React.FC<SignInProps> = ({ onLogin, onGoogleLogin, error }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [imageFailed, setImageFailed] = useState(false);
 
@@ -52,6 +54,60 @@ const SignIn: React.FC<SignInProps> = ({ onLogin, error }) => {
       setResetMessage(err.message || "Failed to send reset email.");
     }
   };
+
+  // Google Sign-In Integration
+  const googleButtonRef = React.useRef<HTMLDivElement>(null);
+  const GOOGLE_CLIENT_ID = "447429474582-6eg9fs0p9eg8gvqprof08ola4ikfgfjp.apps.googleusercontent.com";
+
+  React.useEffect(() => {
+    const initializeGoogleSignIn = () => {
+      if (window.google && googleButtonRef.current) {
+        window.google.accounts.id.initialize({
+          client_id: GOOGLE_CLIENT_ID,
+          callback: (response: any) => {
+            if (response.credential) {
+              const payload = decodeJwt(response.credential);
+              if (payload && payload.email) {
+                onGoogleLogin(payload.email);
+              }
+            }
+          },
+        });
+        window.google.accounts.id.renderButton(
+          googleButtonRef.current,
+          { theme: 'outline', size: 'large', type: 'standard', shape: 'pill', width: '320' }
+        );
+      }
+    };
+
+    // Helper to decode JWT (since we don't want to add a heavy jwt-decode lib just for this)
+    const decodeJwt = (token: string) => {
+      try {
+        const base64Url = token.split('.')[1];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const jsonPayload = decodeURIComponent(window.atob(base64).split('').map(function (c) {
+          return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+        }).join(''));
+        return JSON.parse(jsonPayload);
+      } catch (e) {
+        console.error("Failed to decode Google token", e);
+        return null;
+      }
+    };
+
+    // Check if script is loaded, if not wait for load
+    if (window.google) {
+      initializeGoogleSignIn();
+    } else {
+      const checkGoogle = setInterval(() => {
+        if (window.google) {
+          initializeGoogleSignIn();
+          clearInterval(checkGoogle);
+        }
+      }, 100);
+      return () => clearInterval(checkGoogle);
+    }
+  }, [onGoogleLogin]);
 
   return (
     <div className={`min-h-screen flex items-center justify-center p-4 relative overflow-hidden font-sans transition-colors duration-1000 ${imageFailed ? 'bg-[#008000]' : 'bg-black'}`}>
@@ -185,6 +241,17 @@ const SignIn: React.FC<SignInProps> = ({ onLogin, error }) => {
                 ) : (
                   /* --- LOGIN FORM --- */
                   <div className="space-y-6 animate-in fade-in slide-in-from-left duration-300">
+
+                    {/* Google Sign In at Top */}
+                    <div className="flex flex-col items-center space-y-4">
+                      <div ref={googleButtonRef} className="w-full flex justify-center"></div>
+                      <div className="relative flex py-1 items-center w-full">
+                        <div className="flex-grow border-t border-white/10"></div>
+                        <span className="flex-shrink-0 mx-4 text-white/30 text-[10px] uppercase tracking-widest font-bold">Or sign in with</span>
+                        <div className="flex-grow border-t border-white/10"></div>
+                      </div>
+                    </div>
+
                     <div className="space-y-2">
                       <label className="text-xs font-bold text-white/60 uppercase ml-1 tracking-wider">User Name</label>
                       <div className="relative group">
@@ -203,13 +270,20 @@ const SignIn: React.FC<SignInProps> = ({ onLogin, error }) => {
                       <label className="text-xs font-bold text-white/60 uppercase ml-1 tracking-wider">Password</label>
                       <div className="relative group">
                         <input
-                          type="password"
+                          type={showPassword ? "text" : "password"}
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
-                          className="block w-full px-5 py-4 bg-white/5 border border-white/10 rounded-2xl text-white placeholder-white/20 focus:outline-none focus:bg-white/10 focus:border-ministry-orange transition-all font-medium"
+                          className="block w-full px-5 py-4 bg-white/5 border border-white/10 rounded-2xl text-white placeholder-white/20 focus:outline-none focus:bg-white/10 focus:border-ministry-orange transition-all font-medium pr-12"
                           placeholder="••••••••"
                           required
                         />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors"
+                        >
+                          {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                        </button>
                       </div>
                       <div className="flex justify-end">
                         <button

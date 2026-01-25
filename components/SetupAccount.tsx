@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { User } from '../types';
 import { supabase } from '../services/supabaseClient';
 import { UserStore } from '../database/userStore';
-import { Save, Loader2, ShieldCheck, User as UserIcon, Lock } from 'lucide-react';
+import { Save, Loader2, ShieldCheck, User as UserIcon, Lock, Eye, EyeOff } from 'lucide-react';
 import { DEPARTMENTS } from '../constants';
 
 interface SetupAccountProps {
@@ -12,7 +12,6 @@ interface SetupAccountProps {
 }
 
 const SetupAccount: React.FC<SetupAccountProps> = ({ currentUser, onComplete, onLogout }) => {
-    // ... existing hooks ...
     const [formData, setFormData] = useState({
         username: '',
         password: '',
@@ -20,6 +19,8 @@ const SetupAccount: React.FC<SetupAccountProps> = ({ currentUser, onComplete, on
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -154,15 +155,22 @@ const SetupAccount: React.FC<SetupAccountProps> = ({ currentUser, onComplete, on
                             <div className="relative group">
                                 <input
                                     name="password"
-                                    type="password"
+                                    type={showPassword ? "text" : "password"}
                                     autoComplete="new-password"
                                     value={formData.password}
                                     onChange={handleInputChange}
-                                    className="w-full pl-10 pr-4 py-3.5 bg-black/20 border border-white/10 rounded-xl text-white placeholder-gray-600 focus:outline-none focus:bg-black/40 focus:border-ministry-orange/50 focus:ring-1 focus:ring-ministry-orange/50 transition-all"
+                                    className="w-full pl-10 pr-12 py-3.5 bg-black/20 border border-white/10 rounded-xl text-white placeholder-gray-600 focus:outline-none focus:bg-black/40 focus:border-ministry-orange/50 focus:ring-1 focus:ring-ministry-orange/50 transition-all font-medium"
                                     placeholder="••••••••"
                                     required
                                 />
                                 <Lock className="w-5 h-5 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2 transition-colors group-focus-within:text-ministry-orange" />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition-colors"
+                                >
+                                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                                </button>
                             </div>
                         </div>
 
@@ -171,15 +179,22 @@ const SetupAccount: React.FC<SetupAccountProps> = ({ currentUser, onComplete, on
                             <div className="relative group">
                                 <input
                                     name="confirmPassword"
-                                    type="password"
+                                    type={showConfirmPassword ? "text" : "password"}
                                     autoComplete="new-password"
                                     value={formData.confirmPassword}
                                     onChange={handleInputChange}
-                                    className="w-full pl-10 pr-4 py-3.5 bg-black/20 border border-white/10 rounded-xl text-white placeholder-gray-600 focus:outline-none focus:bg-black/40 focus:border-ministry-orange/50 focus:ring-1 focus:ring-ministry-orange/50 transition-all"
+                                    className="w-full pl-10 pr-12 py-3.5 bg-black/20 border border-white/10 rounded-xl text-white placeholder-gray-600 focus:outline-none focus:bg-white/10 focus:border-ministry-orange/50 focus:ring-1 focus:ring-ministry-orange/50 transition-all font-medium"
                                     placeholder="••••••••"
                                     required
                                 />
                                 <Lock className="w-5 h-5 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2 transition-colors group-focus-within:text-ministry-orange" />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition-colors"
+                                >
+                                    {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                                </button>
                             </div>
                         </div>
 

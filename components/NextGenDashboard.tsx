@@ -23,7 +23,12 @@ import {
     Smile,
     LogOut,
     FileText,
-    Upload
+    Upload,
+    BarChart3,
+    CalendarCheck,
+    History,
+    User as UserIcon,
+    Trash2
 } from 'lucide-react';
 
 interface NextGenDashboardProps {
@@ -33,7 +38,7 @@ interface NextGenDashboardProps {
 }
 
 type Tab = 'checkin' | 'checkout' | 'database';
-type ViewMode = 'list' | 'service-active' | 'add-child' | 'bulk-import';
+type ViewMode = 'list' | 'service-active' | 'add-child' | 'bulk-import' | 'child-detail';
 
 const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpenModal, currentUser }) => {
     const { showToast } = useNotification();
@@ -42,6 +47,17 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
     const [children, setChildren] = useState<Child[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedService, setSelectedService] = useState<MinistryEvent | null>(null);
+
+    // Detail View State
+    const [selectedChild, setSelectedChild] = useState<Child | null>(null);
+    const [isEditingChild, setIsEditingChild] = useState(false);
+
+    // Pagination State
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 50;
+
+    // Bulk Selection State
+    const [selectedChildIds, setSelectedChildIds] = useState<Set<string>>(new Set());
 
     // Force re-render
     const [, forceUpdate] = useState(0);
@@ -62,7 +78,9 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                 forceUpdate(n => n + 1);
             })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'ministry_events' }, () => {
-                window.location.reload();
+                // Avoiding full page reload. 
+                // Parent component should ideally handle event updates, or we can fetch if needed.
+                refreshData();
             })
             .subscribe();
 
@@ -117,6 +135,45 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
 
     // --- Handlers ---
 
+    // Selection Handlers
+    const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.checked) {
+            // Select all currently visible (or all? usually all visible)
+            // Let's select all in the database view (all filtered children)
+            const allIds = new Set(filteredChildren.map(c => c.id));
+            setSelectedChildIds(allIds);
+        } else {
+            setSelectedChildIds(new Set());
+        }
+    };
+
+    const handleSelectOne = (id: string) => {
+        const newSet = new Set(selectedChildIds);
+        if (newSet.has(id)) {
+            newSet.delete(id);
+        } else {
+            newSet.add(id);
+        }
+        setSelectedChildIds(newSet);
+    };
+
+    const handleDeleteSelected = async () => {
+        if (selectedChildIds.size === 0) return;
+
+        if (window.confirm(`Are you sure you want to delete ${selectedChildIds.size} children? This action cannot be undone.`)) {
+            const idsToDelete = Array.from(selectedChildIds);
+            try {
+                await ChildStore.bulkDelete(idsToDelete);
+                setChildren(prev => prev.filter(c => !selectedChildIds.has(c.id)));
+                setSelectedChildIds(new Set());
+                showToast(`Successfully deleted ${idsToDelete.length} children.`, 'success');
+            } catch (error) {
+                console.error("Bulk delete failed", error);
+                showToast("Failed to delete children.", 'error');
+            }
+        }
+    };
+
     const handleOpenService = (service: MinistryEvent) => {
         setSelectedService(service);
         setViewMode('service-active');
@@ -128,6 +185,8 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
         setSearchQuery('');
         setFormData(initialForm);
         setBulkText('');
+        setSelectedChild(null);
+        setIsEditingChild(false);
     };
 
     const handleCheckIn = async (childId: string) => {
@@ -181,7 +240,9 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
 
     const handleAddChild = async (e: React.FormEvent) => {
         e.preventDefault();
-        const isServiceActive = viewMode === 'service-active';
+        // Check if we are in a service context (selectedService is set)
+        // logic: If we have a selectedService, we assume manual registration implies check-in.
+        const isServiceActive = !!selectedService;
 
         const newChild: Child = {
             id: `c-${Date.now()}`,
@@ -205,7 +266,9 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
 
         if (isServiceActive) {
             showToast(`${newChild.name} registered and checked in successfully!`, 'success');
-            // Stay in service view
+            // Option: Redirect back to service view or stay to add more?
+            // Current behavior: Stay on form (reset) allowing rapid entry. 
+            // Users can click 'Back' to see the list.
         } else {
             showToast(`${newChild.name} added to Next Gen database.`, 'success');
             setViewMode('list');
@@ -307,6 +370,74 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
 
     // --- Render ---
 
+    // Pagination Logic
+    const paginatedChildren = filteredChildren.slice(
+        (currentPage - 1) * itemsPerPage,
+        currentPage * itemsPerPage
+    );
+
+    const handleViewChild = (child: Child) => {
+        setSelectedChild(child);
+        // Pre-fill form for editing
+        setFormData({
+            name: child.name,
+            parentName: child.parentName,
+            parentContact: child.parentContact,
+            age: String(child.age),
+            gender: child.gender,
+            residence: child.residence
+        });
+        setIsEditingChild(false);
+        setViewMode('child-detail');
+    };
+
+    const handleUpdateChild = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!selectedChild) return;
+
+        try {
+            const updatedChild: Child = {
+                ...selectedChild,
+                name: formData.name,
+                parentName: formData.parentName,
+                parentContact: formData.parentContact,
+                age: parseInt(formData.age) || 0,
+                gender: formData.gender as 'Male' | 'Female',
+                residence: formData.residence
+            };
+
+            await ChildStore.update(updatedChild);
+
+            // Update local state
+            setChildren(prev => prev.map(c => c.id === updatedChild.id ? updatedChild : c));
+            setSelectedChild(updatedChild);
+            setIsEditingChild(false);
+            showToast("Child profile updated successfully.", 'success');
+        } catch (error) {
+            console.error("Update failed", error);
+            showToast("Failed to update child profile.", 'error');
+        }
+    };
+
+    const handleDeleteChild = async (childId: string, e?: React.MouseEvent) => {
+        if (e) e.stopPropagation();
+
+        if (window.confirm('Are you sure you want to delete this child from the database? This action cannot be undone.')) {
+            try {
+                await ChildStore.delete(childId);
+                setChildren(prev => prev.filter(c => c.id !== childId));
+                // If in detail view, go back to list
+                if (viewMode === 'child-detail') {
+                    handleBack();
+                }
+                showToast('Child deleted successfully', 'success');
+            } catch (error) {
+                console.error("Delete failed", error);
+                showToast("Failed to delete child", 'error');
+            }
+        }
+    };
+
     return (
         <div className="p-4 md:p-8 space-y-8 animate-in fade-in duration-500">
             {/* Header */}
@@ -321,10 +452,10 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
             </div>
 
             {/* Navigation Tabs */}
-            {viewMode === 'list' && (
+            {(viewMode === 'list' || viewMode === 'child-detail') && (
                 <div className="flex space-x-1 bg-gray-100 p-1.5 rounded-xl w-fit overflow-x-auto">
                     <button
-                        onClick={() => setActiveTab('checkin')}
+                        onClick={() => { setActiveTab('checkin'); setViewMode('list'); }}
                         className={`flex items-center space-x-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${activeTab === 'checkin'
                             ? 'bg-black text-white shadow-md'
                             : 'text-gray-500 hover:text-gray-900'
@@ -334,7 +465,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                         <span>Check-In</span>
                     </button>
                     <button
-                        onClick={() => setActiveTab('checkout')}
+                        onClick={() => { setActiveTab('checkout'); setViewMode('list'); }}
                         className={`flex items-center space-x-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${activeTab === 'checkout'
                             ? 'bg-black text-white shadow-md'
                             : 'text-gray-500 hover:text-gray-900'
@@ -345,7 +476,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                     </button>
                     {!isRestrictedUser && (
                         <button
-                            onClick={() => setActiveTab('database')}
+                            onClick={() => { setActiveTab('database'); setViewMode('list'); }}
                             className={`flex items-center space-x-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${activeTab === 'database'
                                 ? 'bg-black text-white shadow-md'
                                 : 'text-gray-500 hover:text-gray-900'
@@ -438,30 +569,88 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                             </div>
                         </div>
 
-                        <div className="relative group max-w-lg">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                            <input
-                                className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:border-ministry-orange focus:ring-1 focus:ring-ministry-orange transition-all"
-                                placeholder="Search by Child, Parent, or Contact..."
-                                value={searchQuery}
-                                onChange={e => setSearchQuery(e.target.value)}
-                            />
+                        <div className="flex flex-col md:flex-row gap-4 items-center">
+                            <div className="relative group max-w-lg flex-1 w-full">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                                <input
+                                    className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:border-ministry-orange focus:ring-1 focus:ring-ministry-orange transition-all"
+                                    placeholder="Search by Child, Parent, or Contact..."
+                                    value={searchQuery}
+                                    onChange={e => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+                                />
+                            </div>
+                            {selectedChildIds.size > 0 && (
+                                <div className="flex items-center space-x-2 bg-gray-100 px-3 py-2 rounded-lg animate-in fade-in">
+                                    <span className="text-sm font-bold text-gray-700">{selectedChildIds.size} Selected</span>
+                                    <button
+                                        onClick={handleDeleteSelected}
+                                        className="flex items-center space-x-1 text-red-600 hover:text-red-800 text-sm font-bold bg-white px-3 py-1 rounded shadow-sm border border-red-100 hover:bg-red-50 transition-colors"
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                        <span>Delete</span>
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* PAGINATION CONTROLS */}
+                        <div className="flex justify-between items-center bg-white p-3 rounded-xl border border-gray-200 shadow-sm sticky top-0 z-10">
+                            <div>
+                                <span className="text-sm text-gray-600">Showing </span>
+                                <span className="font-bold text-gray-900">
+                                    {filteredChildren.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0} - {Math.min(currentPage * itemsPerPage, filteredChildren.length)}
+                                </span>
+                                <span className="text-sm text-gray-600"> of {filteredChildren.length} children</span>
+                            </div>
+                            <div className="flex space-x-2">
+                                <button
+                                    disabled={currentPage === 1}
+                                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                    className="px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed font-bold text-sm text-gray-700 transition-colors"
+                                >
+                                    Previous
+                                </button>
+                                <button
+                                    disabled={currentPage * itemsPerPage >= filteredChildren.length}
+                                    onClick={() => setCurrentPage(p => p + 1)}
+                                    className="px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed font-bold text-sm text-gray-700 transition-colors"
+                                >
+                                    Next
+                                </button>
+                            </div>
                         </div>
 
                         <div className="overflow-x-auto border border-gray-200 rounded-xl">
                             <table className="w-full text-left min-w-[600px]">
                                 <thead className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
                                     <tr>
+                                        <th className="px-6 py-4 w-10">
+                                            <input
+                                                type="checkbox"
+                                                className="rounded border-gray-300 text-ministry-orange focus:ring-ministry-orange"
+                                                checked={filteredChildren.length > 0 && selectedChildIds.size === filteredChildren.length}
+                                                onChange={handleSelectAll}
+                                            />
+                                        </th>
                                         <th className="px-6 py-4">Child Name</th>
                                         <th className="px-6 py-4">Age / Gender</th>
                                         <th className="px-6 py-4">Parent</th>
                                         <th className="px-6 py-4">Contact</th>
                                         <th className="px-6 py-4">Status</th>
+                                        <th className="px-6 py-4 text-right">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100 bg-white">
-                                    {filteredChildren.length > 0 ? filteredChildren.map(c => (
+                                    {paginatedChildren.length > 0 ? paginatedChildren.map(c => (
                                         <tr key={c.id} className="hover:bg-gray-50">
+                                            <td className="px-6 py-4">
+                                                <input
+                                                    type="checkbox"
+                                                    className="rounded border-gray-300 text-ministry-orange focus:ring-ministry-orange"
+                                                    checked={selectedChildIds.has(c.id)}
+                                                    onChange={() => handleSelectOne(c.id)}
+                                                />
+                                            </td>
                                             <td className="px-6 py-4 font-bold text-gray-900">{c.name}</td>
                                             <td className="px-6 py-4 text-sm text-gray-600">{c.age} yrs • {c.gender}</td>
                                             <td className="px-6 py-4 text-sm text-gray-600">{c.parentName}</td>
@@ -473,9 +662,19 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                                                     {c.status}
                                                 </span>
                                             </td>
+                                            <td className="px-6 py-4 text-right">
+                                                <div className="flex items-center justify-end gap-2">
+                                                    <button
+                                                        onClick={() => handleViewChild(c)}
+                                                        className="text-ministry-blue font-bold text-xs hover:underline bg-blue-50 px-3 py-1.5 rounded-lg flex items-center gap-1"
+                                                    >
+                                                        View
+                                                    </button>
+                                                </div>
+                                            </td>
                                         </tr>
                                     )) : (
-                                        <tr><td colSpan={5} className="p-8 text-center text-gray-500">No records found.</td></tr>
+                                        <tr><td colSpan={7} className="p-8 text-center text-gray-500">No records found.</td></tr>
                                     )}
                                 </tbody>
                             </table>
@@ -660,6 +859,162 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                         )}
                     </div>
                 )}
+
+                {/* --- CHILD DETAIL VIEW --- */}
+                {viewMode === 'child-detail' && selectedChild && (() => {
+                    // Calculate Stats
+                    // Filter services since joined date (safely handle dates)
+                    const joinedDate = new Date(selectedChild.joinedDate);
+                    const relevantServices = services.filter(s => {
+                        const sDate = new Date(s.date);
+                        // Check valid date and if service corresponds to post-joining (ignoring exact time)
+                        return !isNaN(sDate.getTime()) && sDate >= joinedDate;
+                    });
+
+                    const totalServicesSince = relevantServices.length || 1; // Avoid divide by zero
+                    const attendedCount = selectedChild.attendedServiceIds.length;
+                    const attendanceScore = Math.min(100, Math.round((attendedCount / totalServicesSince) * 100));
+
+                    // Map History
+                    const history = selectedChild.attendedServiceIds
+                        .map(id => services.find(s => s.id === id))
+                        .filter((s): s is MinistryEvent => !!s)
+                        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+                    return (
+                        <div className="space-y-6">
+                            <div className="flex items-center justify-between">
+                                <button onClick={handleBack} className="flex items-center space-x-2 text-gray-500 hover:text-gray-800 transition-colors">
+                                    <ArrowLeft className="w-5 h-5" />
+                                    <span className="font-bold">Back to Database</span>
+                                </button>
+                            </div>
+
+                            {/* Top Stats Cards */}
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 flex items-center gap-4">
+                                    <div className="p-3 bg-blue-50 rounded-full"><Users className="w-8 h-8 text-blue-600" /></div>
+                                    <div>
+                                        <p className="text-xs uppercase font-bold text-gray-400">Total Attended</p>
+                                        <p className="text-2xl font-black text-gray-900">{attendedCount} Services</p>
+                                    </div>
+                                </div>
+                                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 flex items-center gap-4">
+                                    <div className="p-3 bg-purple-50 rounded-full"><CalendarCheck className="w-8 h-8 text-purple-600" /></div>
+                                    <div>
+                                        <p className="text-xs uppercase font-bold text-gray-400">Total Services Held</p>
+                                        <p className="text-2xl font-black text-gray-900">{totalServicesSince} Held</p>
+                                        <p className="text-xs text-gray-500">Since Joined ({selectedChild.joinedDate})</p>
+                                    </div>
+                                </div>
+                                <div className="bg-ministry-text text-white p-6 rounded-2xl shadow-lg border-l-4 border-ministry-neon flex items-center gap-4">
+                                    <div className="p-3 bg-white/10 rounded-full"><BarChart3 className="w-8 h-8 text-white" /></div>
+                                    <div>
+                                        <p className="text-xs uppercase font-bold text-gray-400">Attendance Score</p>
+                                        <p className="text-3xl font-black">{attendanceScore}%</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="flex flex-col lg:flex-row gap-6">
+                                {/* LEFT: Profile Details */}
+                                <div className="flex-1 bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+                                    <div className="flex justify-between items-center mb-6 border-b border-gray-100 pb-4">
+                                        <h3 className="font-bold text-lg text-gray-800 flex items-center gap-2">
+                                            <UserIcon className="w-5 h-5" /> Child Profile
+                                        </h3>
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={() => handleDeleteChild(selectedChild.id)}
+                                                className="px-3 py-1.5 rounded-lg text-xs font-bold transition-colors bg-red-50 text-red-600 hover:bg-red-100 flex items-center gap-1"
+                                            >
+                                                <Trash2 className="w-3 h-3" /> Delete
+                                            </button>
+                                            <button
+                                                onClick={() => setIsEditingChild(!isEditingChild)}
+                                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${isEditingChild ? 'bg-gray-100 text-gray-600' : 'bg-blue-50 text-blue-600'}`}
+                                            >
+                                                {isEditingChild ? 'Cancel Editing' : 'Edit Details'}
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <form onSubmit={handleUpdateChild} className="space-y-4">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div className="space-y-1">
+                                                <label className="text-xs font-bold text-gray-500">Child Name</label>
+                                                <input disabled={!isEditingChild} value={formData.name} onChange={handleInputChange} name="name" className={`w-full p-2 border rounded-lg ${!isEditingChild ? 'bg-gray-50 border-transparent' : 'bg-white border-gray-200'}`} />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="text-xs font-bold text-gray-500">Gender</label>
+                                                <select disabled={!isEditingChild} value={formData.gender} onChange={handleInputChange} name="gender" className={`w-full p-2 border rounded-lg ${!isEditingChild ? 'bg-gray-50 border-transparent' : 'bg-white border-gray-200'}`}>
+                                                    <option value="Male">Male</option>
+                                                    <option value="Female">Female</option>
+                                                </select>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="text-xs font-bold text-gray-500">Age</label>
+                                                <input type="number" disabled={!isEditingChild} value={formData.age} onChange={handleInputChange} name="age" className={`w-full p-2 border rounded-lg ${!isEditingChild ? 'bg-gray-50 border-transparent' : 'bg-white border-gray-200'}`} />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="text-xs font-bold text-gray-500">Residence</label>
+                                                <input disabled={!isEditingChild} value={formData.residence} onChange={handleInputChange} name="residence" className={`w-full p-2 border rounded-lg ${!isEditingChild ? 'bg-gray-50 border-transparent' : 'bg-white border-gray-200'}`} />
+                                            </div>
+                                        </div>
+
+                                        <div className="bg-gray-50 p-4 rounded-xl space-y-4 border border-gray-100 mt-4">
+                                            <h4 className="font-bold text-gray-800 text-sm flex items-center"><Users className="w-4 h-4 mr-2" /> Parent / Guardian Info</h4>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                <div className="space-y-1">
+                                                    <label className="text-xs font-bold text-gray-500">Parent Name</label>
+                                                    <input disabled={!isEditingChild} value={formData.parentName} onChange={handleInputChange} name="parentName" className={`w-full p-2 border rounded-lg ${!isEditingChild ? 'bg-gray-50 border-transparent' : 'bg-white border-gray-200'}`} />
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <label className="text-xs font-bold text-gray-500">Contact</label>
+                                                    <div className={!isEditingChild ? 'pointer-events-none opacity-80' : ''}>
+                                                        <PhoneInput
+                                                            disabled={!isEditingChild}
+                                                            value={formData.parentContact}
+                                                            onChange={(val) => setFormData({ ...formData, parentContact: val })}
+                                                            className={`w-full ${!isEditingChild ? 'bg-gray-50 border-transparent' : 'bg-white'}`}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {isEditingChild && (
+                                            <div className="pt-4 flex justify-end">
+                                                <button type="submit" className="bg-ministry-text text-white px-6 py-2 rounded-xl font-bold hover:bg-ministry-orange transition-colors">Save Changes</button>
+                                            </div>
+                                        )}
+                                    </form>
+                                </div>
+
+                                {/* RIGHT: Attendance History */}
+                                <div className="w-full lg:w-1/3 bg-white border border-gray-200 rounded-xl p-6 shadow-sm h-fit">
+                                    <h3 className="font-bold text-lg text-gray-800 mb-4 flex items-center gap-2"><History className="w-5 h-5" /> Recent Activity</h3>
+                                    <div className="space-y-3 max-h-[500px] overflow-y-auto">
+                                        {history.map((evt, idx) => (
+                                            <div key={evt.id || idx} className="flex items-center p-3 bg-gray-50 rounded-lg border border-gray-100">
+                                                <div className="p-2 bg-green-100 rounded-full mr-3">
+                                                    <CheckCircle className="w-4 h-4 text-green-600" />
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm font-bold text-gray-900">{evt.title}</p>
+                                                    <p className="text-xs text-gray-500">{evt.date} • {evt.time}</p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                        {history.length === 0 && (
+                                            <p className="text-center text-gray-400 py-8 text-sm">No attendance records found.</p>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })()}
 
                 {/* --- ADD CHILD FORM --- */}
                 {viewMode === 'add-child' && (

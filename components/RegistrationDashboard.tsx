@@ -88,14 +88,8 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
   // Force re-render state
   const [, forceUpdate] = useState(0);
 
-  const [viewMode, setViewMode] = useState<ViewMode>(() => {
-    const saved = (localStorage.getItem('registration_view_mode') as ViewMode) || 'list';
-    // Immediate Guard: Functionally force 'list' for Logistics user if they are in an invalid view for their role
-    if (currentUser.role === 'Logistics' && saved === 'register-new') {
-      return 'list';
-    }
-    return saved;
-  });
+  // VIEW MODE SHOULD NOT BE PERSISTED - IT DEPENDS ON VOLATILE STATE (selectedService, etc.)
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
 
   useEffect(() => {
     localStorage.setItem('registration_active_tab', activeTab);
@@ -107,10 +101,6 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
       setActiveTab('events');
     }
   }, [currentUser.role]);
-
-  useEffect(() => {
-    localStorage.setItem('registration_view_mode', viewMode);
-  }, [viewMode]);
 
 
 
@@ -375,8 +365,10 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
       .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, () => { refreshDataRef.current(); forceUpdate(n => n + 1); })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'pickup_stations' }, () => { refreshDataRef.current(); forceUpdate(n => n + 1); })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'vehicles' }, () => { refreshDataRef.current(); forceUpdate(n => n + 1); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'personal_vehicles' }, () => { refreshDataRef.current(); forceUpdate(n => n + 1); })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'ministry_events' }, () => {
-        window.location.reload();
+        // Prevent aggressive reload. Parent should handle event updates.
+        refreshDataRef.current();
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'passengers' }, () => { refreshDataRef.current(); forceUpdate(n => n + 1); })
       .subscribe();

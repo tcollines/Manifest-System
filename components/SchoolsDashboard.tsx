@@ -49,6 +49,16 @@ export const SchoolsDashboard: React.FC<SchoolsDashboardProps> = ({
 
     useEffect(() => {
         loadReports();
+
+        const channel = supabase.channel('schools-live')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'school_outreach_reports' }, () => {
+                loadReports();
+            })
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
     }, []);
 
     const loadReports = async () => {
@@ -441,7 +451,7 @@ export const SchoolsDashboard: React.FC<SchoolsDashboardProps> = ({
         element.innerHTML = htmlContent;
 
         const opt = {
-            margin: [5, 5, 5, 5],
+            margin: [5, 5, 5, 5] as [number, number, number, number],
             filename: `${selectedEvent.title.replace(/\s+/g, '_')}_Manifests.pdf`,
             image: { type: 'jpeg' as const, quality: 0.98 },
             html2canvas: { scale: 2, scrollY: 0, useCORS: true },

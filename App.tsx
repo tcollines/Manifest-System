@@ -214,12 +214,56 @@ const App: React.FC = () => {
         setActiveTab(targetTab);
         localStorage.setItem('ministry_active_tab', targetTab);
         setLoginError(null);
-      } else {
-        setLoginError('Invalid credentials. Please try again.');
       }
     } catch (error) {
       console.error("Login Error:", error);
       setLoginError('An error occurred during login.');
+    }
+  };
+
+  const handleGoogleLogin = async (email: string) => {
+    try {
+      // Find user by email
+      const user = await UserStore.getByEmail(email);
+
+      if (user) {
+        setCurrentUser(user);
+        UserStore.saveSession(user);
+
+        // Check if new user needs setup (Invite flow or incomplete profile)
+        // For Google Auth, we auto-complete setup if username is missing
+        if (!user.username) {
+          const generatedUsername = user.email ? user.email.split('@')[0] : `user_${Date.now()}`;
+          const updatedUser: User = { ...user, username: generatedUsername, status: 'Active' }; // Activate user
+
+          try {
+            await UserStore.update(updatedUser); // Save to DB
+            setCurrentUser(updatedUser);
+            UserStore.saveSession(updatedUser);
+
+            const targetTab = getDashboardForUser(updatedUser);
+            setActiveTab(targetTab);
+            localStorage.setItem('ministry_active_tab', targetTab);
+            setLoginError(null);
+            return;
+          } catch (err) {
+            console.error("Failed to auto-update username", err);
+            // If update fails, fallback to setup
+            setActiveTab('setup-account');
+            return;
+          }
+        }
+
+        const targetTab = getDashboardForUser(user);
+        setActiveTab(targetTab);
+        localStorage.setItem('ministry_active_tab', targetTab);
+        setLoginError(null);
+      } else {
+        setLoginError('No account found with this Google email.');
+      }
+    } catch (e) {
+      console.error("Google Login Error", e);
+      setLoginError('Google login failed. Please try again.');
     }
   };
 
@@ -360,7 +404,7 @@ const App: React.FC = () => {
     // If on setup-account valid path but waiting for Auth?
     // We can show Loading... 
     // But SignIn handles login.
-    return <SignIn onLogin={handleLogin} error={loginError} />;
+    return <SignIn onLogin={handleLogin} onGoogleLogin={handleGoogleLogin} error={loginError} />;
   }
 
   // FORCE Setup if username is missing

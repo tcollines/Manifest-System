@@ -174,6 +174,14 @@ export interface PersonalVehicle {
   attendedServiceIds?: string[]; // History of attendance
 }
 
+export interface VehicleAttendance {
+  id: string;
+  vehicleId: string;
+  serviceId: string;
+  checkInTime: string;
+  checkOutTime?: string;
+}
+
 export interface Passenger {
   id: string;
   vehicleId: string;
