@@ -167,12 +167,21 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
         // If in checkout mode (Active Service View)
         if (viewMode === 'service-active' && selectedService) {
             const isAttended = c.attendedServiceIds.includes(selectedService.id);
-            if (!isAttended) return false;
 
-            if (activeStatsFilter === 'CheckedOut') return matchesSearch && c.status === 'Checked Out';
-            if (activeStatsFilter === 'FirstTimer') return matchesSearch && (c.category === 'First Timer' || c.joinedDate === selectedService.date);
-            // 'CheckIn' shows ALL attendees for this service.
-            // We rely on status badges to show if they are currently Checked In / Out.
+            // In Check-Out mode, only show attended children
+            if (activeTab === 'checkout') {
+                if (!isAttended) return false;
+                if (activeStatsFilter === 'CheckedOut') return matchesSearch && c.status === 'Checked Out';
+            }
+
+            // In Check-In mode, we allow searching ALL children to check them in.
+            // We might want to filter by 'FirstTimer' if that stat is clicked, but otherwise show matches.
+            if (activeTab === 'checkin') {
+                if (activeStatsFilter === 'FirstTimer') return matchesSearch && c.category === 'First Timer';
+                if (activeStatsFilter === 'CheckIn') return matchesSearch; // Show all matching search
+                // If filtering by 'CheckedOut' (although rare in checkin tab), handle if needed
+            }
+
             return matchesSearch;
         }
 
