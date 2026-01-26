@@ -57,7 +57,7 @@ const SignIn: React.FC<SignInProps> = ({ onLogin, onGoogleLogin, error }) => {
 
   // Google Sign-In Integration
   const googleButtonRef = React.useRef<HTMLDivElement>(null);
-  const GOOGLE_CLIENT_ID = "447429474582-6eg9fs0p9eg8gvqprof08ola4ikfgfjp.apps.googleusercontent.com";
+  const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "447429474582-6eg9fs0p9eg8gvqprof08ola4ikfgfjp.apps.googleusercontent.com";
 
   React.useEffect(() => {
     const initializeGoogleSignIn = () => {
