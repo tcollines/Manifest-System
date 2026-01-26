@@ -1,0 +1,24 @@
+import { Router } from 'express';
+import {
+    getMembers,
+    addMember,
+    updateMember,
+    deleteMember,
+    checkInMember,
+    getServiceStats,
+    getMemberDetails,
+    searchMembersWithStatus
+} from '../controllers/memberController';
+
+const router = Router();
+
+router.get('/', getMembers);
+router.post('/', addMember);
+router.put('/:id', updateMember);
+router.post('/delete', deleteMember); // Using POST for bulk delete with body
+router.post('/check-in', checkInMember);
+router.get('/stats/:serviceId', getServiceStats);
+router.get('/:id/details', getMemberDetails);
+router.get('/search-status/:serviceId', searchMembersWithStatus);
+
+export default router;
