@@ -165,6 +165,8 @@ const App: React.FC = () => {
         const targetTab = getDashboardForUser(user);
         navigate(targetTab);
         setLoginError(null);
+      } else {
+        setLoginError('Invalid username or password.');
       }
     } catch (error) {
       console.error("Login Error:", error);

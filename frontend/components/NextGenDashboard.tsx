@@ -110,17 +110,105 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
         fetchSouls();
     }, [selectedService]);
 
+    const selectedServiceRef = React.useRef(selectedService);
+    useEffect(() => {
+        selectedServiceRef.current = selectedService;
+    }, [selectedService]);
+
     useEffect(() => {
         refreshData();
 
         const channel = supabase.channel('nextgen-live')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'children' }, () => {
-                refreshData();
+            // Children: Granular Updates
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'children' }, (payload) => {
+                const newChild = payload.new as any;
+                setChildren(prev => {
+                    // Check existence
+                    if (prev.find(c => c.id === newChild.id)) return prev;
+                    // Map DB to Child
+                    const mapped: Child = {
+                        id: newChild.id,
+                        name: newChild.name,
+                        parentName: newChild.parent_name,
+                        parentContact: newChild.parent_contact,
+                        age: newChild.age,
+                        gender: newChild.gender,
+                        category: newChild.category,
+                        residence: newChild.residence,
+                        allergies: newChild.allergies,
+                        status: newChild.status,
+                        checkInTime: newChild.check_in_time,
+                        checkOutTime: newChild.check_out_time,
+                        joinedDate: newChild.joined_date,
+                        attendedServiceIds: newChild.attended_service_ids || []
+                    };
+                    return [mapped, ...prev];
+                });
             })
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'children' }, (payload) => {
+                const updated = payload.new as any;
+                setChildren(prev => prev.map(c => {
+                    if (c.id === updated.id) {
+                        return {
+                            ...c,
+                            name: updated.name,
+                            parentName: updated.parent_name,
+                            parentContact: updated.parent_contact,
+                            age: updated.age,
+                            gender: updated.gender,
+                            category: updated.category,
+                            residence: updated.residence,
+                            allergies: updated.allergies,
+                            status: updated.status,
+                            checkInTime: updated.check_in_time,
+                            checkOutTime: updated.check_out_time,
+                            attendedServiceIds: updated.attended_service_ids || []
+                        };
+                    }
+                    return c;
+                }));
+            })
+            .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'children' }, (payload) => {
+                setChildren(prev => prev.filter(c => c.id !== payload.old.id));
+            })
+
+            // Souls: Granular Updates
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'next_gen_souls' }, (payload) => {
+                const newSoul = payload.new as any;
+                // Add to list
+                setNextGenSouls(prev => [
+                    {
+                        id: newSoul.id,
+                        firstName: newSoul.first_name,
+                        lastName: newSoul.last_name,
+                        phone: newSoul.phone,
+                        age: newSoul.age,
+                        gender: newSoul.gender,
+                        residence: newSoul.residence,
+                        serviceId: newSoul.service_id,
+                        status: newSoul.status,
+                        capturedBy: newSoul.captured_by,
+                        notes: newSoul.notes,
+                        createdAt: newSoul.created_at
+                    },
+                    ...prev
+                ]);
+
+                // Update Count if Service Matches
+                if (selectedServiceRef.current && newSoul.service_id === selectedServiceRef.current.id) {
+                    setSoulsWonCount(prev => prev + 1);
+                }
+            })
+            .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'next_gen_souls' }, (payload) => {
+                setNextGenSouls(prev => prev.filter(s => s.id !== payload.old.id));
+                // For count, because 'old' might not have service_id, we re-fetch count safely if service is selected
+                if (selectedServiceRef.current) {
+                    NextGenSoulsStore.getCountByService(selectedServiceRef.current.id).then(setSoulsWonCount);
+                }
+            })
+
             .on('postgres_changes', { event: '*', schema: 'public', table: 'ministry_events' }, () => {
                 // Avoiding full page reload. 
-                // Parent component should ideally handle event updates, or we can fetch if needed.
-                refreshData();
             })
             .subscribe();
 
@@ -1079,7 +1167,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                                         </div>
                                         <h4 className="text-ministry-orange font-bold uppercase text-xs mb-2">Souls Won</h4>
                                         <p className="text-4xl font-black text-ministry-orange">
-                                            {soulsWonCount}
+                                            {nextGenSouls.filter(s => s.serviceId === selectedService.id).length}
                                         </p>
                                     </div>
 
@@ -1171,7 +1259,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                                         </div>
                                         <h4 className="text-ministry-orange font-bold uppercase text-xs mb-2">Souls Won</h4>
                                         <p className="text-4xl font-black text-ministry-orange">
-                                            {soulsWonCount}
+                                            {nextGenSouls.filter(s => s.serviceId === selectedService.id).length}
                                         </p>
                                     </button>
                                 </div>
