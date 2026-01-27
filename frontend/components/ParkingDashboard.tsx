@@ -57,15 +57,52 @@ const ParkingDashboard: React.FC<ParkingDashboardProps> = ({ events = [], onOpen
         refreshData();
 
         const channel = supabase.channel('parking-live')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'personal_vehicles' }, (payload) => {
-
-                refreshData();
-                forceUpdate(n => n + 1);
+            // Personal Vehicles: Granular Updates
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'personal_vehicles' }, (payload) => {
+                const newVehicle = payload.new as any;
+                setVehicles(prev => {
+                    if (prev.find(v => v.id === newVehicle.id)) return prev;
+                    const mapped: PersonalVehicle = {
+                        id: newVehicle.id,
+                        number_plate: newVehicle.number_plate,
+                        driverName: newVehicle.driver_name,
+                        driverContact: newVehicle.driver_contact,
+                        status: newVehicle.status,
+                        checkInTime: newVehicle.check_in_time,
+                        checkOutTime: newVehicle.check_out_time,
+                        currentServiceId: newVehicle.current_service_id,
+                        registeredDate: newVehicle.registered_date,
+                        attendedServiceIds: newVehicle.attended_service_ids || []
+                    };
+                    return [mapped, ...prev];
+                });
             })
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'personal_vehicles' }, (payload) => {
+                const updated = payload.new as any;
+                setVehicles(prev => prev.map(v => {
+                    if (v.id === updated.id) {
+                        return {
+                            ...v,
+                            number_plate: updated.number_plate,
+                            driverName: updated.driver_name,
+                            driverContact: updated.driver_contact,
+                            status: updated.status,
+                            checkInTime: updated.check_in_time,
+                            checkOutTime: updated.check_out_time,
+                            currentServiceId: updated.current_service_id,
+                            attendedServiceIds: updated.attended_service_ids || []
+                        };
+                    }
+                    return v;
+                }));
+            })
+            .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'personal_vehicles' }, (payload) => {
+                const deletedId = payload.old.id;
+                setVehicles(prev => prev.filter(v => v.id !== deletedId));
+            })
+
             .on('postgres_changes', { event: '*', schema: 'public', table: 'ministry_events' }, () => {
-                // Ideally we should refresh events, but since they are passed as props, 
-                // we rely on the parent (App.tsx) to handle global event updates or we could fetch manually if critical.
-                // For now, removing aggressive reload to prevent disruption.
+                // Ideally handle event updates granularly or ignore if handled by parent
                 refreshData();
             })
             .subscribe();

@@ -67,6 +67,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, onLogout, isOpen, onClos
   } else if (isNextGenHead) {
     menuItems = [
       { id: 'next-gen', label: 'Next Gen Dashboard', icon: Baby },
+      { id: 'events', label: 'Events & Services', icon: Calendar },
       { id: 'settings', label: 'Team Management', icon: Users },
       { id: 'requisitions', label: 'Requisitions', icon: FileText },
       { id: 'assets', label: 'Assets', icon: Package },

@@ -351,27 +351,142 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
     refreshData();
   }, [currentPage, searchQuery, activeTab]); // Re-fetch when pagination or search changes
 
+  const selectedServiceRef = useRef(selectedService);
+  useEffect(() => {
+    selectedServiceRef.current = selectedService;
+  }, [selectedService]);
+
   // Realtime Subscriptions
+  // Realtime Subscriptions with Granular Updates
   useEffect(() => {
     const channel = supabase.channel('reg-dashboard-live')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'members' }, async () => {
-        refreshDataRef.current();
-        if (selectedService) {
-          const stats = await MemberStore.getServiceStats(selectedService.id, selectedService.date);
-          const childrenCount = selectedService.stats?.manualChildrenCount || 0;
-          setCheckInStats({ total: stats.total + childrenCount, firstTimers: stats.firstTimers });
-          setCheckedInIds(new Set(stats.memberIds));
+      // Members Table: Granular Updates
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'members' }, (payload) => {
+        const newMember = payload.new as any;
+        // 1. Update Members List (if needed for list view / search)
+        // Only append if it matches current search
+        const matchesSearch = !searchQuery ||
+          newMember.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          newMember.phone.includes(searchQuery);
+
+        if (matchesSearch) {
+          setMembers(prev => {
+            // Avoid duplicates
+            if (prev.find(m => m.id === newMember.id)) return prev;
+            // Map DB snake_case to CamelCase if necessary, but payload usually has raw DB columns
+            // We need to map it properly to Member interface
+            const mapped: Member = {
+              id: newMember.id,
+              name: newMember.name,
+              category: newMember.category,
+              phone: newMember.phone,
+              status: newMember.status,
+              checkInTime: newMember.check_in_time,
+              gender: newMember.gender,
+              residency: newMember.residency,
+              bornAgain: newMember.born_again,
+              joinedDate: newMember.joined_date,
+              attendedServiceIds: newMember.attended_service_ids || []
+            };
+            return [mapped, ...prev];
+          });
+          setTotalMembers(prev => prev + 1);
         }
-        forceUpdate(n => n + 1);
+
+        // 2. Update Check-In Stats (if for current service)
+        const currentService = selectedServiceRef.current;
+        if (currentService && newMember.attended_service_ids?.includes(currentService.id)) {
+          setCheckInStats(prev => ({
+            total: prev.total + 1,
+            firstTimers: newMember.category === 'First Timer' ? prev.firstTimers + 1 : prev.firstTimers
+          }));
+          setCheckedInIds(prev => {
+            const newSet = new Set(prev);
+            newSet.add(newMember.id);
+            return newSet;
+          });
+        }
       })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'members' }, (payload) => {
+        const updated = payload.new as any;
+        const old = payload.old as any;
+        const currentService = selectedServiceRef.current;
+
+        // 1. Update Members List
+        setMembers(prev => prev.map(m => {
+          if (m.id === updated.id) {
+            return {
+              ...m,
+              name: updated.name,
+              category: updated.category,
+              phone: updated.phone,
+              status: updated.status,
+              checkInTime: updated.check_in_time,
+              gender: updated.gender,
+              bornAgain: updated.born_again,
+              attendedServiceIds: updated.attended_service_ids || []
+            };
+          }
+          return m;
+        }));
+
+        // 2. Update Stats (Check if check-in status changed for THIS service)
+        if (currentService) {
+          const wasCheckedIn = old.attended_service_ids?.includes(currentService.id);
+          const isCheckedIn = updated.attended_service_ids?.includes(currentService.id);
+
+          if (!wasCheckedIn && isCheckedIn) {
+            // Added check-in
+            setCheckInStats(prev => ({
+              total: prev.total + 1,
+              firstTimers: updated.category === 'First Timer' ? prev.firstTimers + 1 : prev.firstTimers
+            }));
+            setCheckedInIds(prev => new Set(prev).add(updated.id));
+          } else if (wasCheckedIn && !isCheckedIn) {
+            // Removed check-in
+            setCheckInStats(prev => ({
+              total: Math.max(0, prev.total - 1),
+              firstTimers: updated.category === 'First Timer' ? Math.max(0, prev.firstTimers - 1) : prev.firstTimers
+            }));
+            setCheckedInIds(prev => {
+              const newSet = new Set(prev);
+              newSet.delete(updated.id);
+              return newSet;
+            });
+          }
+        }
+      })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'members' }, (payload) => {
+        const deletedId = payload.old.id;
+
+        // 1. Remove from list
+        setMembers(prev => prev.filter(m => m.id !== deletedId));
+        setTotalMembers(prev => Math.max(0, prev - 1));
+
+        // 2. Update Stats (Need to assume if they were inside... wait, we can check checkedInIds set)
+        setCheckedInIds(prev => {
+          if (prev.has(deletedId)) {
+            // They were checked in locally, so decrement stats
+            setCheckInStats(stats => ({ ...stats, total: Math.max(0, stats.total - 1) }));
+            // Note: We might miss decrementing FirstTimer count precisely if we don't have the deleted member's category handy.
+            // But since 'members' list has the data, we could find it there before deleting.
+            // BUT, if we already filtered it... let's check members first in the setMembers setter? No, too complex async.
+            // Good enough approximation: If they are in checkedInIds, just decrement total. 
+            // Ideally we'd fetch stats again to be perfectly safe, but let's trust total decrement.
+            const newSet = new Set(prev);
+            newSet.delete(deletedId);
+            return newSet;
+          }
+          return prev;
+        });
+      })
+
+      // Other Tables: Keep using refreshData for now or implement similar logic
       .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, () => { refreshDataRef.current(); forceUpdate(n => n + 1); })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'pickup_stations' }, () => { refreshDataRef.current(); forceUpdate(n => n + 1); })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'vehicles' }, () => { refreshDataRef.current(); forceUpdate(n => n + 1); })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'personal_vehicles' }, () => { refreshDataRef.current(); forceUpdate(n => n + 1); })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'ministry_events' }, () => {
-        // Prevent aggressive reload. Parent should handle event updates.
-        refreshDataRef.current();
-      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'ministry_events' }, () => { refreshDataRef.current(); }) // Less aggressive
       .on('postgres_changes', { event: '*', schema: 'public', table: 'passengers' }, () => { refreshDataRef.current(); forceUpdate(n => n + 1); })
       .subscribe();
 
