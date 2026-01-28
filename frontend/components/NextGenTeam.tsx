@@ -524,7 +524,54 @@ const NextGenTeam: React.FC<NextGenTeamProps> = ({ currentUser }) => {
                         </div>
                     </div>
 
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                    {/* Mobile View (Cards) */}
+                    <div className="md:hidden space-y-4">
+                        {filteredVolunteers.map(volunteer => (
+                            <div key={volunteer.id} className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                                <div className="flex justify-between items-start mb-3">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-ministry-orange/10 to-ministry-neon/10 text-ministry-orange flex items-center justify-center text-xs font-bold border border-white shadow-sm">
+                                            {getInitials(volunteer.name)}
+                                        </div>
+                                        <div>
+                                            <div className="font-bold text-gray-900">{volunteer.name}</div>
+                                            <div className="text-xs text-gray-500 font-medium">{volunteer.role}</div>
+                                        </div>
+                                    </div>
+                                    {attendance[volunteer.id] && (
+                                        <div className="flex items-center">
+                                            {attendance[volunteer.id] === 'Present' && <CheckCircle className="w-5 h-5 text-green-500" />}
+                                            {attendance[volunteer.id] === 'Late' && <Clock className="w-5 h-5 text-yellow-500" />}
+                                            {attendance[volunteer.id] === 'Absent' && <AlertCircle className="w-5 h-5 text-red-500" />}
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="flex bg-gray-50 p-1 rounded-lg">
+                                    <button
+                                        onClick={() => handleAttendanceChange(volunteer.id, 'Present')}
+                                        className={`flex-1 py-2 rounded-md text-xs font-bold transition-all ${attendance[volunteer.id] === 'Present' ? 'bg-white text-green-600 shadow-sm ring-1 ring-green-100' : 'text-gray-500'}`}
+                                    >
+                                        Present
+                                    </button>
+                                    <button
+                                        onClick={() => handleAttendanceChange(volunteer.id, 'Late')}
+                                        className={`flex-1 py-2 rounded-md text-xs font-bold transition-all ${attendance[volunteer.id] === 'Late' ? 'bg-white text-yellow-600 shadow-sm ring-1 ring-yellow-100' : 'text-gray-500'}`}
+                                    >
+                                        Late
+                                    </button>
+                                    <button
+                                        onClick={() => handleAttendanceChange(volunteer.id, 'Absent')}
+                                        className={`flex-1 py-2 rounded-md text-xs font-bold transition-all ${attendance[volunteer.id] === 'Absent' ? 'bg-white text-red-600 shadow-sm ring-1 ring-red-100' : 'text-gray-500'}`}
+                                    >
+                                        Absent
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className="hidden md:block bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                         <table className="w-full text-left">
                             <thead className="bg-gray-50/50 border-b border-gray-100 text-xs uppercase text-gray-500 font-bold">
                                 <tr>
@@ -868,11 +915,36 @@ const NextGenTeam: React.FC<NextGenTeamProps> = ({ currentUser }) => {
                                 </select>
                             </div>
                         </div>
-                        {sortedTrainingRequests.length === 0 ? (
-                            <div className="p-8 text-center text-gray-400">
-                                No requests found.
-                            </div>
-                        ) : (
+                        {/* Mobile View */}
+                        <div className="md:hidden space-y-4 p-4">
+                            {sortedTrainingRequests.map(req => (
+                                <div key={req.id} className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                                    <div className="flex justify-between items-start mb-2">
+                                        <h4 className="font-bold text-gray-900">{req.topic}</h4>
+                                        <select
+                                            value={req.status}
+                                            onChange={(e) => handleTrainingStatusChange(req.id, e.target.value as any)}
+                                            className={`px-2 py-1 rounded text-xs font-bold border-none focus:ring-1 focus:ring-ministry-orange ${req.status === 'Completed' ? 'bg-green-100 text-green-700' : (req.status === 'Approved' ? 'bg-blue-100 text-blue-700' : 'bg-gray-200 text-gray-600')}`}
+                                        >
+                                            <option value="Pending">Pending</option>
+                                            <option value="Approved">Approved</option>
+                                            <option value="Completed">Completed</option>
+                                        </select>
+                                    </div>
+                                    <p className="text-xs text-gray-500 mb-2">{req.comments || 'No comments'}</p>
+                                    <div className="flex justify-between items-center text-xs text-gray-400 border-t border-gray-200 pt-2 mt-2">
+                                        <span>{new Date(req.date).toLocaleDateString()}</span>
+                                        <div className="flex gap-3">
+                                            <button onClick={() => handleEditTraining(req)} className="text-blue-600 font-bold">Edit</button>
+                                            <button onClick={() => handleDeleteTraining(req.id)} className="text-red-600 font-bold">Delete</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Desktop Table */}
+                        <div className="hidden md:block">
                             <table className="w-full text-left text-sm">
                                 <thead className="bg-gray-50 text-gray-500 font-bold">
                                     <tr>
@@ -921,7 +993,7 @@ const NextGenTeam: React.FC<NextGenTeamProps> = ({ currentUser }) => {
                                     ))}
                                 </tbody>
                             </table>
-                        )}
+                        </div>
                     </div>
                 </div>
             )}

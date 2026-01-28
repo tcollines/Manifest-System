@@ -824,7 +824,39 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                             <button onClick={() => refreshData()} className="text-sm text-ministry-orange hover:underline">Refresh</button>
                         </div>
 
-                        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden overflow-x-auto">
+                        {/* Mobile View (Cards) */}
+                        <div className="md:hidden space-y-4">
+                            {nextGenSouls.map(soul => (
+                                <div key={soul.id} className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                                    <div className="flex justify-between items-start mb-2">
+                                        <div>
+                                            <h4 className="font-bold text-gray-900">{soul.firstName} {soul.lastName}</h4>
+                                            <p className="text-xs text-gray-500 font-mono">{soul.phone}</p>
+                                        </div>
+                                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${soul.status === 'Confirmed' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>
+                                            {soul.status}
+                                        </span>
+                                    </div>
+                                    <p className="text-xs text-gray-600 mb-3">
+                                        <span className="font-bold">Service:</span> {services.find(s => s.id === soul.serviceId)?.title || 'Unknown'}
+                                    </p>
+                                    <div className="flex justify-end pt-2 border-t border-gray-100">
+                                        <button
+                                            onClick={() => handleDeleteNextGenSoul(soul.id)}
+                                            className="text-red-600 text-xs font-bold flex items-center hover:bg-red-50 px-2 py-1 rounded"
+                                        >
+                                            <Trash2 className="w-3 h-3 mr-1" /> Remove
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                            {nextGenSouls.length === 0 && (
+                                <div className="p-8 text-center text-gray-400 italic">No souls recorded yet.</div>
+                            )}
+                        </div>
+
+                        {/* Desktop View (Table) */}
+                        <div className="hidden md:block bg-white rounded-xl border border-gray-200 overflow-hidden overflow-x-auto">
                             <table className="w-full text-left text-sm min-w-[600px]">
                                 <thead className="bg-gray-50 text-gray-500 font-bold border-b border-gray-100 uppercase text-xs">
                                     <tr>
@@ -946,7 +978,62 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                             </div>
                         </div>
 
-                        <div className="overflow-x-auto border border-gray-200 rounded-xl">
+                        {/* Mobile View (Cards) */}
+                        <div className="md:hidden space-y-4">
+                            {paginatedChildren.length > 0 ? paginatedChildren.map(c => (
+                                <div key={c.id} className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm relative">
+                                    {/* Selection Checkbox Absolute */}
+                                    <div className="absolute top-4 right-4">
+                                        <input
+                                            type="checkbox"
+                                            className="rounded border-gray-300 w-5 h-5 text-ministry-orange focus:ring-ministry-orange"
+                                            checked={selectedChildIds.has(c.id)}
+                                            onChange={() => handleSelectOne(c.id)}
+                                        />
+                                    </div>
+
+                                    <div className="pr-8">
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <h4 className="font-bold text-gray-900 text-lg">{c.name}</h4>
+                                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${c.category === 'First Timer' ? 'bg-orange-100 text-orange-700' : 'bg-gray-100 text-gray-600'}`}>
+                                                {c.category || 'Member'}
+                                            </span>
+                                        </div>
+                                        <div className="text-sm text-gray-600 mb-2">
+                                            {c.age} yrs • {c.gender}
+                                        </div>
+
+                                        <div className="bg-gray-50 p-2 rounded-lg text-xs text-gray-500 mb-3">
+                                            <div className="flex items-center gap-1 mb-1">
+                                                <UserIcon size={12} /> {c.parentName}
+                                            </div>
+                                            <div className="flex items-center gap-1">
+                                                <PhoneInput value={c.parentContact} onChange={() => { }} className="bg-transparent border-none p-0 h-auto text-xs" />
+                                            </div>
+                                        </div>
+
+                                        <div className="flex justify-between items-center">
+                                            <span className={`px-2 py-1 rounded-full text-xs font-bold ${c.status === 'Checked In' ? 'bg-green-100 text-green-700' :
+                                                c.status === 'Checked Out' ? 'bg-gray-100 text-gray-600' : 'bg-red-50 text-red-600'
+                                                }`}>
+                                                {c.status}
+                                            </span>
+                                            <button
+                                                onClick={() => handleViewChild(c)}
+                                                className="text-ministry-blue font-bold text-sm hover:underline bg-blue-50 px-3 py-1.5 rounded-lg flex items-center gap-1"
+                                            >
+                                                View Profile
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            )) : (
+                                <div className="p-8 text-center text-gray-500 italic">No records found.</div>
+                            )}
+                        </div>
+
+                        {/* Desktop View (Table) */}
+                        <div className="hidden md:block overflow-x-auto border border-gray-200 rounded-xl">
                             <table className="w-full text-left min-w-[600px]">
                                 <thead className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
                                     <tr>

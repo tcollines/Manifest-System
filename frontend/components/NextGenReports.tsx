@@ -103,17 +103,17 @@ const NextGenReports: React.FC = () => {
 
     return (
         <div className="p-8 max-w-7xl mx-auto space-y-8" id="report-content">
-            <header className="flex justify-between items-center">
+            <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-3xl font-black text-ministry-text">Next Gen Reports</h1>
                     <p className="text-gray-500 mt-1">Weekly insights and growth metrics.</p>
                 </div>
-                <div className="flex space-x-3">
-                    <button onClick={handleExportExcel} className="flex items-center space-x-2 px-4 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 font-bold transition-colors">
+                <div className="flex space-x-3 w-full md:w-auto">
+                    <button onClick={handleExportExcel} className="flex-1 md:flex-none flex items-center justify-center space-x-2 px-4 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 font-bold transition-colors">
                         <Download size={16} />
                         <span>Export Excel</span>
                     </button>
-                    <button onClick={handleExportPDF} className="flex items-center space-x-2 px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 font-bold transition-colors">
+                    <button onClick={handleExportPDF} className="flex-1 md:flex-none flex items-center justify-center space-x-2 px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 font-bold transition-colors">
                         <Download size={16} />
                         <span>Export PDF</span>
                     </button>
