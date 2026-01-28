@@ -29,7 +29,10 @@ import {
     History,
     User as UserIcon,
     Trash2,
-    Heart
+    Heart,
+    MessageSquare,
+    ShieldCheck,
+    AlertCircle
 } from 'lucide-react';
 
 interface NextGenDashboardProps {
@@ -38,7 +41,7 @@ interface NextGenDashboardProps {
     currentUser?: User | null;
 }
 
-type Tab = 'checkin' | 'checkout' | 'database' | 'followup' | 'souls';
+type Tab = 'checkin' | 'checkout' | 'database' | 'souls';
 type ViewMode = 'list' | 'service-active' | 'add-child' | 'bulk-import' | 'child-detail';
 
 const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpenModal, currentUser }) => {
@@ -140,7 +143,11 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                         checkInTime: newChild.check_in_time,
                         checkOutTime: newChild.check_out_time,
                         joinedDate: newChild.joined_date,
-                        attendedServiceIds: newChild.attended_service_ids || []
+                        attendedServiceIds: newChild.attended_service_ids || [],
+                        followUpStatus: newChild.follow_up_status,
+                        assignedTo: newChild.assigned_to,
+                        salvationDate: newChild.salvation_date,
+                        careNotes: newChild.care_notes || []
                     };
                     return [mapped, ...prev];
                 });
@@ -162,7 +169,11 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                             status: updated.status,
                             checkInTime: updated.check_in_time,
                             checkOutTime: updated.check_out_time,
-                            attendedServiceIds: updated.attended_service_ids || []
+                            attendedServiceIds: updated.attended_service_ids || [],
+                            followUpStatus: updated.follow_up_status,
+                            assignedTo: updated.assigned_to,
+                            salvationDate: updated.salvation_date,
+                            careNotes: updated.care_notes || []
                         };
                     }
                     return c;
@@ -225,10 +236,14 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
         age: '',
         gender: 'Male',
         category: 'First Timer',
-        residence: ''
+        residence: '',
+        salvationDate: '',
+        howHeard: ''
     };
     const [formData, setFormData] = useState(initialForm);
     const [bulkText, setBulkText] = useState('');
+    const [newNote, setNewNote] = useState('');
+    const [noteType, setNoteType] = useState<'Observation' | 'Prayer' | 'Incident'>('Observation');
 
     const filteredChildren = children.filter(c => {
         const tokens = searchQuery.toLowerCase().split(/\s+/).filter(Boolean);
@@ -256,20 +271,22 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
         if (viewMode === 'service-active' && selectedService) {
             const isAttended = c.attendedServiceIds.includes(selectedService.id);
 
-            // In Check-Out mode, only show attended children
-            if (activeTab === 'checkout') {
-                if (!isAttended) return false;
-                if (activeStatsFilter === 'CheckedOut') return matchesSearch && c.status === 'Checked Out';
+            // Filter by active stat card
+            if (activeStatsFilter === 'CheckIn') {
+                return matchesSearch && isAttended && c.status === 'Checked In';
+            }
+            if (activeStatsFilter === 'CheckedOut') {
+                return matchesSearch && isAttended && c.status === 'Checked Out';
+            }
+            if (activeStatsFilter === 'FirstTimer') {
+                // First timers who attended filtering
+                return matchesSearch && isAttended && (c.category === 'First Timer' || c.joinedDate === selectedService.date);
             }
 
-            // In Check-In mode, we allow searching ALL children to check them in.
-            // We might want to filter by 'FirstTimer' if that stat is clicked, but otherwise show matches.
-            if (activeTab === 'checkin') {
-                if (activeStatsFilter === 'FirstTimer') return matchesSearch && c.category === 'First Timer';
-                if (activeStatsFilter === 'CheckIn') return matchesSearch; // Show all matching search
-                // If filtering by 'CheckedOut' (although rare in checkin tab), handle if needed
-            }
-
+            // If 'All' or no specific filter, allow searching everyone (for check-in)
+            // But if we are in 'checkin' tab, we might want to prioritize showing attendees?
+            // User requested that clicking the card shows only the relevant kids.
+            // If 'All' is selected, we probably want to see everyone (to add new check-ins).
             return matchesSearch;
         }
 
@@ -422,7 +439,6 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
             // Re-fetch aggregated count if needed or just decrement locally if we knew it was for this service
             if (activeTab === 'followup' && selectedService) {
                 // simple refresh
-                // setSoulsWonCount(prev => Math.max(0, prev - 1));
             }
             showToast('Soul record deleted.', 'success');
         } catch (e) {
@@ -458,7 +474,8 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
             status: isServiceActive ? 'Checked In' : 'Absent',
             checkInTime: isServiceActive ? new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : undefined,
             joinedDate: new Date().toISOString().split('T')[0],
-            attendedServiceIds: isServiceActive && selectedService ? [selectedService.id] : []
+            attendedServiceIds: isServiceActive && selectedService ? [selectedService.id] : [],
+            howHeard: (formData as any).howHeard
         };
 
         // Save to DB first
@@ -469,9 +486,6 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
 
         if (isServiceActive) {
             showToast(`${newChild.name} registered and checked in successfully!`, 'success');
-            // Option: Redirect back to service view or stay to add more?
-            // Current behavior: Stay on form (reset) allowing rapid entry. 
-            // Users can click 'Back' to see the list.
         } else {
             showToast(`${newChild.name} added to Next Gen database.`, 'success');
             setViewMode('list');
@@ -589,7 +603,8 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
             age: String(child.age),
             gender: child.gender,
             category: child.category || 'Member',
-            residence: child.residence
+            residence: child.residence,
+            salvationDate: child.salvationDate || ''
         });
         setIsEditingChild(false);
         setViewMode('child-detail');
@@ -623,6 +638,34 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
             showToast("Failed to update child profile.", 'error');
         }
     };
+
+    const handleAddCareNote = async () => {
+        if (!selectedChild || !newNote.trim()) return;
+
+        try {
+            const noteObj = {
+                id: Date.now().toString(),
+                date: new Date().toISOString(),
+                author: currentUser?.name || 'Staff',
+                note: newNote,
+                type: noteType
+            };
+
+            const updatedChild = {
+                ...selectedChild,
+                careNotes: [noteObj, ...(selectedChild.careNotes || [])]
+            };
+
+            await ChildStore.update(updatedChild);
+            setChildren(prev => prev.map(c => c.id === updatedChild.id ? updatedChild : c));
+            setSelectedChild(updatedChild);
+            setNewNote('');
+            showToast("Care note added.", 'success');
+        } catch (e) {
+            showToast("Failed to add note.", 'error');
+        }
+    };
+
 
     const handleDeleteChild = async (childId: string, e?: React.MouseEvent) => {
         if (e) e.stopPropagation();
@@ -685,26 +728,8 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                         <CheckCircle className={`w-4 h-4 ${activeTab === 'checkin' ? 'text-ministry-neon' : ''}`} />
                         <span>Check-In</span>
                     </button>
-                    <button
-                        onClick={() => { setActiveTab('checkout'); setViewMode('list'); }}
-                        className={`flex items-center space-x-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${activeTab === 'checkout'
-                            ? 'bg-black text-white shadow-md'
-                            : 'text-gray-500 hover:text-gray-900'
-                            }`}
-                    >
-                        <LogOut className={`w-4 h-4 ${activeTab === 'checkout' ? 'text-ministry-neon' : ''}`} />
-                        <span>Check-Out</span>
-                    </button>
-                    <button
-                        onClick={() => { setActiveTab('followup'); setViewMode('list'); }}
-                        className={`flex items-center space-x-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${activeTab === 'followup'
-                            ? 'bg-black text-white shadow-md'
-                            : 'text-gray-500 hover:text-gray-900'
-                            }`}
-                    >
-                        <UserPlus className={`w-4 h-4 ${activeTab === 'followup' ? 'text-ministry-neon' : ''}`} />
-                        <span>Follow Up</span>
-                    </button>
+
+
                     <button
                         onClick={() => { setActiveTab('souls'); setViewMode('list'); }}
                         className={`flex items-center space-x-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${activeTab === 'souls'
@@ -789,44 +814,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
 
 
 
-                {/* --- FOLLOW UP TAB --- */}
-                {activeTab === 'followup' && viewMode === 'list' && (
-                    <div className="space-y-6">
-                        <div className="flex justify-between items-center">
-                            <h3 className="text-lg font-bold text-gray-800">Select Service for Follow Up</h3>
-                        </div>
-                        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-                            {services.map(service => {
-                                const serviceDate = new Date(service.date);
-                                const today = new Date();
-                                today.setHours(0, 0, 0, 0);
-                                serviceDate.setHours(0, 0, 0, 0);
-                                const isPast = serviceDate < today;
 
-                                return (
-                                    <div key={service.id} className="bg-white border border-gray-200 rounded-xl p-5 hover:border-ministry-orange/40 hover:shadow-md transition-all group">
-                                        <div className="flex justify-between items-start mb-3">
-                                            <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded-full ${isPast ? 'bg-gray-100 text-gray-500' : 'bg-green-100 text-green-700'}`}>
-                                                {isPast ? 'Past Service' : 'Active / Upcoming'}
-                                            </span>
-                                            <Calendar className="w-4 h-4 text-gray-400" />
-                                        </div>
-                                        <h4 className="text-lg font-bold text-ministry-text mb-1">{service.title}</h4>
-                                        <p className="text-sm text-gray-500 mb-4 flex items-center">
-                                            <Clock className="w-3 h-3 mr-1" /> {service.date}
-                                        </p>
-                                        <button
-                                            onClick={() => handleOpenService(service)}
-                                            className="w-full text-white bg-ministry-text hover:bg-ministry-orange py-2.5 rounded-lg font-bold flex items-center justify-center transition-colors"
-                                        >
-                                            <UserPlus className="w-4 h-4 mr-2" /> Follow Up Souls
-                                        </button>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-                )}
 
                 {/* --- SOULS DATABASE TAB --- */}
                 {activeTab === 'souls' && viewMode === 'list' && (
@@ -1027,96 +1015,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                 )}
 
 
-                {/* --- ACTIVE SERVICE FOLLOW UP VIEW --- */}
-                {/* Simplified view for searching and adding souls */}
-                {viewMode === 'service-active' && activeTab === 'followup' && selectedService && (
-                    <div className="space-y-6">
-                        <div className="flex flex-col md:flex-row items-start md:items-center justify-between border-b border-gray-100 pb-4 gap-4">
-                            <div className="flex items-center space-x-3">
-                                <button onClick={handleBack} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
-                                    <ArrowLeft className="w-5 h-5 text-gray-600" />
-                                </button>
-                                <div>
-                                    <h2 className="text-xl font-bold text-ministry-text">{selectedService.title}</h2>
-                                    <p className="text-sm text-gray-500">
-                                        Follow Up Souls • {selectedService.date}
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
 
-                        <div className="bg-ministry-text p-6 rounded-xl shadow-sm text-center relative overflow-hidden mb-6">
-                            <div className="absolute top-0 right-0 p-2 opacity-10">
-                                <Heart className="w-24 h-24 text-ministry-orange" />
-                            </div>
-                            <h4 className="text-ministry-orange font-bold uppercase text-xs mb-2">Total Next Gen Souls</h4>
-                            <p className="text-4xl font-black text-ministry-orange">
-                                {nextGenSouls.filter(s => s.serviceId === selectedService.id).length}
-                            </p>
-                            <p className="text-gray-400 text-xs mt-2">Captured for {selectedService.title}</p>
-                        </div>
-
-                        <div className="bg-white p-6 rounded-xl border border-gray-200">
-                            <h3 className="font-bold text-gray-800 mb-4">Search Next Gen Database</h3>
-                            <div className="relative group max-w-lg mb-6">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                                <input
-                                    className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:border-ministry-orange focus:ring-1 focus:ring-ministry-orange transition-all"
-                                    placeholder="Search child name..."
-                                    value={searchQuery}
-                                    onChange={e => setSearchQuery(e.target.value)}
-                                />
-                            </div>
-
-                            <div className="overflow-x-auto border border-gray-200 rounded-xl">
-                                <table className="w-full text-left text-sm min-w-[600px]">
-                                    <thead className="bg-gray-50 text-gray-500 font-bold border-b border-gray-100 uppercase text-xs">
-                                        <tr>
-                                            <th className="px-6 py-3">Child Name</th>
-                                            <th className="px-6 py-3">Age / Gender</th>
-                                            <th className="px-6 py-3">Parent</th>
-                                            <th className="px-6 py-3 text-right">Action</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-gray-50">
-                                        {filteredChildren.slice(0, 10).map(c => {
-                                            const isAlreadyAdded = nextGenSouls.some(s => s.serviceId === selectedService.id && (s.firstName + ' ' + s.lastName === c.name));
-                                            return (
-                                                <tr key={c.id} className="hover:bg-gray-50 transition-colors">
-                                                    <td className="px-6 py-3 font-bold text-gray-900">{c.name}</td>
-                                                    <td className="px-6 py-3 text-gray-600">{c.age} • {c.gender}</td>
-                                                    <td className="px-6 py-3 text-gray-600">
-                                                        <div>{c.parentName}</div>
-                                                        <div className="text-xs text-gray-400">{c.parentContact}</div>
-                                                    </td>
-                                                    <td className="px-6 py-3 text-right">
-                                                        {isAlreadyAdded ? (
-                                                            <span className="text-green-600 font-bold text-xs bg-green-50 px-2 py-1 rounded">Added</span>
-                                                        ) : (
-                                                            <button
-                                                                onClick={() => handleAddNextGenSoul(c)}
-                                                                className="bg-ministry-orange text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-orange-600 transition-colors"
-                                                            >
-                                                                Record Soul
-                                                            </button>
-                                                        )}
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })}
-                                        {filteredChildren.length === 0 && (
-                                            <tr>
-                                                <td colSpan={4} className="px-6 py-8 text-center text-gray-400">
-                                                    No children found matching search.
-                                                </td>
-                                            </tr>
-                                        )}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                )}
 
                 {/* --- ACTIVE SERVICE CHECK-IN/OUT VIEW (Original) --- */}
                 {viewMode === 'service-active' && (activeTab === 'checkin' || activeTab === 'checkout') && selectedService && (
@@ -1218,7 +1117,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4 md:gap-6">
                                     {/* Card 1: TOTAL CHECK-INS */}
                                     <button
-                                        onClick={() => setActiveStatsFilter('CheckIn')}
+                                        onClick={() => setActiveStatsFilter(prev => prev === 'CheckIn' ? 'All' : 'CheckIn')}
                                         className={`p-6 rounded-xl shadow-sm text-center transition-all ${activeStatsFilter === 'CheckIn' ? 'bg-ministry-text border-l-4 border-ministry-neon ring-2 ring-ministry-text ring-offset-2' : 'bg-gray-800 border-l-4 border-ministry-neon hover:bg-gray-700'}`}
                                     >
                                         <h4 className="text-white font-bold uppercase text-xs mb-2">Total Check-Ins</h4>
@@ -1229,7 +1128,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
 
                                     {/* Card 2: CHECKED OUT */}
                                     <button
-                                        onClick={() => setActiveStatsFilter('CheckedOut')}
+                                        onClick={() => setActiveStatsFilter(prev => prev === 'CheckedOut' ? 'All' : 'CheckedOut')}
                                         className={`p-6 rounded-xl shadow-sm text-center transition-all ${activeStatsFilter === 'CheckedOut' ? 'bg-gray-100 border-2 border-gray-400 ring-2 ring-gray-400 ring-offset-2' : 'bg-white border border-gray-300 hover:bg-gray-50'}`}
                                     >
                                         <h4 className="text-gray-500 font-bold uppercase text-xs mb-2">Checked Out</h4>
@@ -1240,7 +1139,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
 
                                     {/* Card 3: FIRST TIMERS */}
                                     <button
-                                        onClick={() => setActiveStatsFilter('FirstTimer')}
+                                        onClick={() => setActiveStatsFilter(prev => prev === 'FirstTimer' ? 'All' : 'FirstTimer')}
                                         className={`p-6 rounded-xl shadow-sm text-center transition-all ${activeStatsFilter === 'FirstTimer' ? 'bg-orange-50 border-2 border-ministry-orange ring-2 ring-ministry-orange ring-offset-2' : 'bg-white border-2 border-ministry-orange hover:bg-orange-50/50'}`}
                                     >
                                         <h4 className="text-ministry-text font-bold uppercase text-xs mb-2">First Timers</h4>
@@ -1262,6 +1161,45 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                                             {nextGenSouls.filter(s => s.serviceId === selectedService.id).length}
                                         </p>
                                     </button>
+                                </div>
+
+                                {/* --- Demographics & Safety Section --- */}
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                    {/* Safety Flag */}
+                                    <div className={`p-6 rounded-xl border-l-4 shadow-sm ${(children.filter(c => c.attendedServiceIds.includes(selectedService.id) && c.status === 'Checked In').length) > 0
+                                        ? 'bg-yellow-50 border-yellow-500 text-yellow-800' // Warning if kids still checked in
+                                        : 'bg-green-50 border-green-500 text-green-800' // All clear
+                                        }`}>
+                                        <div className="flex items-center justify-between mb-2">
+                                            <h4 className="font-bold uppercase text-xs opacity-70">Safety Flag</h4>
+                                            {(children.filter(c => c.attendedServiceIds.includes(selectedService.id) && c.status === 'Checked In').length) > 0 ? <AlertCircle className="w-5 h-5" /> : <ShieldCheck className="w-5 h-5" />}
+                                        </div>
+                                        <p className="text-3xl font-black">
+                                            {children.filter(c => c.attendedServiceIds.includes(selectedService.id) && c.status === 'Checked In').length}
+                                        </p>
+                                        <p className="text-xs font-bold mt-1">Children currently checked in</p>
+                                    </div>
+
+                                    {/* Rank Breakdown */}
+                                    <div className="md:col-span-2 bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+                                        <h4 className="font-bold text-gray-800 mb-4 flex items-center">
+                                            <BarChart3 className="w-4 h-4 mr-2 text-ministry-orange" />
+                                            Attendance by Rank
+                                        </h4>
+                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                            {[
+                                                { label: 'General (>12)', count: children.filter(c => c.attendedServiceIds.includes(selectedService.id) && c.age > 12).length, color: 'bg-purple-100 text-purple-700' },
+                                                { label: 'Captain (10-12)', count: children.filter(c => c.attendedServiceIds.includes(selectedService.id) && c.age > 9 && c.age <= 12).length, color: 'bg-blue-100 text-blue-700' },
+                                                { label: 'Lieutenant (7-9)', count: children.filter(c => c.attendedServiceIds.includes(selectedService.id) && c.age > 6 && c.age <= 9).length, color: 'bg-green-100 text-green-700' },
+                                                { label: 'Sergeant (2-6)', count: children.filter(c => c.attendedServiceIds.includes(selectedService.id) && c.age >= 2 && c.age <= 6).length, color: 'bg-orange-100 text-orange-700' }
+                                            ].map(rank => (
+                                                <div key={rank.label} className={`${rank.color} p-3 rounded-lg text-center`}>
+                                                    <div className="text-2xl font-black">{rank.count}</div>
+                                                    <div className="text-[10px] font-bold uppercase opacity-80">{rank.label}</div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
                                 </div>
 
                                 {activeStatsFilter === 'Souls' ? (
@@ -1302,58 +1240,56 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                                             />
                                         </div>
 
-                                        {(true) && (
-                                            <div className="bg-white border border-gray-200 rounded-xl shadow-lg divide-y divide-gray-100 max-h-96 overflow-y-auto">
-                                                <div className="p-3 bg-gray-50 border-b border-gray-100 text-xs font-bold text-gray-500 uppercase">
-                                                    Showing {filteredChildren.length} {activeStatsFilter === 'FirstTimer' ? 'First Timers' : activeStatsFilter === 'CheckedOut' ? 'Checked Out Children' : 'Children'}
-                                                </div>
-                                                {filteredChildren.map(c => (
-                                                    <div key={c.id} className="p-4 flex justify-between items-center hover:bg-gray-50 transition-colors">
-                                                        <div className="flex-1 min-w-0 mr-4">
-                                                            <div className="flex items-center gap-2">
-                                                                <p className="font-bold text-gray-900 truncate">{c.name}</p>
-                                                                {(c.status === 'Checked In' || (selectedService && c.attendedServiceIds.includes(selectedService.id))) && (
-                                                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${c.status === 'Checked Out' ? 'bg-gray-100 text-gray-500' : 'bg-green-100 text-green-700'}`}>
-                                                                        {c.status === 'Checked Out' ? 'Checked Out' : 'Checked In'}
-                                                                    </span>
-                                                                )}
-                                                            </div>
-                                                            <p className="text-xs text-gray-500 truncate">{c.age} yrs • Parent: {c.parentName} ({c.parentContact})</p>
-                                                        </div>
-                                                        <div>
-                                                            {(c.status === 'Checked In' || (selectedService && c.attendedServiceIds.includes(selectedService.id) && c.status !== 'Checked Out')) ? (
-                                                                <div className="flex items-center space-x-3">
-                                                                    <button
-                                                                        onClick={() => handleCheckOut(c.id)}
-                                                                        className="flex items-center space-x-1 bg-gray-100 hover:bg-gray-200 text-gray-800 px-3 py-1.5 rounded-lg font-bold text-xs transition-colors border border-gray-300 shadow-sm"
-                                                                    >
-                                                                        <LogOut className="w-3 h-3" />
-                                                                        <span>Check Out</span>
-                                                                    </button>
-                                                                </div>
-                                                            ) : (
-                                                                <>
-                                                                    {/* Check In Action for CheckIn Tab */}
-                                                                    {activeTab === 'checkin' && (
-                                                                        <button
-                                                                            onClick={() => handleCheckIn(c.id)}
-                                                                            className="bg-ministry-text text-white px-4 py-1.5 rounded-lg font-bold text-xs hover:bg-black transition-colors shadow-sm flex items-center"
-                                                                        >
-                                                                            <CheckCircle className="w-3 h-3 mr-1.5" />
-                                                                            Check In
-                                                                        </button>
-                                                                    )}
-                                                                    {/* If in Checkout tab but child not checked in */}
-                                                                    {activeTab === 'checkout' && (
-                                                                        <span className="text-xs text-gray-400 font-medium bg-gray-50 px-2 py-1 rounded">Not Checked In</span>
-                                                                    )}
-                                                                </>
+                                        <div className="bg-white border border-gray-200 rounded-xl shadow-lg divide-y divide-gray-100 max-h-96 overflow-y-auto">
+                                            <div className="p-3 bg-gray-50 border-b border-gray-100 text-xs font-bold text-gray-500 uppercase">
+                                                Showing {filteredChildren.length} {activeStatsFilter === 'FirstTimer' ? 'First Timers' : activeStatsFilter === 'CheckedOut' ? 'Checked Out Children' : activeStatsFilter === 'CheckIn' ? 'Checked In Children' : 'Children'}
+                                            </div>
+                                            {filteredChildren.map(c => (
+                                                <div key={c.id} className="p-4 flex justify-between items-center hover:bg-gray-50 transition-colors">
+                                                    <div className="flex-1 min-w-0 mr-4">
+                                                        <div className="flex items-center gap-2">
+                                                            <p className="font-bold text-gray-900 truncate">{c.name}</p>
+                                                            {(c.status === 'Checked In' || (selectedService && c.attendedServiceIds.includes(selectedService.id))) && (
+                                                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${c.status === 'Checked Out' ? 'bg-gray-100 text-gray-500' : 'bg-green-100 text-green-700'}`}>
+                                                                    {c.status === 'Checked Out' ? 'Checked Out' : 'Checked In'}
+                                                                </span>
                                                             )}
                                                         </div>
+                                                        <p className="text-xs text-gray-500 truncate">{c.age} yrs • Parent: {c.parentName} ({c.parentContact})</p>
                                                     </div>
-                                                ))}
-                                            </div>
-                                        )}
+                                                    <div>
+                                                        {(c.status === 'Checked In' || (selectedService && c.attendedServiceIds.includes(selectedService.id) && c.status !== 'Checked Out')) ? (
+                                                            <div className="flex items-center space-x-3">
+                                                                <button
+                                                                    onClick={() => handleCheckOut(c.id)}
+                                                                    className="flex items-center space-x-1 bg-gray-100 hover:bg-gray-200 text-gray-800 px-3 py-1.5 rounded-lg font-bold text-xs transition-colors border border-gray-300 shadow-sm"
+                                                                >
+                                                                    <LogOut className="w-3 h-3" />
+                                                                    <span>Check Out</span>
+                                                                </button>
+                                                            </div>
+                                                        ) : (
+                                                            <>
+                                                                {/* Check In Action for CheckIn Tab */}
+                                                                {activeTab === 'checkin' && (
+                                                                    <button
+                                                                        onClick={() => handleCheckIn(c.id)}
+                                                                        className="bg-ministry-text text-white px-4 py-1.5 rounded-lg font-bold text-xs hover:bg-black transition-colors shadow-sm flex items-center"
+                                                                    >
+                                                                        <CheckCircle className="w-3 h-3 mr-1.5" />
+                                                                        Check In
+                                                                    </button>
+                                                                )}
+                                                                {/* If in Checkout tab but child not checked in */}
+                                                                {activeTab === 'checkout' && (
+                                                                    <span className="text-xs text-gray-400 font-medium bg-gray-50 px-2 py-1 rounded">Not Checked In</span>
+                                                                )}
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
                                         {filteredChildren.length === 0 && (
                                             <div className="p-4 text-center text-gray-500">
                                                 {activeTab === 'checkout'
@@ -1480,6 +1416,10 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                                                 <label className="text-xs font-bold text-gray-500">Residence</label>
                                                 <input disabled={!isEditingChild} value={formData.residence} onChange={handleInputChange} name="residence" className={`w-full p-2 border rounded-lg ${!isEditingChild ? 'bg-gray-50 border-transparent' : 'bg-white border-gray-200'}`} />
                                             </div>
+                                            <div className="space-y-1">
+                                                <label className="text-xs font-bold text-gray-500">Salvation Date</label>
+                                                <input type="date" disabled={!isEditingChild} value={formData.salvationDate || ''} onChange={handleInputChange} name="salvationDate" className={`w-full p-2 border rounded-lg ${!isEditingChild ? 'bg-gray-50 border-transparent' : 'bg-white border-gray-200'}`} />
+                                            </div>
                                         </div>
 
                                         <div className="bg-gray-50 p-4 rounded-xl space-y-4 border border-gray-100 mt-4">
@@ -1509,6 +1449,57 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                                             </div>
                                         )}
                                     </form>
+
+                                    {/* Care Notes Section */}
+                                    <div className="mt-8 pt-6 border-t border-gray-100">
+                                        <h4 className="font-bold text-gray-800 text-sm mb-4 flex items-center"><MessageSquare className="w-4 h-4 mr-2" /> Care & Ministry Notes</h4>
+
+                                        <div className="space-y-3 mb-4">
+                                            <textarea
+                                                value={newNote}
+                                                onChange={e => setNewNote(e.target.value)}
+                                                placeholder="Add a pastoral note, observation, or prayer request..."
+                                                className="w-full p-3 border border-gray-200 rounded-xl text-sm focus:border-ministry-orange outline-none h-24 resize-none"
+                                            />
+                                            <div className="flex justify-between items-center">
+                                                <select
+                                                    value={noteType}
+                                                    onChange={e => setNoteType(e.target.value as any)}
+                                                    className="p-2 border border-gray-200 rounded-lg text-xs font-bold text-gray-600 outline-none"
+                                                >
+                                                    <option value="Observation">Observation</option>
+                                                    <option value="Prayer">Prayer Request</option>
+                                                    <option value="Incident">Incident</option>
+                                                    <option value="Communication">Communication</option>
+                                                </select>
+                                                <button
+                                                    onClick={handleAddCareNote}
+                                                    disabled={!newNote.trim()}
+                                                    className="bg-gray-900 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-black disabled:opacity-50 transition-colors"
+                                                >
+                                                    Add Note
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-4 max-h-60 overflow-y-auto pr-2">
+                                            {selectedChild.careNotes?.map((note: any) => (
+                                                <div key={note.id} className="bg-gray-50 p-3 rounded-lg border border-gray-100 text-sm">
+                                                    <div className="flex justify-between items-start mb-1">
+                                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${note.type === 'Incident' ? 'bg-red-100 text-red-600' : note.type === 'Prayer' ? 'bg-purple-100 text-purple-600' : 'bg-blue-100 text-blue-600'}`}>
+                                                            {note.type}
+                                                        </span>
+                                                        <span className="text-xs text-gray-400">{new Date(note.date).toLocaleDateString()}</span>
+                                                    </div>
+                                                    <p className="text-gray-700 mt-1">{note.note}</p>
+                                                    <p className="text-xs text-gray-400 mt-2 text-right">- {note.author}</p>
+                                                </div>
+                                            ))}
+                                            {(!selectedChild.careNotes || selectedChild.careNotes.length === 0) && (
+                                                <p className="text-center text-gray-400 text-xs py-4">No care notes yet.</p>
+                                            )}
+                                        </div>
+                                    </div>
                                 </div>
 
                                 {/* RIGHT: Attendance History */}
@@ -1587,6 +1578,17 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                                     <div className="space-y-2">
                                         <label className="text-sm font-bold text-gray-700">Residence</label>
                                         <input required name="residence" value={formData.residence} onChange={handleInputChange} className="w-full p-3 bg-white border border-gray-200 rounded-xl focus:border-ministry-orange outline-none" placeholder="e.g. Entebbe, Kitoro" />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-bold text-gray-700">How did you hear about us?</label>
+                                        <select name="howHeard" value={(formData as any).howHeard} onChange={handleInputChange} className="w-full p-3 bg-white border border-gray-200 rounded-xl focus:border-ministry-orange outline-none">
+                                            <option value="">Select Option</option>
+                                            <option value="Friend/Family">Friend / Family</option>
+                                            <option value="Social Media">Social Media</option>
+                                            <option value="Event">Event</option>
+                                            <option value="Signage">Signage / Walk-in</option>
+                                            <option value="Other">Other</option>
+                                        </select>
                                     </div>
                                 </div>
                             </div>

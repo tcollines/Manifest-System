@@ -66,6 +66,19 @@ export const MemberStore = {
     }
   },
 
+  getById: async (id: string): Promise<Member | null> => {
+    try {
+      const data = await apiFetch(`/members?id=eq.${id}&select=*`);
+      if (data && data.length > 0) {
+        return mapMemberFromDB(data[0]);
+      }
+      return null;
+    } catch (e) {
+      console.warn('Failed to fetch member by ID:', e);
+      return null;
+    }
+  },
+
   update: async (member: Member): Promise<void> => {
     try {
       await apiFetch(`/members/${member.id}`, {
