@@ -318,10 +318,7 @@ const NextGenFollowUp: React.FC<NextGenFollowUpProps> = ({ currentUser, events }
             {/* ABSENTEES VIEW */}
             {activeTab === 'absentees' && (
                 <div className="space-y-6">
-                    <div className="bg-yellow-50 border border-yellow-100 rounded-xl p-4 flex items-start space-x-3 text-yellow-800 text-sm">
-                        <AlertCircle className="w-5 h-5 shrink-0" />
-                        <p>Showing children marked as "Absent" in the system. Use this list to reach out to families who haven't attended recently.</p>
-                    </div>
+
 
                     <div className="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-gray-100">
                         <div className="relative w-full max-w-md">
