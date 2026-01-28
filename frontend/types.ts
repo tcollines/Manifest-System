@@ -16,6 +16,17 @@ export interface Department {
   status: 'Active' | 'Inactive';
 }
 
+export interface VolunteerAttendance {
+  id: string;
+  date: string;
+  volunteerId: string;
+  serviceId: string;
+  role: string;
+  status: 'Present' | 'Late' | 'Absent';
+  notes?: string;
+  timestamp?: string;
+}
+
 export interface ChartData {
   name: string;
   value: number;
@@ -118,6 +129,21 @@ export interface Child {
   checkOutTime?: string;
   joinedDate: string;
   attendedServiceIds: string[];
+  // New Fields for Follow Up & Care
+  followUpStatus?: 'Pending' | 'Called' | 'Message Sent' | 'Visited';
+  assignedTo?: string; // Volunteer ID/Name
+  salvationDate?: string;
+  careNotes?: CareNote[];
+  absenceReason?: string;
+  howHeard?: string;
+}
+
+export interface CareNote {
+  id: string;
+  date: string;
+  author: string;
+  note: string;
+  type: 'Observation' | 'Prayer' | 'Incident' | 'Communication';
 }
 
 export type JourneyStage = 'Onboarding' | 'Verifying' | 'RegApproval' | 'FinanceApproval' | 'Transit' | 'Arrived' | 'Completed';
@@ -328,4 +354,29 @@ export interface SchoolOutreachReport {
   notes?: string;
   submittedBy: string; // User ID
   submittedAt: string;
+}
+
+export interface IncidentReport {
+  id: string;
+  childId: string;
+  serviceId?: string; // Optional linkage to service
+  date: string;
+  reportedBy: string; // Name or ID
+  type: 'Behavioral' | 'Medical' | 'Safety' | 'Other';
+  description: string;
+  severity: 'Low' | 'Medium' | 'High';
+  status: 'Open' | 'Resolved';
+  createdAt?: string;
+  childName?: string;
+}
+
+export interface TrainingRequest {
+  id: string;
+  requesterId: string;
+  topic: string;
+  date: string;
+  status: 'Pending' | 'Approved' | 'Completed';
+  comments?: string;
+  createdAt?: string;
+  requesterName?: string;
 }

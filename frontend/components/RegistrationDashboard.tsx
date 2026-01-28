@@ -357,6 +357,19 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
   }, [selectedService]);
 
   // Realtime Subscriptions
+  // Ref to track checked-in IDs and Members for robust Realtime logic
+  const checkedInIdsRef = useRef<Set<string>>(new Set());
+  const membersRef = useRef<Member[]>([]);
+
+  // Sync Refs with State whenever state changes
+  useEffect(() => {
+    checkedInIdsRef.current = checkedInIds;
+  }, [checkedInIds]);
+
+  useEffect(() => {
+    membersRef.current = members;
+  }, [members]);
+
   // Realtime Subscriptions with Granular Updates
   useEffect(() => {
     const channel = supabase.channel('reg-dashboard-live')
@@ -407,10 +420,24 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
           });
         }
       })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'members' }, (payload) => {
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'members' }, async (payload) => {
         const updated = payload.new as any;
-        const old = payload.old as any;
         const currentService = selectedServiceRef.current;
+
+        // 1. Resolve Category (Local or Fetch)
+        let category: string | undefined = updated.category;
+        const existingMember = membersRef.current.find(m => m.id === updated.id);
+
+        if (existingMember) {
+          category = category || existingMember.category;
+        } else if (!category) {
+          try {
+            const fetched = await MemberStore.getById(updated.id);
+            if (fetched) category = fetched.category;
+          } catch (err) {
+            console.error("Error fetching member for realtime update:", err);
+          }
+        }
 
         // 1. Update Members List
         setMembers(prev => prev.map(m => {
@@ -431,22 +458,30 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
         }));
 
         // 2. Update Stats (Check if check-in status changed for THIS service)
-        if (currentService) {
-          const wasCheckedIn = old.attended_service_ids?.includes(currentService.id);
-          const isCheckedIn = updated.attended_service_ids?.includes(currentService.id);
+        // CRITICAL CHECK: Only update stats if attended_service_ids is actually in the payload
+        if (currentService && updated.attended_service_ids !== undefined) {
+          // Use Ref for "Old" State because payload.old might be incomplete
+          const wasCheckedIn = checkedInIdsRef.current.has(updated.id);
+          const isCheckedIn = updated.attended_service_ids.includes(currentService.id);
+
+          console.log(`[Stats Check] ID: ${updated.id}, Was: ${wasCheckedIn}, Is: ${isCheckedIn}`);
 
           if (!wasCheckedIn && isCheckedIn) {
             // Added check-in
             setCheckInStats(prev => ({
               total: prev.total + 1,
-              firstTimers: updated.category === 'First Timer' ? prev.firstTimers + 1 : prev.firstTimers
+              firstTimers: category === 'First Timer' ? prev.firstTimers + 1 : prev.firstTimers
             }));
-            setCheckedInIds(prev => new Set(prev).add(updated.id));
+            setCheckedInIds(prev => {
+              const newSet = new Set(prev);
+              newSet.add(updated.id);
+              return newSet;
+            });
           } else if (wasCheckedIn && !isCheckedIn) {
             // Removed check-in
             setCheckInStats(prev => ({
               total: Math.max(0, prev.total - 1),
-              firstTimers: updated.category === 'First Timer' ? Math.max(0, prev.firstTimers - 1) : prev.firstTimers
+              firstTimers: category === 'First Timer' ? Math.max(0, prev.firstTimers - 1) : prev.firstTimers
             }));
             setCheckedInIds(prev => {
               const newSet = new Set(prev);
@@ -458,27 +493,25 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
       })
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'members' }, (payload) => {
         const deletedId = payload.old.id;
+        const existingMember = membersRef.current.find(m => m.id === deletedId);
+        const category = existingMember?.category;
 
         // 1. Remove from list
         setMembers(prev => prev.filter(m => m.id !== deletedId));
         setTotalMembers(prev => Math.max(0, prev - 1));
 
-        // 2. Update Stats (Need to assume if they were inside... wait, we can check checkedInIds set)
-        setCheckedInIds(prev => {
-          if (prev.has(deletedId)) {
-            // They were checked in locally, so decrement stats
-            setCheckInStats(stats => ({ ...stats, total: Math.max(0, stats.total - 1) }));
-            // Note: We might miss decrementing FirstTimer count precisely if we don't have the deleted member's category handy.
-            // But since 'members' list has the data, we could find it there before deleting.
-            // BUT, if we already filtered it... let's check members first in the setMembers setter? No, too complex async.
-            // Good enough approximation: If they are in checkedInIds, just decrement total. 
-            // Ideally we'd fetch stats again to be perfectly safe, but let's trust total decrement.
+        // 2. Update Stats
+        if (checkedInIdsRef.current.has(deletedId)) {
+          setCheckInStats(stats => ({
+            total: Math.max(0, stats.total - 1),
+            firstTimers: category === 'First Timer' ? Math.max(0, stats.firstTimers - 1) : stats.firstTimers
+          }));
+          setCheckedInIds(prev => {
             const newSet = new Set(prev);
             newSet.delete(deletedId);
             return newSet;
-          }
-          return prev;
-        });
+          });
+        }
       })
 
       // Other Tables: Keep using refreshData for now or implement similar logic

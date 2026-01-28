@@ -67,7 +67,10 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, onLogout, isOpen, onClos
   } else if (isNextGenHead) {
     menuItems = [
       { id: 'next-gen', label: 'Next Gen Dashboard', icon: Baby },
+      { id: 'next-gen-follow-up', label: 'Follow Up', icon: UserPlus },
+      { id: 'next-gen-reports', label: 'Reports', icon: BarChart2 },
       { id: 'events', label: 'Events & Services', icon: Calendar },
+      { id: 'next-gen-team', label: 'Volunteer Team', icon: Users },
       { id: 'settings', label: 'Team Management', icon: Users },
       { id: 'requisitions', label: 'Requisitions', icon: FileText },
       { id: 'assets', label: 'Assets', icon: Package },
@@ -175,6 +178,9 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, onLogout, isOpen, onClos
       case 'settings': return '/settings';
       case 'registration': return '/registration';
       case 'next-gen': return '/next-gen';
+      case 'next-gen-follow-up': return '/next-gen-follow-up';
+      case 'next-gen-team': return '/next-gen-team';
+      case 'next-gen-reports': return '/next-gen-reports';
       case 'parking': return '/parking';
       case 'finance': return '/finance';
       case 'transportation': return '/transportation';

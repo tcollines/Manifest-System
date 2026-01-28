@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import DepartmentsView from './components/DepartmentsView';
@@ -8,6 +9,9 @@ import ReportsView from './components/ReportsView';
 import SettingsView from './components/SettingsView';
 import RegistrationDashboard from './components/RegistrationDashboard';
 import NextGenDashboard from './components/NextGenDashboard';
+import NextGenFollowUp from './components/NextGenFollowUp';
+import NextGenTeam from './components/NextGenTeam';
+import NextGenReports from './components/NextGenReports';
 import TransportationDashboard from './components/TransportationDashboard';
 import FinanceDashboard from './components/FinanceDashboard';
 import ParkingDashboard from './components/ParkingDashboard';
@@ -46,10 +50,26 @@ const App: React.FC = () => {
     }
   };
 
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // Sync available tabs with URL
+  useEffect(() => {
+    const path = location.pathname.substring(1); // remove leading slash
+    if (path && path !== activeTab) {
+      // Map common paths to tabs if they differ, or just use path if it matches tab ID
+      // For now, our IDs match paths mostly
+      setActiveTab(path);
+    }
+  }, [location]);
+
   // Persist activeTab whenever it changes
   useEffect(() => {
     if (currentUser) {
       localStorage.setItem('ministry_active_tab', activeTab);
+      // Optional: Update URL if tab changes via click (if not already handled by Sidebar which uses NavLink)
+      // But Sidebar uses NavLink so URL changes first, then our above effect catches it.
+      // However, for internal navigation (handleNavigate), we should push to history.
     }
   }, [activeTab, currentUser]);
 
@@ -129,6 +149,7 @@ const App: React.FC = () => {
 
   const handleNavigate = (view: string) => {
     setActiveTab(view);
+    navigate(`/${view}`);
     setIsSidebarOpen(false);
   };
 
@@ -265,12 +286,15 @@ const App: React.FC = () => {
             />
           )}
           {activeTab === 'registration' && <RegistrationDashboard events={events} currentUser={currentUser} />}
-          {activeTab === 'next-gen' && <NextGenDashboard events={events} />}
+          {activeTab === 'next-gen' && <NextGenDashboard events={events} currentUser={currentUser} />}
+          {activeTab === 'next-gen-follow-up' && <NextGenFollowUp events={events} currentUser={currentUser} />}
+          {activeTab === 'next-gen-team' && <NextGenTeam currentUser={currentUser} />}
+          {activeTab === 'next-gen-reports' && <NextGenReports />}
           {activeTab === 'transportation' && <TransportationDashboard currentUser={currentUser} events={events} />}
           {activeTab === 'finance' && <FinanceDashboard currentUser={currentUser} />}
           {activeTab === 'parking' && <ParkingDashboard events={events} />}
 
-          {activeTab !== 'dashboard' && activeTab !== 'team-dashboard' && activeTab !== 'departments' && activeTab !== 'events' && activeTab !== 'reports' && activeTab !== 'settings' && activeTab !== 'manifest-settings' && activeTab !== 'registration' && activeTab !== 'next-gen' && activeTab !== 'transportation' && activeTab !== 'finance' && activeTab !== 'parking' && (
+          {activeTab !== 'dashboard' && activeTab !== 'team-dashboard' && activeTab !== 'departments' && activeTab !== 'events' && activeTab !== 'reports' && activeTab !== 'settings' && activeTab !== 'manifest-settings' && activeTab !== 'registration' && activeTab !== 'next-gen' && activeTab !== 'next-gen-follow-up' && activeTab !== 'next-gen-reports' && activeTab !== 'next-gen-team' && activeTab !== 'transportation' && activeTab !== 'finance' && activeTab !== 'parking' && (
             <div className="flex items-center justify-center h-full text-gray-500">
               <div className="text-center">
                 <h2 className="text-2xl font-bold text-gray-700 mb-2">Work in Progress</h2>

@@ -16,7 +16,13 @@ const mapChildFromDB = (c: any): Child => ({
   checkInTime: c.check_in_time,
   checkOutTime: c.check_out_time,
   joinedDate: c.joined_date,
-  attendedServiceIds: c.attended_service_ids || []
+  attendedServiceIds: c.attended_service_ids || [],
+  followUpStatus: c.follow_up_status,
+  assignedTo: c.assigned_to,
+  salvationDate: c.salvation_date,
+  careNotes: c.care_notes || [],
+  absenceReason: c.absence_reason,
+  howHeard: c.how_heard
 });
 
 const mapChildToDB = (c: Child) => ({
@@ -32,7 +38,13 @@ const mapChildToDB = (c: Child) => ({
   check_in_time: c.checkInTime,
   check_out_time: c.checkOutTime,
   joined_date: c.joinedDate,
-  attended_service_ids: c.attendedServiceIds
+  attended_service_ids: c.attendedServiceIds,
+  follow_up_status: c.followUpStatus,
+  assigned_to: c.assignedTo,
+  salvation_date: c.salvationDate,
+  care_notes: c.careNotes,
+  absence_reason: c.absenceReason,
+  how_heard: c.howHeard
 });
 
 export const ChildStore = {
@@ -43,6 +55,16 @@ export const ChildStore = {
     } catch (e: any) {
       console.error('Unexpected error fetching children:', e.message || e);
       return MOCK_CHILDREN;
+    }
+  },
+
+  getById: async (id: string): Promise<Child | null> => {
+    try {
+      const data = await apiFetch(`/children/${id}`);
+      return mapChildFromDB(data);
+    } catch (e: any) {
+      console.error('Error fetching child by ID:', e.message || e);
+      return null;
     }
   },
 

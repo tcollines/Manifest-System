@@ -10,6 +10,9 @@ import ReportsView from './components/ReportsView';
 import SettingsView from './components/SettingsView';
 import RegistrationDashboard from './components/RegistrationDashboard';
 import NextGenDashboard from './components/NextGenDashboard';
+import NextGenFollowUp from './components/NextGenFollowUp';
+import NextGenTeam from './components/NextGenTeam';
+import NextGenReports from './components/NextGenReports';
 import TransportationDashboard from './components/TransportationDashboard';
 import FinanceDashboard from './components/FinanceDashboard';
 import FollowUpDashboard from './components/FollowUpDashboard';
@@ -399,6 +402,9 @@ const App: React.FC = () => {
 
             <Route path="registration" element={<RegistrationDashboard events={events} currentUser={currentUser} onOpenModal={setModalType} />} />
             <Route path="next-gen" element={<NextGenDashboard events={events} currentUser={currentUser} onOpenModal={setModalType} />} />
+            <Route path="next-gen-follow-up" element={<NextGenFollowUp currentUser={currentUser} events={events} />} />
+            <Route path="next-gen-team" element={<NextGenTeam currentUser={currentUser} />} />
+            <Route path="next-gen-reports" element={<NextGenReports />} />
             <Route path="transportation" element={<TransportationDashboard currentUser={currentUser} events={events} onOpenModal={setModalType} />} />
             <Route path="finance" element={<FinanceDashboard currentUser={currentUser} onOpenModal={setModalType} />} />
             <Route path="follow-up" element={<FollowUpDashboard onOpenModal={setModalType} currentUser={currentUser} />} />
