@@ -12,6 +12,12 @@ jobs:
     steps:
       - name: Ping Backend
         run: |
-          echo "Pinging backend to prevent cold start..."
-          curl -I "https://manifest-system-esft.onrender.com"
-          echo "Ping sent to https://manifest-system-esft.onrender.com"
+          echo "Pinging backend health endpoint..."
+          # Use -s to check status code, -L to follow redirects
+          status_code=$(curl -o /dev/null -s -w "%{http_code}\n" -L "https://manifest-system-esft.onrender.com/api/health")
+          echo "Backend responded with status: $status_code"
+          
+          if [ "$status_code" -ne 200 ]; then
+            echo "Warning: Backend did not return 200 OK"
+            exit 1
+          fi
