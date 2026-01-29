@@ -2117,8 +2117,8 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
                     <Baby className="w-4 h-4" />
                     <span className="hidden md:inline">Children Count</span>
                   </button>
-                  {/* Copy Report Permission: Dept Admin, HOD, or Administration Dept (d0) */}
-                  {(['Administrator', 'Head of Dept', 'Reg. Admin'].includes(currentUser.role) || currentUser.departmentId === 'd0') && (
+                  {/* Copy Report Permission: Explicit Roles Only */}
+                  {['Administrator', 'Head of Dept', 'Reg. Admin', 'Registration Admin'].includes(currentUser.role) && (
                     <button
                       onClick={handleCopyReport}
                       className="flex items-center justify-center p-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 border border-gray-200 shadow-sm transition-colors"
