@@ -1730,9 +1730,9 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
         setDeletePassword('');
         setEventToDelete(null);
         window.location.reload(); // Hard reload
-      } catch (err) {
+      } catch (err: any) {
         console.error("Error deleting event:", err);
-        showToast("Failed to delete event.", 'error');
+        showToast(`Failed to delete event: ${err.message || 'Unknown error'}`, 'error');
       }
       return;
     }

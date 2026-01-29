@@ -84,7 +84,25 @@ export const deleteEvent = async (req: Request, res: Response) => {
             }
         }
 
-        // 5. Delete the Event itself
+        // 5. Delete Related Incidents (FK Constraint fix)
+        await supabase.from('incidents').delete().eq('service_id', id);
+
+        // 6. Delete Related Souls (Cleanup)
+        await supabase.from('souls').delete().eq('source_id', id).eq('source_type', 'Service');
+
+        // 7. Delete Volunteer Attendance (FK Constraint fix)
+        await supabase.from('volunteer_attendance').delete().eq('service_id', id);
+
+        // 8. Unlink Personal Vehicles (FK Constraint fix)
+        await supabase.from('personal_vehicles').update({ current_service_id: null }).eq('current_service_id', id);
+
+        // 9. Delete Related Finance Transactions (FK Constraint fix)
+        await supabase.from('transactions').delete().eq('event_id', id);
+
+        // 10. Delete Next Gen Souls (FK Constraint fix - revealed by error)
+        await supabase.from('next_gen_souls').delete().eq('service_id', id);
+
+        // 11. Delete the Event itself
         const { error } = await supabase.from('ministry_events').delete().eq('id', id);
         if (error) throw error;
 
