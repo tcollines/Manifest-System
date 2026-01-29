@@ -5,6 +5,7 @@ import {
     updateVehicle,
     updateVehicleStage,
     updateVehicleLocation,
+    updateVehicleChildren,
     deleteVehicle,
     getPassengers,
     addPassenger,
@@ -23,6 +24,7 @@ router.post('/', addVehicle);
 router.put('/:id', updateVehicle);
 router.patch('/:id/stage', updateVehicleStage);
 router.patch('/:id/location', updateVehicleLocation);
+router.patch('/:id/children', updateVehicleChildren);
 router.delete('/:id', deleteVehicle);
 
 // Passengers

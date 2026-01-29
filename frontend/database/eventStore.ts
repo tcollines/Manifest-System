@@ -70,5 +70,16 @@ export const EventStore = {
       console.error('Error deleting event:', e.message || e);
       throw e;
     }
+  },
+
+  releaseUsers: async (id: string): Promise<void> => {
+    try {
+      await apiFetch(`/events/${id}/cleanup-users`, {
+        method: 'POST'
+      });
+    } catch (e: any) {
+      console.error('Error releasing event users:', e.message || e);
+      throw e;
+    }
   }
 };

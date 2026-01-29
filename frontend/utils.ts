@@ -148,8 +148,12 @@ export const getDashboardForUser = (user: User): string => {
     if (user.role === 'Super Admin' || user.role === 'Administrator') return '/dashboard';
 
     // Role-specific overrides (BEFORE Department Check)
+    // Role-specific overrides (BEFORE Department Check)
     if (user.role === 'Logistics') return '/registration';
-    if (user.role === 'Coordinator') return '/transportation';
+    if (user.role === 'Coordinator') {
+        if (user.stationId) return '/stage-dashboard';
+        return '/transportation';
+    }
 
     // Map Department ID to Dashboard View
     switch (user.departmentId) {

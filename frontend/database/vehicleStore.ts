@@ -158,6 +158,18 @@ export const VehicleStore = {
         }
     },
 
+    updateChildrenCount: async (id: string, count: number): Promise<void> => {
+        try {
+            await apiFetch(`/vehicles/${id}/children`, {
+                method: 'PATCH',
+                body: JSON.stringify({ children: count })
+            });
+        } catch (e: any) {
+            console.error('Error updating children count:', e.message || e);
+            throw e;
+        }
+    },
+
     getPassengers: async (vehicleId?: string): Promise<Passenger[]> => {
         try {
             let url = '/vehicles/passengers';

@@ -76,6 +76,7 @@ export const ChildStore = {
       });
     } catch (e: any) {
       console.error('Unexpected error adding child:', e.message || e);
+      throw e; // Propagate error to UI
     }
   },
 

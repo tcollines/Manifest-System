@@ -6,6 +6,7 @@ import { PICKUP_STATIONS } from '../constants';
 export interface ExtendedStation extends PickUpStation {
   coordinatorName?: string;
   coordinatorContact?: string;
+  coordinatorEmail?: string;
 }
 
 const mapStationFromDB = (s: any): ExtendedStation => ({
@@ -16,7 +17,8 @@ const mapStationFromDB = (s: any): ExtendedStation => ({
   vehicleStatus: s.vehicle_status,
   eventId: s.event_id,
   coordinatorName: s.coordinator_name,
-  coordinatorContact: s.coordinator_contact
+  coordinatorContact: s.coordinator_contact,
+  coordinatorEmail: s.coordinator_email
 });
 
 const mapStationToDB = (s: ExtendedStation) => ({
@@ -27,7 +29,8 @@ const mapStationToDB = (s: ExtendedStation) => ({
   vehicle_status: s.vehicleStatus,
   event_id: s.eventId,
   coordinator_name: s.coordinatorName,
-  coordinator_contact: s.coordinatorContact
+  coordinator_contact: s.coordinatorContact,
+  coordinator_email: s.coordinatorEmail
 });
 
 export const LogisticsStore = {

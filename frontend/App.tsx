@@ -36,6 +36,8 @@ import { SchoolsDashboard } from './components/SchoolsDashboard';
 import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { getDashboardForUser } from './utils';
 import RoleRedirect from './components/RoleRedirect';
+import ProtectedRoute from './components/ProtectedRoute';
+import StageCoordinatorDashboard from './components/StageCoordinatorDashboard';
 
 const App: React.FC = () => {
   const { showToast } = useNotification();
@@ -366,19 +368,18 @@ const App: React.FC = () => {
         <div className="flex-1 overflow-y-auto scroll-smooth">
           <Routes>
             <Route index element={<RoleRedirect user={currentUser} />} />
-            <Route path="dashboard" element={<Dashboard openModal={setModalType} />} />
-            <Route path="team-dashboard" element={<TeamLeaderDashboard />} />
 
-            <Route path="departments">
-              <Route index element={<DepartmentsView currentUser={currentUser} />} />
-              <Route path=":departmentId" element={<DepartmentDetail />}>
-                <Route path="requests" element={<DepartmentRequests />} />
-              </Route>
+            {/* Main Admin Dashboard - Protected */}
+            <Route element={<ProtectedRoute currentUser={currentUser} allowedDepartments={['d0']} allowedRoles={['Super Admin', 'Administrator']} />}>
+              <Route path="dashboard" element={<Dashboard openModal={setModalType} />} />
             </Route>
 
-            <Route path="events" element={<EventsView events={events} />} />
-            <Route path="reports" element={<ReportsView />} />
+            <Route path="team-dashboard" element={<TeamLeaderDashboard />} />
 
+            {/* Public or Shared Routes */}
+            <Route path="public-soul-entry" element={<PublicSoulEntry />} />
+
+            {/* SETTINGS: Protect? Usually accessible but maybe restricted features inside. Leaving open for now as SettingsView handles some internal logic, or wrap it if needed. */}
             <Route path="settings" element={
               <SettingsView
                 users={allUsers}
@@ -400,16 +401,57 @@ const App: React.FC = () => {
               />
             } />
 
-            <Route path="registration" element={<RegistrationDashboard events={events} currentUser={currentUser} onOpenModal={setModalType} />} />
-            <Route path="next-gen" element={<NextGenDashboard events={events} currentUser={currentUser} onOpenModal={setModalType} />} />
-            <Route path="next-gen-follow-up" element={<NextGenFollowUp currentUser={currentUser} events={events} />} />
-            <Route path="next-gen-team" element={<NextGenTeam currentUser={currentUser} />} />
-            <Route path="next-gen-reports" element={<NextGenReports />} />
-            <Route path="transportation" element={<TransportationDashboard currentUser={currentUser} events={events} onOpenModal={setModalType} />} />
-            <Route path="finance" element={<FinanceDashboard currentUser={currentUser} onOpenModal={setModalType} />} />
-            <Route path="follow-up" element={<FollowUpDashboard onOpenModal={setModalType} currentUser={currentUser} />} />
-            <Route path="parking" element={<ParkingDashboard events={events} onOpenModal={setModalType} />} />
-            <Route path="schools" element={<SchoolsDashboard currentUser={currentUser} events={events} onOpenModal={setModalType} />} />
+            {/* --- DEPARTMENT SPECIFIC ROUTES --- */}
+
+            {/* Registration (d1) */}
+            <Route element={<ProtectedRoute currentUser={currentUser} allowedDepartments={['d1']} bypassRoles={['Logistics']} />}>
+              <Route path="registration" element={<RegistrationDashboard events={events} currentUser={currentUser} onOpenModal={setModalType} />} />
+            </Route>
+
+            {/* Next Gen (d2) */}
+            <Route element={<ProtectedRoute currentUser={currentUser} allowedDepartments={['d2']} />}>
+              <Route path="next-gen" element={<NextGenDashboard events={events} currentUser={currentUser} onOpenModal={setModalType} />} />
+              <Route path="next-gen-follow-up" element={<NextGenFollowUp currentUser={currentUser} events={events} />} />
+              <Route path="next-gen-team" element={<NextGenTeam currentUser={currentUser} />} />
+              <Route path="next-gen-reports" element={<NextGenReports />} />
+            </Route>
+
+            {/* Parking (d3) */}
+            <Route element={<ProtectedRoute currentUser={currentUser} allowedDepartments={['d3']} />}>
+              <Route path="parking" element={<ParkingDashboard events={events} onOpenModal={setModalType} />} />
+            </Route>
+
+            {/* Finance (d4) */}
+            <Route element={<ProtectedRoute currentUser={currentUser} allowedDepartments={['d4']} />}>
+              <Route path="finance" element={<FinanceDashboard currentUser={currentUser} onOpenModal={setModalType} />} />
+            </Route>
+
+            {/* Transportation (d5) */}
+            <Route element={<ProtectedRoute currentUser={currentUser} allowedDepartments={['d5']} />}>
+              <Route path="transportation" element={<TransportationDashboard currentUser={currentUser} events={events} onOpenModal={setModalType} />} />
+              <Route path="stage-dashboard" element={<StageCoordinatorDashboard currentUser={currentUser} events={events} onOpenModal={setModalType} />} />
+            </Route>
+
+            {/* Follow-Up (d6) */}
+            <Route element={<ProtectedRoute currentUser={currentUser} allowedDepartments={['d6']} />}>
+              <Route path="follow-up" element={<FollowUpDashboard onOpenModal={setModalType} currentUser={currentUser} />} />
+            </Route>
+
+            {/* Schools (d7) */}
+            <Route element={<ProtectedRoute currentUser={currentUser} allowedDepartments={['d7']} />}>
+              <Route path="schools" element={<SchoolsDashboard currentUser={currentUser} events={events} onOpenModal={setModalType} />} />
+            </Route>
+
+            {/* General Routes/Shared Logic */}
+            <Route path="departments">
+              <Route index element={<DepartmentsView currentUser={currentUser} />} />
+              <Route path=":departmentId" element={<DepartmentDetail />}>
+                <Route path="requests" element={<DepartmentRequests />} />
+              </Route>
+            </Route>
+
+            <Route path="events" element={<EventsView events={events} />} />
+            <Route path="reports" element={<ReportsView />} />
 
             <Route path="requisitions" element={
               currentUser?.role === 'TeamLeader'
@@ -417,10 +459,8 @@ const App: React.FC = () => {
                 : <RequisitionsView currentUser={currentUser} />
             } />
 
-            <Route path="public-soul-entry" element={<PublicSoulEntry />} />
             <Route path="assets" element={<div className="p-4 md:p-8"><h1 className="text-3xl font-bold text-ministry-text mb-6">Assets Management</h1><AssetsTab currentUser={currentUser} /></div>} />
 
-            {/* Catch-all for sub-routes not matched (could default to dashboard or 404) */}
             <Route path="*" element={
               <div className="flex items-center justify-center h-full text-gray-500">
                 <div className="text-center">

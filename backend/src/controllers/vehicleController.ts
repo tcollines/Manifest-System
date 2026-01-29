@@ -65,6 +65,18 @@ export const updateVehicleLocation = async (req: Request, res: Response) => {
     }
 };
 
+export const updateVehicleChildren = async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { children } = req.body;
+    try {
+        const { error } = await supabase.from('vehicles').update({ children }).eq('id', id);
+        if (error) throw error;
+        res.json({ message: 'Children count updated' });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
 export const deleteVehicle = async (req: Request, res: Response) => {
     const { id } = req.params;
     try {

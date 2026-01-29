@@ -250,8 +250,8 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
 
         let matchesSearch = true;
         if (tokens.length > 0) {
-            const childName = c.name.toLowerCase();
-            const parentName = c.parentName.toLowerCase();
+            const childName = (c.name || '').toLowerCase();
+            const parentName = (c.parentName || '').toLowerCase();
 
             // Normalize contact
             const contactRaw = c.parentContact || '';
@@ -458,18 +458,16 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
 
     const handleAddChild = async (e: React.FormEvent) => {
         e.preventDefault();
-        // Check if we are in a service context (selectedService is set)
-        // logic: If we have a selectedService, we assume manual registration implies check-in.
         const isServiceActive = !!selectedService;
 
         const newChild: Child = {
             id: `c-${Date.now()}`,
             name: formData.name,
             parentName: formData.parentName,
-            parentContact: formData.parentContact, // numbers only, max 12 digits
+            parentContact: formData.parentContact,
             age: parseInt(formData.age) || 0,
             gender: formData.gender as 'Male' | 'Female',
-            category: 'First Timer', // Auto-set for new registrations
+            category: 'First Timer',
             residence: formData.residence,
             status: isServiceActive ? 'Checked In' : 'Absent',
             checkInTime: isServiceActive ? new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : undefined,
@@ -478,17 +476,21 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
             howHeard: (formData as any).howHeard
         };
 
-        // Save to DB first
-        await ChildStore.add(newChild);
+        try {
+            await ChildStore.add(newChild);
 
-        setChildren([newChild, ...children]);
-        setFormData(initialForm);
+            setChildren([newChild, ...children]);
+            setFormData(initialForm);
 
-        if (isServiceActive) {
-            showToast(`${newChild.name} registered and checked in successfully!`, 'success');
-        } else {
-            showToast(`${newChild.name} added to Next Gen database.`, 'success');
-            setViewMode('list');
+            if (isServiceActive) {
+                showToast(`${newChild.name} registered and checked in successfully!`, 'success');
+            } else {
+                showToast(`${newChild.name} added to Next Gen database.`, 'success');
+                setViewMode('list');
+            }
+        } catch (error: any) {
+            console.error('Failed to add child:', error);
+            showToast(`Failed to register child: ${error.message || 'Unknown error'}`, 'error');
         }
     };
 

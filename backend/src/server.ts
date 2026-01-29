@@ -57,4 +57,15 @@ app.get('/', (req, res) => {
 
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
+
+    // Automatic User Cleanup for Closed Events (Every 1 hour)
+    setInterval(async () => {
+        try {
+            console.log("Running automatic event user cleanup...");
+            const { cleanupPastEvents } = require('./controllers/eventController');
+            await cleanupPastEvents();
+        } catch (e) {
+            console.error("Auto-cleanup failed:", e);
+        }
+    }, 60 * 60 * 1000); // 1 hour
 });

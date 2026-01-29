@@ -38,8 +38,13 @@ export const getMembers = async (req: Request, res: Response) => {
 
 export const addMember = async (req: Request, res: Response) => {
     try {
+        console.log('[ADD MEMBER] Payload:', JSON.stringify(req.body));
+
         const { error } = await supabase.from('members').insert([req.body]);
-        if (error) throw error;
+        if (error) {
+            console.error('[ADD MEMBER ERROR]', error);
+            throw error;
+        }
         res.status(201).json({ message: 'Member added' });
     } catch (error: any) {
         res.status(500).json({ error: error.message });

@@ -1069,17 +1069,34 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
       return;
     }
 
-    // 2. Check Duplicates (Station Scope)
-    // Only prevent adding if it exists IN THE SAME STATION.
-    // Use Case: Same car can be in multiple stations (e.g. dropping off at different points) or different events.
+    // 1c. Validate Coordinator Uniqueness
+    if (vehicleForm.coordinator) {
+      const existingCoordVehicle = vehicles.find(v =>
+        v.coordinator === vehicleForm.coordinator &&
+        v.id !== (vehicleForm.id || '') // Exclude self if updating
+      );
+      if (existingCoordVehicle) {
+        showToast(`Error: Coordinator "${vehicleForm.coordinator}" is already assigned to vehicle ${existingCoordVehicle.number_plate}`, 'error');
+        return;
+      }
+    }
+
+    // 2. Check Duplicates (Event Scope - One car cannot be active TWICE in the SAME event)
     const duplicate = vehicles.find(v =>
       v.number_plate === formatted &&
-      v.stationId === selectedStation.id &&
-      v.id !== vehicleForm.id // Fix: Exclude self if updating
+      v.id !== vehicleForm.id // Exclude self if updating
     );
+
     if (duplicate) {
-      showToast(`Error: Vehicle "${formatted}" is already registered in this station.`, 'error');
-      return;
+      // Check if duplicate is in the SAME EVENT
+      const duplicateStation = stations.find(s => s.id === duplicate.stationId);
+      const currentStation = selectedStation; // We are always adding to selectedStation
+
+      if (duplicateStation && duplicateStation.eventId === currentStation.eventId) {
+        showToast(`Error: Vehicle "${formatted}" is already registered in this event (Station: ${duplicateStation.name}).`, 'error');
+        return;
+      }
+      // If it exists but in a DIFFERENT event, we allow it (assuming user is creating a new deployment for this event)
     }
 
     // 3. Handle Update Logic (if ID exists)
@@ -1122,9 +1139,9 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
         });
         // We don't strictly need refreshData if we did optimistic update, but keeping it for safety
         refreshData();
-      } catch (error) {
+      } catch (error: any) {
         console.error("Update failed", error);
-        showToast("Failed to update vehicle", 'error');
+        showToast(`Failed to update vehicle: ${error.message || 'Unknown error'}`, 'error');
       }
       return;
     }
@@ -1671,11 +1688,16 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
     e.preventDefault();
     if (!selectedVehicle) return;
     try {
-      const updatedVehicle = { ...selectedVehicle, childrenCount: parseInt(childrenForm.count) || 0 };
-      await VehicleStore.updateVehicle(updatedVehicle);
+      const count = parseInt(childrenForm.count) || 0;
+      await VehicleStore.updateChildrenCount(selectedVehicle.id, count);
+
+      const updatedVehicle = { ...selectedVehicle, childrenCount: count };
       setVehicles(prev => prev.map(v => v.id === updatedVehicle.id ? updatedVehicle : v));
       setSelectedVehicle(updatedVehicle);
       setIsAddChildrenOpen(false);
+
+      showToast("Children count updated.", 'success');
+      refreshData();
     } catch (err) {
       console.error("Error updating children count", err);
       showToast("Failed to update children count.", 'error');
@@ -1754,6 +1776,8 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
       showToast("Failed to delete members.", 'error');
     }
   };
+
+
 
   const handleDeleteEvent = async (event: MinistryEvent) => {
     // Strict Guard
@@ -2441,6 +2465,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
                       >
                         {isEventLocked(event.date) ? 'Preview Highlights' : 'View Stations'}
                       </button>
+
                       {currentUser.role === 'TeamLeader' && (
                         <button
                           onClick={() => handleDeleteEvent(event)}
@@ -3213,21 +3238,8 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
                     <label className="text-sm font-bold text-gray-700">Location Description</label>
                     <input required value={stationForm.location} onChange={e => setStationForm({ ...stationForm, location: e.target.value })} className="w-full p-3 border rounded-xl bg-white" placeholder="Detailed location" />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-sm font-bold text-gray-700">Coord Name</label>
-                      <input value={stationForm.coordinatorName} onChange={e => setStationForm({ ...stationForm, coordinatorName: e.target.value })} className="w-full p-3 border rounded-xl bg-white" placeholder="Optional" />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-bold text-gray-700">Coord Contact</label>
-                      <PhoneInput
-                        value={stationForm.coordinatorContact}
-                        onChange={(val) => setStationForm({ ...stationForm, coordinatorContact: val })}
-                        placeholder="700 000 000"
-                      />
-                    </div>
-                  </div>
                 </div>
+
                 <div className="space-y-4 pt-2">
                   <h4 className="text-xs font-bold text-gray-400 uppercase flex items-center"><Key className="w-3 h-3 mr-1" /> Assign Data Entrant</h4>
                   <div className="space-y-2">
@@ -3254,11 +3266,12 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
               </form>
             </div>
           </div>
-        )}
+        )
+        }
 
 
 
-      </div>
+      </div >
 
       {isAddEntrantOpen && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
@@ -3319,320 +3332,330 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
         </div>
       )}
 
-      {isAddVehicleOpen && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-md p-6 rounded-2xl shadow-xl max-h-[90vh] overflow-y-auto">
-            <h3 className="text-xl font-bold mb-4">{vehicleForm.id ? 'Edit Vehicle' : 'Add Vehicle'}</h3>
-            <form onSubmit={handleAddVehicle} className="space-y-4">
+      {
+        isAddVehicleOpen && (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white w-full max-w-md p-6 rounded-2xl shadow-xl max-h-[90vh] overflow-y-auto">
+              <h3 className="text-xl font-bold mb-4">{vehicleForm.id ? 'Edit Vehicle' : 'Add Vehicle'}</h3>
+              <form onSubmit={handleAddVehicle} className="space-y-4">
 
-              <div className="space-y-2">
-                <label className="text-sm font-bold text-gray-700">Vehicle Coordinator</label>
-                <select
-                  required
-                  value={vehicleForm.coordinator}
-                  onChange={e => setVehicleForm({ ...vehicleForm, coordinator: e.target.value })}
-                  className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-ministry-blue"
-                >
-                  <option value="">Select Coordinator</option>
-                  {coordinators.map(coord => (
-                    <option key={coord.id} value={coord.name}>
-                      {coord.name} ({coord.username})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-bold text-gray-700">Driver Name</label>
-                  <input
+                  <label className="text-sm font-bold text-gray-700">Vehicle Coordinator</label>
+                  <select
                     required
-                    value={vehicleForm.driverName}
-                    onChange={e => setVehicleForm({ ...vehicleForm, driverName: e.target.value })}
+                    value={vehicleForm.coordinator}
+                    onChange={e => setVehicleForm({ ...vehicleForm, coordinator: e.target.value })}
                     className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-ministry-blue"
-                    placeholder="Full Name"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <label className="text-sm font-bold text-gray-700">Driver NIN / Permit No.</label>
-                    {vehicleForm.driverNin && (
-                      <div className={`w-3 h-3 rounded-full ${validateDriverIdentity(vehicleForm.driverNin).valid ? 'bg-green-500' : 'bg-red-500'}`} title={validateDriverIdentity(vehicleForm.driverNin).error || "Valid ID"} />
-                    )}
-                  </div>
-                  <input
-                    required
-                    value={vehicleForm.driverNin}
-                    onChange={e => {
-                      let val = e.target.value.toUpperCase();
-                      // Enforce NIN limit (14 chars) if it looks like a NIN (Starts with C)
-                      if (val.startsWith('C') && val.length > 14) {
-                        return; // Ignore input if it exceeds 14 chars for NINs
-                      }
-                      setVehicleForm({ ...vehicleForm, driverNin: val })
-                    }}
-                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-ministry-blue uppercase"
-                    placeholder="NIN or Permit Number"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-bold text-gray-700">Driver Contact</label>
-                <PhoneInput required value={vehicleForm.driverContact} onChange={(val) => setVehicleForm({ ...vehicleForm, driverContact: val })} placeholder="700 000 000" />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-bold text-gray-700">Number Plate</label>
-                <NumberPlateInput
-                  required
-                  value={vehicleForm.number_plate}
-                  onChange={(val) => setVehicleForm({ ...vehicleForm, number_plate: val })}
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-bold text-gray-700">Vehicle Type</label>
-                <select value={vehicleForm.type} onChange={e => setVehicleForm({ ...vehicleForm, type: e.target.value as any })} className="w-full p-3 border rounded-xl bg-white">
-                  {VEHICLE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                </select>
-              </div>
-              <div className="flex justify-end pt-4 gap-3">
-                <button type="button" onClick={() => setIsAddVehicleOpen(false)} className="px-4 py-2 text-gray-600 font-bold">Cancel</button>
-                <button type="submit" className="px-6 py-2 bg-ministry-text text-white font-bold rounded-xl hover:bg-ministry-orange">
-                  {vehicleForm.id ? 'Update Vehicle' : 'Register Vehicle'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {isAddPassengerOpen && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-lg p-6 rounded-2xl shadow-xl max-h-[90vh] overflow-y-auto">
-            <h3 className="text-xl font-bold mb-4">
-              {passengerForm.category === 'Student' ? 'Add Student' : 'Add Member'} to Vehicle
-            </h3>
-            <p className="text-sm text-gray-500 mb-4">Adding to {selectedVehicle?.number_plate}</p>
-            <form onSubmit={handleAddPassenger} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-gray-700">Full Name</label>
-                  <input required value={passengerForm.name} onChange={e => setPassengerForm({ ...passengerForm, name: e.target.value })} className="w-full p-3 border rounded-xl bg-white" />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-gray-700">Gender</label>
-                  <select value={passengerForm.gender} onChange={e => setPassengerForm({ ...passengerForm, gender: e.target.value })} className="w-full p-3 border rounded-xl bg-white">
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
+                  >
+                    <option value="">Select Coordinator</option>
+                    {coordinators
+                      .filter(coord => coord.eventId === selectedStation?.eventId && !coord.stationId)
+                      .map(coord => (
+                        <option key={coord.id} value={coord.name}>
+                          {coord.name} ({coord.username})
+                        </option>
+                      ))}
                   </select>
                 </div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-gray-700">Contact</label>
-                  <PhoneInput required value={passengerForm.contact} onChange={(val) => setPassengerForm({ ...passengerForm, contact: val })} placeholder="700 000 000" />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-gray-700">Residence</label>
-                  <input required value={passengerForm.residence} onChange={e => setPassengerForm({ ...passengerForm, residence: e.target.value })} className="w-full p-3 border rounded-xl bg-white" />
-                </div>
-              </div>
 
-              {/* New Contact Type Selector for Students */}
-              {passengerForm.category === 'Student' && (
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-gray-700">Contact Type</label>
-                  <div className="flex gap-4">
-                    <label className="flex items-center space-x-2 cursor-pointer bg-gray-50 px-4 py-2 rounded-lg border border-gray-200">
-                      <input
-                        type="radio"
-                        name="contactType"
-                        value="Personal"
-                        checked={!passengerForm.parentContact} // If parentContact is empty/undefined, it's Personal (default logic)
-                        onChange={() => {
-                          // Clearing parent contact implies personal contact is now primary
-                          setPassengerForm(prev => ({ ...prev, parentContact: undefined }));
-                        }}
-                        className="form-radio text-ministry-orange focus:ring-ministry-orange"
-                      />
-                      <span className="text-sm font-medium">Personal Contact</span>
-                    </label>
-                    <label className="flex items-center space-x-2 cursor-pointer bg-gray-50 px-4 py-2 rounded-lg border border-gray-200">
-                      <input
-                        type="radio"
-                        name="contactType"
-                        value="Parent"
-                        checked={(passengerForm as any).isParentContact === true}
-                        onChange={(e) => {
-                          if (e.target.value === 'Parent') {
-                            setPassengerForm(prev => ({ ...prev, isParentContact: true } as any));
-                          } else {
-                            setPassengerForm(prev => {
-                              const copy = { ...prev };
-                              delete (copy as any).isParentContact;
-                              return copy;
-                            });
-                          }
-                        }}
-                        className="form-radio text-ministry-orange focus:ring-ministry-orange"
-                      />
-                      <span className="text-sm font-medium">Parent Contact</span>
-                    </label>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-gray-700">Driver Name</label>
+                    <input
+                      required
+                      value={vehicleForm.driverName}
+                      onChange={e => setVehicleForm({ ...vehicleForm, driverName: e.target.value })}
+                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-ministry-blue"
+                      placeholder="Full Name"
+                    />
                   </div>
-                </div>
-              )}
 
-              <div className="space-y-2">
-                <label className="text-sm font-bold text-gray-700">Are you going with us for the first time?</label>
-                <select value={passengerForm.isFirstTime} onChange={e => setPassengerForm({ ...passengerForm, isFirstTime: e.target.value })} className="w-full p-3 border rounded-xl bg-white">
-                  <option value="No">No</option>
-                  <option value="Yes">Yes</option>
-                </select>
-              </div>
-              {passengerForm.category === 'Student' && (
-                <div className="bg-gray-50 p-4 rounded-xl space-y-4 border border-gray-100">
-                  <h4 className="text-xs font-bold text-gray-400 uppercase">Student Details</h4>
                   <div className="space-y-2">
-                    <label className="text-sm font-bold text-gray-700">School Name</label>
-                    <input value={passengerForm.school} onChange={e => setPassengerForm({ ...passengerForm, school: e.target.value })} className="w-full p-3 border rounded-xl bg-white" />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-sm font-bold text-gray-700">Class</label>
-                      <input value={passengerForm.studentClass} onChange={e => setPassengerForm({ ...passengerForm, studentClass: e.target.value })} className="w-full p-3 border rounded-xl bg-white" />
+                    <div className="flex justify-between items-center">
+                      <label className="text-sm font-bold text-gray-700">Driver NIN / Permit No.</label>
+                      {vehicleForm.driverNin && (
+                        <div className={`w-3 h-3 rounded-full ${validateDriverIdentity(vehicleForm.driverNin).valid ? 'bg-green-500' : 'bg-red-500'}`} title={validateDriverIdentity(vehicleForm.driverNin).error || "Valid ID"} />
+                      )}
                     </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-bold text-gray-700">Section</label>
-                      <select value={passengerForm.boardingType} onChange={e => setPassengerForm({ ...passengerForm, boardingType: e.target.value })} className="w-full p-3 border rounded-xl bg-white">
-                        <option value="Day">Day Student</option>
-                        <option value="Boarding">Boarding Student</option>
-                      </select>
-                    </div>
+                    <input
+                      required
+                      value={vehicleForm.driverNin}
+                      onChange={e => {
+                        let val = e.target.value.toUpperCase();
+                        // Enforce NIN limit (14 chars) if it looks like a NIN (Starts with C)
+                        if (val.startsWith('C') && val.length > 14) {
+                          return; // Ignore input if it exceeds 14 chars for NINs
+                        }
+                        setVehicleForm({ ...vehicleForm, driverNin: val })
+                      }}
+                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-ministry-blue uppercase"
+                      placeholder="NIN or Permit Number"
+                    />
                   </div>
                 </div>
-              )}
-              {passengerForm.category === 'Institution' && (
-                <div className="bg-gray-50 p-4 rounded-xl space-y-4 border border-gray-100">
-                  <h4 className="text-xs font-bold text-gray-400 uppercase">Institution Details</h4>
-                  <div className="space-y-2">
-                    <label className="text-sm font-bold text-gray-700">Name of Institute</label>
-                    <input value={passengerForm.school} onChange={e => setPassengerForm({ ...passengerForm, school: e.target.value })} className="w-full p-3 border rounded-xl bg-white" placeholder="e.g. Makerere University" />
-                  </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700">Driver Contact</label>
+                  <PhoneInput required value={vehicleForm.driverContact} onChange={(val) => setVehicleForm({ ...vehicleForm, driverContact: val })} placeholder="700 000 000" />
                 </div>
-              )}
-              <div className="flex justify-end pt-4 gap-3">
-                <button type="button" onClick={() => setIsAddPassengerOpen(false)} className="px-4 py-2 text-gray-600 font-bold">Cancel</button>
-                <button type="submit" className="px-6 py-2 bg-ministry-text text-white font-bold rounded-xl hover:bg-ministry-orange">Add to Vehicle</button>
-              </div>
-            </form>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700">Number Plate</label>
+                  <NumberPlateInput
+                    required
+                    value={vehicleForm.number_plate}
+                    onChange={(val) => setVehicleForm({ ...vehicleForm, number_plate: val })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700">Vehicle Type</label>
+                  <select value={vehicleForm.type} onChange={e => setVehicleForm({ ...vehicleForm, type: e.target.value as any })} className="w-full p-3 border rounded-xl bg-white">
+                    {VEHICLE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+                <div className="flex justify-end pt-4 gap-3">
+                  <button type="button" onClick={() => setIsAddVehicleOpen(false)} className="px-4 py-2 text-gray-600 font-bold">Cancel</button>
+                  <button type="submit" className="px-6 py-2 bg-ministry-text text-white font-bold rounded-xl hover:bg-ministry-orange">
+                    {vehicleForm.id ? 'Update Vehicle' : 'Register Vehicle'}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
-        </div>
-      )}
+        )
+      }
+
+      {
+        isAddPassengerOpen && (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white w-full max-w-lg p-6 rounded-2xl shadow-xl max-h-[90vh] overflow-y-auto">
+              <h3 className="text-xl font-bold mb-4">
+                {passengerForm.category === 'Student' ? 'Add Student' : 'Add Member'} to Vehicle
+              </h3>
+              <p className="text-sm text-gray-500 mb-4">Adding to {selectedVehicle?.number_plate}</p>
+              <form onSubmit={handleAddPassenger} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-gray-700">Full Name</label>
+                    <input required value={passengerForm.name} onChange={e => setPassengerForm({ ...passengerForm, name: e.target.value })} className="w-full p-3 border rounded-xl bg-white" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-gray-700">Gender</label>
+                    <select value={passengerForm.gender} onChange={e => setPassengerForm({ ...passengerForm, gender: e.target.value })} className="w-full p-3 border rounded-xl bg-white">
+                      <option value="Male">Male</option>
+                      <option value="Female">Female</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-gray-700">Contact</label>
+                    <PhoneInput required value={passengerForm.contact} onChange={(val) => setPassengerForm({ ...passengerForm, contact: val })} placeholder="700 000 000" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-gray-700">Residence</label>
+                    <input required value={passengerForm.residence} onChange={e => setPassengerForm({ ...passengerForm, residence: e.target.value })} className="w-full p-3 border rounded-xl bg-white" />
+                  </div>
+                </div>
+
+                {/* New Contact Type Selector for Students */}
+                {passengerForm.category === 'Student' && (
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-gray-700">Contact Type</label>
+                    <div className="flex gap-4">
+                      <label className="flex items-center space-x-2 cursor-pointer bg-gray-50 px-4 py-2 rounded-lg border border-gray-200">
+                        <input
+                          type="radio"
+                          name="contactType"
+                          value="Personal"
+                          checked={!passengerForm.parentContact} // If parentContact is empty/undefined, it's Personal (default logic)
+                          onChange={() => {
+                            // Clearing parent contact implies personal contact is now primary
+                            setPassengerForm(prev => ({ ...prev, parentContact: undefined }));
+                          }}
+                          className="form-radio text-ministry-orange focus:ring-ministry-orange"
+                        />
+                        <span className="text-sm font-medium">Personal Contact</span>
+                      </label>
+                      <label className="flex items-center space-x-2 cursor-pointer bg-gray-50 px-4 py-2 rounded-lg border border-gray-200">
+                        <input
+                          type="radio"
+                          name="contactType"
+                          value="Parent"
+                          checked={(passengerForm as any).isParentContact === true}
+                          onChange={(e) => {
+                            if (e.target.value === 'Parent') {
+                              setPassengerForm(prev => ({ ...prev, isParentContact: true } as any));
+                            } else {
+                              setPassengerForm(prev => {
+                                const copy = { ...prev };
+                                delete (copy as any).isParentContact;
+                                return copy;
+                              });
+                            }
+                          }}
+                          className="form-radio text-ministry-orange focus:ring-ministry-orange"
+                        />
+                        <span className="text-sm font-medium">Parent Contact</span>
+                      </label>
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700">Are you going with us for the first time?</label>
+                  <select value={passengerForm.isFirstTime} onChange={e => setPassengerForm({ ...passengerForm, isFirstTime: e.target.value })} className="w-full p-3 border rounded-xl bg-white">
+                    <option value="No">No</option>
+                    <option value="Yes">Yes</option>
+                  </select>
+                </div>
+                {passengerForm.category === 'Student' && (
+                  <div className="bg-gray-50 p-4 rounded-xl space-y-4 border border-gray-100">
+                    <h4 className="text-xs font-bold text-gray-400 uppercase">Student Details</h4>
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-gray-700">School Name</label>
+                      <input value={passengerForm.school} onChange={e => setPassengerForm({ ...passengerForm, school: e.target.value })} className="w-full p-3 border rounded-xl bg-white" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-sm font-bold text-gray-700">Class</label>
+                        <input value={passengerForm.studentClass} onChange={e => setPassengerForm({ ...passengerForm, studentClass: e.target.value })} className="w-full p-3 border rounded-xl bg-white" />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-bold text-gray-700">Section</label>
+                        <select value={passengerForm.boardingType} onChange={e => setPassengerForm({ ...passengerForm, boardingType: e.target.value })} className="w-full p-3 border rounded-xl bg-white">
+                          <option value="Day">Day Student</option>
+                          <option value="Boarding">Boarding Student</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {passengerForm.category === 'Institution' && (
+                  <div className="bg-gray-50 p-4 rounded-xl space-y-4 border border-gray-100">
+                    <h4 className="text-xs font-bold text-gray-400 uppercase">Institution Details</h4>
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-gray-700">Name of Institute</label>
+                      <input value={passengerForm.school} onChange={e => setPassengerForm({ ...passengerForm, school: e.target.value })} className="w-full p-3 border rounded-xl bg-white" placeholder="e.g. Makerere University" />
+                    </div>
+                  </div>
+                )}
+                <div className="flex justify-end pt-4 gap-3">
+                  <button type="button" onClick={() => setIsAddPassengerOpen(false)} className="px-4 py-2 text-gray-600 font-bold">Cancel</button>
+                  <button type="submit" className="px-6 py-2 bg-ministry-text text-white font-bold rounded-xl hover:bg-ministry-orange">Add to Vehicle</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )
+      }
 
       {/* Add Event/Service Modal */}
-      {isAddEventOpen && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-white w-full max-w-md p-8 rounded-2xl shadow-2xl">
-            <h3 className="text-xl font-bold mb-4">
-              {eventFormType === 'Service' ? 'Create New Service' : 'Plan New Event'}
-            </h3>
-            <form onSubmit={handleAddEvent} className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-sm font-bold text-gray-700">Title / Theme</label>
-                <input
-                  required
-                  value={eventForm.title}
-                  onChange={e => setEventForm({ ...eventForm, title: e.target.value })}
-                  className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:border-ministry-orange outline-none transition-all"
-                  placeholder={eventFormType === 'Service' ? "e.g. Sunday Service" : "e.g. Men's Conference"}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
+      {
+        isAddEventOpen && (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+            <div className="bg-white w-full max-w-md p-8 rounded-2xl shadow-2xl">
+              <h3 className="text-xl font-bold mb-4">
+                {eventFormType === 'Service' ? 'Create New Service' : 'Plan New Event'}
+              </h3>
+              <form onSubmit={handleAddEvent} className="space-y-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-bold text-gray-700">Date</label>
+                  <label className="text-sm font-bold text-gray-700">Title / Theme</label>
                   <input
-                    type="date"
                     required
-                    value={eventForm.date}
-                    onChange={e => setEventForm({ ...eventForm, date: e.target.value })}
+                    value={eventForm.title}
+                    onChange={e => setEventForm({ ...eventForm, title: e.target.value })}
+                    className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:border-ministry-orange outline-none transition-all"
+                    placeholder={eventFormType === 'Service' ? "e.g. Sunday Service" : "e.g. Men's Conference"}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-gray-700">Date</label>
+                    <input
+                      type="date"
+                      required
+                      value={eventForm.date}
+                      onChange={e => setEventForm({ ...eventForm, date: e.target.value })}
+                      className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 outline-none"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-gray-700">Time</label>
+                    <input
+                      type="time"
+                      required
+                      value={eventForm.time}
+                      onChange={e => setEventForm({ ...eventForm, time: e.target.value })}
+                      className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 outline-none"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700">Location</label>
+                  <input
+                    required
+                    value={eventForm.location}
+                    onChange={e => setEventForm({ ...eventForm, location: e.target.value })}
                     className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 outline-none"
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-bold text-gray-700">Time</label>
-                  <input
-                    type="time"
-                    required
-                    value={eventForm.time}
-                    onChange={e => setEventForm({ ...eventForm, time: e.target.value })}
-                    className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 outline-none"
+                  <label className="text-sm font-bold text-gray-700">Description (Optional)</label>
+                  <textarea
+                    value={eventForm.description}
+                    onChange={e => setEventForm({ ...eventForm, description: e.target.value })}
+                    className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 outline-none h-24 resize-none"
+                    placeholder="Details about this gathering..."
                   />
                 </div>
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-bold text-gray-700">Location</label>
-                <input
-                  required
-                  value={eventForm.location}
-                  onChange={e => setEventForm({ ...eventForm, location: e.target.value })}
-                  className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 outline-none"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-bold text-gray-700">Description (Optional)</label>
-                <textarea
-                  value={eventForm.description}
-                  onChange={e => setEventForm({ ...eventForm, description: e.target.value })}
-                  className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 outline-none h-24 resize-none"
-                  placeholder="Details about this gathering..."
-                />
-              </div>
-              <div className="flex justify-end pt-4 gap-3">
-                <button type="button" onClick={() => setIsAddEventOpen(false)} className="px-4 py-2 text-gray-600 font-bold hover:bg-gray-100 rounded-lg">Cancel</button>
-                <button type="submit" className="px-6 py-2 bg-ministry-text text-white font-bold rounded-xl hover:bg-ministry-orange transition-colors shadow-md">
-                  Create {eventFormType}
-                </button>
-              </div>
-            </form>
+                <div className="flex justify-end pt-4 gap-3">
+                  <button type="button" onClick={() => setIsAddEventOpen(false)} className="px-4 py-2 text-gray-600 font-bold hover:bg-gray-100 rounded-lg">Cancel</button>
+                  <button type="submit" className="px-6 py-2 bg-ministry-text text-white font-bold rounded-xl hover:bg-ministry-orange transition-colors shadow-md">
+                    Create {eventFormType}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
       {/* Children Count Modal */}
-      {isAddChildrenOpen && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-sm p-6 rounded-2xl shadow-xl">
-            <h3 className="text-xl font-bold mb-4">Children Count</h3>
-            <p className="text-sm text-gray-500 mb-4">Adding children count for {selectedVehicle?.number_plate}</p>
-            <form onSubmit={handleUpdateChildrenCount} className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-sm font-bold text-gray-700">Number of Children</label>
-                <input
-                  type="number"
-                  min="0"
-                  required
-                  value={childrenForm.count}
-                  onChange={e => setChildrenForm({ ...childrenForm, count: e.target.value })}
-                  className="w-full p-3 border rounded-xl bg-white text-lg font-bold"
-                  autoFocus
-                />
-              </div>
-              <div className="flex justify-end pt-4 gap-3">
-                <button type="button" onClick={() => setIsAddChildrenOpen(false)} className="px-4 py-2 text-gray-600 font-bold">Cancel</button>
-                <button type="submit" className="px-6 py-2 bg-ministry-text text-white font-bold rounded-xl hover:bg-ministry-orange">Save Count</button>
-              </div>
-            </form>
+      {
+        isAddChildrenOpen && (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white w-full max-w-sm p-6 rounded-2xl shadow-xl">
+              <h3 className="text-xl font-bold mb-4">Children Count</h3>
+              <p className="text-sm text-gray-500 mb-4">Adding children count for {selectedVehicle?.number_plate}</p>
+              <form onSubmit={handleUpdateChildrenCount} className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700">Number of Children</label>
+                  <input
+                    type="number"
+                    min="0"
+                    required
+                    value={childrenForm.count}
+                    onChange={e => setChildrenForm({ ...childrenForm, count: e.target.value })}
+                    className="w-full p-3 border rounded-xl bg-white text-lg font-bold"
+                    autoFocus
+                  />
+                </div>
+                <div className="flex justify-end pt-4 gap-3">
+                  <button type="button" onClick={() => setIsAddChildrenOpen(false)} className="px-4 py-2 text-gray-600 font-bold">Cancel</button>
+                  <button type="submit" className="px-6 py-2 bg-ministry-text text-white font-bold rounded-xl hover:bg-ministry-orange">Save Count</button>
+                </div>
+              </form>
+            </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
       {/* Highlights Modal */}
       <EventDetailsModal
         event={showHighlights ? highlightEvent : null}
         onClose={() => setShowHighlights(false)}
       />
-    </div>
+    </div >
 
   );
 };

@@ -18,6 +18,7 @@ export const getChildren = async (req: Request, res: Response) => {
 
 export const addChild = async (req: Request, res: Response) => {
     try {
+        console.log('[ADD CHILD] Payload:', JSON.stringify(req.body));
         const { error } = await supabase.from('children').insert([req.body]);
         if (error) throw error;
         res.status(201).json({ message: 'Child added' });

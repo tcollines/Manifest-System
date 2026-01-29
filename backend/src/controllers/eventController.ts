@@ -35,14 +35,17 @@ export const updateEvent = async (req: Request, res: Response) => {
 export const deleteEvent = async (req: Request, res: Response) => {
     const { id } = req.params;
     try {
-        // 1. Delete Logistics (Stations -> Vehicles -> Passengers)
+        // 1. Delete Logistics Linked to Event
         const { data: stations } = await supabase.from('pickup_stations').select('id').eq('event_id', id);
 
         if (stations && stations.length > 0) {
-            for (const station of stations) {
-                // 1.1 Detach Users
-                await supabase.from('users').update({ station_id: null }).eq('station_id', station.id);
+            const stationIds = stations.map(s => s.id);
 
+            // 1.1 Delete Data Entrants (Users linked to these stations)
+            // This frees up usernames for reuse in future events
+            await supabase.from('users').delete().in('station_id', stationIds);
+
+            for (const station of stations) {
                 // 1.2 Get Vehicles
                 const { data: vehicles } = await supabase.from('vehicles').select('id').eq('station_id', station.id);
                 if (vehicles && vehicles.length > 0) {
@@ -56,6 +59,10 @@ export const deleteEvent = async (req: Request, res: Response) => {
                 await supabase.from('pickup_stations').delete().eq('id', station.id);
             }
         }
+
+        // 1.6 Delete Event Coordinators (Vehicle Coordinators linked directly to Event)
+        // This ensures vehicle coordinators created for this event are also cleaned up
+        await supabase.from('users').delete().eq('event_id', id).eq('role', 'Coordinator');
 
         // 2. Remove Attendance from Members
         const { data: members } = await supabase.from('members').select('id, attended_service_ids').contains('attended_service_ids', [id]);
@@ -109,5 +116,45 @@ export const deleteEvent = async (req: Request, res: Response) => {
         res.json({ message: 'Event and related data deleted' });
     } catch (error: any) {
         res.status(500).json({ error: error.message });
+    }
+};
+
+
+
+// Internal function for automated cleanup (called by server.ts)
+export const cleanupPastEvents = async () => {
+    try {
+        const now = new Date();
+        const pastThreshold = new Date(now.getTime() - (24 * 60 * 60 * 1000)); // 24 hours ago
+
+        // 1. Find all events where date < threshold (simple check)
+        const { data: events } = await supabase
+            .from('ministry_events')
+            .select('id, title, date')
+            .lt('date', pastThreshold.toISOString().split('T')[0]); // Comparing date only strings YYYY-MM-DD
+
+        if (!events || events.length === 0) return;
+
+        console.log(`Found ${events.length} past events to check for user cleanup.`);
+
+        for (const event of events) {
+            // Re-use logic: Delete linked users
+
+            // 1. Get Stations linkage
+            const { data: stations } = await supabase.from('pickup_stations').select('id').eq('event_id', event.id);
+
+            if (stations && stations.length > 0) {
+                const stationIds = stations.map(s => s.id);
+                const { count } = await supabase.from('users').delete({ count: 'exact' }).in('station_id', stationIds);
+                if (count && count > 0) console.log(`Cleaned up ${count} entrants for ${event.title}`);
+            }
+
+            // 2. Delete Event Coordinators
+            const { count: coordCount } = await supabase.from('users').delete({ count: 'exact' }).eq('event_id', event.id).eq('role', 'Coordinator');
+            if (coordCount && coordCount > 0) console.log(`Cleaned up ${coordCount} coordinators for ${event.title}`);
+        }
+
+    } catch (e) {
+        console.error("Error in cleanupPastEvents:", e);
     }
 };

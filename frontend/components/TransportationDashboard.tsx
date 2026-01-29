@@ -92,7 +92,8 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
     const [filterStatus, setFilterStatus] = useState<'All' | 'Pending' | 'En Route' | 'Arrived' | 'Completed'>('All');
 
     const [coordinators, setCoordinators] = useState<User[]>([]);
-    const [newCoordinator, setNewCoordinator] = useState({ name: '', username: '', password: '', contact: '' });
+    const [newCoordinator, setNewCoordinator] = useState({ name: '', username: '', password: '', contact: '', stationId: '' });
+    const [formRoleType, setFormRoleType] = useState<'vehicle' | 'stage'>('vehicle');
 
 
     const [isAssigning, setIsAssigning] = useState<string | null>(null);
@@ -161,8 +162,13 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
                 }
             } else {
                 // Head of Dept View Data Logic
-                const stations = await LogisticsStore.getStations();
-                setDbStations(stations);
+                try {
+                    const stations = await LogisticsStore.getStations();
+                    setDbStations(stations);
+                } catch (err) {
+                    console.error("Failed to fetch stations for Transportation:", err);
+                    // Keep existing stations if fetch fails to avoid UI flickering
+                }
 
                 const relevantStationIds = stations.filter(s => s.eventId === selectedEventId).map(s => s.id);
 
@@ -218,7 +224,7 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
 
         const interval = setInterval(() => {
             refreshDataRef.current().catch(e => console.error("Refresh interval error:", e));
-        }, 10000);
+        }, 30000); // Increased to 30s to reduce network load
 
         // Realtime Subscriptions
         const channel = supabase
@@ -480,6 +486,14 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
     const handleAssignCoordinator = async (vehicleId: string) => {
         if (!selectedCoordinator) return;
         const allVehicles = await VehicleStore.getVehicles();
+
+        // Validation: Check if coordinator is already assigned to a DIFFERENT vehicle
+        const existingAssignment = allVehicles.find(v => v.coordinator === selectedCoordinator && v.id !== vehicleId);
+        if (existingAssignment) {
+            showToast(`Error: ${selectedCoordinator} is already assigned to vehicle ${existingAssignment.number_plate}`, 'error');
+            return;
+        }
+
         const targetVehicle = allVehicles.find(v => v.id === vehicleId);
         if (targetVehicle) {
             const updated = { ...targetVehicle, coordinator: selectedCoordinator };
@@ -512,11 +526,13 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
             password: newCoordinator.password,
             departmentId: 'd5',
             eventId: selectedEventId,
-            contact: newCoordinator.contact
+            contact: newCoordinator.contact,
+            stationId: newCoordinator.stationId || undefined // Optional linkage
         };
         try {
             UserStore.add(newUser);
-            setNewCoordinator({ name: '', username: '', password: '', contact: '' });
+            setNewCoordinator({ name: '', username: '', password: '', contact: '', stationId: '' });
+            setFormRoleType('vehicle');
             refreshCoordinators();
             showToast(`Coordinator ${newUser.name} created successfully.`, 'success');
         } catch (error: any) {
@@ -530,6 +546,9 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
             refreshCoordinators();
         }
     };
+
+    // Filter stations for this event
+    const eventStations = dbStations.filter(s => s.eventId === selectedEventId);
 
     const handleOpenAdminVehicle = async (vehicle: TrackedVehicle) => {
         setSelectedAdminVehicle(vehicle);
@@ -1461,9 +1480,21 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
                                                 <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center font-bold text-gray-600">
                                                     {c.name.charAt(0)}
                                                 </div>
-                                                <div>
+                                                <div className="flex-1">
                                                     <p className="font-bold text-gray-900">{c.name}</p>
-                                                    <p className="text-xs text-gray-500 font-mono">@{c.username}</p>
+                                                    <p className="text-xs text-gray-400">@{c.username}</p>
+                                                    <div className="mt-1 flex flex-wrap gap-2">
+                                                        {/* Role Badge */}
+                                                        {c.stationId ? (
+                                                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 border border-blue-200">
+                                                                Stage: {dbStations.find(s => s.id === c.stationId)?.name || 'Unknown Station'}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-orange-100 text-ministry-orange border border-orange-200">
+                                                                Vehicle Coordinator
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </div>
                                             <div className="flex items-center space-x-2">
@@ -1494,6 +1525,70 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
 
                             <form onSubmit={handleAddCoordinator} className="space-y-4">
                                 <div className="space-y-2">
+                                    <label className="text-sm font-bold text-gray-700">Role Type</label>
+                                    <select
+                                        className="w-full p-3 bg-white border border-gray-200 rounded-xl focus:border-ministry-orange outline-none"
+                                        value={formRoleType}
+                                        onChange={(e) => {
+                                            const type = e.target.value as 'vehicle' | 'stage';
+                                            setFormRoleType(type);
+                                            if (type === 'vehicle') {
+                                                setNewCoordinator({ ...newCoordinator, stationId: '' });
+                                            } else {
+                                                // Default to first station if available
+                                                const firstStation = dbStations.find(s => s.eventId === selectedEventId);
+                                                setNewCoordinator({ ...newCoordinator, stationId: firstStation?.id || '' });
+                                            }
+                                        }}
+                                    >
+                                        <option value="vehicle">Vehicle Coordinator</option>
+                                        <option value="stage">Stage Coordinator</option>
+                                    </select>
+                                </div>
+
+                                {/* Show Station Select only if Stage Coordinator */}
+                                {formRoleType === 'stage' && (
+                                    <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
+                                        <div className="flex justify-between items-center">
+                                            <label className="text-sm font-bold text-gray-700">Assign Pickup Station</label>
+                                            <button
+                                                type="button"
+                                                onClick={async () => {
+                                                    try {
+                                                        const stations = await LogisticsStore.getStations();
+                                                        setDbStations(stations);
+                                                        showToast("Stations refreshed", 'success');
+                                                    } catch (e) {
+                                                        showToast("Failed to refresh stations", 'error');
+                                                    }
+                                                }}
+                                                className="text-xs text-ministry-orange hover:underline flex items-center"
+                                            >
+                                                <RefreshCw className="w-3 h-3 mr-1" /> Refresh
+                                            </button>
+                                        </div>
+                                        <div className="relative">
+                                            <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                            <select
+                                                required
+                                                className="w-full pl-10 pr-3 py-3 bg-white border border-gray-200 rounded-xl focus:border-ministry-orange outline-none appearance-none"
+                                                value={newCoordinator.stationId}
+                                                onChange={e => setNewCoordinator({ ...newCoordinator, stationId: e.target.value })}
+                                            >
+                                                <option value="" disabled>Select Station</option>
+                                                {dbStations.filter(s => s.eventId === selectedEventId).map(s => (
+                                                    <option key={s.id} value={s.id}>{s.name}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        {/* Warning if no stations */}
+                                        {dbStations.filter(s => s.eventId === selectedEventId).length === 0 && (
+                                            <p className="text-xs text-red-500">No stations found for this event. Please add stations in Logistics first.</p>
+                                        )}
+                                    </div>
+                                )}
+
+                                <div className="space-y-2">
                                     <label className="text-sm font-bold text-gray-700">Full Name</label>
                                     <input
                                         required
@@ -1502,8 +1597,8 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
                                         className="w-full p-3 bg-white border border-gray-200 rounded-xl focus:border-ministry-orange outline-none"
                                         placeholder="e.g. Mike Ross"
                                     />
-
                                 </div>
+
                                 <div className="space-y-2">
                                     <label className="text-sm font-bold text-gray-700">Contact</label>
                                     <div className="relative">
