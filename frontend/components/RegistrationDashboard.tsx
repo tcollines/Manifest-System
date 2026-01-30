@@ -212,7 +212,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
     bornAgain: 'No',
     isPhanerooMember: 'No',
     referralSource: '',
-    category: 'Member',
+    category: 'First Timer',
     gender: 'Male'
   };
   const [formData, setFormData] = useState(initialForm);
@@ -605,8 +605,14 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
   };
 
   const handleBackRegistration = () => {
-    setViewMode('list');
-    setSelectedService(null);
+    // If we are in "Register New" mode and have an active service, go back to that service
+    if (viewMode === 'register-new' && selectedService) {
+      setViewMode('service-active');
+    } else {
+      // Otherwise (from Service Dashboard OR from Register New with no service), go to list
+      setViewMode('list');
+      setSelectedService(null);
+    }
     setSearchQuery('');
     setFormData(initialForm);
     setBulkMemberText('');
@@ -2118,7 +2124,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
                     <span className="hidden md:inline">Children Count</span>
                   </button>
                   {/* Copy Report Permission: Explicit Roles Only */}
-                  {['Administrator', 'Head of Dept', 'Reg. Admin', 'Registration Admin'].includes(currentUser.role) && (
+                  {['Administrator', 'Head of Dept', 'Department Head', 'Dept Admin', 'Reg. Admin', 'Registration Admin', 'Registration Head'].includes(currentUser.role) && (
                     <button
                       onClick={handleCopyReport}
                       className="flex items-center justify-center p-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 border border-gray-200 shadow-sm transition-colors"
@@ -2335,7 +2341,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-bold text-gray-700">Category</label>
-                  <select name="category" value={formData.category} onChange={handleInputChange} className="w-full p-3 bg-white border border-gray-200 rounded-xl focus:border-ministry-orange outline-none"><option value="Member">Member</option><option value="First Timer">First Timer</option><option value="Guest">Guest</option></select>
+                  <select name="category" value={formData.category} onChange={handleInputChange} className="w-full p-3 bg-white border border-gray-200 rounded-xl focus:border-ministry-orange outline-none"><option value="First Timer">First Timer</option><option value="Member">Member</option></select>
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-bold text-gray-700">Referral Source</label>
@@ -3170,9 +3176,8 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
                     <div className="space-y-1">
                       <label className="text-xs font-bold text-gray-500">Category</label>
                       <select disabled={!isEditingMember} value={formData.category} onChange={handleInputChange as any} name="category" className={`w-full p-2 border rounded-lg ${!isEditingMember ? 'bg-gray-50 border-transparent' : 'bg-white border-gray-200'}`}>
-                        <option>Member</option>
-                        <option>Guest</option>
                         <option>First Timer</option>
+                        <option>Member</option>
                       </select>
                     </div>
                     <div className="space-y-1">

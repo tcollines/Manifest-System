@@ -133,12 +133,14 @@ export const getServiceStats = async (req: Request, res: Response) => {
 
         if (memError) throw memError;
 
-        const firstTimerCount = (members || []).filter(m => m.joined_date === serviceDate).length;
+        const firstTimerCount = (members || []).filter(m => m.category === 'First Timer').length;
+
+        const validMemberIds = members?.map(m => m.id) || [];
 
         res.json({
-            total: attendance?.length || 0,
+            total: members?.length || 0,
             firstTimers: firstTimerCount,
-            memberIds: memberIds
+            memberIds: validMemberIds
         });
     } catch (error: any) {
         res.status(500).json({ error: error.message });
