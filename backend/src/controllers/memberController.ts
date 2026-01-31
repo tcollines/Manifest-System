@@ -126,7 +126,11 @@ export const addMember = async (req: Request, res: Response) => {
         res.status(201).json(data);
 
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        if (error.message && error.message.includes('idx_members_unique_identity')) {
+            res.status(409).json({ error: 'This member (Name + Phone) is already registered.' });
+        } else {
+            res.status(500).json({ error: error.message });
+        }
     }
 };
 

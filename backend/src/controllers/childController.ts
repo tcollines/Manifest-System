@@ -56,7 +56,11 @@ export const addChild = async (req: Request, res: Response) => {
         res.status(201).json(data);
     } catch (error: any) {
         console.error('[ADD CHILD CONTROLLER ERROR]', error);
-        res.status(500).json({ error: error.message });
+        if (error.message && (error.message.includes('idx_children_unique_identity') || error.message.includes('unique constraint'))) {
+            res.status(409).json({ error: 'This child is already registered.' });
+        } else {
+            res.status(500).json({ error: error.message });
+        }
     }
 };
 
