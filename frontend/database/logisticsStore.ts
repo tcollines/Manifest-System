@@ -1,7 +1,8 @@
 
-import { PickUpStation } from '../types';
+import { PickUpStation, ServiceResponse } from '../types';
 import { apiFetch } from '../services/api';
 import { PICKUP_STATIONS } from '../constants';
+import { safeFetch } from '../services/safeFetch';
 
 export interface ExtendedStation extends PickUpStation {
   coordinatorName?: string;
@@ -34,44 +35,38 @@ const mapStationToDB = (s: ExtendedStation) => ({
 });
 
 export const LogisticsStore = {
-  getStations: async (): Promise<ExtendedStation[]> => {
-    try {
-      const data = await apiFetch('/logistics/stations');
-      return data.map(mapStationFromDB);
-    } catch (e: any) {
-      console.error('Unexpected error fetching stations:', e.message || e);
-      return PICKUP_STATIONS as ExtendedStation[];
-    }
+  getStations: async (): Promise<ServiceResponse<ExtendedStation[]>> => {
+    return safeFetch(
+      () => apiFetch('/logistics/stations'),
+      'Failed to fetch stations',
+      (data: any[]) => data ? data.map(mapStationFromDB) : []
+    );
   },
 
-  addStation: async (station: ExtendedStation): Promise<void> => {
-    try {
-      await apiFetch('/logistics/stations', {
+  addStation: async (station: ExtendedStation): Promise<ServiceResponse<void>> => {
+    return safeFetch(
+      () => apiFetch('/logistics/stations', {
         method: 'POST',
         body: JSON.stringify(mapStationToDB(station))
-      });
-    } catch (e: any) {
-      console.error('Unexpected error adding station:', e.message || e);
-    }
+      }),
+      'Error adding station'
+    );
   },
 
-  updateStation: async (station: ExtendedStation): Promise<void> => {
-    try {
-      await apiFetch(`/logistics/stations/${station.id}`, {
+  updateStation: async (station: ExtendedStation): Promise<ServiceResponse<void>> => {
+    return safeFetch(
+      () => apiFetch(`/logistics/stations/${station.id}`, {
         method: 'PUT',
         body: JSON.stringify(mapStationToDB(station))
-      });
-    } catch (e: any) {
-      console.error('Unexpected error updating station:', e.message || e);
-    }
+      }),
+      'Error updating station'
+    );
   },
 
-  deleteStation: async (id: string): Promise<void> => {
-    try {
-      await apiFetch(`/logistics/stations/${id}`, { method: 'DELETE' });
-    } catch (e: any) {
-      console.error('Unexpected error deleting station:', e.message || e);
-      throw e;
-    }
+  deleteStation: async (id: string): Promise<ServiceResponse<void>> => {
+    return safeFetch(
+      () => apiFetch(`/logistics/stations/${id}`, { method: 'DELETE' }),
+      'Error deleting station'
+    );
   }
 };

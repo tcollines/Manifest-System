@@ -24,7 +24,7 @@ const PublicSoulEntry: React.FC = () => {
                 return;
             }
             try {
-                const events = await EventStore.getAll();
+                const { data: events } = await EventStore.getAll();
                 const event = events.find(e => e.id === eventId);
                 if (event) {
                     setEventData(event);

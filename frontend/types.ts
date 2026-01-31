@@ -73,6 +73,7 @@ export interface MinistryEvent {
   description: string;
   stats: EventStats;
   serviceNumber?: number;
+  createdAt?: string; // Mapped from DB created_at, useful for sorting
 }
 
 export interface User {
@@ -370,6 +371,7 @@ export interface IncidentReport {
   childName?: string;
 }
 
+
 export interface TrainingRequest {
   id: string;
   requesterId: string;
@@ -380,3 +382,9 @@ export interface TrainingRequest {
   createdAt?: string;
   requesterName?: string;
 }
+
+// Data Fetching Architecture Response Type
+export type ServiceResponse<T> =
+  | { status: 'success'; data: T; count?: number }
+  | { status: 'error'; message: string; error?: any };
+

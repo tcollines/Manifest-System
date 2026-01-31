@@ -294,7 +294,7 @@ const ParkingDashboard: React.FC<ParkingDashboardProps> = ({ events = [], onOpen
 
         // Create as ABSENT first, then Check In
         const newVehicle: PersonalVehicle = {
-            id: `pv-${Date.now()}`,
+            id: crypto.randomUUID(),
             number_plate: formatted,
             driverName: formData.driverName,
             driverContact: formData.driverContact, // numbers only, max 12 digits
@@ -346,7 +346,7 @@ const ParkingDashboard: React.FC<ParkingDashboardProps> = ({ events = [], onOpen
         }
 
         const newVehicle: PersonalVehicle = {
-            id: `pv-${Date.now()}`,
+            id: crypto.randomUUID(),
             number_plate: formatted,
             driverName: formData.driverName,
             driverContact: formData.driverContact,
@@ -377,7 +377,7 @@ const ParkingDashboard: React.FC<ParkingDashboardProps> = ({ events = [], onOpen
 
                 if (plate) {
                     newVehicles.push({
-                        id: `pv-bulk-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                        id: crypto.randomUUID(),
                         number_plate: plate.toUpperCase(),
                         driverName: name,
                         driverContact: contact,

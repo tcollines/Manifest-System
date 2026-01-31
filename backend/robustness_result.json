@@ -1,0 +1,34 @@
+{
+  "id": "48baaaba-bbc3-4891-8053-1ab1fd9eaa0e",
+  "name": "RobustUser_1769802506549",
+  "_meta": {
+    "action": "INSERT",
+    "match_reason": "NEW_RECORD",
+    "ignored_service_ids": [
+      "evt-12345-temp"
+    ]
+  },
+  "email": null,
+  "phone": "256792506549",
+  "gender": "Male",
+  "status": "Active",
+  "category": "Member",
+  "place_id": null,
+  "name_norm": "robustuser_1769802506549",
+  "residency": "RobustCity",
+  "born_again": "false",
+  "created_at": "2026-01-30T19:48:32.106153+00:00",
+  "occupation": null,
+  "joined_date": "2026-01-30 19:48:26.55+00",
+  "phone_last9": "792506549",
+  "check_in_time": "2026-01-30 19:48:26.549+00",
+  "place_of_work": null,
+  "residency_norm": "robustcity",
+  "referral_source": null,
+  "is_phaneroo_member": null,
+  "attended_service_ids": [
+    "550e8400-e29b-41d4-a716-446655440000",
+    "evt-12345-temp"
+  ],
+  "location_coordinates": null
+}

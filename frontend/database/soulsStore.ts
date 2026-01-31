@@ -25,6 +25,7 @@ const mapSoulFromDB = (s: any): Soul => ({
 });
 
 const mapSoulToDB = (s: Soul) => ({
+    id: s.id, // Pass ID to Backend to enforce UUID
     first_name: s.firstName,
     last_name: s.lastName,
     phone: s.phone,
@@ -66,10 +67,12 @@ export const SoulsStore = {
     },
 
     add: async (soul: Soul): Promise<void> => {
+        // Ensure UUID
+        const finalSoul = { ...soul, id: soul.id || crypto.randomUUID() };
         try {
             await apiFetch('/souls', {
                 method: 'POST',
-                body: JSON.stringify(mapSoulToDB(soul))
+                body: JSON.stringify(mapSoulToDB(finalSoul))
             });
         } catch (error: any) {
             throw error;

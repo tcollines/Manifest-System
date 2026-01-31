@@ -55,8 +55,27 @@ app.get('/', (req, res) => {
 });
 
 
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
     console.log(`Server is running on port ${PORT}`);
+
+    // 1. Startup Self-Check: Database Connectivity & Permissions
+    try {
+        const { supabase } = require('./supabase');
+        console.log("Verifying Database Connection...");
+        const { data, error } = await supabase.from('members').select('id').limit(1).maybeSingle();
+
+        if (error) {
+            console.error("❌ CRITICAL: Database Self-Check Failed!");
+            console.error("Error details:", error);
+            console.error("This indicates a permission issue (RLS) or connection failure.");
+            console.error("The server will shut down to prevent serving invalid states.");
+            process.exit(1);
+        }
+        console.log("✅ Database Connection Verified (Service Role Active).");
+    } catch (e) {
+        console.error("❌ CRITICAL: Startup Error during Self-Check:", e);
+        process.exit(1);
+    }
 
     // Automatic User Cleanup for Closed Events (Every 1 hour)
     setInterval(async () => {

@@ -8,7 +8,7 @@ import { isEventLocked } from '../utils';
 export const useEventLifecycle = () => {
     useEffect(() => {
         const cleanupExpiredCredentials = async () => {
-            const allEvents = await EventStore.getAll();
+            const { data: allEvents } = await EventStore.getAll();
             const lockedEventIds = allEvents
                 .filter(e => isEventLocked(e.date))
                 .map(e => e.id);

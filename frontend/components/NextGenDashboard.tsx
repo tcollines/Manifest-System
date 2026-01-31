@@ -357,12 +357,17 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
         const child = children.find(c => c.id === childId);
         if (!child) return;
 
+        // AUTO-PROMOTE Logic (Frontend Mirror):
+        // If checking in a First Timer, they become a Member immediately.
+        const newCategory = child.category === 'First Timer' ? 'Member' : child.category;
+
         const updatedChild: Child = {
             ...child,
             status: 'Checked In',
             checkInTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             checkOutTime: undefined,
-            attendedServiceIds: [...child.attendedServiceIds, selectedService.id]
+            attendedServiceIds: [...child.attendedServiceIds, selectedService.id],
+            category: newCategory
         };
 
         // Optimistic UI update
@@ -461,7 +466,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
         const isServiceActive = !!selectedService;
 
         const newChild: Child = {
-            id: `c-${Date.now()}`,
+            id: crypto.randomUUID(),
             name: formData.name,
             parentName: formData.parentName,
             parentContact: formData.parentContact,
@@ -560,7 +565,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
 
                 if (name && parentName) {
                     newChildren.push({
-                        id: `c-bulk-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                        id: crypto.randomUUID(),
                         name,
                         age,
                         gender: gender.toLowerCase().startsWith('f') ? 'Female' : 'Male',

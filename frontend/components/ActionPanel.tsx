@@ -124,7 +124,7 @@ const ActionPanel: React.FC<ActionPanelProps> = ({ modalType, closeModal, onSave
   const handleSubmit = async () => {
     if (modalType === ModalType.CREATE_SERVICE || modalType === ModalType.CREATE_EVENT) {
       const newEvent: MinistryEvent = {
-        id: `e-${Date.now()}`,
+        id: crypto.randomUUID(),
         title: formData.title || (modalType === ModalType.CREATE_SERVICE ? 'New Service' : 'New Event'),
         type: modalType === ModalType.CREATE_SERVICE ? 'Service' : 'Event',
         date: formData.date,

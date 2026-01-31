@@ -1,11 +1,44 @@
 import { Request, Response } from 'express';
 import { supabase } from '../supabase';
+import { v4 as uuidv4 } from 'uuid';
 
 export const getAllEvents = async (req: Request, res: Response) => {
     try {
-        const { data, error } = await supabase.from('ministry_events').select('*').order('date', { ascending: false });
+        const page = parseInt(req.query.page as string) || 1;
+        const limit = parseInt(req.query.limit as string) || 50; // Default limit
+        const search = req.query.search as string;
+
+        const offset = (page - 1) * limit;
+
+        let query = supabase
+            .from('ministry_events')
+            .select('*', { count: 'exact' });
+
+        // Search filter (Case insensitive)
+        if (search) {
+            query = query.ilike('title', `%${search}%`);
+        }
+
+        // Apply Pagination
+        query = query.range(offset, offset + limit - 1);
+
+        // Sort by created_at DESC (Newest First)
+        query = query.order('created_at', { ascending: false });
+
+        const { data, error, count } = await query;
+
         if (error) throw error;
-        res.json(data);
+
+        // Return strictly typed pagination response
+        res.json({
+            data: data || [],
+            meta: {
+                total: count || 0,
+                page,
+                limit,
+                totalPages: count ? Math.ceil(count / limit) : 0
+            }
+        });
     } catch (error: any) {
         res.status(500).json({ error: error.message });
     }
@@ -13,11 +46,49 @@ export const getAllEvents = async (req: Request, res: Response) => {
 
 export const createEvent = async (req: Request, res: Response) => {
     try {
-        const { error } = await supabase.from('ministry_events').insert([req.body]);
+        // Remove temporary ID to let DB generate UUID or we generate it
+        const { id: inputId, ...eventData } = req.body;
+        const payload = (inputId && String(inputId).startsWith('evt-')) ? eventData : req.body;
+
+        // Track the old ID for data migration
+        const oldId = (inputId && String(inputId).startsWith('evt-')) ? String(inputId) : null;
+
+        // Ensure ID is present (Manual Gen if DB doesn't default)
+        if (!payload.id || String(payload.id).startsWith('evt-')) {
+            payload.id = uuidv4();
+        }
+
+        // Force service_number if missing (Fix for NOT NULL constraint)
+        if (payload.service_number === undefined || payload.service_number === null) {
+            payload.service_number = 1;
+        }
+
+        const { data, error } = await supabase
+            .from('ministry_events')
+            .insert([payload])
+            .select()
+            .single();
+
         if (error) throw error;
-        res.status(201).json({ message: 'Event created' });
+
+        // CRITICAL: If we replaced an 'evt-' ID, we MUST migrate any existing data 
+        // linked to that old ID (optimistic data) to the new UUID.
+        if (oldId) {
+            console.log(`[EventCreate] Migrating data from ${oldId} to ${data.id}`);
+            const { error: rpcError } = await supabase.rpc('resolve_event_id', {
+                old_id: oldId,
+                new_id: data.id
+            });
+
+            if (rpcError) {
+                console.warn(`[EventCreate] Migration warning:`, rpcError);
+                // We don't fail the request, as the event was created successfully.
+            }
+        }
+
+        res.status(201).json(data);
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: error.message, details: error.details });
     }
 };
 
@@ -114,6 +185,19 @@ export const deleteEvent = async (req: Request, res: Response) => {
         if (error) throw error;
 
         res.json({ message: 'Event and related data deleted' });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+export const getEventHighlights = async (req: Request, res: Response) => {
+    const { id } = req.params;
+    try {
+        const { data, error } = await supabase.rpc('get_event_highlights', { event_uuid: id });
+
+        if (error) throw error;
+
+        res.json(data);
     } catch (error: any) {
         res.status(500).json({ error: error.message });
     }

@@ -55,13 +55,17 @@ const App: React.FC = () => {
   // Helper functions defined before effects to avoid hoisting issues logic-wise
   const refreshData = async () => {
     try {
-      const [users, dbEvents] = await Promise.all([
+      const [usersResponse, eventsResponse] = await Promise.all([
         UserStore.getAll(),
-        EventStore.getAll()
+        EventStore.getAll({ limit: 50 }) // Fetch recent 50 for Dashboards
       ]);
+
+      const users = usersResponse.status === 'success' ? usersResponse.data : [];
       setAllUsers(users);
-      if (dbEvents && dbEvents.length > 0) {
-        setEvents(dbEvents);
+
+      const eventList = eventsResponse.status === 'success' ? eventsResponse.data : [];
+      if (eventList.length > 0) {
+        setEvents(eventList);
       }
     } catch (e) {
       console.error("Failed to load initial data", e);
@@ -157,8 +161,10 @@ const App: React.FC = () => {
 
   const handleLogin = async (username: string, password: string) => {
     try {
-      const user = await UserStore.login(username, password);
-      if (user) {
+      const response = await UserStore.login(username, password);
+
+      if (response.status === 'success' && response.data) {
+        const user = response.data;
         setCurrentUser(user);
         UserStore.saveSession(user);
 
@@ -170,6 +176,8 @@ const App: React.FC = () => {
         const targetTab = getDashboardForUser(user);
         navigate(targetTab);
         setLoginError(null);
+      } else if (response.status === 'error') {
+        setLoginError(response.message);
       } else {
         setLoginError('Invalid username or password.');
       }
@@ -188,7 +196,7 @@ const App: React.FC = () => {
         UserStore.saveSession(user);
 
         if (!user.username) {
-          const generatedUsername = user.email ? user.email.split('@')[0] : `user_${Date.now()}`;
+          const generatedUsername = user.email ? user.email.split('@')[0] : `user_${crypto.randomUUID()}`;
           const updatedUser: User = { ...user, username: generatedUsername, status: 'Active' };
 
           try {
@@ -232,7 +240,7 @@ const App: React.FC = () => {
     try {
       setEvents(prev => [newEvent, ...prev]);
       await EventStore.add(newEvent);
-      const updatedEvents = await EventStore.getAll();
+      const { data: updatedEvents } = await EventStore.getAll({ limit: 50 });
       setEvents(updatedEvents);
       showToast(`${newEvent.type} created successfully!`, 'success');
     } catch (error: any) {
@@ -244,7 +252,9 @@ const App: React.FC = () => {
 
   const handleSaveUser = async (newUser: User) => {
     try {
-      const users = await UserStore.getAll();
+      const usersResp = await UserStore.getAll();
+      const users = usersResp.status === 'success' && usersResp.data ? usersResp.data : [];
+
       if (users.some(u => u.username?.toLowerCase() === newUser.username?.toLowerCase())) {
         if (newUser.username) {
           alert(`Error: The username "${newUser.username}" is already taken. Please choose another.`);
@@ -450,7 +460,7 @@ const App: React.FC = () => {
               </Route>
             </Route>
 
-            <Route path="events" element={<EventsView events={events} />} />
+            <Route path="events" element={<EventsView />} />
             <Route path="reports" element={<ReportsView />} />
 
             <Route path="requisitions" element={

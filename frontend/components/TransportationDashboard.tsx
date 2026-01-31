@@ -404,7 +404,7 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
         }
 
         const newP: Passenger = {
-            id: `p-new-${Date.now()}`,
+            id: crypto.randomUUID(),
             vehicleId: myVehicle.id,
             name: returnPassengerForm.name,
             contact: returnPassengerForm.contact,
@@ -459,7 +459,7 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
             const lastName = nameParts.slice(1).join(' ') || 'Unknown';
 
             const newSoul: Soul = {
-                id: `s-${Date.now()}`,
+                id: crypto.randomUUID(),
                 firstName,
                 lastName,
                 phone: p.contact,
@@ -519,7 +519,7 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
         }
 
         const newUser: User = {
-            id: `u-coord-${Date.now()}`,
+            id: crypto.randomUUID(),
             name: newCoordinator.name.trim(),
             role: 'Coordinator',
             username: newCoordinator.username,

@@ -90,7 +90,7 @@ const FollowUpDashboard: React.FC<FollowUpDashboardProps> = ({ onOpenModal, curr
     const loadData = async () => {
         setIsLoading(true);
         try {
-            const allEvents = await EventStore.getAll();
+            const { data: allEvents } = await EventStore.getAll();
             setEvents(allEvents.filter(e => e.type === 'Event'));
             setServices(allEvents.filter(e => e.type === 'Service'));
 
@@ -161,7 +161,7 @@ const FollowUpDashboard: React.FC<FollowUpDashboardProps> = ({ onOpenModal, curr
                                 </div>
                             </div>
                             <div className="bg-orange-50 text-orange-700 px-3 py-1 rounded-full text-xs font-bold">
-                                {service.stats?.soulsWon || 0} Souls
+                                {souls.filter(s => s.sourceId === service.id).length} Souls
                             </div>
                         </div>
                         <div className="p-4 bg-gray-50/50 flex justify-between items-center">
@@ -181,6 +181,9 @@ const FollowUpDashboard: React.FC<FollowUpDashboardProps> = ({ onOpenModal, curr
 
 
 
+
+
+    /** UPDATED EVENT DETAIL VIEW WITH ATTENDEES TAB */
     const EventDetailView = () => {
         const event = events.find(e => e.id === selectedEventId);
         if (!event) return <div>Event not found</div>;
@@ -191,7 +194,44 @@ const FollowUpDashboard: React.FC<FollowUpDashboardProps> = ({ onOpenModal, curr
         const soulsWon = eventSouls.filter(s => s.status !== 'Confirmed');
         const confirmations = eventSouls.filter(s => s.status === 'Confirmed');
 
-        const [viewTab, setViewTab] = useState<'souls' | 'confirmations'>('souls');
+        const [viewTab, setViewTab] = useState<'souls' | 'confirmations' | 'attendees'>('souls');
+        const [attendees, setAttendees] = useState<Member[]>([]);
+        const [loadingAttendees, setLoadingAttendees] = useState(false);
+
+        // Load Attendees on load
+        useEffect(() => {
+            if (selectedEventId) {
+                setLoadingAttendees(true);
+                MemberStore.getAttendees(selectedEventId)
+                    .then(data => setAttendees(data))
+                    .catch(err => console.error("Failed to load attendees", err))
+                    .finally(() => setLoadingAttendees(false));
+            }
+        }, [selectedEventId]);
+
+        const handleDownloadExcel = () => {
+            // CSV Generation
+            const headers = ['Name', 'Phone', 'Gender', 'Residence', 'Status', 'Category'];
+            const rows = attendees.map(a => [
+                a.name,
+                a.phone,
+                a.gender,
+                a.residency,
+                a.status,
+                a.category || ''
+            ]);
+
+            const csvContent = "data:text/csv;charset=utf-8,"
+                + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `${event.title}_Attendees.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        };
 
         return (
             <div className="space-y-6">
@@ -214,6 +254,7 @@ const FollowUpDashboard: React.FC<FollowUpDashboardProps> = ({ onOpenModal, curr
                         </div>
                     </div>
                     <div className="flex gap-3">
+                        {/* Existing Buttons */}
                         <button
                             onClick={() => handleCopyLink(event.id)}
                             className="px-4 py-2 border border-purple-200 text-purple-700 bg-purple-50 rounded-xl text-sm font-bold hover:bg-purple-100 transition-colors flex items-center shadow-sm"
@@ -242,7 +283,7 @@ const FollowUpDashboard: React.FC<FollowUpDashboardProps> = ({ onOpenModal, curr
                 </div>
 
                 {/* Stats Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="bg-ministry-text text-white p-5 rounded-xl shadow-sm">
                         <p className="text-xs uppercase font-bold text-gray-400 mb-1">Total Souls Won</p>
                         <p className="text-3xl font-black">{soulsWon.length}</p>
@@ -251,73 +292,136 @@ const FollowUpDashboard: React.FC<FollowUpDashboardProps> = ({ onOpenModal, curr
                         <p className="text-xs uppercase font-bold text-gray-500 mb-1">Confirmations</p>
                         <p className="text-3xl font-black text-blue-600">{confirmations.length}</p>
                     </div>
+                    {/* New Attendees Card */}
+                    <div className="bg-white border border-gray-200 p-5 rounded-xl shadow-sm">
+                        <p className="text-xs uppercase font-bold text-gray-500 mb-1">Total Attendees</p>
+                        <p className="text-3xl font-black text-green-600">{attendees.length > 0 ? attendees.length : '-'}</p>
+                    </div>
                 </div>
 
                 {/* Tabs */}
-                <div className="flex space-x-1 bg-gray-100 p-1 rounded-xl w-fit">
-                    <button
-                        onClick={() => setViewTab('souls')}
-                        className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${viewTab === 'souls' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
-                    >
-                        Souls Won
-                    </button>
-                    <button
-                        onClick={() => setViewTab('confirmations')}
-                        className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${viewTab === 'confirmations' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
-                    >
-                        Confirmations
-                    </button>
+                <div className="flex justify-between items-center">
+                    <div className="flex space-x-1 bg-gray-100 p-1 rounded-xl w-fit">
+                        <button
+                            onClick={() => setViewTab('souls')}
+                            className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${viewTab === 'souls' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+                        >
+                            Souls Won
+                        </button>
+                        <button
+                            onClick={() => setViewTab('confirmations')}
+                            className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${viewTab === 'confirmations' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+                        >
+                            Confirmations
+                        </button>
+                        <button
+                            onClick={() => setViewTab('attendees')}
+                            className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${viewTab === 'attendees' ? 'bg-white shadow-sm text-green-600' : 'text-gray-500 hover:text-gray-700'}`}
+                        >
+                            Attendees
+                        </button>
+                    </div>
+
+                    {viewTab === 'attendees' && attendees.length > 0 && (
+                        <button
+                            onClick={handleDownloadExcel}
+                            className="text-sm font-bold text-green-700 hover:bg-green-50 px-3 py-2 rounded-lg transition-colors flex items-center border border-green-200"
+                        >
+                            Download Excel
+                        </button>
+                    )}
                 </div>
 
                 {/* Table */}
                 <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
                     <table className="w-full text-left text-sm">
                         <thead className="bg-white text-gray-500 font-bold border-b border-gray-100 uppercase text-xs">
-                            <tr>
-                                <th className="px-6 py-3">Name</th>
-                                <th className="px-6 py-3">Phone</th>
-                                <th className="px-6 py-3">Residence</th>
-                                <th className="px-6 py-3">Status</th>
-                                <th className="px-6 py-3 text-right">Actions</th>
-                            </tr>
+                            {viewTab === 'attendees' ? (
+                                <tr>
+                                    <th className="px-6 py-3">Name</th>
+                                    <th className="px-6 py-3">Phone</th>
+                                    <th className="px-6 py-3">Residence</th>
+                                    <th className="px-6 py-3">Gender</th>
+                                    <th className="px-6 py-3">Category</th>
+                                </tr>
+                            ) : (
+                                <tr>
+                                    <th className="px-6 py-3">Name</th>
+                                    <th className="px-6 py-3">Phone</th>
+                                    <th className="px-6 py-3">Residence</th>
+                                    <th className="px-6 py-3">Status</th>
+                                    <th className="px-6 py-3 text-right">Actions</th>
+                                </tr>
+                            )}
                         </thead>
                         <tbody className="divide-y divide-gray-50">
-                            {(viewTab === 'souls' ? soulsWon : confirmations).map(soul => (
-                                <tr key={soul.id} className="hover:bg-gray-50 transition-colors">
-                                    <td className="px-6 py-3 font-bold text-gray-900">{soul.firstName} {soul.lastName}</td>
-                                    <td className="px-6 py-3 text-gray-600 font-mono">{soul.phone}</td>
-                                    <td className="px-6 py-3 text-gray-600">{soul.residence}</td>
-                                    <td className="px-6 py-3">
-                                        <span className={`px-2 py-0.5 rounded text-xs font-bold ${soul.status === 'Confirmed' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>
-                                            {soul.status}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-3 text-right">
-                                        <button
-                                            onClick={async () => {
-                                                const confirmed = await showConfirm(
-                                                    <span>Are you sure you want to delete <strong>{soul.firstName} {soul.lastName}</strong>? This cannot be undone.</span>,
-                                                    { title: 'Delete Soul', confirmText: 'Delete', isDestructive: true }
-                                                );
-                                                if (confirmed) {
-                                                    try {
-                                                        await SoulsStore.delete(soul.id || '');
-                                                        showToast('Soul deleted successfully', 'success');
-                                                        loadData();
-                                                    } catch (e) {
-                                                        showToast('Failed to delete soul', 'error');
+                            {viewTab === 'attendees' ? (
+                                loadingAttendees ? (
+                                    <tr><td colSpan={5} className="px-6 py-8 text-center text-gray-400">Loading attendees...</td></tr>
+                                ) :
+                                    attendees.map(member => (
+                                        <tr key={member.id} className="hover:bg-gray-50 transition-colors">
+                                            <td className="px-6 py-3 font-bold text-gray-900">{member.name}</td>
+                                            <td className="px-6 py-3 text-gray-600 font-mono">{member.phone}</td>
+                                            <td className="px-6 py-3 text-gray-600">{member.residency}</td>
+                                            <td className="px-6 py-3 text-gray-600">{member.gender}</td>
+                                            <td className="px-6 py-3 text-gray-500">
+                                                <span className={`px-2 py-0.5 rounded text-xs font-bold ${member.category === 'Student' ? 'bg-indigo-100 text-indigo-700' :
+                                                    member.category === 'Institution' ? 'bg-cyan-100 text-cyan-700' :
+                                                        'bg-gray-100 text-gray-700'
+                                                    }`}>
+                                                    {member.category}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    ))
+                            ) : (
+                                (viewTab === 'souls' ? soulsWon : confirmations).map(soul => (
+                                    <tr key={soul.id} className="hover:bg-gray-50 transition-colors">
+                                        <td className="px-6 py-3 font-bold text-gray-900">{soul.firstName} {soul.lastName}</td>
+                                        <td className="px-6 py-3 text-gray-600 font-mono">{soul.phone}</td>
+                                        <td className="px-6 py-3 text-gray-600">{soul.residence}</td>
+                                        <td className="px-6 py-3">
+                                            <span className={`px-2 py-0.5 rounded text-xs font-bold ${soul.status === 'Confirmed' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>
+                                                {soul.status}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-3 text-right">
+                                            <button
+                                                onClick={async () => {
+                                                    const confirmed = await showConfirm(
+                                                        <span>Are you sure you want to delete <strong>{soul.firstName} {soul.lastName}</strong>? This cannot be undone.</span>,
+                                                        { title: 'Delete Soul', confirmText: 'Delete', isDestructive: true }
+                                                    );
+                                                    if (confirmed) {
+                                                        try {
+                                                            await SoulsStore.delete(soul.id || '');
+                                                            showToast('Soul deleted successfully', 'success');
+                                                            loadData();
+                                                        } catch (e) {
+                                                            showToast('Failed to delete soul', 'error');
+                                                        }
                                                     }
-                                                }
-                                            }}
-                                            className="text-gray-400 hover:text-red-600 transition-colors p-1"
-                                            title="Delete Soul"
-                                        >
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
+                                                }}
+                                                className="text-gray-400 hover:text-red-600 transition-colors p-1"
+                                                title="Delete Soul"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        </td>
+                                    </tr>
+                                )))
+                            }
+
+                            {/* Empty States */}
+                            {viewTab === 'attendees' && !loadingAttendees && attendees.length === 0 && (
+                                <tr>
+                                    <td colSpan={5} className="px-6 py-10 text-center text-gray-400">
+                                        No attendees recorded yet.
                                     </td>
                                 </tr>
-                            ))}
-                            {(viewTab === 'souls' ? soulsWon : confirmations).length === 0 && (
+                            )}
+                            {(viewTab !== 'attendees' && (viewTab === 'souls' ? soulsWon : confirmations).length === 0) && (
                                 <tr>
                                     <td colSpan={5} className="px-6 py-10 text-center text-gray-400">
                                         No {viewTab} recorded yet.
@@ -330,6 +434,7 @@ const FollowUpDashboard: React.FC<FollowUpDashboardProps> = ({ onOpenModal, curr
             </div>
         );
     };
+
 
     const EventsList = () => {
         const [searchTerm, setSearchTerm] = useState('');

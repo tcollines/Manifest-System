@@ -34,11 +34,12 @@ export const IncidentStore = {
         }
     },
 
-    add: async (incident: Omit<IncidentReport, 'id' | 'createdAt'>) => {
+    add: async (incident: Omit<IncidentReport, 'id' | 'createdAt'> & { id?: string }) => {
+        const id = incident.id || crypto.randomUUID();
         try {
             const { data, error } = await supabase
                 .from('incidents')
-                .insert(mapToDB(incident))
+                .insert(mapToDB({ ...incident, id }))
                 .select()
                 .single();
 
@@ -49,6 +50,8 @@ export const IncidentStore = {
             throw error;
         }
     },
+
+    // ... (update, delete match existing)
 
     update: async (incident: IncidentReport) => {
         try {
@@ -94,6 +97,7 @@ const mapFromDB = (data: any): IncidentReport => ({
 });
 
 const mapToDB = (data: Partial<IncidentReport>) => ({
+    id: data.id, // Pass ID
     child_id: data.childId || null,
     service_id: data.serviceId,
     date: data.date,

@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNotification } from './ui/NotificationSystem';
 import { isEventLocked, isServiceClosed, validatePlate, validateContact, validateDriverIdentity } from '../utils';
 import { VEHICLE_TYPES } from '../constants';
-import { ModalType, MinistryEvent, User, Vehicle, Passenger, PickUpStation, PersonalVehicle, Member } from '../types';
+import { ModalType, MinistryEvent, User, Vehicle, Passenger, PickUpStation, PersonalVehicle, Member, ServiceResponse } from '../types';
 
 interface RegistrationDashboardProps {
   events: MinistryEvent[];
@@ -109,6 +109,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
   const [members, setMembers] = useState<Member[]>([]);
   const [totalMembers, setTotalMembers] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
+  const [filterCategory, setFilterCategory] = useState<string | null>(null);
 
   // Selection State for Hierarchy
   const [selectedService, setSelectedService] = useState<MinistryEvent | null>(null); // For Check-in
@@ -260,7 +261,42 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 100000;
+  const itemsPerPage = 50;
+
+  // --- REALTIME SYNC: Service Check-Ins ---
+  useEffect(() => {
+    if (!selectedService || viewMode !== 'service-active') return;
+
+    const channelName = `service-checkins-${selectedService.id}`;
+    const channel = supabase
+      .channel(channelName)
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // Listen for INSERT and DELETE (and UPDATE if needed)
+          schema: 'public',
+          table: 'service_attendance',
+          filter: `service_id=eq.${selectedService.id}` // Server-side filtering
+        },
+        async (payload) => {
+          // Re-fetch stats when any change happens to this service's attendance
+          try {
+            const stats = await MemberStore.getServiceStats(selectedService.id, selectedService.date);
+            const childrenCount = selectedService.stats?.manualChildrenCount || 0;
+            setCheckInStats({ total: stats.total + childrenCount, firstTimers: stats.firstTimers });
+            setCheckedInIds(new Set(stats.memberIds));
+          } catch (error) {
+            console.error("Realtime sync failed:", error);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [selectedService?.id, viewMode]);
+
 
   // Robust Role Check: Case-insensitive and includes Department ID 'd5' (Transportation/Logistics) - Fixes Data Entrant Guard
   const isLogisticsRole = (currentUser.role && currentUser.role.trim().toLowerCase() === 'logistics') || currentUser.departmentId === 'd5';
@@ -316,31 +352,93 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
   }, [isLogisticsRole, currentUser.stationId, stations, events, selectedLogisticsEvent, selectedStation, viewMode]);
 
   // Derived State - Filters
-  const services = events.filter(e => e.type === 'Service').sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  const logisticsEvents = events.filter(e => e.type === 'Event').sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  // Sort by CREATED AT (Newest First)
+  const sortEvents = (a: MinistryEvent, b: MinistryEvent) => {
+    if (a.createdAt && b.createdAt) {
+      return b.createdAt.localeCompare(a.createdAt);
+    }
+    return new Date(b.date).getTime() - new Date(a.date).getTime();
+  };
+
+  const services = events.filter(e => e.type === 'Service').sort(sortEvents);
+  const logisticsEvents = events.filter(e => e.type === 'Event').sort(sortEvents);
+
+  // Debounce Hook
+  function useDebounce<T>(value: T, delay: number): T {
+    const [debouncedValue, setDebouncedValue] = useState(value);
+    useEffect(() => {
+      const handler = setTimeout(() => {
+        setDebouncedValue(value);
+      }, delay);
+      return () => {
+        clearTimeout(handler);
+      };
+    }, [value, delay]);
+    return debouncedValue;
+  }
+
+  const debouncedSearchQuery = useDebounce(searchQuery, 600);
 
   const refreshData = async () => {
     try {
+      // Only search if query is empty (reset) or >= 2 chars
+      const effectiveQuery = debouncedSearchQuery.length >= 2 ? debouncedSearchQuery : '';
+
+      const queryToSend = effectiveQuery;
+
+      // Special Fetch Logic for Check-In Filters
+      // If we are filtering by Check-In status, we want ALL checked-in members, not just the current page
+      let membersPromise: Promise<ServiceResponse<Member[]>>;
+
+      if (filterCategory) {
+        if (checkedInIds.size > 0) {
+          // Fetch specific IDs
+          console.log("Filtering by IDs:", Array.from(checkedInIds));
+          membersPromise = MemberStore.getManyByIds(Array.from(checkedInIds));
+        } else {
+          // If filtering by stats but no one checked in, return empty
+          // Use explicit cast or ensure type safety matching ServiceResponse
+          membersPromise = Promise.resolve({ status: 'success', data: [] } as ServiceResponse<Member[]>);
+        }
+      } else {
+        membersPromise = MemberStore.getMembers(currentPage, itemsPerPage, queryToSend);
+      }
+
       const [fetchedStations, fetchedVehicles, fetchedPassengers, fetchedMembersResult, fetchedUsers, fetchedPersonalCars] = await Promise.all([
         LogisticsStore.getStations(),
         VehicleStore.getVehicles(),
         VehicleStore.getPassengers(),
-        MemberStore.getMembers(currentPage, itemsPerPage, searchQuery),
+        membersPromise,
         UserStore.getAll(),
         VehicleStore.getPersonalVehicles()
       ]);
 
-      setStations(fetchedStations);
-      setVehicles(fetchedVehicles);
-      setPersonalVehicles(fetchedPersonalCars);
-      setPassengers(fetchedPassengers);
-      setMembers(fetchedMembersResult.data);
-      setTotalMembers(fetchedMembersResult.count);
-      setCoordinators(fetchedUsers.filter(u => u.role === 'Coordinator'));
+      setStations(fetchedStations.status === 'success' ? fetchedStations.data : []);
+      // LogisticsStore was NOT refactored yet. Steps below refactor it.
+      // But VehicleStore IS refactored.
+
+      setVehicles(fetchedVehicles.status === 'success' ? fetchedVehicles.data : []);
+      setPersonalVehicles(fetchedPersonalCars.status === 'success' ? fetchedPersonalCars.data : []);
+      setPassengers(fetchedPassengers.status === 'success' ? fetchedPassengers.data : []);
+
+      // Handle Member Result (Safe Fetch Pattern)
+      if (fetchedMembersResult.status === 'success') {
+        setMembers(fetchedMembersResult.data);
+        setTotalMembers(fetchedMembersResult.count || fetchedMembersResult.data.length);
+      } else {
+        console.error("Member Fetch Error:", fetchedMembersResult.message);
+        showToast(`Error loading members: ${fetchedMembersResult.message}`, 'error');
+        // Optionally set an error state variable to show a banner
+        setMembers([]); // Safe fallback to empty but with Toast warning
+        setTotalMembers(0);
+      }
+
+      setCoordinators(fetchedUsers.status === 'success' ? fetchedUsers.data.filter(u => u.role === 'Coordinator') : []);
 
 
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error refreshing data:", error);
+      showToast("Critical error refreshing data.", 'error');
     }
   };
 
@@ -348,8 +446,13 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
   refreshDataRef.current = refreshData;
 
   useEffect(() => {
+    // Skip fetch if length is 1 to avoid "heavy" defaults if not intended
+    if (searchQuery.length > 0 && searchQuery.length < 2) {
+      return;
+    }
+
     refreshData();
-  }, [currentPage, searchQuery, activeTab]); // Re-fetch when pagination or search changes
+  }, [currentPage, debouncedSearchQuery, activeTab, filterCategory]); // Added filterCategory dependency
 
   const selectedServiceRef = useRef(selectedService);
   useEffect(() => {
@@ -532,13 +635,15 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
   useEffect(() => {
     const fetchCoordinators = async () => {
       if (selectedLogisticsEvent) {
-        const allUsers = await UserStore.getAll();
-        const eventCoords = allUsers.filter(u =>
-          u.role === 'Coordinator' &&
-          u.departmentId === 'd5' &&
-          u.eventId === selectedLogisticsEvent.id
-        );
-        setAvailableCoordinators(eventCoords);
+        const result = await UserStore.getAll();
+        if (result.status === 'success') {
+          const eventCoords = result.data.filter(u =>
+            u.role === 'Coordinator' &&
+            u.departmentId === 'd5' &&
+            u.eventId === selectedLogisticsEvent.id
+          );
+          setAvailableCoordinators(eventCoords);
+        }
       }
     };
     fetchCoordinators();
@@ -556,9 +661,11 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
   const handleSelectStation = async (station: ExtendedStation) => {
     setSelectedStation(station);
     // Fetch data entrants for this station
-    const allUsers = await UserStore.getAll();
-    const entrants = allUsers.filter(u => u.role === 'Logistics' && u.stationId === station.id);
-    setStationEntrants(entrants);
+    const result = await UserStore.getAll();
+    if (result.status === 'success') {
+      const entrants = result.data.filter(u => u.role === 'Logistics' && u.stationId === station.id);
+      setStationEntrants(entrants);
+    }
   };
 
   const handleOpenService = async (service: MinistryEvent) => {
@@ -927,32 +1034,47 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    // FIX: use selectedService to detect active session, because viewMode is 'register-new' here
-    const isServiceActive = !!selectedService;
 
-    // Phone validation (Optional but Confirm if empty)
-    if (!formData.phone || formData.phone === '256' || formData.phone.length <= 3) {
-      if (!(await askConfirm("Missing Contact Info", "No contact number provided. Are you sure you want to proceed?"))) {
-        return;
-      }
-    } else if (formData.phone.length < 12) {
-      showToast("Phone number is too short. Must start with 256 and have at least 9 digits.", 'error');
-      return;
-    }
-
+    // FIX: Define fullPhone early
     const fullPhone = formData.phone;
 
+    const isServiceActive = !!selectedService;
+    let serviceIdToUse: string | null = null;
+    let autoSavedEvent: any = null;
+
+    if (isServiceActive && selectedService) {
+      if (selectedService.id.startsWith('evt-')) {
+        try {
+          showToast("Saving new event before registration...", "info");
+          const realEvent = await EventStore.add(selectedService);
+          autoSavedEvent = realEvent;
+          serviceIdToUse = realEvent.id;
+
+          // Update Local State
+          // We must update the selectedService ref for subsequent calls
+          setSelectedService(realEvent);
+          // setServices removed as it does not exist. Parent events prop won't update immediately but selectedService is robust.
+        } catch (e) {
+          console.error("Auto-save event failed", e);
+          showToast("Failed to save event. Member will be saved but NOT checked in.", "warning");
+          // Fallback: Don't check in
+        }
+      } else {
+        serviceIdToUse = selectedService.id;
+      }
+    }
+
     const newMember: Member = {
-      id: `m-${Date.now()}`,
+      id: crypto.randomUUID(),
       name: formData.name,
       category: formData.category as any,
       phone: fullPhone,
       gender: formData.gender as any,
       bornAgain: formData.bornAgain as any,
-      status: isServiceActive ? 'Checked In' : 'Absent',
-      checkInTime: isServiceActive ? new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : undefined,
+      status: serviceIdToUse ? 'Checked In' : 'Absent',
+      checkInTime: serviceIdToUse ? new Date().toISOString() : undefined,
       joinedDate: new Date().toISOString().split('T')[0],
-      attendedServiceIds: isServiceActive && selectedService ? [selectedService.id] : [],
+      attendedServiceIds: serviceIdToUse ? [serviceIdToUse] : [],
       residency: formData.residence,
       email: formData.email,
       occupation: formData.occupation,
@@ -962,50 +1084,128 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
     };
 
     try {
-      await MemberStore.add(newMember);
+      const response = await MemberStore.add(newMember);
 
-      if (isServiceActive && selectedService) {
-        // Auto Check-in uses the new relational table
-        await MemberStore.checkIn(newMember.id, selectedService.id);
+      // FIX: Map backend response (snake_case) to frontend Member (camelCase)
+      // This ensures we have the REAL ID for check-in validation
+      const realMember: Member = {
+        ...newMember, // Keep optimistic values as defaults
+        id: response.id || newMember.id, // CRITICAL: Use backend ID
+        category: response.category || newMember.category,
+        // Map snake_case from DB if present
+        checkInTime: response.check_in_time || newMember.checkInTime,
+        bornAgain: response.born_again !== undefined ? response.born_again : newMember.bornAgain,
+        joinedDate: response.joined_date || newMember.joinedDate,
+        attendedServiceIds: response.attended_service_ids || newMember.attendedServiceIds,
+        // Status might be updated by backend logic
+        status: response.status || newMember.status
+      };
 
-        // Fetch fresh stats to ensure FirstTimer logic (JoinedDate === ServiceDate) is accurate
-        // Fetch fresh stats to ensure FirstTimer logic (JoinedDate === ServiceDate) is accurate
-        const stats = await MemberStore.getServiceStats(selectedService.id, selectedService.date);
-        const childrenCount = selectedService.stats?.manualChildrenCount || 0;
-        setCheckInStats({ total: stats.total + childrenCount, firstTimers: stats.firstTimers });
-        setCheckedInIds(new Set(stats.memberIds));
-
+      if (autoSavedEvent) {
+        showToast("Event saved automatically. Member successfully checked in.", "success");
+      } else if (response?._meta?.ignored_service_ids?.length > 0) {
+        showToast(`Registered ${newMember.name}, but ignored temporary Event ID.`, 'warning');
+      } else if (isServiceActive && serviceIdToUse) {
         showToast(`${newMember.name} registered and checked in!`, 'success');
       } else {
         showToast(`${newMember.name} added to database.`, 'success');
+      }
+
+      if (isServiceActive && selectedService) { // Use selectedService (which might be stale, but we used serviceIdToUse logic)
+        // If we auto-saved, stats need fetching for the NEW ID
+        const sid = serviceIdToUse || selectedService.id;
+        const sdate = autoSavedEvent?.date || selectedService.date;
+
+        // Fetch fresh stats
+        try {
+          // Delay slightly to ensure DB consistency if needed, but usually immediate is fine
+          const stats = await MemberStore.getServiceStats(sid, sdate);
+          const childrenCount = selectedService.stats?.manualChildrenCount || 0;
+          setCheckInStats({ total: stats.total + childrenCount, firstTimers: stats.firstTimers });
+          setCheckedInIds(new Set(stats.memberIds));
+        } catch (statErr) {
+          console.warn("Failed to refresh stats after auto-save", statErr);
+        }
+      } else {
         setViewMode('list');
       }
 
-      setMembers([newMember, ...members]);
+      // Update filtered list with REAL member (uniques only)
+      setMembers(prev => {
+        // Remove if existing ID (merge case)
+        const filtered = prev.filter(m => m.id !== realMember.id);
+        return [realMember, ...filtered];
+      });
+
       setFormData(initialForm);
 
-    } catch (err) {
-      console.error(err);
-      showToast("Failed to register member.", 'error');
+    } catch (err: any) {
+      console.error("Registration Error:", err);
+      const errorMessage = err.message || (typeof err === 'string' ? err : "Failed to register member.");
+
+      if (errorMessage.toLowerCase().includes('already exists')) {
+        showToast(errorMessage, 'error');
+      } else {
+        showToast(errorMessage, 'error');
+      }
     }
   };
 
   const handleCheckInMember = async (memberId: string) => {
     if (!selectedService) return;
 
-    // Use new Relational Check-in
-    await MemberStore.checkIn(memberId, selectedService.id);
+    let serviceToUse = selectedService;
 
-    // Update local state for immediate UI feedback (Badge)
-    setMembers(prev => prev.map(m => m.id === memberId ? { ...m, status: 'Checked In', checkInTime: new Date().toLocaleTimeString() } : m));
+    // AUTO-SAVE: If event is temporary, save it first
+    if (selectedService.id.startsWith('evt-')) {
+      try {
+        showToast("Saving new event before check-in...", "info");
+        const realEvent = await EventStore.add(selectedService);
 
-    // Refresh Stats
-    const stats = await MemberStore.getServiceStats(selectedService.id, selectedService.date);
-    const childrenCount = selectedService.stats?.manualChildrenCount || 0;
-    setCheckInStats({ total: stats.total + childrenCount, firstTimers: stats.firstTimers });
-    setCheckedInIds(new Set(stats.memberIds));
+        // Update Local State with Real ID
+        // const updatedServices = services.map(s => s.id === selectedService.id ? realEvent : s);
+        // setServices(updatedServices); // Removed
+        setSelectedService(realEvent);
+        serviceToUse = realEvent;
 
-    showToast("Member Checking In...", "success");
+        // Also need to update cache/parent if possible, but local state update handles current session
+      } catch (e) {
+        console.error("Auto-save failed", e);
+        showToast("Failed to save temporary event. Check-in aborted.", "error");
+        return;
+      }
+    }
+
+    try {
+      // Use new Relational Check-in with REAL ID
+      const res = await MemberStore.checkIn(memberId, serviceToUse.id);
+
+      // Warning for ignored temp IDs (Should not happen now if auto-save worked, but valid safeguard)
+      if (res?._meta?.ignored_service_ids?.length > 0) {
+        showToast("Check-in skipped for temporary event. Please save event first.", "warning");
+      } else {
+        showToast("Member Checked In Successfully", "success");
+      }
+
+      // Update local state for immediate UI feedback (Badge)
+      setMembers(prev => prev.map(m => m.id === memberId ? { ...m, status: 'Checked In', checkInTime: new Date().toLocaleTimeString() } : m));
+
+      // Refresh Stats
+      const stats = await MemberStore.getServiceStats(serviceToUse.id, serviceToUse.date);
+      const childrenCount = serviceToUse.stats?.manualChildrenCount || 0;
+      setCheckInStats({ total: stats.total + childrenCount, firstTimers: stats.firstTimers });
+      setCheckedInIds(new Set(stats.memberIds));
+
+    } catch (error: any) {
+      console.error("Check-in Error:", error);
+      // Handle strict block for pure temp events
+      const msg = error.message || "Check-in failed";
+      if (msg.includes('Please save the event')) {
+        showToast(msg, 'warning');
+      } else {
+        showToast(msg, 'error');
+      }
+    }
   };
 
   // --- MEMBER DETAILS & EDIT ---
@@ -1154,7 +1354,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
 
     try {
       await VehicleStore.addVehicle({
-        id: `v-${Date.now()}`,
+        id: crypto.randomUUID(),
         ...vehicleForm,
         number_plate: formatted, // Use formatted plate
         stationId: selectedStation.id,
@@ -1228,7 +1428,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
 
         if (name) {
           const newMember: Member = {
-            id: `m-bulk-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+            id: crypto.randomUUID(),
             name,
             phone,
             category: 'Member', // Forced as requested
@@ -1323,13 +1523,14 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
     e.preventDefault();
     try {
       const newEvent: MinistryEvent = {
-        id: `evt-${Date.now()}`,
+        id: crypto.randomUUID(),
         title: eventForm.title,
         type: eventFormType,
         date: eventForm.date,
         time: eventForm.time,
         location: eventForm.location,
         description: eventForm.description,
+        serviceNumber: 1, // Default for new events (DB requires it, 1 is safer than 0)
         stats: { attendees: 0, firstTimers: 0, soulsWon: 0, students: 0, expenditure: '$0.00', nextGen: 0 }
       };
 
@@ -1347,6 +1548,15 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
 
 
   const filteredMembers = members.filter(m => {
+    // 0. Stats Card Filter (Drill-down)
+    if (filterCategory) {
+      // Must be checked in - (Essential to prevent showing all members if fetch fallback occurs)
+      if (!checkedInIds.has(m.id)) return false;
+
+      // If specific category
+      if (filterCategory !== 'CHECKED_IN_ALL' && m.category !== filterCategory) return false;
+    }
+
     const tokens = searchQuery.toLowerCase().split(/\s+/).filter(Boolean);
     if (tokens.length === 0) return true;
 
@@ -1403,16 +1613,18 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
     }
 
     if (stationForm.entrantUsername) {
-      const users = await UserStore.getAll();
-      // Check for duplicates, but exclude current entrant if editing
-      const duplicate = users.find(u =>
-        u.username?.toLowerCase() === stationForm.entrantUsername.toLowerCase() &&
-        (!stationForm.id || (stationEntrants[0] && u.id !== stationEntrants[0].id))
-      );
+      const result = await UserStore.getAll();
+      if (result.status === 'success') {
+        // Check for duplicates, but exclude current entrant if editing
+        const duplicate = result.data.find(u =>
+          u.username?.toLowerCase() === stationForm.entrantUsername.toLowerCase() &&
+          (!stationForm.id || (stationEntrants[0] && u.id !== stationEntrants[0].id))
+        );
 
-      if (duplicate) {
-        showToast(`The username "${stationForm.entrantUsername}" is already taken.`, 'error');
-        return;
+        if (duplicate) {
+          showToast(`The username "${stationForm.entrantUsername}" is already taken.`, 'error');
+          return;
+        }
       }
     }
 
@@ -1427,7 +1639,8 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
       };
 
       try {
-        await LogisticsStore.updateStation(updatedStation);
+        const updateRes = await LogisticsStore.updateStation(updatedStation);
+        if (updateRes.status === 'error') throw new Error(updateRes.message);
 
         // Update Entrant if info provided
         if (stationForm.entrantName && stationForm.entrantUsername && stationForm.entrantPassword) {
@@ -1442,11 +1655,12 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
               password: stationForm.entrantPassword,
               contact: stationForm.coordinatorContact // Optional: sync contact or keep separate? Let's keep separate usually but here we just update creds.
             };
-            await UserStore.update(updatedUser);
+            const updateRes = await UserStore.update(updatedUser);
+            if (updateRes.status === 'error') throw new Error(updateRes.message);
           } else {
             // Create new if none existed but added in edit
             const newEntrant: User = {
-              id: `u-${Date.now()}`,
+              id: crypto.randomUUID(),
               name: stationForm.entrantName,
               username: stationForm.entrantUsername,
               password: stationForm.entrantPassword,
@@ -1454,7 +1668,8 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
               stationId: stationForm.id,
               departmentId: 'd5'
             };
-            await UserStore.add(newEntrant);
+            const addRes = await UserStore.add(newEntrant);
+            if (addRes.status === 'error') throw new Error(addRes.message);
           }
         }
 
@@ -1466,8 +1681,10 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
 
         // Refresh entrants list if we are still viewing this station
         if (selectedStation && selectedStation.id === stationForm.id) {
-          const allUsers = await UserStore.getAll();
-          setStationEntrants(allUsers.filter(u => u.role === 'Logistics' && u.stationId === stationForm.id));
+          const result = await UserStore.getAll();
+          if (result.status === 'success') {
+            setStationEntrants(result.data.filter(u => u.role === 'Logistics' && u.stationId === stationForm.id));
+          }
         }
 
       } catch (err: any) {
@@ -1493,7 +1710,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
       await LogisticsStore.addStation(newStation);
       if (stationForm.entrantName && stationForm.entrantUsername && stationForm.entrantPassword) {
         const newEntrant: User = {
-          id: `u-${Date.now()}`,
+          id: crypto.randomUUID(),
           name: stationForm.entrantName,
           username: stationForm.entrantUsername,
           password: stationForm.entrantPassword,
@@ -1524,7 +1741,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
     }
 
     const newUser: User = {
-      id: `u-${Date.now()}`,
+      id: crypto.randomUUID(),
       name: newEntrant.name,
       username: newEntrant.username,
       password: newEntrant.password,
@@ -1591,7 +1808,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
     const sanitize = (val: string | undefined) => (!val || val.trim() === '') ? undefined : val;
 
     const newPassenger: Passenger = {
-      id: `p-${Date.now()}`,
+      id: crypto.randomUUID(),
       vehicleId: selectedVehicle.id,
       name: passengerForm.name,
       category: passengerForm.category as 'Member' | 'Student' | 'Institution',
@@ -1935,6 +2152,51 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
     }
   };
 
+  /* --- EXPORT MEMBERS --- */
+  const handleExportMembers = async () => {
+    try {
+      showToast("Preparing members export...", 'info');
+      const result = await MemberStore.getAll();
+
+      if (result.status === 'error') {
+        showToast(`Export failed: ${result.message}`, 'error');
+        return;
+      }
+
+      const allMembers = result.data;
+
+      if (!allMembers || allMembers.length === 0) {
+        showToast("No members to export.", 'error');
+        return;
+      }
+
+      // Format data for Excel
+      const exportData = allMembers.map(m => ({
+        'Full Name': m.name,
+        'Phone Number': m.phone,
+        'Category': m.category,
+        'Gender': m.gender,
+        'Residency': m.residency,
+        'Born Again': m.bornAgain,
+        'Ministry Member': m.status, // or logic for isPhanerooMember if mapped distinct from status
+        'Joined Date': m.joinedDate,
+        'Status': m.status
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(exportData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Members Database");
+
+      const dateStr = new Date().toISOString().split('T')[0];
+      XLSX.writeFile(wb, `Members_Database_${dateStr}.xlsx`);
+
+      showToast(`Successfully exported ${allMembers.length} members!`, 'success');
+    } catch (error) {
+      console.error("Export failed:", error);
+      showToast("Failed to export members.", 'error');
+    }
+  };
+
   return (
     <div className="p-4 md:p-8 space-y-6 md:space-y-8 animate-in fade-in duration-500 relative pb-20 md:pb-8">
       {/* Delete Modal */}
@@ -2197,12 +2459,18 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
                 /* --- ACTIVE CHECK-IN VIEW --- */
                 <>
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-ministry-text text-white p-4 rounded-xl shadow-lg border-l-4 border-ministry-neon">
-                      <p className="text-xs uppercase font-bold text-gray-400">Total Check-ins</p>
-                      <p className="text-3xl font-black mt-1">{checkInStats.total}</p>
+                    <div
+                      onClick={() => setFilterCategory(prev => prev === 'CHECKED_IN_ALL' ? null : 'CHECKED_IN_ALL')}
+                      className={`cursor-pointer p-4 rounded-xl shadow-lg border-l-4 border-ministry-neon transition-all ${filterCategory === 'CHECKED_IN_ALL' ? 'bg-ministry-neon/10 ring-2 ring-ministry-neon transform scale-[1.02]' : (!filterCategory ? 'bg-ministry-text text-white transform scale-[1.02]' : 'bg-white text-gray-900 border border-gray-200 hover:bg-gray-50')}`}
+                    >
+                      <p className={`text-xs uppercase font-bold ${filterCategory === 'CHECKED_IN_ALL' ? 'text-ministry-text' : (!filterCategory ? 'text-gray-400' : 'text-gray-500')}`}>Total Check-ins</p>
+                      <p className={`text-3xl font-black mt-1 ${filterCategory === 'CHECKED_IN_ALL' ? 'text-ministry-text' : ''}`}>{checkInStats.total}</p>
                     </div>
-                    <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 border-l-4 border-ministry-orange">
-                      <p className="text-xs uppercase font-bold text-gray-500">First Timers</p>
+                    <div
+                      onClick={() => setFilterCategory(prev => prev === 'First Timer' ? null : 'First Timer')}
+                      className={`cursor-pointer p-4 rounded-xl shadow-sm border border-gray-200 border-l-4 border-ministry-orange transition-all ${filterCategory === 'First Timer' ? 'bg-orange-50 ring-2 ring-ministry-orange transform scale-[1.02]' : 'bg-white hover:bg-gray-50'}`}
+                    >
+                      <p className={`text-xs uppercase font-bold ${filterCategory === 'First Timer' ? 'text-ministry-orange' : 'text-gray-500'}`}>First Timers</p>
                       <p className="text-3xl font-black text-gray-900 mt-1">{checkInStats.firstTimers}</p>
                     </div>
                   </div>
@@ -2214,7 +2482,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
                     </div>
 
                     {/* Search Results */}
-                    {searchQuery && (
+                    {(searchQuery || filterCategory) && (
                       <div className="bg-white border border-gray-200 rounded-xl shadow-lg divide-y divide-gray-100 max-h-96 overflow-y-auto">
                         {filteredMembers.map(m => (
                           <div key={m.id} className="p-4 flex flex-row justify-between items-center gap-4 hover:bg-gray-50">
@@ -2994,6 +3262,13 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
                 >
                   <FileSpreadsheet className="w-4 h-4" />
                   <span>Bulk Import</span>
+                </button>
+                <button
+                  onClick={handleExportMembers}
+                  className="flex-1 md:flex-none flex items-center justify-center space-x-2 bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors shadow-sm font-medium"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>Export</span>
                 </button>
               </div>
             </div>

@@ -1,7 +1,8 @@
 
-import { User } from '../types';
+import { User, ServiceResponse } from '../types';
 import { apiFetch } from '../services/api';
 import { MOCK_USERS } from '../constants';
+import { safeFetch } from '../services/safeFetch';
 
 const SESSION_KEY = 'ministry_user_session';
 
@@ -45,105 +46,92 @@ const mapUserToDB = (u: User) => {
 
 export const UserStore = {
   // Login now calls the API
-  login: async (username: string, password: string): Promise<User | null> => {
-    try {
-      const data = await apiFetch('/users/login', {
+  login: async (username: string, password: string): Promise<ServiceResponse<User | null>> => {
+    return safeFetch(
+      () => apiFetch('/users/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password })
-      });
-
-      if (data) {
-        return mapUserFromDB(data);
-      }
-    } catch (e) {
-      console.warn('API login failed, checking mock users...', e);
-    }
-
-    // Fallback: Check mock users
-    const mockUser = MOCK_USERS.find(u => u.username === username && u.password === password);
-    if (mockUser) {
-      return mockUser;
-    }
-
-    console.error('Login failed: Invalid credentials or database unavailable.');
-    return null;
+      }),
+      'Login failed',
+      (data: any) => data ? mapUserFromDB(data) : null
+    );
   },
 
   getByEmail: async (email: string): Promise<User | null> => {
-    // Currently API doesn't have search by email endpoint exposed generically, 
-    // but we can add query param or filter. For now, we'll fetch all and filter client side 
-    // OR add a specific endpoint. 
-    // Optimization: Add filter support to backend.
-    // Hack for now: Get all (cache could help) or use MOCK if all fails.
-    // Better: Add endpoint /users?email=...
-    // Let's rely on getAll for now or add endpoint in next step.
-    // Actually, let's just fetch all and find, since user base might be small?
-    // Or simpler: /users?param=...
-    // The backend `getAllUsers` just selects `*`. 
-    // I'll update getAllUsers in backend to support query params ideally, but sticking to plan:
     try {
-      const users = await UserStore.getAll();
-      return users.find(u => u.email?.toLowerCase() === email.toLowerCase()) || null;
+      const result = await UserStore.getAll();
+      if (result.status === 'success') {
+        return result.data.find(u => u.email?.toLowerCase() === email.toLowerCase()) || null;
+      }
+      return null;
     } catch (e) { return null; }
   },
 
   getUserByToken: async (token: string): Promise<User | null> => {
     try {
-      const users = await UserStore.getAll();
-      return users.find(u => u.invitationToken === token) || null;
+      const result = await UserStore.getAll();
+      if (result.status === 'success') {
+        return result.data.find(u => u.invitationToken === token) || null;
+      }
+      return null;
     } catch (e) { return null; }
   },
 
-  getAll: async (): Promise<User[]> => {
-    try {
-      const data = await apiFetch('/users');
-      // data is array of DB objects
-      if (Array.isArray(data)) {
-        return data.map(mapUserFromDB);
-      }
-      return MOCK_USERS;
-    } catch (e) {
-      console.warn('API connection failed, using mock users.', e);
-      return MOCK_USERS;
-    }
+  getAll: async (): Promise<ServiceResponse<User[]>> => {
+    return safeFetch(
+      () => apiFetch('/users'),
+      'Failed to fetch users',
+      (data: any[]) => data ? data.map(mapUserFromDB) : []
+    );
   },
 
-  add: async (user: User): Promise<User[]> => {
-    try {
-      await apiFetch('/users', {
-        method: 'POST',
-        body: JSON.stringify(mapUserToDB(user))
-      });
-      return UserStore.getAll();
-    } catch (e: any) {
-      console.error("UserStore Add Error:", e);
-      throw e;
-    }
+  add: async (user: User): Promise<ServiceResponse<User[]>> => {
+    return safeFetch(
+      async () => {
+        await apiFetch('/users', {
+          method: 'POST',
+          body: JSON.stringify(mapUserToDB(user))
+        });
+        // Verify by fetching all? Or just return success?
+        // Existing logic returned getAll().
+        // We will call getAll() but we need to return the ServiceResponse from it.
+        // BUT safeFetch expects a fetcher that returns data.
+        // If getAll returns ServiceResponse, safeFetch will wrap a ServiceResponse? No.
+        // Let's just return UserStore.getAll().
+        const result = await UserStore.getAll();
+        if (result.status === 'error') throw result.error || new Error(result.message);
+        return result.data;
+      },
+      'Failed to add user',
+    );
   },
 
-  remove: async (id: string): Promise<User[]> => {
-    try {
-      await apiFetch(`/users/${id}`, {
-        method: 'DELETE'
-      });
-    } catch (e) {
-      console.error(e);
-    }
-    return UserStore.getAll();
+  remove: async (id: string): Promise<ServiceResponse<User[]>> => {
+    return safeFetch(
+      async () => {
+        await apiFetch(`/users/${id}`, { method: 'DELETE' });
+        const result = await UserStore.getAll();
+        if (result.status === 'error') throw result.error || new Error(result.message);
+        return result.data;
+      },
+      'Failed to remove user'
+    );
   },
 
-  update: async (user: User): Promise<User[]> => {
-    try {
-      await apiFetch(`/users/${user.id}`, {
-        method: 'PUT',
-        body: JSON.stringify(mapUserToDB(user))
-      });
-      return UserStore.getAll();
-    } catch (e: any) {
-      console.error("UserStore Update Error:", e);
-      throw e;
-    }
+  update: async (user: User): Promise<ServiceResponse<User[]>> => {
+    return safeFetch(
+      async () => {
+        await apiFetch(`/users/${user.id}`, {
+          method: 'PUT',
+          body: JSON.stringify(mapUserToDB(user))
+        });
+        const result = await UserStore.getAll();
+        if (result.status === 'error') throw result.error || new Error(result.message);
+        return result.data;
+      },
+      'Failed to update user'
+    );
   },
 
   // Session Persistence

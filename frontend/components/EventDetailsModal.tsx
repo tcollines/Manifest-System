@@ -8,6 +8,7 @@ import { SoulsStore } from '../database/soulsStore';
 import { FinanceStore } from '../database/financeStore';
 import { ParkingStore } from '../database/parkingStore';
 import { X, Users, Heart, GraduationCap, DollarSign, Baby, Download, Calendar, MapPin, Bus, Building2, Car } from 'lucide-react';
+import { EventStore } from '../database/eventStore';
 
 interface EventDetailsModalProps {
   event: MinistryEvent | null;
@@ -44,67 +45,35 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({ event, onClose })
 
     const calculateStats = async () => {
       try {
-        const allVehicles = await VehicleStore.getVehicles();
-        const allStations = await LogisticsStore.getStations();
-        const allPassengers = await VehicleStore.getPassengers();
-        const allTransactions = await FinanceStore.getTransactions();
-        const allPersonalCars = await ParkingStore.getAll();
+        let targetEventId = event.id;
 
-        // 1. Logistics Stats
-        const eventStations = allStations.filter(s => s.eventId === event.id);
-        const eventStationIds = eventStations.map(s => s.id);
-        const eventVehicles = allVehicles.filter(v => eventStationIds.includes(v.stationId));
-        const eventPassengers = allPassengers.filter(p => eventVehicles.some(v => v.id === p.vehicleId));
-
-        const logisticsFirstTimers = eventPassengers.filter(p => p.isFirstTime === 'Yes').length;
-        const logisticsChildren = eventVehicles.reduce((sum, v) => sum + (v.childrenCount || 0), 0);
-        const logisticsAttendees = eventPassengers.length + logisticsChildren;
-        const soulsWonCount = eventPassengers.filter(p => p.soulWon).length;
-
-        // Fleet Expenditure
-        const fleetExpenditure = eventVehicles.reduce((sum, v) => {
-          const dispatchAmount = parseFloat(v.financeDetails?.ongoingDispatch || '0');
-          return sum + dispatchAmount;
-        }, 0);
-
-        // Finance Transactions Expenditure
-        const financeExpenditure = allTransactions
-          .filter(t => String(t.eventId) === String(event.id) && t.type === 'Expense')
-          .reduce((sum, t) => sum + t.amount, 0);
-
-        const totalExpenditure = fleetExpenditure + financeExpenditure;
-
-        // Personal Cars Stats
-        // Fetch from the source of truth (Table or Array Fallback)
-        const eventPersonalCars = await ParkingStore.getAttendanceCount(event.id);
-
-        // 2. Service Stats (General Check-in)
-        let totalAttendees = logisticsAttendees;
-        let firstTimersCount = logisticsFirstTimers;
-
-        if (event.type === 'Service') {
-          const serviceStats = await MemberStore.getServiceStats(event.id, event.date);
-          totalAttendees = Math.max(logisticsAttendees, serviceStats.total);
-          firstTimersCount = Math.max(logisticsFirstTimers, serviceStats.firstTimers);
+        // 1. Check for Temporary ID (evt-*)
+        // If the event has a temporary ID, it means it hasn't been persisted to the DB properly
+        // or we are in an optimistic state. We MUST resolve it to a real UUID before fetching stats.
+        if (targetEventId.toString().startsWith('evt-')) {
+          console.log(`[Highlights] Detected temporary ID ${targetEventId}. Attempting to resolve...`);
+          try {
+            // Attempt to save/persist the event to get a real ID.
+            // The EventStore.add method handles ID generation (UUID) on the backend.
+            const savedEvent = await EventStore.add(event);
+            if (savedEvent && savedEvent.id && !savedEvent.id.startsWith('evt-')) {
+              console.log(`[Highlights] Resolved ${targetEventId} -> ${savedEvent.id}`);
+              targetEventId = savedEvent.id;
+            } else {
+              console.warn(`[Highlights] Failed to resolve temporary ID ${targetEventId}. Stats may be empty.`);
+            }
+          } catch (err) {
+            console.error(`[Highlights] Error auto-saving temporary event:`, err);
+            // Verify if it already exists in DB despite the error?
+            // For now, fall through and try fetching with the temp ID (as we support it in backend now)
+            // or return to avoid 500s if backend was strict (but we fixed backend to be loose).
+          }
         }
 
-        // Fetch Aggregated Souls Count (Main + Next Gen)
-        const totalSouls = await SoulsStore.getServiceStats(event.id);
-
-        setStats({
-          vehicles: eventVehicles.length,
-          personalCars: eventPersonalCars,
-          students: eventPassengers.filter(p => p.category === 'Student').length,
-          institutions: eventPassengers.filter(p => p.category === 'Institution').length,
-          attendees: totalAttendees,
-          firstTimers: firstTimersCount,
-          firstTimers: firstTimersCount,
-          soulsWon: totalSouls || soulsWonCount, // Prefer DB stats, fallback to logistics count
-          children: logisticsChildren,
-          children: logisticsChildren,
-          expenditure: totalExpenditure.toLocaleString()
-        });
-
+        const highlights = await EventStore.getHighlights(targetEventId);
+        if (highlights) {
+          setStats(highlights);
+        }
       } catch (error) {
         console.error("Error calculating event stats:", error);
       }

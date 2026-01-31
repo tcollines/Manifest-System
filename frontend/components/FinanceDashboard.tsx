@@ -110,7 +110,8 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, onOpen
         setTransactions(await FinanceStore.getTransactions());
         setRequests(await FinanceStore.getRequests());
         setRequisitions(await RequisitionStore.getAll()); // Fetch Requisitions
-        setEvents(await EventStore.getAll());
+        const { data: allEvents } = await EventStore.getAll();
+        setEvents(allEvents);
         const allStations = await LogisticsStore.getStations();
         setPickupStations(allStations || []);
 
@@ -193,7 +194,7 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, onOpen
     const handleAddTransaction = async (e: React.FormEvent) => {
         e.preventDefault();
         const newT: Transaction = {
-            id: `t-${Date.now()}`,
+            id: crypto.randomUUID(),
             type: transForm.type,
             category: transForm.category,
             amount: parseFloat(transForm.amount),

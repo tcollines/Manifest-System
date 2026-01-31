@@ -1,0 +1,44 @@
+{
+  "indexes": {
+    "error": "Could not find the table 'public.pg_indexes' in the schema cache"
+  },
+  "memberColumns": [
+    "id",
+    "name",
+    "category",
+    "phone",
+    "gender",
+    "born_again",
+    "residency",
+    "status",
+    "check_in_time",
+    "joined_date",
+    "attended_service_ids",
+    "created_at",
+    "email",
+    "occupation",
+    "place_of_work",
+    "is_phaneroo_member",
+    "referral_source",
+    "location_coordinates",
+    "place_id",
+    "name_norm",
+    "phone_last9",
+    "residency_norm"
+  ],
+  "attendanceColumns": {
+    "id": "2b2a8abf-ad2f-4f9c-b35e-c21bf6a33429",
+    "service_id": "evt-1769017157015",
+    "member_id": "m-bulk-1767018649117-xzlpx",
+    "check_in_time": "2026-01-22T14:38:08.456+00:00",
+    "created_at": "2026-01-22T14:38:08.759522+00:00"
+  },
+  "legacyTest": {
+    "status": "PASS",
+    "meta": {
+      "action": "INSERT",
+      "match_reason": "NEW_RECORD",
+      "ignored_service_ids": []
+    }
+  }
+}

@@ -1,7 +1,8 @@
-
-import { Member } from '../types';
+import { Member, ServiceResponse } from '../types';
 import { apiFetch } from '../services/api';
 import { MOCK_MEMBERS } from '../constants';
+import { v4 as uuidv4 } from 'uuid';
+import { safeFetch } from '../services/safeFetch';
 
 const mapMemberFromDB = (m: any): Member => ({
   id: m.id,
@@ -36,33 +37,41 @@ const mapMemberToDB = (m: Member) => ({
 });
 
 export const MemberStore = {
-  getMembers: async (page: number = 1, pageSize: number = 50, searchQuery: string = ''): Promise<{ data: Member[], count: number }> => {
-    try {
-      const { data, count } = await apiFetch(`/members?page=${page}&pageSize=${pageSize}&search=${encodeURIComponent(searchQuery)}`);
+  getMembers: async (page: number = 1, pageSize: number = 50, searchQuery: string = ''): Promise<ServiceResponse<Member[]>> => {
+    return safeFetch(
+      () => apiFetch(`/members?page=${page}&pageSize=${pageSize}&search=${encodeURIComponent(searchQuery)}`),
+      'Failed to load members list.',
+      (raw: any[]) => raw ? raw.map(mapMemberFromDB) : []
+    );
+  },
 
-      return {
-        data: data ? data.map(mapMemberFromDB) : [],
-        count: count || 0
-      };
+  getAll: async (): Promise<ServiceResponse<Member[]>> => {
+    try {
+      const data = await apiFetch('/members/all');
+      return { status: 'success', data: data ? data.map(mapMemberFromDB) : [] };
     } catch (e) {
-      console.warn('Failed to fetch members, using mock data.', e);
-      return { data: MOCK_MEMBERS, count: MOCK_MEMBERS.length };
+      console.warn("Retrying getAll with pagination fallback", e);
+      // Fallback
+      return MemberStore.getMembers(1, 10000);
     }
   },
 
-  getAll: async (): Promise<Member[]> => {
-    const result = await MemberStore.getMembers(1, 100);
-    return result.data;
-  },
 
-  add: async (member: Member): Promise<void> => {
+
+  add: async (member: Member): Promise<any> => {
+    // Ensure ID is a valid UUID. If missing or looks like a mock ID (e.g. starts with 'm-'), generate new UUID.
+    const isValidUUID = (id?: string) => id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+
+    const finalId = isValidUUID(member.id) ? member.id! : uuidv4();
+    const memberWithId = { ...member, id: finalId };
     try {
-      await apiFetch('/members', {
+      return await apiFetch('/members', {
         method: 'POST',
-        body: JSON.stringify(mapMemberToDB(member))
+        body: JSON.stringify(mapMemberToDB(memberWithId))
       });
-    } catch (e) {
+    } catch (e: any) {
       console.error('Error adding member:', e);
+      throw e;
     }
   },
 
@@ -77,6 +86,18 @@ export const MemberStore = {
       console.warn('Failed to fetch member by ID:', e);
       return null;
     }
+  },
+
+  getManyByIds: async (ids: string[]): Promise<ServiceResponse<Member[]>> => {
+    if (!ids || ids.length === 0) return { status: 'success', data: [], count: 0 };
+    return safeFetch(
+      () => apiFetch('/members/batch', {
+        method: 'POST',
+        body: JSON.stringify({ ids })
+      }),
+      'Failed to fetch members by IDs',
+      (data: any[]) => data ? data.map(mapMemberFromDB) : []
+    );
   },
 
   update: async (member: Member): Promise<void> => {
@@ -101,9 +122,9 @@ export const MemberStore = {
     }
   },
 
-  checkIn: async (memberId: string, serviceId: string): Promise<void> => {
+  checkIn: async (memberId: string, serviceId: string | string[]): Promise<any> => {
     try {
-      await apiFetch('/members/check-in', {
+      return await apiFetch('/members/check-in', {
         method: 'POST',
         body: JSON.stringify({ memberId, serviceId })
       });
@@ -141,6 +162,16 @@ export const MemberStore = {
       return data.map(mapMemberFromDB);
     } catch (e) {
       console.error("Error searching members with status:", e);
+      return [];
+    }
+  },
+
+  getAttendees: async (serviceId: string): Promise<Member[]> => {
+    try {
+      const data = await apiFetch(`/members/attendees/${serviceId}`);
+      return data.map(mapMemberFromDB);
+    } catch (e) {
+      console.error("Error fetching attendees:", e);
       return [];
     }
   }

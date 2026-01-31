@@ -57,7 +57,7 @@ const NextGenTeam: React.FC<NextGenTeamProps> = ({ currentUser }) => {
             setLoading(true);
             const [allUsers, allEvents, allIncidents, allTraining] = await Promise.all([
                 UserStore.getAll(),
-                EventStore.getAll(),
+                EventStore.getAll().then(res => res.data),
                 IncidentStore.getAll(),
                 TrainingStore.getAll()
             ]);

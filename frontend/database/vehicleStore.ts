@@ -1,6 +1,7 @@
 
-import { Vehicle, Passenger } from '../types';
+import { Vehicle, Passenger, ServiceResponse } from '../types';
 import { apiFetch } from '../services/api';
+import { safeFetch } from '../services/safeFetch';
 
 // Mapper functions to convert DB snake_case to App camelCase
 const mapVehicleFromDB = (v: any): Vehicle => ({
@@ -44,21 +45,21 @@ const mapPassengerFromDB = (p: any): Passenger => ({
 });
 
 export const VehicleStore = {
-    getVehicles: async (coordinatorName?: string): Promise<Vehicle[]> => {
-        try {
-            let url = '/vehicles';
-            if (coordinatorName) {
-                url += `?coordinator=${encodeURIComponent(coordinatorName)}`;
-            }
-            const data = await apiFetch(url);
-            return data.map(mapVehicleFromDB);
-        } catch (e: any) {
-            console.error('Unexpected error fetching vehicles:', e.message || e);
-            return [];
-        }
+    getVehicles: async (coordinatorName?: string): Promise<ServiceResponse<Vehicle[]>> => {
+        return safeFetch(
+            () => {
+                let url = '/vehicles';
+                if (coordinatorName) {
+                    url += `?coordinator=${encodeURIComponent(coordinatorName)}`;
+                }
+                return apiFetch(url);
+            },
+            'Failed to fetch vehicles',
+            (data: any[]) => data ? data.map(mapVehicleFromDB) : []
+        );
     },
 
-    addVehicle: async (vehicle: Vehicle): Promise<void> => {
+    addVehicle: async (vehicle: Vehicle): Promise<ServiceResponse<void>> => {
         const payload = {
             id: vehicle.id,
             station_id: vehicle.stationId,
@@ -81,15 +82,13 @@ export const VehicleStore = {
             return_arrival_time: vehicle.returnArrivalTime,
             children: vehicle.childrenCount
         };
-        try {
-            await apiFetch('/vehicles', {
+        return safeFetch(
+            () => apiFetch('/vehicles', {
                 method: 'POST',
                 body: JSON.stringify(payload)
-            });
-        } catch (e: any) {
-            console.error('Error adding vehicle:', e.message || e);
-            throw e;
-        }
+            }),
+            'Error adding vehicle'
+        );
     },
 
     updateVehicle: async (vehicle: Vehicle): Promise<void> => {
@@ -170,16 +169,16 @@ export const VehicleStore = {
         }
     },
 
-    getPassengers: async (vehicleId?: string): Promise<Passenger[]> => {
-        try {
-            let url = '/vehicles/passengers';
-            if (vehicleId) url += `?vehicleId=${vehicleId}`;
-            const data = await apiFetch(url);
-            return data.map(mapPassengerFromDB);
-        } catch (e: any) {
-            console.error('Unexpected error fetching passengers:', e.message || e);
-            return [];
-        }
+    getPassengers: async (vehicleId?: string): Promise<ServiceResponse<Passenger[]>> => {
+        return safeFetch(
+            () => {
+                let url = '/vehicles/passengers';
+                if (vehicleId) url += `?vehicleId=${vehicleId}`;
+                return apiFetch(url);
+            },
+            'Failed to fetch passengers',
+            (data: any[]) => data ? data.map(mapPassengerFromDB) : []
+        );
     },
 
     addPassenger: async (passenger: Passenger): Promise<void> => {
@@ -248,10 +247,11 @@ export const VehicleStore = {
 
     // --- PARKING MODULE (Personal Vehicles) ---
 
-    getPersonalVehicles: async (): Promise<any[]> => {
-        try {
-            const data = await apiFetch('/vehicles/personal');
-            return data.map((v: any) => ({
+    getPersonalVehicles: async (): Promise<ServiceResponse<any[]>> => {
+        return safeFetch(
+            () => apiFetch('/vehicles/personal'),
+            'Failed to fetch personal vehicles',
+            (data: any[]) => data ? data.map((v: any) => ({
                 id: v.id,
                 number_plate: v.number_plate,
                 driverName: v.driver_name,
@@ -261,11 +261,8 @@ export const VehicleStore = {
                 checkOutTime: v.check_out_time,
                 currentServiceId: v.current_service_id,
                 registeredDate: v.registered_date
-            }));
-        } catch (e: any) {
-            console.error("Error fetching personal vehicles:", e);
-            return [];
-        }
+            })) : []
+        );
     },
 
     addPersonalVehicle: async (vehicle: any): Promise<void> => {
