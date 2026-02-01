@@ -342,6 +342,12 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
     };
 
     const handleBack = () => {
+        if (viewMode === 'add-child' && selectedService) {
+            setViewMode('service-active');
+            setFormData(initialForm);
+            return;
+        }
+
         setViewMode('list');
         setSelectedService(null);
         setSearchQuery('');
@@ -364,7 +370,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
         const updatedChild: Child = {
             ...child,
             status: 'Checked In',
-            checkInTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            checkInTime: new Date().toISOString(),
             checkOutTime: undefined,
             attendedServiceIds: [...child.attendedServiceIds, selectedService.id],
             category: newCategory
@@ -386,7 +392,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
         const updatedChild: Child = {
             ...child,
             status: 'Checked Out',
-            checkOutTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            checkOutTime: new Date().toISOString()
         };
 
         // Optimistic UI update
@@ -475,7 +481,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
             category: 'First Timer',
             residence: formData.residence,
             status: isServiceActive ? 'Checked In' : 'Absent',
-            checkInTime: isServiceActive ? new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : undefined,
+            checkInTime: isServiceActive ? new Date().toISOString() : undefined,
             joinedDate: new Date().toISOString().split('T')[0],
             attendedServiceIds: isServiceActive && selectedService ? [selectedService.id] : [],
             howHeard: (formData as any).howHeard
