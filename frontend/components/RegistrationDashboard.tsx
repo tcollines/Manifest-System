@@ -58,6 +58,7 @@ import {
   CalendarPlus,
   Baby,
   CalendarCheck,
+  Edit2,
   History,
   Settings,
   User as UserIcon,
@@ -77,7 +78,8 @@ interface RegistrationDashboardProps {
 type Tab = 'checkin' | 'events' | 'database';
 type ViewMode = 'list' | 'service-active' | 'service-review' | 'Vehicle-view' | 'station-detail' | 'register-new' | 'bulk-import' | 'bulk-import-members' | 'member-detail';
 
-
+// Helper for sanitizing empty strings to undefined
+const sanitize = (val: string | undefined): string | undefined => (!val || val.trim() === '') ? undefined : val;
 
 const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, currentUser, onOpenModal }) => {
   const { showToast, confirm: askConfirm } = useNotification();
@@ -149,8 +151,9 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
   const initialStationForm = {
     name: '',
     location: '',
+    // Cooridnator fields removed as per request (handled in Logistics/Transportation now)
     coordinatorName: '',
-    coordinatorContact: '256', // Initialize with 256
+    coordinatorContact: '',
     // Data Entrant Initials
     entrantName: '',
     entrantUsername: '',
@@ -422,18 +425,19 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
       setPassengers(fetchedPassengers.status === 'success' ? fetchedPassengers.data : []);
 
       // Handle Member Result (Safe Fetch Pattern)
-      if (fetchedMembersResult.status === 'success') {
+      if (fetchedMembersResult.status === 'success' && Array.isArray(fetchedMembersResult.data)) {
         setMembers(fetchedMembersResult.data);
         setTotalMembers(fetchedMembersResult.count || fetchedMembersResult.data.length);
       } else {
-        console.error("Member Fetch Error:", fetchedMembersResult.message);
-        showToast(`Error loading members: ${fetchedMembersResult.message}`, 'error');
+        const errorMsg = (fetchedMembersResult as any).message || "Unknown error";
+        console.error("Member Fetch Error:", errorMsg);
+        showToast(`Error loading members: ${errorMsg}`, 'error');
         // Optionally set an error state variable to show a banner
         setMembers([]); // Safe fallback to empty but with Toast warning
         setTotalMembers(0);
       }
 
-      setCoordinators(fetchedUsers.status === 'success' ? fetchedUsers.data.filter(u => u.role === 'Coordinator') : []);
+      setCoordinators(fetchedUsers.status === 'success' && Array.isArray(fetchedUsers.data) ? fetchedUsers.data.filter(u => u.role === 'Coordinator') : []);
 
 
     } catch (error: any) {
@@ -1353,13 +1357,17 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
     }
 
     try {
-      await VehicleStore.addVehicle({
-        id: crypto.randomUUID(),
+      const res = await VehicleStore.addVehicle({
         ...vehicleForm,
+        id: crypto.randomUUID(),
         number_plate: formatted, // Use formatted plate
         stationId: selectedStation.id,
         coordinator: vehicleForm.coordinator || currentUser.name,
       });
+
+      if (res.status === 'error') {
+        throw new Error(res.message || "Failed to add vehicle");
+      }
 
       showToast("Vehicle Added Successfully", 'success');
       setIsAddVehicleOpen(false);
@@ -1605,12 +1613,12 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
     e.preventDefault();
     if (!selectedLogisticsEvent) return;
 
-    // Contact Confirmation
-    if (!stationForm.coordinatorContact || stationForm.coordinatorContact === '256' || stationForm.coordinatorContact.length <= 3) {
-      if (!(await askConfirm("Missing Coordinator Contact", "No coordinator contact provided. Are you sure you want to proceed?"))) {
-        return;
-      }
-    }
+    // Contact Confirmation - REMOVED
+    // if (!stationForm.coordinatorContact || stationForm.coordinatorContact === '256' || stationForm.coordinatorContact.length <= 3) {
+    //   if (!(await askConfirm("Missing Coordinator Contact", "No coordinator contact provided. Are you sure you want to proceed?"))) {
+    //     return;
+    //   }
+    // }
 
     if (stationForm.entrantUsername) {
       const result = await UserStore.getAll();
@@ -1772,11 +1780,12 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
       return;
     }
 
-    // Check for duplicates
+    // Check for duplicates (exclude self if editing)
     const normalizedName = passengerForm.name.trim().toLowerCase();
     const isDuplicate = passengers.some(p =>
       p.vehicleId === selectedVehicle.id &&
-      p.name.trim().toLowerCase() === normalizedName
+      p.name.trim().toLowerCase() === normalizedName &&
+      p.id !== (passengerForm.id || '')
     );
 
     if (isDuplicate) {
@@ -1794,6 +1803,8 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
       finalContact = '256'; // Default placeholder for Contact if Parent Contact is used
     }
 
+    console.log("Submitting Passenger Form:", passengerForm); // DEBUG
+
     // Contact Confirmation (Hardened)
     const isContactEmpty = !finalContact || finalContact === '256' || finalContact.length <= 3;
     const isParentContactEmpty = !finalParentContact || finalParentContact === '256' || finalParentContact.length <= 3;
@@ -1804,39 +1815,57 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
       }
     }
 
-    // Sanitize Helper: Convert empty strings to undefined to avoid DB constraint issues
-    const sanitize = (val: string | undefined) => (!val || val.trim() === '') ? undefined : val;
-
-    const newPassenger: Passenger = {
-      id: crypto.randomUUID(),
+    const payload: Passenger = {
+      ...passengerForm,
+      id: passengerForm.id || crypto.randomUUID(), // Use existing ID if editing
       vehicleId: selectedVehicle.id,
-      name: passengerForm.name,
-      category: passengerForm.category as 'Member' | 'Student' | 'Institution',
-      contact: sanitize(finalContact) || '256', // Ensure at least a default if required, or let it be '256'
+      contact: sanitize(finalContact) || '256',
       parentContact: sanitize(finalParentContact),
       residence: sanitize(passengerForm.residence) || '',
-      isFirstTime: passengerForm.isFirstTime as 'Yes' | 'No',
-      verified: false,
       gender: passengerForm.gender as 'Male' | 'Female',
       school: sanitize(passengerForm.school),
       studentClass: sanitize(passengerForm.studentClass),
       boardingType: passengerForm.boardingType as 'Day' | 'Boarding',
-      soulWon: false // Default
+      soulWon: passengerForm.soulWon // Default handled in store if needed, or pass correctly
     };
 
-    // Special handling for Institution: Use 'school' field for Institute Name mapping if needed, 
-    // but based on form, 'school' is used for Institute Name.
+    console.log("Passenger Payload:", payload); // DEBUG
 
     try {
-      await VehicleStore.addPassenger(newPassenger);
-      setPassengers([...passengers, newPassenger]);
+      if (passengerForm.id) {
+        // UPDATE MODE
+        console.log("Updating existing passenger..."); // DEBUG
+        await VehicleStore.updatePassenger(payload);
+        setPassengers(prev => prev.map(p => p.id === payload.id ? payload : p));
+        showToast("Passenger updated successfully", 'success');
+      } else {
+        // CREATE MODE
+        console.log("Adding new passenger..."); // DEBUG
+        await VehicleStore.addPassenger(payload);
+        setPassengers([...passengers, payload]);
+        showToast("Passenger added successfully", 'success');
+      }
+
       setIsAddPassengerOpen(false);
-      setPassengerForm(initialPassengerForm);
-      showToast("Passenger added successfully", "success");
-      refreshData(); // Force full refresh to ensure consistency
+      setPassengerForm({
+        name: '',
+        contact: '256',
+        category: 'Member',
+        residence: '',
+        isFirstTime: 'No',
+        verified: 'No',
+        school: '',
+        studentClass: '',
+        boardingType: 'Day',
+        gender: 'Male',
+        parentContact: '',
+        soulWon: 'No',
+        id: '' // Reset ID
+      });
+      refreshData();
     } catch (error: any) {
-      console.error("Failed to add passenger:", error);
-      showToast("Failed to add passenger: " + (error.message || "Unknown error"), "error");
+      console.error("Failed to save passenger:", error);
+      showToast(passengerForm.id ? "Failed to update passenger" : "Failed to add passenger", 'error');
     }
   };
 
@@ -2961,8 +2990,15 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
                 {/* VEHICLE LIST */}
                 <div className="px-4 md:px-0">
                   <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center"><Bus className="w-5 h-5 mr-2 text-ministry-orange" /> Registered Vehicles</h3>
+                  {/* DEBUG: Vehicle List */}
+                  {console.log("Rendering Vehicles:", {
+                    totalVehicles: vehicles.length,
+                    selectedStationId: selectedStation?.id,
+                    filteredCount: vehicles.filter(v => v.stationId === selectedStation?.id).length,
+                    sampleVehicle: vehicles[0]
+                  })}
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-                    {vehicles.filter(v => v.stationId === selectedStation.id).map(vehicle => {
+                    {vehicles.filter(v => String(v.stationId) === String(selectedStation.id)).map(vehicle => {
                       const vPassengers = passengers.filter(p => p.vehicleId === vehicle.id);
                       let statusColor = "bg-gray-100 text-gray-600";
                       let statusText = vehicle.currentStage || "Onboarding";
@@ -3006,7 +3042,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
                         </div>
                       );
                     })}
-                    {vehicles.filter(v => v.stationId === selectedStation.id).length === 0 && (
+                    {vehicles.filter(v => String(v.stationId) === String(selectedStation.id)).length === 0 && (
                       <div className="col-span-full py-12 text-center text-gray-400 bg-white rounded-xl border border-dashed border-gray-300">
                         No vehicles registered at this station yet.
                       </div>
@@ -3163,22 +3199,26 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
                   </div>
 
                   {/* Stats Grid */}
-                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-                      <p className="text-xs font-bold text-gray-400 uppercase">Total Passengers</p>
-                      <p className="text-3xl font-bold text-ministry-text mt-1">{passengers.filter(p => p.vehicleId === selectedVehicle.id).length}</p>
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-8">
+                    <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm">
+                      <p className="text-[10px] font-bold text-gray-400 uppercase">Total Passengers</p>
+                      <p className="text-2xl font-bold text-ministry-text mt-1">{passengers.filter(p => p.vehicleId === selectedVehicle.id).length}</p>
                     </div>
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-                      <p className="text-xs font-bold text-gray-400 uppercase">First Timers</p>
-                      <p className="text-3xl font-bold text-green-600 mt-1">{passengers.filter(p => p.vehicleId === selectedVehicle.id && p.isFirstTime === 'Yes').length}</p>
+                    <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm">
+                      <p className="text-[10px] font-bold text-gray-400 uppercase">First Timers</p>
+                      <p className="text-2xl font-bold text-green-600 mt-1">{passengers.filter(p => p.vehicleId === selectedVehicle.id && p.isFirstTime === 'Yes').length}</p>
                     </div>
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-                      <p className="text-xs font-bold text-gray-400 uppercase">Students</p>
-                      <p className="text-3xl font-bold text-blue-600 mt-1">{passengers.filter(p => p.vehicleId === selectedVehicle.id && p.category === 'Student').length}</p>
+                    <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm">
+                      <p className="text-[10px] font-bold text-gray-400 uppercase">Students</p>
+                      <p className="text-2xl font-bold text-blue-600 mt-1">{passengers.filter(p => p.vehicleId === selectedVehicle.id && p.category === 'Student').length}</p>
                     </div>
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm border-l-4 border-l-ministry-orange">
-                      <p className="text-xs font-bold text-gray-400 uppercase">Children</p>
-                      <p className="text-3xl font-bold text-ministry-orange mt-1">{selectedVehicle.childrenCount || 0}</p>
+                    <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm">
+                      <p className="text-[10px] font-bold text-gray-400 uppercase">Institutions</p>
+                      <p className="text-2xl font-bold text-purple-600 mt-1">{passengers.filter(p => p.vehicleId === selectedVehicle.id && p.category === 'Institution').length}</p>
+                    </div>
+                    <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm border-l-4 border-l-ministry-orange">
+                      <p className="text-[10px] font-bold text-gray-400 uppercase">Children</p>
+                      <p className="text-2xl font-bold text-ministry-orange mt-1">{selectedVehicle.childrenCount || 0}</p>
                     </div>
                   </div>
 
@@ -3215,6 +3255,21 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
                                 )}
                               </td>
                               <td className="px-6 py-4 text-right">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setPassengerForm({
+                                      ...p,
+                                      id: p.id // Ensure ID is set for edit mode
+                                    });
+                                    setIsAddPassengerOpen(true);
+                                  }}
+                                  disabled={isLocked}
+                                  className={`p-2 rounded-lg transition-colors mr-1 ${isLocked ? 'text-gray-200 cursor-not-allowed' : 'text-gray-400 hover:text-blue-600 hover:bg-blue-50'}`}
+                                  title={isLocked ? "Cannot edit locked vehicle" : "Edit Passenger"}
+                                >
+                                  <Edit2 className="w-4 h-4" />
+                                </button>
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation(); // Prevent any parent clicks
@@ -3821,7 +3876,9 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
                 )}
                 <div className="flex justify-end pt-4 gap-3">
                   <button type="button" onClick={() => setIsAddPassengerOpen(false)} className="px-4 py-2 text-gray-600 font-bold">Cancel</button>
-                  <button type="submit" className="px-6 py-2 bg-ministry-text text-white font-bold rounded-xl hover:bg-ministry-orange">Add to Vehicle</button>
+                  <button type="submit" className="px-6 py-2 bg-ministry-text text-white font-bold rounded-xl hover:bg-ministry-orange">
+                    {passengerForm.id ? "Update Passenger" : "Add to Vehicle"}
+                  </button>
                 </div>
               </form>
             </div>
@@ -3833,11 +3890,12 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
       {
         isAddEventOpen && (
           <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-            <div className="bg-white w-full max-w-md p-8 rounded-2xl shadow-2xl">
-              <h3 className="text-xl font-bold mb-4">
-                {eventFormType === 'Service' ? 'Create New Service' : 'Plan New Event'}
+            <div className="bg-white w-full max-w-2xl p-8 rounded-2xl shadow-2xl h-[90vh] overflow-y-auto">
+              <h3 className="text-xl font-bold mb-6 flex items-center">
+                <UserPlus className="w-5 h-5 mr-2 text-ministry-orange" />
+                {passengerForm.id ? "Edit Passenger" : "Add New Passenger"}
               </h3>
-              <form onSubmit={handleAddEvent} className="space-y-4">
+              <form onSubmit={handleAddPassenger} className="space-y-6">
                 <div className="space-y-2">
                   <label className="text-sm font-bold text-gray-700">Title / Theme</label>
                   <input
@@ -3916,7 +3974,12 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
                     required
                     value={childrenForm.count}
                     onChange={e => setChildrenForm({ ...childrenForm, count: e.target.value })}
-                    className="w-full p-3 border rounded-xl bg-white text-lg font-bold"
+                    onKeyDown={(e) => {
+                      if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                        e.preventDefault();
+                      }
+                    }}
+                    className="w-full p-3 border rounded-xl bg-white text-lg font-bold appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                     autoFocus
                   />
                 </div>

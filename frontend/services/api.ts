@@ -1,4 +1,4 @@
-export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+export const API_URL = import.meta.env.VITE_API_URL || 'https://manifest-system-esft.onrender.com/api';
 
 export const apiFetch = async (endpoint: string, options: RequestInit = {}) => {
     const res = await fetch(`${API_URL}${endpoint}`, {

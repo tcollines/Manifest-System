@@ -41,7 +41,8 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, onLogout, isOpen, onClos
   const isFinanceHead = currentUser.role === 'Head of Dept' && currentUser.departmentId === 'd4';
   const isTransportationHead = currentUser.role === 'Head of Dept' && currentUser.departmentId === 'd5';
   const isSchoolsHead = currentUser.role === 'Head of Dept' && currentUser.departmentId === 'd7';
-  const isCoordinator = currentUser.role === 'Coordinator';
+  const isStageCoordinator = currentUser.role === 'Coordinator' && !!currentUser.stationId;
+  const isVehicleCoordinator = currentUser.role === 'Coordinator' && !currentUser.stationId;
   const isLogisticsEntrant = currentUser.role === 'Logistics';
   const isTeamLeader = currentUser.role === 'TeamLeader';
   const isFollowUpHead = (currentUser.role === 'Head of Dept' || currentUser.role === 'Dept Admin') && currentUser.departmentId === 'd6';
@@ -107,9 +108,13 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, onLogout, isOpen, onClos
     menuItems = [
       { id: 'follow-up', label: 'Follow Up Dashboard', icon: UserPlus },
     ];
-  } else if (isCoordinator) {
+  } else if (isStageCoordinator) {
     menuItems = [
-      { id: 'transportation', label: 'My Vehicle', icon: Bus },
+      { id: 'stage-dashboard', label: 'Stage Dashboard', icon: Bus },
+    ];
+  } else if (isVehicleCoordinator) {
+    menuItems = [
+      { id: 'transportation', label: 'Vehicle Dashboard', icon: Bus },
     ];
   } else if (isLogisticsEntrant) {
     menuItems = [
@@ -186,6 +191,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, onLogout, isOpen, onClos
       case 'transportation': return '/transportation';
       case 'schools': return '/schools';
       case 'follow-up': return '/follow-up';
+      case 'stage-dashboard': return '/stage-dashboard';
       default: return '/dashboard';
     }
   }

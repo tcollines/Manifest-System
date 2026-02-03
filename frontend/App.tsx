@@ -433,7 +433,7 @@ const App: React.FC = () => {
 
             {/* Finance (d4) */}
             <Route element={<ProtectedRoute currentUser={currentUser} allowedDepartments={['d4']} />}>
-              <Route path="finance" element={<FinanceDashboard currentUser={currentUser} onOpenModal={setModalType} />} />
+              <Route path="finance" element={<FinanceDashboard currentUser={currentUser} events={events} onOpenModal={setModalType} />} />
             </Route>
 
             {/* Transportation (d5) */}

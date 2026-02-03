@@ -1,9 +1,10 @@
 
 import React, { useState, useEffect } from 'react';
-import { User, MinistryEvent, Vehicle, ModalType } from '../types';
+import { User, MinistryEvent, Vehicle, ModalType, Passenger } from '../types';
 import { UserStore } from '../database/userStore';
-import { VehicleStore } from '../database/vehicleStore';
+import { VehicleStore, mapPassengerFromDB } from '../database/vehicleStore';
 import { LogisticsStore, ExtendedStation } from '../database/logisticsStore';
+import { supabase } from '../services/supabaseClient';
 import { useNotification } from './ui/NotificationSystem';
 import {
     MapPin,
@@ -49,6 +50,7 @@ const StageCoordinatorDashboard: React.FC<StageCoordinatorDashboardProps> = ({ c
     const [station, setStation] = useState<ExtendedStation | null>(null);
     const [vehicles, setVehicles] = useState<TrackedVehicle[]>([]);
     const [staff, setStaff] = useState<User[]>([]);
+    const [passengers, setPassengers] = useState<Passenger[]>([]);
     const [allCoordinators, setAllCoordinators] = useState<User[]>([]);
     const [activeTab, setActiveTab] = useState<'overview' | 'staff' | 'vehicles' | 'map'>('overview');
 
@@ -81,12 +83,14 @@ const StageCoordinatorDashboard: React.FC<StageCoordinatorDashboardProps> = ({ c
 
         try {
             // 1. Get Station Details
-            const stations = await LogisticsStore.getStations();
+            const stationRes = await LogisticsStore.getStations();
+            const stations = stationRes.status === 'success' ? stationRes.data : [];
             const myStation = stations.find(s => s.id === currentUser.stationId);
             setStation(myStation || null);
 
             // 2. Get Vehicles for this station
-            const allVehicles = await VehicleStore.getVehicles();
+            const vehicleRes = await VehicleStore.getVehicles();
+            const allVehicles = vehicleRes.status === 'success' ? vehicleRes.data : [];
             const myVehicles = allVehicles.filter(v => v.stationId === currentUser.stationId);
 
             // Simulate locations for vehicles without them
@@ -105,17 +109,76 @@ const StageCoordinatorDashboard: React.FC<StageCoordinatorDashboardProps> = ({ c
             setVehicles(trackedVehicles);
 
             // 3. Get Staff (Coordinators & Entrants)
-            const allUsers = await UserStore.getAll();
+            const userRes = await UserStore.getAll();
+            const allUsers = userRes.status === 'success' ? userRes.data : [];
             setStaff(allUsers.filter(u => u.stationId === currentUser.stationId && u.id !== currentUser.id));
 
             // Store all coordinators for lookup (map name -> contact)
             setAllCoordinators(allUsers.filter(u => u.role === 'Coordinator'));
+
+            // 4. Get Passengers for this station
+            const passengerRes = await VehicleStore.getPassengers();
+            if (passengerRes.status === 'success') {
+                const stationPassengers = passengerRes.data.filter(p =>
+                    myVehicles.some(v => v.id === p.vehicleId)
+                );
+                // Apply Initial Sort
+                setPassengers(stationPassengers.sort((a, b) => a.name.localeCompare(b.name)));
+            }
 
         } catch (error) {
             console.error("Error loading stage data:", error);
             showToast("Failed to load dashboard data", "error");
         }
     };
+
+    // Realtime Subscriptions
+    useEffect(() => {
+        const channel = supabase
+            .channel('stage-dashboard-live')
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'passengers' },
+                (payload) => {
+                    const { eventType, new: newRecord, old: oldRecord } = payload;
+                    const record = newRecord as any;
+
+                    // Filter: Only care if it belongs to one of our vehicles
+                    // Since specific vehicle filtering inside realtime is hard without a list of IDs in closure,
+                    // we will check if the vehicleId matches any of our KNOWN vehicles.
+                    // However, 'vehicles' state might be stale in closure unless we use a Ref or functional updates carefully.
+                    // For safety in this specific "Stage" context, we might just refresh if uncertain, 
+                    // BUT granular updates are key for checkbox stability.
+
+                    // We will trust the vehicle ID check if we have the list.
+                    // Note: 'vehicles' state dependency in useEffect might cause frequent resubscriptions.
+                    // Better approach: Functional update on 'passengers' allows us to check existence? No, need vehicle list.
+
+                    // FALLBACK: For now, we will just apply updates if the passenger is ALREADY in our list (Update/Delete)
+                    // OR if it's an INSERT, we might need to refresh or check vehicle ID against a Ref.
+
+                    // Let's keep it simple and robust for the checkbox issue (UPDATES):
+
+                    if (eventType === 'UPDATE') {
+                        const updatedPassenger = mapPassengerFromDB(newRecord);
+                        setPassengers(prev => {
+                            // Only update if we are already tracking this passenger
+                            if (prev.some(p => p.id === updatedPassenger.id)) {
+                                return prev.map(p => p.id === updatedPassenger.id ? updatedPassenger : p);
+                            }
+                            return prev;
+                        });
+                    }
+                    // For Inserts/Deletes in Stage Dashboard, we can allow full refresh or careful addition.
+                    // But the main user complaint is "Check/Uncheck" flickering (UPDATES).
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, []);
 
     const getCoordinatorContact = (name: string) => {
         const coord = allCoordinators.find(u => u.name === name);
@@ -200,8 +263,8 @@ const StageCoordinatorDashboard: React.FC<StageCoordinatorDashboardProps> = ({ c
                         <p className="text-2xl font-black text-ministry-orange">{vehicles.length}</p>
                     </div>
                     <div className="bg-blue-50 px-4 py-2 rounded-2xl border border-blue-100">
-                        <p className="text-xs text-blue-600 font-bold uppercase">Staff Count</p>
-                        <p className="text-2xl font-black text-blue-600">{staff.length}</p>
+                        <p className="text-xs text-blue-600 font-bold uppercase">Passenger Count</p>
+                        <p className="text-2xl font-black text-blue-600">{passengers.length}</p>
                     </div>
                 </div>
             </div>
@@ -490,11 +553,12 @@ const StageCoordinatorDashboard: React.FC<StageCoordinatorDashboardProps> = ({ c
                                                 </div>
                                             </div>
                                             <div className="flex flex-col items-end">
-                                                <span className={`px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider ${vehicle.status === 'Arrived' ? 'bg-green-100 text-green-700' :
-                                                    vehicle.status === 'En Route' ? 'bg-blue-100 text-blue-700' :
-                                                        'bg-orange-100 text-orange-700'
+                                                <span className={`px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider ${vehicle.currentStage === 'Arrived' || vehicle.currentStage === 'Completed' ? 'bg-green-100 text-green-700' :
+                                                        vehicle.currentStage === 'Transit' || vehicle.status === 'En Route' ? 'bg-blue-100 text-blue-700' :
+                                                            vehicle.currentStage === 'FinanceApproval' || vehicle.currentStage === 'RegApproval' ? 'bg-purple-100 text-purple-700' :
+                                                                'bg-orange-100 text-orange-700'
                                                     }`}>
-                                                    {vehicle.status || 'Pending'}
+                                                    {vehicle.currentStage ? vehicle.currentStage.replace(/([A-Z])/g, ' $1').trim() : (vehicle.status || 'Pending')}
                                                 </span>
                                             </div>
                                         </div>

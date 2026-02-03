@@ -51,10 +51,14 @@ export const ChildStore = {
   getAll: async (): Promise<Child[]> => {
     try {
       const data = await apiFetch('/children');
+      if (!Array.isArray(data)) {
+        console.warn('API returned non-array for children:', data);
+        return [];
+      }
       return data.map(mapChildFromDB);
     } catch (e: any) {
       console.error('Unexpected error fetching children:', e.message || e);
-      return MOCK_CHILDREN;
+      return [];
     }
   },
 

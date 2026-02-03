@@ -245,7 +245,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
     const [newNote, setNewNote] = useState('');
     const [noteType, setNoteType] = useState<'Observation' | 'Prayer' | 'Incident'>('Observation');
 
-    const filteredChildren = children.filter(c => {
+    const filteredChildren = (children || []).filter(c => {
         const tokens = searchQuery.toLowerCase().split(/\s+/).filter(Boolean);
 
         let matchesSearch = true;

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">MMS Entebbe</string>
+    <string name="title_activity_main">MMS Entebbe</string>
+    <string name="package_name">com.manifest.system</string>
+    <string name="custom_url_scheme">com.manifest.system</string>
+</resources>

@@ -19,7 +19,8 @@ import {
     Users,
     GraduationCap,
     Sparkles,
-    Lock
+    Lock,
+    RotateCcw
 } from 'lucide-react';
 import { isEventLocked, isServiceClosed } from '../utils';
 import { VehicleStore } from '../database/vehicleStore';
@@ -34,10 +35,11 @@ import { UserStore } from '../database/userStore';
 
 interface FinanceDashboardProps {
     currentUser?: any;
+    events: MinistryEvent[];
     onOpenModal?: (type: ModalType) => void;
 }
 
-const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, onOpenModal }) => { // Accept props properly
+const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, events = [], onOpenModal }) => { // Accept events from props
     const { showToast } = useNotification();
     /* Persistence Logic */
     const [activeTab, setActiveTab] = useState<'income' | 'expenses' | 'requisitions' | 'fleet'>(() =>
@@ -54,9 +56,9 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, onOpen
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [requests, setRequests] = useState<DepartmentRequest[]>([]); // Keep for backwards compat if needed, but we focus on Requisitions now
     const [requisitions, setRequisitions] = useState<Requisition[]>([]); // NEW
-    const [events, setEvents] = useState<MinistryEvent[]>([]);
     const [pickupStations, setPickupStations] = useState<PickUpStation[]>([]);
     const [currency, setCurrency] = useState('UGX');
+    const [isRefreshing, setIsRefreshing] = useState(false);
 
     const [requisitionSubTab, setRequisitionSubTab] = useState<'Pending' | 'Paid'>('Pending');
     const [payModalOpen, setPayModalOpen] = useState(false);
@@ -94,9 +96,15 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, onOpen
 
         // Realtime Subscriptions
         const channel = supabase.channel('finance-dashboard-live')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'finance_transactions' }, () => { refreshData(); forceUpdate(n => n + 1); })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'department_requests' }, () => { refreshData(); forceUpdate(n => n + 1); })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'vehicles' }, () => { refreshData(); forceUpdate(n => n + 1); })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'finance_transactions' }, () => {
+                FinanceStore.getTransactions().then(setTransactions);
+            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'department_requests' }, () => {
+                FinanceStore.getRequests().then(setRequests);
+            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'vehicles' }, () => {
+                VehicleStore.getVehicles().then(res => setVehicles(res.status === 'success' ? res.data : []));
+            })
             .subscribe();
 
         return () => {
@@ -105,22 +113,44 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, onOpen
     }, []);
 
     const refreshData = async () => {
-        setVehicles(await VehicleStore.getVehicles());
-        setPassengers(await VehicleStore.getPassengers());
-        setTransactions(await FinanceStore.getTransactions());
-        setRequests(await FinanceStore.getRequests());
-        setRequisitions(await RequisitionStore.getAll()); // Fetch Requisitions
-        const { data: allEvents } = await EventStore.getAll();
-        setEvents(allEvents);
-        const allStations = await LogisticsStore.getStations();
-        setPickupStations(allStations || []);
+        try {
+            setIsRefreshing(true);
+            // FIRE ALL REQUESTS IN PARALLEL (Performance Optimization)
+            const [
+                vehicleRes,
+                passengerRes,
+                transactionsRes,
+                requestsRes,
+                requisitionsRes,
+                stationRes,
+                manifestRes,
+                usersRes
+            ] = await Promise.all([
+                VehicleStore.getVehicles(),
+                VehicleStore.getPassengers(),
+                FinanceStore.getTransactions(),
+                FinanceStore.getRequests(),
+                RequisitionStore.getAll(),
+                LogisticsStore.getStations(),
+                ManifestStore.get(),
+                UserStore.getAll()
+            ]);
 
-        const manifest = await ManifestStore.get();
-        if (manifest.currency) setCurrency(manifest.currency);
+            // UPDATE STATE (Non-blocking batch updates)
+            setVehicles(vehicleRes.status === 'success' ? vehicleRes.data : []);
+            setPassengers(passengerRes.status === 'success' ? passengerRes.data : []);
+            setTransactions(transactionsRes);
+            setRequests(requestsRes);
+            setRequisitions(requisitionsRes);
+            setPickupStations(stationRes.status === 'success' ? stationRes.data : []);
+            if (manifestRes.currency) setCurrency(manifestRes.currency);
+            setAvailableCoordinators(usersRes.status === 'success' ? usersRes.data : []);
 
-        // Ensure we load coordinators for the print form
-        const users = await UserStore.getAll();
-        setAvailableCoordinators(users);
+        } catch (e) {
+            console.error("Error refreshing Finance data:", e);
+        } finally {
+            setIsRefreshing(false);
+        }
     };
 
     const formatMoney = (amount: number) => {
@@ -872,7 +902,17 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, onOpen
                         {fleetViewMode === 'events' && (
                             <div className="space-y-6">
                                 <div className="flex justify-between items-center">
-                                    <h3 className="text-xl font-bold text-gray-800">Select Operation / Event</h3>
+                                    <div className="flex items-center gap-3">
+                                        <h3 className="text-xl font-bold text-gray-800">Select Operation / Event</h3>
+                                        <button
+                                            onClick={refreshData}
+                                            disabled={isRefreshing}
+                                            className="p-1.5 hover:bg-gray-100 rounded-full transition-all text-gray-400 hover:text-ministry-orange disabled:opacity-50"
+                                            title="Refresh Data"
+                                        >
+                                            <RotateCcw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                                        </button>
+                                    </div>
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                     {events.filter(e => e.type === 'Event' || e.type === 'Service').map(event => {
@@ -929,6 +969,14 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, onOpen
                                             <h3 className="text-xl font-bold text-gray-900">{selectedFleetEvent.title}</h3>
                                             <p className="text-sm text-gray-500">Fleet Logistics</p>
                                         </div>
+                                        <button
+                                            onClick={refreshData}
+                                            disabled={isRefreshing}
+                                            className="p-2 hover:bg-gray-100 rounded-full transition-all text-gray-400 hover:text-ministry-orange disabled:opacity-50"
+                                            title="Refresh Data"
+                                        >
+                                            <RotateCcw className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
+                                        </button>
                                     </div>
 
                                     <div className="flex bg-gray-100 p-1 rounded-lg w-full md:w-auto">

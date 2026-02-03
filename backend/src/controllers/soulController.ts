@@ -19,9 +19,9 @@ export const getSouls = async (req: Request, res: Response) => {
 
 export const addSoul = async (req: Request, res: Response) => {
     try {
-        const { error } = await supabase.from('souls').insert([req.body]);
+        const { error } = await supabase.from('souls').upsert(req.body, { onConflict: 'id' });
         if (error) throw error;
-        res.status(201).json({ message: 'Soul added' });
+        res.status(201).json({ message: 'Soul saved (upsert)' });
     } catch (error: any) {
         res.status(500).json({ error: error.message });
     }

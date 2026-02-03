@@ -8,7 +8,8 @@ import { isEventLocked } from '../utils';
 export const useEventLifecycle = () => {
     useEffect(() => {
         const cleanupExpiredCredentials = async () => {
-            const { data: allEvents } = await EventStore.getAll();
+            const eventResponse = await EventStore.getAll();
+            const allEvents = eventResponse.status === 'success' ? eventResponse.data : [];
             const lockedEventIds = allEvents
                 .filter(e => isEventLocked(e.date))
                 .map(e => e.id);
@@ -16,10 +17,17 @@ export const useEventLifecycle = () => {
 
             if (lockedEventIds.length === 0) return;
 
-            const allVehicles = await VehicleStore.getVehicles();
-            const allStations = await LogisticsStore.getStations();
-            const allUsers = await UserStore.getAll();
-            const allPassengers = await VehicleStore.getPassengers();
+            const vehicleResponse = await VehicleStore.getVehicles();
+            const allVehicles = vehicleResponse.status === 'success' ? vehicleResponse.data : [];
+
+            const stationResponse = await LogisticsStore.getStations();
+            const allStations = stationResponse.status === 'success' ? stationResponse.data : [];
+
+            const userResponse = await UserStore.getAll();
+            const allUsers = userResponse.status === 'success' ? userResponse.data : [];
+
+            const passengerResponse = await VehicleStore.getPassengers();
+            const allPassengers = passengerResponse.status === 'success' ? passengerResponse.data : [];
 
             // 1. Snapshot stats for locked events (if not already done or if stats are zero/incomplete)
             for (const eventId of lockedEventIds) {

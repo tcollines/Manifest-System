@@ -5,7 +5,7 @@ import PhoneInput from './PhoneInput';
 import { MOCK_EVENTS, PICKUP_STATIONS } from '../constants';
 import { MinistryEvent, Vehicle, User, Passenger, JourneyStage, ModalType, Soul } from '../types';
 import EventDetailsModal from './EventDetailsModal';
-import { VehicleStore } from '../database/vehicleStore';
+import { VehicleStore, mapPassengerFromDB, mapVehicleFromDB } from '../database/vehicleStore';
 import { UserStore } from '../database/userStore';
 import { LogisticsStore, ExtendedStation } from '../database/logisticsStore';
 import { SoulsStore } from '../database/soulsStore';
@@ -85,6 +85,16 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
     }, [activeTab]);
 
     const [selectedEventId, setSelectedEventId] = useState<string>(events.find(e => (e.type === 'Event' || e.type === 'Service'))?.id || '');
+
+    // START FIX: Auto-select event when events load
+    useEffect(() => {
+        if (!selectedEventId && events.length > 0) {
+            const firstEvent = events.find(e => (e.type === 'Event' || e.type === 'Service'));
+            if (firstEvent) setSelectedEventId(firstEvent.id);
+        }
+    }, [events, selectedEventId]);
+    // END FIX
+
     const selectedEvent = events.find(e => e.id === selectedEventId);
     const [showHighlights, setShowHighlights] = useState(false);
 
@@ -131,7 +141,8 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
         try {
             // Optimized Fetching
             const isCoord = isCoordinatorView && currentUser;
-            const fetchedVehicles = await VehicleStore.getVehicles(isCoord ? currentUser.name : undefined);
+            const vehicleRes = await VehicleStore.getVehicles(isCoord ? currentUser.name : undefined);
+            const fetchedVehicles = vehicleRes.status === 'success' ? vehicleRes.data : [];
 
             if (isCoord) {
                 // For coordinators, we trust the filtered fetch (assuming server-side filter works or we filter again to be safe)
@@ -154,7 +165,8 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
                     if (updated.journeyDirection) setActiveJourneyTab(updated.journeyDirection);
 
                     // Optimized Passenger Fetch
-                    const myPassengers = await VehicleStore.getPassengers(mine.id);
+                    const passengerRes = await VehicleStore.getPassengers(mine.id);
+                    const myPassengers = passengerRes.status === 'success' ? passengerRes.data : [];
                     setPassengers(myPassengers);
                 } else {
                     setMyVehicle(null);
@@ -162,8 +174,10 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
                 }
             } else {
                 // Head of Dept View Data Logic
+                let stations: ExtendedStation[] = [];
                 try {
-                    const stations = await LogisticsStore.getStations();
+                    const stationRes = await LogisticsStore.getStations();
+                    stations = stationRes.status === 'success' ? stationRes.data : [];
                     setDbStations(stations);
                 } catch (err) {
                     console.error("Failed to fetch stations for Transportation:", err);
@@ -176,7 +190,9 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
                 let eventVehicles = fetchedVehicles.filter(v => relevantStationIds.includes(v.stationId));
 
                 // FALLBACK: Also include vehicles assigned to Coordinators of this event (for vehicles not yet linked to stations)
-                const eventCoordinators = await UserStore.getAll().then(all => all.filter(u => u.role === 'Coordinator' && u.eventId === selectedEventId).map(u => u.name));
+                const userRes = await UserStore.getAll();
+                const allUsers = userRes.status === 'success' ? userRes.data : [];
+                const eventCoordinators = allUsers.filter(u => u.role === 'Coordinator' && u.eventId === selectedEventId).map(u => u.name);
                 const coordinatorVehicles = fetchedVehicles.filter(v => v.coordinator && eventCoordinators.includes(v.coordinator));
 
                 // Merge unique
@@ -222,9 +238,10 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
     useEffect(() => {
         refreshDataRef.current().catch(e => console.error("Refresh data error:", e));
 
-        const interval = setInterval(() => {
-            refreshDataRef.current().catch(e => console.error("Refresh interval error:", e));
-        }, 30000); // Increased to 30s to reduce network load
+        // Polling disabled in favor of Realtime
+        // const interval = setInterval(() => {
+        //    refreshDataRef.current().catch(e => console.error("Refresh interval error:", e));
+        // }, 30000);
 
         // Realtime Subscriptions
         const channel = supabase
@@ -233,33 +250,86 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
                 'postgres_changes',
                 { event: '*', schema: 'public', table: 'vehicles' },
                 (payload) => {
+                    const { eventType, new: newRecord, old: oldRecord } = payload;
 
-                    refreshDataRef.current();
-                    forceUpdate(n => n + 1);
+                    // GRANULAR UPDATE: Do NOT call refreshData() here.
+                    // Separate logic for Coordinator (My Vehicle) vs Admin (List of Vehicles)
+
+                    const updatedVehicle = newRecord ? mapVehicleFromDB(newRecord) : null;
+                    const oldId = (oldRecord as any)?.id;
+
+                    if (isCoordinatorView) {
+                        // Update 'myVehicle' if it matches
+                        setMyVehicle(prev => {
+                            if (!prev) return prev; // If we don't have a vehicle, we probably need a refresh, but let's avoid it for now to be safe.
+                            if (updatedVehicle && updatedVehicle.id === prev.id) {
+                                return updatedVehicle;
+                            }
+                            return prev;
+                        });
+                    } else {
+                        // Admin View: Update 'vehicles' list
+                        if (eventType === 'INSERT' && updatedVehicle) {
+                            // Assuming we are converting Vehicle -> TrackedVehicle roughly
+                            // We might miss specific TrackedVehicle props like 'coordinates', but that's better than a full refresh for now.
+                            const tracked: TrackedVehicle = {
+                                ...updatedVehicle,
+                                status: (updatedVehicle.status || 'Pending') as any,
+                                progress: 0,
+                                eta: '--',
+                                isDelayed: false,
+                                coordinates: { x: 50, y: 50 } // fallback
+                            };
+                            setVehicles(prev => [...prev, tracked]);
+                        } else if (eventType === 'UPDATE' && updatedVehicle) {
+                            setVehicles(prev => prev.map(v => v.id === updatedVehicle.id ? { ...v, ...updatedVehicle } as TrackedVehicle : v));
+                        } else if (eventType === 'DELETE' && oldId) {
+                            setVehicles(prev => prev.filter(v => v.id !== oldId));
+                        }
+                    }
+                    // NO forceUpdate()
                 }
             )
             .on(
                 'postgres_changes',
                 { event: '*', schema: 'public', table: 'users' },
                 (payload) => {
-
                     refreshCoordinators();
-                    forceUpdate(n => n + 1);
+                    // NO forceUpdate()
                 }
             )
             .on(
                 'postgres_changes',
                 { event: '*', schema: 'public', table: 'passengers' },
                 (payload) => {
+                    const { eventType, new: newRecord, old: oldRecord } = payload;
 
-                    refreshDataRef.current();
-                    forceUpdate(n => n + 1);
+                    // Cast newRecord to any to access dynamic properties
+                    const record = newRecord as any;
+
+                    // Note: myVehicle in this closure is stale (initial state).
+                    // We removed the filtering here to prevent checking against null and missing updates.
+                    // Granular updates are safe to apply even if for other vehicles (worst case: extra state update for non-visible row).
+
+                    if (eventType === 'INSERT') {
+                        const newPassenger = mapPassengerFromDB(newRecord);
+                        setPassengers(prev => {
+                            if (prev.some(p => p.id === newPassenger.id)) return prev;
+                            return [...prev, newPassenger].sort((a, b) => a.name.localeCompare(b.name));
+                        });
+                    } else if (eventType === 'UPDATE') {
+                        const updatedPassenger = mapPassengerFromDB(newRecord);
+                        setPassengers(prev => prev.map(p => p.id === updatedPassenger.id ? updatedPassenger : p));
+                    } else if (eventType === 'DELETE') {
+                        setPassengers(prev => prev.filter(p => p.id !== oldRecord.id));
+                    }
+
                 }
             )
             .subscribe();
 
         return () => {
-            clearInterval(interval);
+            // clearInterval(interval);
             supabase.removeChannel(channel);
         };
     }, []); // Empty dependency array as we use refs for latest data
@@ -321,7 +391,8 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
 
     const refreshCoordinators = async () => {
         try {
-            const users = await UserStore.getAll();
+            const userRes = await UserStore.getAll();
+            const users = userRes.status === 'success' ? userRes.data : [];
             const coords = users.filter(u =>
                 u.role === 'Coordinator' &&
                 u.departmentId === 'd5' &&
@@ -383,12 +454,23 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
         window.print();
     };
 
-    const handleToggleVerify = (passengerId: string) => {
+    const handleToggleVerify = async (passengerId: string) => {
         const p = passengers.find(p => p.id === passengerId);
         if (p) {
+            const original = { ...p };
             const updated = { ...p, verified: !p.verified };
-            VehicleStore.updatePassenger(updated);
-            setPassengers(passengers.map(pas => pas.id === passengerId ? updated : pas));
+
+            // Optimistic Update
+            setPassengers(prev => prev.map(pas => pas.id === passengerId ? updated : pas));
+
+            try {
+                await VehicleStore.updatePassenger(updated);
+            } catch (error) {
+                console.error("Failed to verify passenger:", error);
+                // Revert on failure
+                setPassengers(prev => prev.map(pas => pas.id === passengerId ? original : pas));
+                showToast("Failed to update status", "error");
+            }
         }
     };
 
@@ -452,18 +534,17 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
         await VehicleStore.updatePassenger(updatedPassenger);
 
         if (newSoulWonStatus) {
-            // Add to Souls Store
-            // Helper to split name
+            // Add to Souls Store (Deterministic ID)
             const nameParts = p.name.split(' ');
             const firstName = nameParts[0];
             const lastName = nameParts.slice(1).join(' ') || 'Unknown';
 
             const newSoul: Soul = {
-                id: crypto.randomUUID(),
+                id: p.id, // Deterministic Link
                 firstName,
                 lastName,
                 phone: p.contact,
-                gender: p.gender || 'Male', // Fallback
+                gender: p.gender || 'Male',
                 residence: p.residence,
                 status: 'New',
                 sourceType: 'Event',
@@ -475,17 +556,25 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
             try {
                 await SoulsStore.add(newSoul);
                 showToast(`${firstName} marked as Soul Won!`, 'success');
-
             } catch (error) {
                 console.error("Failed to add soul", error);
                 showToast("Failed to save to Souls Database", 'error');
+            }
+        } else {
+            // REMOVE from Souls Store
+            try {
+                await SoulsStore.delete(p.id);
+                showToast(`Soul status removed for ${p.name.split(' ')[0]}`, 'info');
+            } catch (error) {
+                console.error("Failed to remove soul", error);
             }
         }
     };
 
     const handleAssignCoordinator = async (vehicleId: string) => {
         if (!selectedCoordinator) return;
-        const allVehicles = await VehicleStore.getVehicles();
+        const vehicleRes = await VehicleStore.getVehicles();
+        const allVehicles = vehicleRes.status === 'success' ? vehicleRes.data : [];
 
         // Validation: Check if coordinator is already assigned to a DIFFERENT vehicle
         const existingAssignment = allVehicles.find(v => v.coordinator === selectedCoordinator && v.id !== vehicleId);
@@ -548,11 +637,12 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
     };
 
     // Filter stations for this event
-    const eventStations = dbStations.filter(s => s.eventId === selectedEventId);
+    const eventStations = Array.isArray(dbStations) ? dbStations.filter(s => s.eventId === selectedEventId) : [];
 
     const handleOpenAdminVehicle = async (vehicle: TrackedVehicle) => {
         setSelectedAdminVehicle(vehicle);
-        const allPassengers = await VehicleStore.getPassengers();
+        const passengerRes = await VehicleStore.getPassengers();
+        const allPassengers = passengerRes.status === 'success' ? passengerRes.data : [];
         setAdminVehiclePassengers(allPassengers.filter(p => p.vehicleId === vehicle.id));
         setAdminViewMode('detail');
         if (vehicle.status === 'Completed') {
@@ -1555,7 +1645,8 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
                                                 type="button"
                                                 onClick={async () => {
                                                     try {
-                                                        const stations = await LogisticsStore.getStations();
+                                                        const stationRes = await LogisticsStore.getStations();
+                                                        const stations = stationRes.status === 'success' ? stationRes.data : [];
                                                         setDbStations(stations);
                                                         showToast("Stations refreshed", 'success');
                                                     } catch (e) {
@@ -1576,14 +1667,17 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
                                                 onChange={e => setNewCoordinator({ ...newCoordinator, stationId: e.target.value })}
                                             >
                                                 <option value="" disabled>Select Station</option>
-                                                {dbStations.filter(s => s.eventId === selectedEventId).map(s => (
+                                                {Array.isArray(dbStations) && dbStations.filter(s => s.eventId === selectedEventId).map(s => (
                                                     <option key={s.id} value={s.id}>{s.name}</option>
                                                 ))}
                                             </select>
                                         </div>
+
                                         {/* Warning if no stations */}
-                                        {dbStations.filter(s => s.eventId === selectedEventId).length === 0 && (
-                                            <p className="text-xs text-red-500">No stations found for this event. Please add stations in Logistics first.</p>
+                                        {Array.isArray(dbStations) && dbStations.filter(s => s.eventId === selectedEventId).length === 0 && (
+                                            <p className="text-xs text-red-500 font-bold mt-2">
+                                                No stations match the selected event ({selectedEventId ? 'Event Selected' : 'No Event Selected'}).
+                                            </p>
                                         )}
                                     </div>
                                 )}
@@ -1595,53 +1689,47 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
                                         value={newCoordinator.name}
                                         onChange={e => setNewCoordinator({ ...newCoordinator, name: e.target.value })}
                                         className="w-full p-3 bg-white border border-gray-200 rounded-xl focus:border-ministry-orange outline-none"
-                                        placeholder="e.g. Mike Ross"
                                     />
                                 </div>
 
-                                <div className="space-y-2">
-                                    <label className="text-sm font-bold text-gray-700">Contact</label>
-                                    <div className="relative">
-                                        <PhoneInput
-                                            required
-                                            value={newCoordinator.contact}
-                                            onChange={(val) => setNewCoordinator({ ...newCoordinator, contact: val })}
-                                            placeholder="700 000 000"
-                                        />
-                                    </div>
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-sm font-bold text-gray-700">Username</label>
-                                    <div className="relative">
-                                        <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-bold text-gray-700">Username</label>
                                         <input
                                             required
-                                            autoComplete="off"
+                                            className="w-full p-3 bg-white border border-gray-200 rounded-xl focus:border-ministry-orange outline-none"
+                                            placeholder="username"
                                             value={newCoordinator.username}
                                             onChange={e => setNewCoordinator({ ...newCoordinator, username: e.target.value })}
-                                            className="w-full pl-10 pr-3 py-3 bg-white border border-gray-200 rounded-xl focus:border-ministry-orange outline-none"
-                                            placeholder="username"
                                         />
                                     </div>
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-sm font-bold text-gray-700">Password</label>
-                                    <div className="relative">
-                                        <Key className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-bold text-gray-700">Password</label>
                                         <input
                                             required
-                                            type="password"
-                                            autoComplete="new-password"
+                                            type="text"
+                                            className="w-full p-3 bg-white border border-gray-200 rounded-xl focus:border-ministry-orange outline-none font-mono"
+                                            placeholder="password"
                                             value={newCoordinator.password}
                                             onChange={e => setNewCoordinator({ ...newCoordinator, password: e.target.value })}
-                                            className="w-full pl-10 pr-3 py-3 bg-white border border-gray-200 rounded-xl focus:border-ministry-orange outline-none"
-                                            placeholder="••••••"
                                         />
                                     </div>
                                 </div>
 
+                                <div className="space-y-2">
+                                    <label className="text-sm font-bold text-gray-700">Contact Number</label>
+                                    <PhoneInput
+                                        value={newCoordinator.contact}
+                                        onChange={(val) => setNewCoordinator({ ...newCoordinator, contact: val })}
+                                        placeholder="770 123 456"
+                                    />
+                                </div>
+
                                 <div className="pt-4">
-                                    <button type="submit" className="w-full bg-ministry-text text-white py-3 rounded-xl font-bold hover:bg-ministry-orange transition-colors shadow-lg">
+                                    <button
+                                        type="submit"
+                                        className="w-full bg-ministry-text text-white py-3 rounded-xl font-bold hover:bg-ministry-orange transition-colors shadow-lg"
+                                    >
                                         Create Coordinator
                                     </button>
                                 </div>

@@ -4,7 +4,7 @@ import { apiFetch } from '../services/api';
 import { safeFetch } from '../services/safeFetch';
 
 // Mapper functions to convert DB snake_case to App camelCase
-const mapVehicleFromDB = (v: any): Vehicle => ({
+export const mapVehicleFromDB = (v: any): Vehicle => ({
     id: v.id,
     stationId: v.station_id,
     number_plate: v.number_plate,
@@ -27,7 +27,7 @@ const mapVehicleFromDB = (v: any): Vehicle => ({
     childrenCount: v.children
 });
 
-const mapPassengerFromDB = (p: any): Passenger => ({
+export const mapPassengerFromDB = (p: any): Passenger => ({
     id: p.id,
     vehicleId: p.vehicle_id,
     category: p.category,
@@ -177,7 +177,7 @@ export const VehicleStore = {
                 return apiFetch(url);
             },
             'Failed to fetch passengers',
-            (data: any[]) => data ? data.map(mapPassengerFromDB) : []
+            (data: any[]) => data ? data.map(mapPassengerFromDB).sort((a, b) => a.name.localeCompare(b.name)) : []
         );
     },
 
