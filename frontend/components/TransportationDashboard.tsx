@@ -178,7 +178,6 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
                 }
             } else {
                 // HEAD OF DEPT VIEW: Parallelize ALL event-scoped data
-                console.log(`[Dashboard] Fetching data for event: ${targetEventId}`);
                 const [vehicleRes, stationRes, passengerRes, userRes] = await Promise.all([
                     VehicleStore.getVehicles({ eventId: targetEventId }),
                     LogisticsStore.getStations(targetEventId),
