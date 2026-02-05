@@ -1,0 +1,25 @@
+--- Night of Prayer Coordinator Audit ---
+Searching for: Oyer Emmanuel
+  [MISSING] No match found.
+Searching for: Francis Mayega
+  [FOUND] Match: Aine Francis | ID: u-1766828589838 | Role: Administrator | Current Event: null
+  [FOUND] Match: Aine Francis | ID: 9f7f49ad-f1b2-41d6-9b4a-efbd2a3892cd | Role: Administrator | Current Event: null
+Searching for: Sarah Night
+  [MISSING] No match found.
+Searching for: Daphine Kalule
+  [FOUND] Match: Wilberforce Kalule | ID: c98b24b4-c675-4827-8875-b9bee52d308a | Role: Head of Dept | Current Event: null
+Searching for: Isaac Tumwesigye
+  [FOUND] Match: ISAAC KAMUGISHA | ID: f618b4af-6ba4-4188-9a2e-cce91af5ffaa | Role: Head of Dept | Current Event: null
+  [FOUND] Match: Mugasha Isaac | ID: u-coord-1769249320457 | Role: Coordinator | Current Event: 11324002-c401-494b-be68-179650967970
+Searching for: Ssonko Micheal
+  [MISSING] No match found.
+Searching for: Kyakwahuliire Esher
+  [FOUND] Match: ESTHER KYAKWAHULIIRE | ID: 31cf8555-4e99-4127-a85b-5bd0ffb6ce1e | Role: Member | Current Event: null
+Searching for: Daniel Oluka
+  [MISSING] No match found.
+Searching for: Helen Purposed
+  [FOUND] Match: Helen Purpose | ID: u-coord-1769016137835 | Role: Coordinator | Current Event: bde9329f-2746-40b1-b2eb-56f2fcf028ee
+Searching for: Birungi Monica
+  [FOUND] Match: Birungi Monicah | ID: u-coord-1769246426471 | Role: Coordinator | Current Event: bde9329f-2746-40b1-b2eb-56f2fcf028ee
+Searching for: Ssemwanga Cyrus
+  [FOUND] Match: Silas Ssemwanga | ID: u-coord-1769015736704 | Role: Coordinator | Current Event: 11324002-c401-494b-be68-179650967970

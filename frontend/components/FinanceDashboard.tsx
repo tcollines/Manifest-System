@@ -717,18 +717,7 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, events
                     <p className="text-sm text-gray-500">Operation-specific financial tracking and requisitions.</p>
                 </div>
                 <div className="flex items-center gap-4 w-full md:w-auto">
-                    <div className="bg-white border border-gray-200 rounded-xl px-4 py-2 shadow-sm flex-1 md:flex-none">
-                        <label className="block text-[10px] font-bold text-gray-400 uppercase">Active Operation</label>
-                        <select
-                            value={selectedEventId}
-                            onChange={(e) => setSelectedEventId(e.target.value)}
-                            className="font-bold text-ministry-text outline-none bg-transparent w-full cursor-pointer min-w-[180px]"
-                        >
-                            {events.filter(e => e.type === 'Event' || e.type === 'Service').map(e => (
-                                <option key={e.id} value={e.id}>{e.title}{isEventLocked(e.date) ? ' (Locked)' : ''}</option>
-                            ))}
-                        </select>
-                    </div>
+
                     <button onClick={() => setShowTransModal(true)} className="flex items-center justify-center space-x-2 bg-ministry-text text-white px-5 py-3 rounded-xl hover:bg-ministry-orange transition-colors shadow-lg font-bold">
                         <Plus className="w-4 h-4" /> <span>Add Funds</span>
                     </button>

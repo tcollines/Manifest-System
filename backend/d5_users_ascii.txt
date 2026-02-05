@@ -1,0 +1,25 @@
+Ham | Logistics | null
+Mukasa Joseph | Coordinator | 6ef635f1-d285-4188-baca-612c8a19e4db
+Mark John | Coordinator | 6ef635f1-d285-4188-baca-612c8a19e4db
+Lukodda Joseph | Coordinator | 11324002-c401-494b-be68-179650967970
+Dorah Mwenyango | Coordinator | 11324002-c401-494b-be68-179650967970
+Jerry Kyobe | Coordinator | 11324002-c401-494b-be68-179650967970
+Silas Ssemwanga | Coordinator | 11324002-c401-494b-be68-179650967970
+Fredrick Balidawa | Coordinator | 11324002-c401-494b-be68-179650967970
+Kyobugira Betty | Coordinator | 11324002-c401-494b-be68-179650967970
+Namara Angel | Coordinator | 11324002-c401-494b-be68-179650967970
+Ben Kutosi | Coordinator | 11324002-c401-494b-be68-179650967970
+Fredrick Balidawa | Coordinator | evt-1768837214408
+Helen Purpose | Coordinator | bde9329f-2746-40b1-b2eb-56f2fcf028ee
+Ben Kutosi | Coordinator | 11324002-c401-494b-be68-179650967970
+Mwondha Arthur | Coordinator | 11324002-c401-494b-be68-179650967970
+Aloysius Ojire | Coordinator | 11324002-c401-494b-be68-179650967970
+Eunice Atunu | Head of Dept | null
+Liz Abuo | Dept Admin | null
+Entrant | Logistics | null
+Eric Mugerwa | Coordinator | 6ef635f1-d285-4188-baca-612c8a19e4db
+Kiboneka Peter | Coordinator | 6ef635f1-d285-4188-baca-612c8a19e4db
+Lukodda Joseph | Coordinator | 6ef635f1-d285-4188-baca-612c8a19e4db
+Mugasha Isaac | Coordinator | 11324002-c401-494b-be68-179650967970
+Anitah Tukei | Coordinator | 11324002-c401-494b-be68-179650967970
+Birungi Monicah | Coordinator | bde9329f-2746-40b1-b2eb-56f2fcf028ee

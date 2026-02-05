@@ -55,12 +55,14 @@ const NextGenTeam: React.FC<NextGenTeamProps> = ({ currentUser }) => {
     const loadData = async () => {
         try {
             setLoading(true);
-            const [allUsers, allEvents, allIncidents, allTraining] = await Promise.all([
+            const [allUsersResponse, allEvents, allIncidents, allTraining] = await Promise.all([
                 UserStore.getAll(),
                 EventStore.getAll().then(res => res.data),
                 IncidentStore.getAll(),
                 TrainingStore.getAll()
             ]);
+
+            const allUsers = allUsersResponse.status === 'success' && allUsersResponse.data ? allUsersResponse.data : [];
 
             // Filter Volunteers
             const nextGenDeptId = DEPARTMENTS.find(d => d.name === 'Next Gen')?.id;

@@ -266,8 +266,12 @@ const App: React.FC = () => {
         throw new Error(`The email "${newUser.email}" is already registered.`);
       }
 
-      const updatedUsers = await UserStore.add(newUser);
-      setAllUsers(updatedUsers);
+      const response = await UserStore.add(newUser);
+      if (response.status === 'success' && response.data) {
+        setAllUsers(response.data);
+      } else {
+        throw new Error(response.message || 'Failed to add user');
+      }
     } catch (e: any) {
       alert(e.message || "Failed to add user");
       throw e;
@@ -275,14 +279,20 @@ const App: React.FC = () => {
   };
 
   const handleDeleteUser = async (userId: string) => {
-    const updatedUsers = await UserStore.remove(userId);
-    setAllUsers(updatedUsers);
+    const response = await UserStore.remove(userId);
+    if (response.status === 'success' && response.data) {
+      setAllUsers(response.data);
+    }
   };
 
   const handleUpdateUser = async (updatedUser: User) => {
     try {
-      const users = await UserStore.update(updatedUser);
-      setAllUsers(users);
+      const response = await UserStore.update(updatedUser);
+      if (response.status === 'success' && response.data) {
+        setAllUsers(response.data);
+      } else {
+        throw new Error(response.message || 'Failed to update user');
+      }
       showToast("User updated successfully!", 'success');
     } catch (e: any) {
       showToast(e.message || "Failed to update user", 'error');

@@ -48,18 +48,7 @@ const Dashboard: React.FC<DashboardProps> = ({ openModal }) => {
                <h1 className="text-2xl md:text-3xl font-bold text-ministry-text mb-1">
                   Ministry Overview
                </h1>
-               <div className="flex items-center gap-3 mt-2">
-                  <p className="text-gray-500">Active Operation:</p>
-                  <select
-                     value={selectedEventId}
-                     onChange={(e) => setSelectedEventId(e.target.value)}
-                     className="font-bold text-ministry-orange bg-white border border-gray-200 rounded-lg px-3 py-1 text-sm outline-none focus:ring-1 focus:ring-ministry-orange shadow-sm cursor-pointer"
-                  >
-                     {events.map(e => (
-                        <option key={e.id} value={e.id}>{e.title}</option>
-                     ))}
-                  </select>
-               </div>
+
             </div>
 
             <div className="flex flex-wrap gap-3">

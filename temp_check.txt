@@ -1,0 +1,5 @@
+﻿    // Search Local Children Data
+    useEffect(() => {
+        if (soulsSearchQuery.length < 2) {
+            setChildSearchResults([]);
+            return;

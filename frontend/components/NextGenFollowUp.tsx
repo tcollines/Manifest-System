@@ -1,18 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import { User, MinistryEvent, Child } from '../types';
+import { User, MinistryEvent, Child, Member } from '../types';
 import { ChildStore } from '../database/childStore';
 import { UserStore } from '../database/userStore';
-import { Search, Phone, MessageSquare, CheckCircle, UserPlus, AlertCircle, Calendar, Clock, Download, AlertTriangle } from 'lucide-react';
+import { NextGenSoulsStore, NextGenSoul } from '../database/nextGenSoulsStore';
+import { MemberStore } from '../database/memberStore';
+import { EventStore } from '../database/eventStore';
+import { Search, Phone, MessageSquare, CheckCircle, UserPlus, AlertCircle, Calendar, Clock, Download, AlertTriangle, Users, Database, Plus, ChevronDown, Check, Trash2 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { DEPARTMENTS } from '../constants';
 import { useNotification } from './ui/NotificationSystem';
+import ConfirmationModal from './ConfirmationModal';
 
 interface NextGenFollowUpProps {
     currentUser?: User | null;
     events?: MinistryEvent[];
 }
 
-type Tab = 'first-timers' | 'absentees' | 'action-items';
+type Tab = 'first-timers' | 'absentees' | 'action-items' | 'souls-won';
 
 const NextGenFollowUp: React.FC<NextGenFollowUpProps> = ({ currentUser, events }) => {
     const { showToast } = useNotification();
@@ -23,6 +27,17 @@ const NextGenFollowUp: React.FC<NextGenFollowUpProps> = ({ currentUser, events }
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState<'All' | 'Pending' | 'Called' | 'Message Sent' | 'Visited'>('All');
 
+    // Souls Won State
+    const [souls, setSouls] = useState<NextGenSoul[]>([]);
+    const [services, setServices] = useState<MinistryEvent[]>([]);
+    const [selectedServiceId, setSelectedServiceId] = useState<string>('');
+    const [soulsSearchQuery, setSoulsSearchQuery] = useState('');
+    const [childSearchResults, setChildSearchResults] = useState<Child[]>([]);
+
+    // Delete Modal State
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [soulToDelete, setSoulToDelete] = useState<string | null>(null);
+
     useEffect(() => {
         loadData();
     }, []);
@@ -30,19 +45,32 @@ const NextGenFollowUp: React.FC<NextGenFollowUpProps> = ({ currentUser, events }
     const loadData = async () => {
         try {
             setLoading(true);
-            const [allChildren, allUsers] = await Promise.all([
+            const [allChildren, allUsersResponse, allSouls, allEventsResponse] = await Promise.all([
                 ChildStore.getAll(),
-                UserStore.getAll()
+                UserStore.getAll(),
+                NextGenSoulsStore.getAll(),
+                EventStore.getAll()
             ]);
+
+            const users = allUsersResponse.status === 'success' && allUsersResponse.data ? allUsersResponse.data : [];
+            setSouls(allSouls || []);
+
+            // Filter only Services
+            const allServices = allEventsResponse.status === 'success' && allEventsResponse.data
+                ? allEventsResponse.data.filter(e => e.type === 'Service').sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                : [];
+            setServices(allServices);
+            if (allServices.length > 0 && !selectedServiceId) {
+                setSelectedServiceId(allServices[0].id);
+            }
+
             setChildren(allChildren);
-            // Filter users for Next Gen department if needed, or just allow all for now
-            // assuming volunteers are users
-            setVolunteers(allUsers);
+            setVolunteers(users);
 
             // Filter users: either explicitly in Next Gen department OR has Next Gen in role
             const nextGenDeptId = DEPARTMENTS.find(d => d.name === 'Next Gen')?.id;
 
-            const nextGenVolunteers = allUsers.filter(u =>
+            const nextGenVolunteers = users.filter(u =>
                 (nextGenDeptId && u.departmentId === nextGenDeptId) ||
                 (u.role && u.role.toLowerCase().includes('next gen')) ||
                 // Fallback: If no users found, show all (or filtered admins)
@@ -52,15 +80,84 @@ const NextGenFollowUp: React.FC<NextGenFollowUpProps> = ({ currentUser, events }
             if (nextGenVolunteers.length > 0) {
                 setVolunteers(nextGenVolunteers);
             } else {
-                // If strictly no one found, warn or fallback to all
                 console.warn("No Next Gen volunteers found, showing all users.");
-                setVolunteers(allUsers);
+                setVolunteers(users);
             }
         } catch (error) {
             console.error("Failed to load follow up data", error);
             showToast("Failed to load data", 'error');
         } finally {
             setLoading(false);
+        }
+    };
+
+    // Search Local Children Data
+    useEffect(() => {
+        if (soulsSearchQuery.length < 2) {
+            setChildSearchResults([]);
+            return;
+        }
+
+        const results = children.filter(c =>
+            c.name.toLowerCase().includes(soulsSearchQuery.toLowerCase()) ||
+            c.parentContact.includes(soulsSearchQuery)
+        ).slice(0, 10);
+
+        setChildSearchResults(results);
+    }, [soulsSearchQuery, children]);
+
+    const handleDeleteSoul = (soulId: string) => {
+        setSoulToDelete(soulId);
+        setIsDeleteModalOpen(true);
+    };
+
+    const confirmDeleteSoul = async () => {
+        if (!soulToDelete) return;
+
+        try {
+            await NextGenSoulsStore.delete(soulToDelete);
+            showToast("Soul deleted successfully", 'success');
+            const updatedSouls = await NextGenSoulsStore.getAll();
+            setSouls(updatedSouls);
+        } catch (error) {
+            console.error("Failed to delete soul", error);
+            showToast("Failed to delete soul", 'error');
+        } finally {
+            setIsDeleteModalOpen(false);
+            setSoulToDelete(null);
+        }
+    };
+
+    const handleAddSoul = async (child: Child) => {
+        if (!selectedServiceId) {
+            showToast("Please select a service first", 'error');
+            return;
+        }
+
+        try {
+            const newSoul: Omit<NextGenSoul, 'id' | 'createdAt'> = {
+                firstName: child.name.split(' ')[0],
+                lastName: child.name.split(' ').slice(1).join(' '),
+                phone: child.parentContact,
+                age: child.age || 0,
+                gender: child.gender,
+                residence: child.residence,
+                serviceId: selectedServiceId,
+                status: 'New',
+                capturedBy: currentUser?.name || 'System',
+                notes: `Added from Next Gen Database. Parent: ${child.parentName}`
+            };
+
+            await NextGenSoulsStore.add(newSoul);
+            showToast("Soul added successfully", 'success');
+
+            // Refresh data
+            const updatedSouls = await NextGenSoulsStore.getAll();
+            setSouls(updatedSouls);
+            setSoulsSearchQuery('');
+        } catch (error) {
+            console.error("Failed to add soul", error);
+            showToast("Failed to add soul", 'error');
         }
     };
 
@@ -164,7 +261,7 @@ const NextGenFollowUp: React.FC<NextGenFollowUpProps> = ({ currentUser, events }
                     <p className="text-gray-500 mt-1">Track first-timers, absentees, and pastoral care.</p>
                 </div>
                 <div className="flex bg-gray-100 p-1 rounded-xl">
-                    {(['first-timers', 'absentees', 'action-items'] as Tab[]).map(tab => (
+                    {(['souls-won', 'first-timers', 'absentees', 'action-items'] as Tab[]).map(tab => (
                         <button
                             key={tab}
                             onClick={() => {
@@ -179,6 +276,134 @@ const NextGenFollowUp: React.FC<NextGenFollowUpProps> = ({ currentUser, events }
                     ))}
                 </div>
             </header>
+
+            {/* SOULS WON VIEW */}
+            {activeTab === 'souls-won' && (
+                <div className="space-y-6">
+                    {/* Controls: Service Selector & Search */}
+                    <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 space-y-4 md:space-y-0 md:flex md:justify-between md:items-start md:gap-4">
+                        <div className="w-full md:w-1/3">
+                            <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Select Service</label>
+                            <div className="relative">
+                                <select
+                                    value={selectedServiceId}
+                                    onChange={(e) => setSelectedServiceId(e.target.value)}
+                                    className="w-full appearance-none bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-lg focus:ring-ministry-orange focus:border-ministry-orange block p-2.5 pr-8 font-bold"
+                                >
+                                    {services.map(s => (
+                                        <option key={s.id} value={s.id}>
+                                            {s.title} ({s.date})
+                                        </option>
+                                    ))}
+                                    {services.length === 0 && <option value="">No services found</option>}
+                                </select>
+                                <ChevronDown className="absolute right-3 top-3 w-4 h-4 text-gray-500 pointer-events-none" />
+                            </div>
+                        </div>
+
+                        <div className="w-full md:w-2/3 relative group z-20">
+                            <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Add Soul from Next Gen Database</label>
+                            <div className="relative">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                                <input
+                                    type="text"
+                                    placeholder="Search child name or parent contact..."
+                                    value={soulsSearchQuery}
+                                    onChange={(e) => setSoulsSearchQuery(e.target.value)}
+                                    className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-ministry-orange focus:ring-1 focus:ring-ministry-orange transition-all"
+                                />
+                            </div>
+
+                            {/* Dropdown Results */}
+                            {soulsSearchQuery.length > 1 && childSearchResults.length > 0 && (
+                                <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                                    <div className="divide-y divide-gray-50 max-h-60 overflow-y-auto">
+                                        {childSearchResults.map(child => (
+                                            <div key={child.id} className="p-3 hover:bg-gray-50 flex justify-between items-center transition-colors">
+                                                <div>
+                                                    <div className="flex items-center gap-2">
+                                                        <p className="font-bold text-gray-800">{child.name}</p>
+                                                    </div>
+                                                    <p className="text-xs text-gray-500">Parent: {child.parentName} ({child.parentContact})</p>
+                                                </div>
+                                                <div>
+                                                    {/* Check if soul exists for THIS service */}
+                                                    {souls.some(s => s.serviceId === selectedServiceId && (
+                                                        (s.phone && child.parentContact && s.phone === child.parentContact) ||
+                                                        (s.firstName + ' ' + s.lastName === child.name)
+                                                    )) ? (
+                                                        <span className="text-xs font-bold text-gray-400 flex items-center bg-gray-100 px-2 py-1 rounded">
+                                                            <Check className="w-3 h-3 mr-1" /> Added
+                                                        </span>
+                                                    ) : (
+                                                        <button
+                                                            onClick={() => handleAddSoul(child)}
+                                                            className="text-xs bg-ministry-orange text-white px-3 py-1.5 rounded-lg font-bold hover:bg-orange-600 transition-colors shadow-sm flex items-center"
+                                                        >
+                                                            <Plus className="w-3 h-3 mr-1" /> Add
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Souls List */}
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                        <div className="p-4 bg-gray-50 border-b border-gray-100 flex justify-between items-center">
+                            <h3 className="font-bold text-gray-700">Souls Won in Selected Service</h3>
+                            <span className="bg-white px-2 py-1 rounded border border-gray-200 text-xs font-bold text-gray-500">
+                                {souls.filter(s => s.serviceId === selectedServiceId).length} Total
+                            </span>
+                        </div>
+                        <table className="w-full text-left text-sm">
+                            <thead className="bg-white text-gray-500 font-bold border-b border-gray-100 uppercase text-xs">
+                                <tr>
+                                    <th className="px-6 py-3">Name</th>
+                                    <th className="px-6 py-3">Contact</th>
+                                    <th className="px-6 py-3">Status</th>
+                                    <th className="px-6 py-3">Captured By</th>
+                                    <th className="px-6 py-3 text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-50">
+                                {souls.filter(s => s.serviceId === selectedServiceId).map(soul => (
+                                    <tr key={soul.id} className="hover:bg-gray-50 transition-colors">
+                                        <td className="px-6 py-3 font-bold text-gray-900">{soul.firstName} {soul.lastName}</td>
+                                        <td className="px-6 py-3 text-gray-600 font-mono">{soul.phone}</td>
+                                        <td className="px-6 py-3">
+                                            <span className={`px-2 py-0.5 rounded text-xs font-bold ${soul.status === 'New' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>
+                                                {soul.status}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-3 text-gray-500 text-xs">{soul.capturedBy}</td>
+                                        <td className="px-6 py-3 text-right">
+                                            <button
+                                                onClick={() => handleDeleteSoul(soul.id)}
+                                                className="text-gray-400 hover:text-red-600 p-1 transition-colors"
+                                                title="Delete"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                                {souls.filter(s => s.serviceId === selectedServiceId).length === 0 && (
+                                    <tr>
+                                        <td colSpan={5} className="px-6 py-10 text-center text-gray-400">
+                                            No Next Gen souls recorded for this service. Search and add above.
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
 
             {/* FIRST TIMERS VIEW */}
             {activeTab === 'first-timers' && (
@@ -591,6 +816,16 @@ const NextGenFollowUp: React.FC<NextGenFollowUpProps> = ({ currentUser, events }
                         )}
                 </div>
             )}
+
+            <ConfirmationModal
+                isOpen={isDeleteModalOpen}
+                onClose={() => setIsDeleteModalOpen(false)}
+                onConfirm={confirmDeleteSoul}
+                title="Delete Soul"
+                message="Are you sure you want to delete this soul? This action cannot be undone."
+                type="danger"
+                confirmText="Delete"
+            />
         </div>
     );
 };
