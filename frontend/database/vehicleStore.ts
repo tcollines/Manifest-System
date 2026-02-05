@@ -13,6 +13,7 @@ export const mapVehicleFromDB = (v: any): Vehicle => ({
     driverNin: v.driver_nin,
     type: v.type,
     coordinator: v.coordinator,
+    coordinatorContact: v.coordinator_contact, // Map from DB
     timeArrival: v.time_arrival,
     status: v.status,
     journeyDirection: v.journey_direction,
@@ -73,6 +74,7 @@ export const VehicleStore = {
             driver_nin: vehicle.driverNin,
             type: vehicle.type,
             coordinator: vehicle.coordinator,
+            coordinator_contact: vehicle.coordinatorContact, // Map to DB
             time_arrival: vehicle.timeArrival,
             status: vehicle.status,
             journey_direction: vehicle.journeyDirection,
@@ -104,6 +106,7 @@ export const VehicleStore = {
             driver_nin: vehicle.driverNin,
             type: vehicle.type,
             coordinator: vehicle.coordinator,
+            coordinator_contact: vehicle.coordinatorContact, // Map to DB
             time_arrival: vehicle.timeArrival,
             status: vehicle.status,
             journey_direction: vehicle.journeyDirection,

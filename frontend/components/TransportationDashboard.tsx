@@ -89,7 +89,7 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
     // Sync selectedEventId with events prop if not set
     useEffect(() => {
         if (!selectedEventId && events && events.length > 0) {
-            const firstEvent = events.find(e => e.type === 'Event' || e.type === 'Service');
+            const firstEvent = events.find(e => e.type === 'Event');
             if (firstEvent) setSelectedEventId(firstEvent.id);
         }
     }, [events, selectedEventId]);
@@ -222,8 +222,29 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
                 // 4. Passengers (Server-filtered)
                 setPassengers(passengerRes.status === 'success' ? passengerRes.data : []);
 
-                // 5. Coordinators (Server-filtered)
-                const coords = userRes.status === 'success' ? userRes.data : [];
+                // 5. Coordinators (Server-filtered + Derived from Vehicles)
+                let coords = userRes.status === 'success' ? userRes.data : [];
+
+                // Fallback: If a vehicle has a coordinator not in the list, add a visual placeholder
+                const vehicleCoordinatorNames = Array.from(new Set(eventVehicles.map(v => v.coordinator).filter(Boolean)));
+                vehicleCoordinatorNames.forEach(name => {
+                    const exists = coords.find(c => c.name.trim().toLowerCase() === name!.trim().toLowerCase());
+                    if (!exists && name) {
+                        coords.push({
+                            id: `fallback-${name}`,
+                            name: name,
+                            username: name.toLowerCase().replace(/\s+/g, ''),
+                            role: 'Coordinator',
+                            departmentId: 'transport',
+                            status: 'active',
+                            contact: 'N/A',
+                            email: `${name.toLowerCase().replace(/\s+/g, '')}@example.com`,
+                            password: '***',
+                            stationId: undefined
+                        });
+                    }
+                });
+
                 setCoordinators(coords);
                 if (coords.length > 0 && !selectedCoordinator) setSelectedCoordinator(coords[0].name);
             }
@@ -518,9 +539,18 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
 
         const targetVehicle = allVehicles.find(v => v.id === vehicleId);
         if (targetVehicle) {
-            const updated = { ...targetVehicle, coordinator: selectedCoordinator };
+            // Snapshot contact info for persistence
+            const foundUser = coordinators.find(c => c.name === selectedCoordinator);
+            const contactSnapshot = foundUser?.contact || 'N/A';
+
+            const updated = {
+                ...targetVehicle,
+                coordinator: selectedCoordinator,
+                coordinatorContact: contactSnapshot
+            };
+
             VehicleStore.updateVehicle(updated);
-            setVehicles(prev => prev.map(v => v.id === vehicleId ? { ...v, coordinator: selectedCoordinator } : v));
+            setVehicles(prev => prev.map(v => v.id === vehicleId ? updated : v));
             setIsAssigning(null);
             refreshData();
         }
@@ -1026,7 +1056,7 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
 
     // --- HEAD OF DEPT VIEW (Standard Admin) ---
     const activeVehicles = vehicles.filter(v => filterStatus === 'All' ? true : v.status === filterStatus);
-    const filteredEvents = events.filter(e => e.type === 'Event' || e.type === 'Service');
+    const filteredEvents = events.filter(e => e.type === 'Event');
 
     // Stats (strictly event-scoped from state set in refreshData)
     const totalVehicles = vehicles.length;
@@ -1448,6 +1478,9 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
                                                                     ) : (
                                                                         <span className={!v.coordinator ? 'text-red-400 italic' : ''}>
                                                                             {v.coordinator || 'Unassigned'}
+                                                                            {v.coordinatorContact && v.coordinatorContact !== 'N/A' && (
+                                                                                <span className="text-gray-400 font-normal ml-1">({v.coordinatorContact})</span>
+                                                                            )}
                                                                         </span>
                                                                     )}
                                                                 </div>

@@ -167,6 +167,7 @@ export interface Vehicle {
   driverNin?: string; // Added field
   type: 'Car' | 'Taxi' | 'Coaster' | 'Bus';
   coordinator: string;
+  coordinatorContact?: string; // Snapshot of contact info
   timeArrival: string;
   passengerCount?: number;
   status?: 'Pending' | 'Approved' | 'En Route' | 'Arrived' | 'Completed'; // Vehicle operation status
