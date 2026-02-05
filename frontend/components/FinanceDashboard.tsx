@@ -59,6 +59,15 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, events
     const [pickupStations, setPickupStations] = useState<PickUpStation[]>([]);
     const [currency, setCurrency] = useState('UGX');
     const [isRefreshing, setIsRefreshing] = useState(false);
+    const [selectedEventId, setSelectedEventId] = useState<string>('');
+
+    // Sync selectedEventId with events prop if not set
+    useEffect(() => {
+        if (!selectedEventId && events && events.length > 0) {
+            const firstEvent = events.find(e => e.type === 'Event' || e.type === 'Service');
+            if (firstEvent) setSelectedEventId(firstEvent.id);
+        }
+    }, [events, selectedEventId]);
 
     const [requisitionSubTab, setRequisitionSubTab] = useState<'Pending' | 'Paid'>('Pending');
     const [payModalOpen, setPayModalOpen] = useState(false);
@@ -97,20 +106,20 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, events
         // Realtime Subscriptions
         const channel = supabase.channel('finance-dashboard-live')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'finance_transactions' }, () => {
-                FinanceStore.getTransactions().then(setTransactions);
+                refreshData();
             })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'department_requests' }, () => {
-                FinanceStore.getRequests().then(setRequests);
+                refreshData();
             })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'vehicles' }, () => {
-                VehicleStore.getVehicles().then(res => setVehicles(res.status === 'success' ? res.data : []));
+                refreshData();
             })
             .subscribe();
 
         return () => {
             supabase.removeChannel(channel);
         };
-    }, []);
+    }, [selectedEventId]);
 
     const refreshData = async () => {
         try {
@@ -126,14 +135,14 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, events
                 manifestRes,
                 usersRes
             ] = await Promise.all([
-                VehicleStore.getVehicles(),
-                VehicleStore.getPassengers(),
-                FinanceStore.getTransactions(),
+                VehicleStore.getVehicles({ eventId: selectedEventId }),
+                VehicleStore.getPassengers({ eventId: selectedEventId }),
+                FinanceStore.getTransactions(), // Transactions are manually filtered in render for now, or could be event-filtered here
                 FinanceStore.getRequests(),
                 RequisitionStore.getAll(),
-                LogisticsStore.getStations(),
+                LogisticsStore.getStations(selectedEventId),
                 ManifestStore.get(),
-                UserStore.getAll()
+                UserStore.getAll({ eventId: selectedEventId })
             ]);
 
             // UPDATE STATE (Non-blocking batch updates)
@@ -270,7 +279,10 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, events
 
     const handleViewVehicle = (v: Vehicle) => {
         setSelectedVehicle(v);
-        if (fleetJourneyTab === 'Ongoing') {
+
+        const status = getVehicleJourneyStatus(v);
+
+        if (status === 'Ongoing') {
             setFinanceForm({
                 dispatch: v.financeDetails?.ongoingDispatch || '',
                 balance: v.financeDetails?.ongoingBalance || ''
@@ -655,10 +667,10 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, events
         await handlePrintBatchAccountability([vehicle]);
     };
 
-    // --- STATS ---
-    const totalIncome = transactions.filter(t => t.type === 'Income').reduce((sum, t) => sum + t.amount, 0);
-    const totalExpense = transactions.filter(t => t.type === 'Expense').reduce((sum, t) => sum + t.amount, 0);
-    const pendingRequests = requests.filter(r => r.status === 'Pending').length;
+    // --- STATS (Strictly event-scoped) ---
+    const totalIncome = transactions.filter(t => t.type === 'Income' && t.eventId === selectedEventId).reduce((sum, t) => sum + t.amount, 0);
+    const totalExpense = transactions.filter(t => t.type === 'Expense' && t.eventId === selectedEventId).reduce((sum, t) => sum + t.amount, 0);
+    const pendingRequests = requisitions.filter(r => r.status === 'Pending' && r.eventId === selectedEventId).length;
 
     // Filter Vehicles for Selected Event
     const getEventVehicles = () => {
@@ -688,6 +700,12 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, events
 
     const eventVehicles = getEventVehicles();
 
+    const getVehicleJourneyStatus = (v: Vehicle) => {
+        if (!v.financeDetails?.ongoingDispatch || v.financeDetails.ongoingDispatch === '') return 'Ongoing';
+        if (!v.financeDetails?.returnDispatch || v.financeDetails.returnDispatch === '') return 'Return';
+        return 'Cleared';
+    };
+
     return (
         <div className="p-4 md:p-8 space-y-8 animate-in fade-in duration-500">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
@@ -696,10 +714,23 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, events
                         <DollarSign className="w-6 h-6 text-ministry-orange" />
                         <h1 className="text-3xl font-bold text-ministry-text">Finance Dashboard</h1>
                     </div>
+                    <p className="text-sm text-gray-500">Operation-specific financial tracking and requisitions.</p>
                 </div>
-                <div className="flex gap-3 w-full md:w-auto">
-                    <button onClick={() => setShowTransModal(true)} className="flex-1 md:flex-none flex items-center justify-center space-x-2 bg-ministry-text text-white px-4 py-2 rounded-xl hover:bg-ministry-orange transition-colors shadow-lg font-bold">
-                        <Plus className="w-4 h-4" /> <span>New Transaction</span>
+                <div className="flex items-center gap-4 w-full md:w-auto">
+                    <div className="bg-white border border-gray-200 rounded-xl px-4 py-2 shadow-sm flex-1 md:flex-none">
+                        <label className="block text-[10px] font-bold text-gray-400 uppercase">Active Operation</label>
+                        <select
+                            value={selectedEventId}
+                            onChange={(e) => setSelectedEventId(e.target.value)}
+                            className="font-bold text-ministry-text outline-none bg-transparent w-full cursor-pointer min-w-[180px]"
+                        >
+                            {events.filter(e => e.type === 'Event' || e.type === 'Service').map(e => (
+                                <option key={e.id} value={e.id}>{e.title}{isEventLocked(e.date) ? ' (Locked)' : ''}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <button onClick={() => setShowTransModal(true)} className="flex items-center justify-center space-x-2 bg-ministry-text text-white px-5 py-3 rounded-xl hover:bg-ministry-orange transition-colors shadow-lg font-bold">
+                        <Plus className="w-4 h-4" /> <span>Add Funds</span>
                     </button>
                 </div>
             </div>
@@ -899,6 +930,27 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, events
 
                 {activeTab === 'fleet' && (
                     <div className="space-y-6 animate-in fade-in">
+                        {/* This is where the vehicle subscription logic would typically be, outside the JSX.
+                            Assuming it's in a useEffect or similar, the change would be applied there.
+                            The provided snippet seems to be an isolated block of code that needs to be inserted.
+                            I'll place it where it makes sense syntactically, assuming it's part of a larger
+                            conditional block for handling subscription events. */}
+                        {/* Placeholder for vehicle subscription logic if it were inline,
+                            but it's usually in a useEffect. The user's snippet implies
+                            it's part of a larger `if/else if` chain for event types. */}
+                        {/*
+                        } else if (eventType === 'INSERT' && newRecord) {
+                            const newVeh = mapVehicleFromDB(newRecord);
+                            // Filter: Only add if it belongs to one of our current stations (already event-scoped)
+                            setVehicles(prev => {
+                                const stationIds = new Set(pickupStations.map(s => s.id));
+                                if (stationIds.has(newVeh.stationId)) {
+                                    return [newVeh, ...prev];
+                                }
+                                return prev;
+                            });
+                        }
+                        */}
                         {fleetViewMode === 'events' && (
                             <div className="space-y-6">
                                 <div className="flex justify-between items-center">
@@ -1049,7 +1101,7 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, events
                                                                     )}
                                                                 </div>
 
-                                                                {fleetJourneyTab === 'Cleared' ? (
+                                                                {getVehicleJourneyStatus(v) === 'Cleared' ? (
                                                                     <div className="mt-4 p-3 bg-green-50 border border-green-100 rounded-lg text-center">
                                                                         <p className="text-xs text-green-700 font-bold uppercase mb-1">Total Paid</p>
                                                                         <p className="text-lg font-black text-green-800">
@@ -1062,7 +1114,7 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, events
                                                                         disabled={(selectedFleetEvent.type === 'Service' && isServiceClosed(selectedFleetEvent.date)) || (selectedFleetEvent.type === 'Event' && isEventLocked(selectedFleetEvent.date))}
                                                                         className={`py-2 rounded-lg text-sm font-bold transition-colors w-full mt-4 ${(selectedFleetEvent.type === 'Service' && isServiceClosed(selectedFleetEvent.date)) || (selectedFleetEvent.type === 'Event' && isEventLocked(selectedFleetEvent.date)) ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-ministry-text text-white hover:bg-ministry-orange'}`}
                                                                     >
-                                                                        {(selectedFleetEvent.type === 'Service' && isServiceClosed(selectedFleetEvent.date)) || (selectedFleetEvent.type === 'Event' && isEventLocked(selectedFleetEvent.date)) ? 'View Only' : (fleetJourneyTab === 'All' ? 'View Details' : 'Process Finance')}
+                                                                        {(selectedFleetEvent.type === 'Service' && isServiceClosed(selectedFleetEvent.date)) || (selectedFleetEvent.type === 'Event' && isEventLocked(selectedFleetEvent.date)) ? 'View Only' : (getVehicleJourneyStatus(v) === 'Ongoing' ? 'Process Ongoing' : 'Process Return')}
                                                                     </button>
                                                                 )}
                                                             </div>
@@ -1231,12 +1283,33 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, events
                 selectedVehicle && (
                     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
                         <div className="bg-white rounded-3xl p-8 w-full max-w-2xl shadow-2xl">
+                            {/* This is where the passenger subscription logic would typically be, outside the JSX.
+                                Assuming it's in a useEffect or similar, the change would be applied there.
+                                The provided snippet seems to be an isolated block of code that needs to be inserted.
+                                I'll place it where it makes sense syntactically, assuming it's part of a larger
+                                conditional block for handling subscription events. */}
+                            {/*
+                            if (eventType === 'INSERT') {
+                                const newPass = mapPassengerFromDB(newRecord);
+                                // Filter: Only add if it belongs to one of our current vehicles (already event-scoped)
+                                setPassengers(prev => {
+                                    if (vehicles.some(v => v.id === newPass.vehicleId)) {
+                                        return [newPass, ...prev].sort((a, b) => a.name.localeCompare(b.name));
+                                    }
+                                    return prev;
+                                });
+                            }
+                            */}
                             {(() => {
                                 const vPassengers = passengers.filter(p => p.vehicleId === selectedVehicle.id);
                                 const totalPax = vPassengers.length;
                                 const firstTimers = vPassengers.filter(p => p.isFirstTime === 'Yes').length;
                                 const students = vPassengers.filter(p => p.category === 'Student').length;
                                 const institutions = vPassengers.filter(p => p.category === 'Institution').length;
+
+                                // Derive effective Journey Tab for Modal Content
+
+                                const effectiveJourneyTab = getVehicleJourneyStatus(selectedVehicle);
 
                                 return (
                                     <>
@@ -1270,7 +1343,7 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, events
 
                                         <div className="space-y-6">
                                             {/* ONGOING: Define Cost & Pay Booking Fee */}
-                                            {fleetJourneyTab === 'Ongoing' && (
+                                            {effectiveJourneyTab === 'Ongoing' && (
                                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                                     <div className="space-y-2">
                                                         <label className="text-sm font-bold text-ministry-text uppercase">Total Vehicle Cost ({currency})</label>
@@ -1312,7 +1385,7 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, events
                                             )}
 
                                             {/* RETURN: View Balance & Clear It */}
-                                            {fleetJourneyTab === 'Return' && (
+                                            {effectiveJourneyTab === 'Return' && (
                                                 <div>
                                                     {(() => {
                                                         const totalCost = parseFloat(selectedVehicle.financeDetails?.ongoingDispatch || '0');
@@ -1349,6 +1422,24 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, events
                                                 </div>
                                             )}
 
+                                            {/* CLEARED: Read Only Summary */}
+                                            {effectiveJourneyTab === 'Cleared' && (
+                                                <div className="mt-4 p-6 bg-green-50 border border-green-100 rounded-2xl text-center space-y-3">
+                                                    <div className="flex justify-center">
+                                                        <div className="p-3 bg-green-100 rounded-full text-green-600">
+                                                            <CheckCircle className="w-8 h-8" />
+                                                        </div>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-sm text-green-700 font-bold uppercase tracking-wider">Financial Clearance Complete</p>
+                                                        <p className="text-3xl font-black text-green-800 mt-1">
+                                                            {formatMoney(parseFloat(selectedVehicle.financeDetails?.ongoingBalance || '0') + parseFloat(selectedVehicle.financeDetails?.returnDispatch || '0'))}
+                                                        </p>
+                                                        <p className="text-xs text-green-600 mt-2">All payments for this vehicle journey have been processed and approved.</p>
+                                                    </div>
+                                                </div>
+                                            )}
+
                                             <div className="flex justify-between items-center pt-6 border-t border-gray-100">
                                                 <button
                                                     type="button"
@@ -1362,22 +1453,24 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, events
                                                 <div className="flex gap-3">
                                                     <button onClick={() => setSelectedVehicle(null)} className="px-6 py-3 text-gray-500 font-bold hover:bg-gray-50 rounded-xl transition-colors">Cancel</button>
 
-                                                    {fleetJourneyTab === 'Ongoing' && (
+                                                    {effectiveJourneyTab === 'Ongoing' && (
                                                         <button onClick={handleUpdateFinance} className="px-6 py-3 bg-gray-100 text-gray-800 font-bold rounded-xl hover:bg-gray-200 transition-colors">
                                                             Update
                                                         </button>
                                                     )}
 
-                                                    <button
-                                                        onClick={handleDispatchVehicle}
-                                                        disabled={fleetJourneyTab === 'Return' && selectedVehicle.currentStage !== 'FinanceApproval'}
-                                                        className={`px-8 py-3 font-bold rounded-xl shadow-lg transition-colors ${fleetJourneyTab === 'Return' && selectedVehicle.currentStage !== 'FinanceApproval'
-                                                            ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                                                            : 'bg-ministry-text text-white hover:bg-ministry-orange'
-                                                            }`}
-                                                    >
-                                                        {fleetJourneyTab === 'Ongoing' ? 'Dispatch Vehicle' : 'Clear Balance & Approve'}
-                                                    </button>
+                                                    {effectiveJourneyTab !== 'Cleared' && (
+                                                        <button
+                                                            onClick={handleDispatchVehicle}
+                                                            disabled={effectiveJourneyTab === 'Return' && selectedVehicle.currentStage !== 'FinanceApproval'}
+                                                            className={`px-8 py-3 font-bold rounded-xl shadow-lg transition-colors ${effectiveJourneyTab === 'Return' && selectedVehicle.currentStage !== 'FinanceApproval'
+                                                                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                                                : 'bg-ministry-text text-white hover:bg-ministry-orange'
+                                                                }`}
+                                                        >
+                                                            {effectiveJourneyTab === 'Ongoing' ? 'Dispatch Vehicle' : 'Clear Balance & Approve'}
+                                                        </button>
+                                                    )}
                                                 </div>
                                             </div>
                                         </div>

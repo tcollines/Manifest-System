@@ -2,8 +2,25 @@ import { Request, Response } from 'express';
 import { supabase } from '../supabase';
 
 export const getAllUsers = async (req: Request, res: Response) => {
+    const role = req.query.role as string;
+    const eventId = req.query.eventId as string;
+    const departmentId = req.query.departmentId as string;
+    const validEventId = (eventId && eventId !== 'undefined' && eventId !== 'null') ? eventId : null;
+
     try {
-        const { data, error } = await supabase.from('users').select('*');
+        // STRICT SCOPING RULE: Coordinators must be fetched by Event
+        // If searching for Coordinators globally, reject it.
+        if (role === 'Coordinator' && !validEventId) {
+            console.warn('[BACKEND] Blocked global coordinator fetch attempt. Missing eventId.');
+            return res.json([]);
+        }
+
+        let query = supabase.from('users').select('*');
+        if (role) query = query.eq('role', role);
+        if (validEventId) query = query.eq('event_id', validEventId);
+        if (departmentId) query = query.eq('department_id', departmentId);
+
+        const { data, error } = await query;
         if (error) throw error;
         res.json(data);
     } catch (error: any) {

@@ -2,8 +2,11 @@ import { Request, Response } from 'express';
 import { supabase } from '../supabase';
 
 export const getStations = async (req: Request, res: Response) => {
+    const eventId = req.query.eventId as string;
     try {
-        const { data, error } = await supabase.from('pickup_stations').select('*');
+        let query = supabase.from('pickup_stations').select('*');
+        if (eventId) query = query.eq('event_id', eventId);
+        const { data, error } = await query;
         if (error) throw error;
         res.json(data);
     } catch (error: any) {

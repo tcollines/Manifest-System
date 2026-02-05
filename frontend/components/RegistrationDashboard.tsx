@@ -3892,10 +3892,10 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
           <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
             <div className="bg-white w-full max-w-2xl p-8 rounded-2xl shadow-2xl h-[90vh] overflow-y-auto">
               <h3 className="text-xl font-bold mb-6 flex items-center">
-                <UserPlus className="w-5 h-5 mr-2 text-ministry-orange" />
-                {passengerForm.id ? "Edit Passenger" : "Add New Passenger"}
+                <CalendarPlus className="w-5 h-5 mr-2 text-ministry-orange" />
+                {eventFormType === 'Service' ? "Add New Service" : "Add New Event"}
               </h3>
-              <form onSubmit={handleAddPassenger} className="space-y-6">
+              <form onSubmit={handleAddEvent} className="space-y-6">
                 <div className="space-y-2">
                   <label className="text-sm font-bold text-gray-700">Title / Theme</label>
                   <input

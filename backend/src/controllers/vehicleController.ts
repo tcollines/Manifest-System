@@ -4,10 +4,32 @@ import { supabase } from '../supabase';
 // --- Vehicles ---
 export const getVehicles = async (req: Request, res: Response) => {
     const coordinator = req.query.coordinator as string;
+    const eventId = req.query.eventId as string;
+    // Treat 'undefined' or 'null' strings from frontend as falsey
+    const validEventId = (eventId && eventId !== 'undefined' && eventId !== 'null') ? eventId : null;
+
     try {
+        // STRICT SCOPING RULE: Never return global list
+        // Allow coordinator-specific fetch (e.g. "My Vehicle") OR event-specific fetch
+        if (!validEventId && !coordinator) {
+            console.warn('[BACKEND] Blocked global vehicle fetch attempt. Missing eventId.');
+            return res.json([]);
+        }
+
         let query = supabase.from('vehicles').select('*');
         if (coordinator) {
             query = query.eq('coordinator', coordinator);
+        }
+        if (validEventId) {
+            console.log(`[BACKEND] Fetching vehicles for event: ${validEventId}`);
+            // Get station IDs for this event first
+            const { data: stations } = await supabase.from('pickup_stations').select('id').eq('event_id', validEventId);
+            const stationIds = (stations || []).map(s => s.id);
+            if (stationIds.length > 0) {
+                query = query.in('station_id', stationIds);
+            } else {
+                return res.json([]); // No stations for this event, so no vehicles
+            }
         }
         const { data, error } = await query;
         if (error) throw error;
@@ -95,10 +117,35 @@ export const deleteVehicle = async (req: Request, res: Response) => {
 // --- Passengers ---
 export const getPassengers = async (req: Request, res: Response) => {
     const vehicleId = req.query.vehicleId as string;
+    const eventId = req.query.eventId as string;
+    // Treat 'undefined' or 'null' strings from frontend as falsey
+    const validEventId = (eventId && eventId !== 'undefined' && eventId !== 'null') ? eventId : null;
+
     try {
+        // STRICT SCOPING RULE: Never return global list
+        if (!validEventId && !vehicleId) {
+            return res.json([]);
+        }
+
         let query = supabase.from('passengers').select('*');
         if (vehicleId) {
             query = query.eq('vehicle_id', vehicleId);
+        }
+        if (validEventId) {
+            // Complex join-like filter: passengers -> vehicles -> stations -> event_id
+            const { data: stations } = await supabase.from('pickup_stations').select('id').eq('event_id', validEventId);
+            const stationIds = (stations || []).map(s => s.id);
+            if (stationIds.length > 0) {
+                const { data: vehicles } = await supabase.from('vehicles').select('id').in('station_id', stationIds);
+                const vehicleIds = (vehicles || []).map(v => v.id);
+                if (vehicleIds.length > 0) {
+                    query = query.in('vehicle_id', vehicleIds);
+                } else {
+                    return res.json([]); // No vehicles for these stations
+                }
+            } else {
+                return res.json([]); // No stations for this event
+            }
         }
         const { data, error } = await query;
         if (error) throw error;
@@ -186,3 +233,4 @@ export const updatePersonalVehicleStatus = async (req: Request, res: Response) =
         res.status(500).json({ error: error.message });
     }
 };
+

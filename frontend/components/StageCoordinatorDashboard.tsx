@@ -82,47 +82,39 @@ const StageCoordinatorDashboard: React.FC<StageCoordinatorDashboardProps> = ({ c
         if (!currentUser.stationId) return;
 
         try {
-            // 1. Get Station Details
+            // 1. Get My Station Details (Server-scoped)
             const stationRes = await LogisticsStore.getStations();
             const stations = stationRes.status === 'success' ? stationRes.data : [];
             const myStation = stations.find(s => s.id === currentUser.stationId);
             setStation(myStation || null);
 
-            // 2. Get Vehicles for this station
-            const vehicleRes = await VehicleStore.getVehicles();
-            const allVehicles = vehicleRes.status === 'success' ? vehicleRes.data : [];
-            const myVehicles = allVehicles.filter(v => v.stationId === currentUser.stationId);
+            if (!myStation) return;
 
-            // Simulate locations for vehicles without them
+            // 2. Get Vehicles for this event/station (Server-scoped)
+            const vehicleRes = await VehicleStore.getVehicles({ eventId: myStation.eventId });
+            const allEventVehicles = vehicleRes.status === 'success' ? vehicleRes.data : [];
+            const myVehicles = allEventVehicles.filter(v => v.stationId === currentUser.stationId);
+
+            // Simulate locations for vehicles
             const trackedVehicles: TrackedVehicle[] = myVehicles.map(v => {
-                // If vehicle has real location, use it. Otherwise simulate near Kampala center.
-                // We add a small random offset to separate markers visually
                 const lat = v.location?.lat || (0.3476 + (Math.random() - 0.5) * 0.02);
                 const lng = v.location?.lng || (32.5825 + (Math.random() - 0.5) * 0.02);
-
-                return {
-                    ...v,
-                    location: { lat, lng }
-                };
+                return { ...v, location: { lat, lng } };
             });
-
             setVehicles(trackedVehicles);
 
-            // 3. Get Staff (Coordinators & Entrants)
-            const userRes = await UserStore.getAll();
+            // 3. Get Staff for this event/station (Server-scoped)
+            const userRes = await UserStore.getAll({ eventId: myStation.eventId });
             const allUsers = userRes.status === 'success' ? userRes.data : [];
             setStaff(allUsers.filter(u => u.stationId === currentUser.stationId && u.id !== currentUser.id));
-
-            // Store all coordinators for lookup (map name -> contact)
             setAllCoordinators(allUsers.filter(u => u.role === 'Coordinator'));
 
-            // 4. Get Passengers for this station
-            const passengerRes = await VehicleStore.getPassengers();
+            // 4. Get Passengers for this event (Server-scoped)
+            const passengerRes = await VehicleStore.getPassengers({ eventId: myStation.eventId });
             if (passengerRes.status === 'success') {
                 const stationPassengers = passengerRes.data.filter(p =>
                     myVehicles.some(v => v.id === p.vehicleId)
                 );
-                // Apply Initial Sort
                 setPassengers(stationPassengers.sort((a, b) => a.name.localeCompare(b.name)));
             }
 
@@ -554,9 +546,9 @@ const StageCoordinatorDashboard: React.FC<StageCoordinatorDashboardProps> = ({ c
                                             </div>
                                             <div className="flex flex-col items-end">
                                                 <span className={`px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider ${vehicle.currentStage === 'Arrived' || vehicle.currentStage === 'Completed' ? 'bg-green-100 text-green-700' :
-                                                        vehicle.currentStage === 'Transit' || vehicle.status === 'En Route' ? 'bg-blue-100 text-blue-700' :
-                                                            vehicle.currentStage === 'FinanceApproval' || vehicle.currentStage === 'RegApproval' ? 'bg-purple-100 text-purple-700' :
-                                                                'bg-orange-100 text-orange-700'
+                                                    vehicle.currentStage === 'Transit' || vehicle.status === 'En Route' ? 'bg-blue-100 text-blue-700' :
+                                                        vehicle.currentStage === 'FinanceApproval' || vehicle.currentStage === 'RegApproval' ? 'bg-purple-100 text-purple-700' :
+                                                            'bg-orange-100 text-orange-700'
                                                     }`}>
                                                     {vehicle.currentStage ? vehicle.currentStage.replace(/([A-Z])/g, ' $1').trim() : (vehicle.status || 'Pending')}
                                                 </span>

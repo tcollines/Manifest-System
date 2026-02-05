@@ -35,9 +35,13 @@ const mapStationToDB = (s: ExtendedStation) => ({
 });
 
 export const LogisticsStore = {
-  getStations: async (): Promise<ServiceResponse<ExtendedStation[]>> => {
+  getStations: async (eventId?: string): Promise<ServiceResponse<ExtendedStation[]>> => {
     return safeFetch(
-      () => apiFetch('/logistics/stations'),
+      () => {
+        let url = '/logistics/stations';
+        if (eventId) url += `?eventId=${eventId}`;
+        return apiFetch(url);
+      },
       'Failed to fetch stations',
       (data: any[]) => data ? data.map(mapStationFromDB) : []
     );

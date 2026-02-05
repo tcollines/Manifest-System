@@ -4,17 +4,40 @@ import { useNotification } from './ui/NotificationSystem';
 import KPIGrid from './KPIGrid';
 import AnalyticsCharts from './AnalyticsCharts';
 import DepartmentList from './DepartmentList';
-import { ModalType } from '../types';
+import { ModalType, MinistryEvent } from '../types';
 import { Plus, UserPlus, Target, FileText, Download, Sparkles, Map, Maximize2, Package } from 'lucide-react';
 import { useEventLifecycle } from '../hooks/useEventLifecycle';
+import { EventStore } from '../database/eventStore';
 
 
 interface DashboardProps {
    openModal: (type: ModalType) => void;
+   onNavigate?: (view: string) => void;
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ openModal }) => {
    const { showToast } = useNotification();
+   const [events, setEvents] = React.useState<MinistryEvent[]>([]);
+   const [selectedEventId, setSelectedEventId] = React.useState<string>('');
+
+   // Sync initial event selection
+   React.useEffect(() => {
+      if (!selectedEventId && events && events.length > 0) {
+         const first = events.find(e => e.type === 'Event' || e.type === 'Service');
+         if (first) setSelectedEventId(first.id);
+      }
+   }, [events, selectedEventId]);
+
+   React.useEffect(() => {
+      const fetchEvents = async () => {
+         const res = await EventStore.getAll();
+         if (res.status === 'success' && res.data.length > 0) {
+            setEvents(res.data);
+         }
+      };
+      fetchEvents();
+   }, []);
+
    useEventLifecycle();
 
    return (
@@ -25,9 +48,18 @@ const Dashboard: React.FC<DashboardProps> = ({ openModal }) => {
                <h1 className="text-2xl md:text-3xl font-bold text-ministry-text mb-1">
                   Ministry Overview
                </h1>
-               <p className="text-gray-500">
-                  Welcome back, Administrator. Here's what's happening today.
-               </p>
+               <div className="flex items-center gap-3 mt-2">
+                  <p className="text-gray-500">Active Operation:</p>
+                  <select
+                     value={selectedEventId}
+                     onChange={(e) => setSelectedEventId(e.target.value)}
+                     className="font-bold text-ministry-orange bg-white border border-gray-200 rounded-lg px-3 py-1 text-sm outline-none focus:ring-1 focus:ring-ministry-orange shadow-sm cursor-pointer"
+                  >
+                     {events.map(e => (
+                        <option key={e.id} value={e.id}>{e.title}</option>
+                     ))}
+                  </select>
+               </div>
             </div>
 
             <div className="flex flex-wrap gap-3">
@@ -51,7 +83,7 @@ const Dashboard: React.FC<DashboardProps> = ({ openModal }) => {
          {/* Monitor Content */}
          <>
             {/* KPI Section */}
-            <KPIGrid />
+            <KPIGrid eventId={selectedEventId} />
 
             {/* Main Content Grid */}
             <div className="grid grid-cols-1 xl:grid-cols-4 gap-8">

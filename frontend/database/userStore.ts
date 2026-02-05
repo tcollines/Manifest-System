@@ -78,9 +78,20 @@ export const UserStore = {
     } catch (e) { return null; }
   },
 
-  getAll: async (): Promise<ServiceResponse<User[]>> => {
+  getAll: async (params?: { role?: string; eventId?: string; departmentId?: string }): Promise<ServiceResponse<User[]>> => {
     return safeFetch(
-      () => apiFetch('/users'),
+      () => {
+        let url = '/users';
+        if (params) {
+          const queryParams = new URLSearchParams();
+          if (params.role) queryParams.append('role', params.role);
+          if (params.eventId) queryParams.append('eventId', params.eventId);
+          if (params.departmentId) queryParams.append('departmentId', params.departmentId);
+          const queryString = queryParams.toString();
+          if (queryString) url += `?${queryString}`;
+        }
+        return apiFetch(url);
+      },
       'Failed to fetch users',
       (data: any[]) => data ? data.map(mapUserFromDB) : []
     );

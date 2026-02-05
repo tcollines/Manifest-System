@@ -45,13 +45,17 @@ export const mapPassengerFromDB = (p: any): Passenger => ({
 });
 
 export const VehicleStore = {
-    getVehicles: async (coordinatorName?: string): Promise<ServiceResponse<Vehicle[]>> => {
+    getVehicles: async (params?: { coordinator?: string; eventId?: string }): Promise<ServiceResponse<Vehicle[]>> => {
         return safeFetch(
             () => {
                 let url = '/vehicles';
-                if (coordinatorName) {
-                    url += `?coordinator=${encodeURIComponent(coordinatorName)}`;
-                }
+                const queryParams = new URLSearchParams();
+                if (params?.coordinator) queryParams.append('coordinator', params.coordinator);
+                if (params?.eventId) queryParams.append('eventId', params.eventId);
+
+                const queryString = queryParams.toString();
+                if (queryString) url += `?${queryString}`;
+
                 return apiFetch(url);
             },
             'Failed to fetch vehicles',
@@ -169,11 +173,22 @@ export const VehicleStore = {
         }
     },
 
-    getPassengers: async (vehicleId?: string): Promise<ServiceResponse<Passenger[]>> => {
+    getPassengers: async (params?: string | { vehicleId?: string; eventId?: string }): Promise<ServiceResponse<Passenger[]>> => {
         return safeFetch(
             () => {
                 let url = '/vehicles/passengers';
-                if (vehicleId) url += `?vehicleId=${vehicleId}`;
+                const queryParams = new URLSearchParams();
+
+                if (typeof params === 'string') {
+                    queryParams.append('vehicleId', params);
+                } else if (params) {
+                    if (params.vehicleId) queryParams.append('vehicleId', params.vehicleId);
+                    if (params.eventId) queryParams.append('eventId', params.eventId);
+                }
+
+                const queryString = queryParams.toString();
+                if (queryString) url += `?${queryString}`;
+
                 return apiFetch(url);
             },
             'Failed to fetch passengers',

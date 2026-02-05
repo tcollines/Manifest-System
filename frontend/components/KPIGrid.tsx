@@ -1,11 +1,18 @@
-
 import React, { useEffect, useState } from 'react';
+import { ModalType, MinistryEvent } from '../types';
+import { Plus, UserPlus, Target, FileText, Download, Sparkles, Map, Maximize2, Package } from 'lucide-react';
+import { useEventLifecycle } from '../hooks/useEventLifecycle';
+import { EventStore } from '../database/eventStore';
 import { KPI } from '../types';
 import { FinanceStore } from '../database/financeStore';
 import { ManifestStore } from '../database/manifestStore';
 import * as Icons from 'lucide-react';
 
-const KPIGrid: React.FC = () => {
+interface KPIGridProps {
+  eventId?: string;
+}
+
+const KPIGrid: React.FC<KPIGridProps> = ({ eventId }) => {
   const [kpis, setKpis] = useState<KPI[]>([
     { id: '1', label: 'Total Collections', value: '...', change: '0%', trend: 'neutral', icon: 'DollarSign' },
     { id: '2', label: 'Monthly Expenses', value: '...', change: '0%', trend: 'neutral', icon: 'Activity' },
@@ -16,12 +23,20 @@ const KPIGrid: React.FC = () => {
 
   useEffect(() => {
     const fetchData = async () => {
+      // Skip if eventId is required but not provided
+      if (!eventId) {
+        setKpis(prev => prev.map(k => ({ ...k, value: '...' })));
+        return;
+      }
       // 1. Get Currency
       const manifest = await ManifestStore.get();
       const currency = manifest.currency || 'UGX';
 
-      // 2. Get Transactions
-      const transactions = await FinanceStore.getTransactions();
+      // 2. Get Transactions (Filter by Event if provided)
+      let transactions = await FinanceStore.getTransactions();
+      if (eventId) {
+        transactions = transactions.filter(t => t.eventId === eventId);
+      }
 
       // 3. Calculate Totals
       const totalIncome = transactions.filter(t => t.type === 'Income').reduce((sum, t) => sum + t.amount, 0);
@@ -47,7 +62,7 @@ const KPIGrid: React.FC = () => {
     };
 
     fetchData();
-  }, []);
+  }, [eventId]);
 
   return (
     <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 md:gap-6 mb-8">
@@ -60,7 +75,7 @@ const KPIGrid: React.FC = () => {
                 <IconComponent className="w-6 h-6 text-gray-700 group-hover:text-ministry-orange" />
               </div>
               <span className={`text-xs font-bold px-2 py-1 rounded-full ${kpi.trend === 'up' ? 'bg-green-100 text-green-700' :
-                  kpi.trend === 'down' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'
+                kpi.trend === 'down' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'
                 }`}>
                 {kpi.change}
               </span>
