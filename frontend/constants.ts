@@ -28,6 +28,7 @@ export const DEPARTMENTS: Department[] = [
   { id: 'd5', name: 'Transportation', head: 'Mike Ross', members: 8, status: 'Active' },
   { id: 'd6', name: 'Follow-Up', head: 'Donna Paulsen', members: 22, status: 'Active' },
   { id: 'd7', name: 'Schools', head: 'Schools Coordinator', members: 10, status: 'Active' },
+  { id: 'd8', name: 'Healing', head: 'Healing Coordinator', members: 5, status: 'Active' },
 ];
 
 // Replaced by DB data, keeping empty arrays or minimal fallbacks if strictly necessary for type safety in some old components, but aiming to use stores.

@@ -582,10 +582,24 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
             stationId: newCoordinator.stationId || undefined // Optional linkage
         };
         try {
-            UserStore.add(newUser);
+            await UserStore.add(newUser);
+
+            // PERSISTENCE: If this is a Stage Coordinator, link to Station
+            if (newUser.stationId) {
+                const station = dbStations.find(s => s.id === newUser.stationId);
+                if (station) {
+                    const updatedStation = {
+                        ...station,
+                        coordinatorName: newUser.name,
+                        coordinatorContact: newUser.contact
+                    };
+                    await LogisticsStore.updateStation(updatedStation);
+                }
+            }
+
             setNewCoordinator({ name: '', username: '', password: '', contact: '', stationId: '' });
             setFormRoleType('vehicle');
-            refreshData();
+            refreshData(selectedEventId);
             showToast(`Coordinator ${newUser.name} created successfully.`, 'success');
         } catch (error: any) {
             showToast(error.message, 'error');
@@ -594,8 +608,8 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
 
     const handleDeleteCoordinator = async (id: string) => {
         if (await askConfirm("Delete Coordinator", 'Are you sure you want to delete this coordinator?')) {
-            UserStore.remove(id);
-            refreshData();
+            await UserStore.remove(id);
+            refreshData(selectedEventId);
         }
     };
 

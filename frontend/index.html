@@ -27,10 +27,14 @@
       errorContainer.style.fontSize = '14px';
 
       let msg = '';
-      if (e.target.tagName === 'SCRIPT' || e.target.tagName === 'LINK') {
+      if (e.target && (e.target.tagName === 'SCRIPT' || e.target.tagName === 'LINK' || e.target.tagName === 'IMG')) {
         msg = 'Resource Failed to Load: ' + (e.target.src || e.target.href);
-      } else {
+      } else if (e.message) {
         msg = e.message;
+      } else {
+        // Fallback for unknown errors (often harmless or noise)
+        console.error('Unhandled error caught by logger:', e);
+        return; 
       }
 
       errorContainer.innerHTML += '<strong>Error:</strong> ' + msg + '<br>';

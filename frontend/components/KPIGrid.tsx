@@ -12,6 +12,8 @@ interface KPIGridProps {
   eventId?: string;
 }
 
+console.log('ManifestStore Imported in KPIGrid:', ManifestStore);
+
 const KPIGrid: React.FC<KPIGridProps> = ({ eventId }) => {
   const [kpis, setKpis] = useState<KPI[]>([
     { id: '1', label: 'Total Collections', value: '...', change: '0%', trend: 'neutral', icon: 'DollarSign' },

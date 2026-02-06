@@ -9,8 +9,14 @@ export const apiFetch = async (endpoint: string, options: RequestInit = {}) => {
         },
     });
     if (!res.ok) {
-        const errorBody = await res.json().catch(() => ({}));
-        throw new Error(errorBody.error || `API Error: ${res.statusText}`);
+        const text = await res.text();
+        let errorBody;
+        try {
+            errorBody = JSON.parse(text);
+        } catch {
+            // Response was not JSON
+        }
+        throw new Error(errorBody?.error || `API Error (${res.status}): ${text || res.statusText}`);
     }
     return res.json();
 };

@@ -164,6 +164,7 @@ export const getDashboardForUser = (user: User): string => {
         case 'd5': return '/transportation';
         case 'd6': return '/follow-up';
         case 'd7': return '/schools';
+        case 'd8': return '/healing';
         default: return '/team-dashboard'; // TeamLeader or Member
     }
 };

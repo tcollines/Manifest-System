@@ -24,6 +24,7 @@ import assetRoutes from './routes/assetRoutes';
 import logisticsRoutes from './routes/logisticsRoutes';
 import parkingRoutes from './routes/parkingRoutes';
 import manifestRoutes from './routes/manifestRoutes';
+import healingRoutes from './routes/healingRoutes';
 
 app.use('/api/users', userRoutes);
 app.use('/api/events', eventRoutes);
@@ -38,6 +39,7 @@ app.use('/api/assets', assetRoutes);
 app.use('/api/logistics', logisticsRoutes);
 app.use('/api/parking', parkingRoutes);
 app.use('/api/manifest', manifestRoutes);
+app.use('/api/healing', healingRoutes);
 
 
 

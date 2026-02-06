@@ -1643,7 +1643,8 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
         name: stationForm.name,
         location: stationForm.location,
         coordinatorName: stationForm.coordinatorName,
-        coordinatorContact: stationForm.coordinatorContact
+        coordinatorContact: stationForm.coordinatorContact,
+        dataEntrantName: stationForm.entrantName || selectedStation!.dataEntrantName
       };
 
       try {
@@ -1711,7 +1712,8 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
       vehicleStatus: 'Pending',
       eventId: selectedLogisticsEvent.id,
       coordinatorName: stationForm.coordinatorName,
-      coordinatorContact: stationForm.coordinatorContact
+      coordinatorContact: stationForm.coordinatorContact,
+      dataEntrantName: stationForm.entrantName
     };
 
     try {

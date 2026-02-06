@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNotification } from './ui/NotificationSystem';
 import { DEPARTMENTS, CURRENCIES } from '../constants';
 import { User, ModalType, ManifestDetails } from '../types';
-import { ManifestStore } from '../database/manifestStore';
+import { UserStore } from '../database/userStore';
 import {
     Users,
     Map,
@@ -40,10 +40,20 @@ const SettingsView: React.FC<SettingsViewProps> = ({ users = [], openModal, onDe
     const [searchQuery, setSearchQuery] = useState('');
 
     // Profile State
-    const [profileName, setProfileName] = useState("James McGill");
-    const [profileEmail, setProfileEmail] = useState("james.mcgill@ministry.org");
+    const [profileName, setProfileName] = useState(currentUser?.name || "");
+    const [profileUsername, setProfileUsername] = useState(currentUser?.username || "");
+    const [profileEmail, setProfileEmail] = useState(currentUser?.email || "");
     const [currentPassword, setCurrentPassword] = useState("");
     const [newPassword, setNewPassword] = useState("");
+
+    // Update local state when currentUser prop changes
+    useEffect(() => {
+        if (currentUser) {
+            setProfileName(currentUser.name);
+            setProfileUsername(currentUser.username || "");
+            setProfileEmail(currentUser.email || "");
+        }
+    }, [currentUser]);
 
     // Manifest State
     const [manifestData, setManifestData] = useState<ManifestDetails>({
@@ -103,11 +113,47 @@ const SettingsView: React.FC<SettingsViewProps> = ({ users = [], openModal, onDe
         }
     };
 
-    const handleUpdateProfile = (e: React.FormEvent) => {
+    const handleUpdateProfile = async (e: React.FormEvent) => {
         e.preventDefault();
-        showToast("Profile credentials updated successfully!", 'success');
-        setCurrentPassword("");
-        setNewPassword("");
+        if (!currentUser) return;
+
+        if (!profileName.trim()) {
+            showToast("Name cannot be empty.", 'error');
+            return;
+        }
+
+        try {
+            const updatedProfile: User = {
+                ...currentUser,
+                name: profileName,
+                username: profileUsername,
+                email: profileEmail
+            };
+
+            if (newPassword) {
+                if (!currentPassword) {
+                    showToast("Please enter your current password to confirm changes.", 'error');
+                    return;
+                }
+                // In a simple flow, we assume backend / PUT handles correct logic or we just send it.
+                // For this implementation, we will trust the backend accepts the password update.
+                updatedProfile.password = newPassword;
+            }
+
+            const response = await UserStore.update(updatedProfile);
+
+            if (response.status === 'success') {
+                showToast("Profile credentials updated successfully!", 'success');
+                // Update local session
+                UserStore.saveSession(updatedProfile);
+                setCurrentPassword("");
+                setNewPassword("");
+            } else {
+                showToast(response.message || "Failed to update profile.", 'error');
+            }
+        } catch (err: any) {
+            showToast(err.message || "An error occurred.", 'error');
+        }
     };
 
     const handleShapefileUpload = () => {
@@ -366,6 +412,10 @@ const SettingsView: React.FC<SettingsViewProps> = ({ users = [], openModal, onDe
                                     <input value={profileName} onChange={e => setProfileName(e.target.value)} className="w-full p-3 bg-white border border-gray-200 rounded-xl" />
                                 </div>
                                 <div className="space-y-2">
+                                    <label className="text-sm font-bold text-gray-700">Username</label>
+                                    <input value={profileUsername} onChange={e => setProfileUsername(e.target.value)} className="w-full p-3 bg-white border border-gray-200 rounded-xl" />
+                                </div>
+                                <div className="space-y-2 md:col-span-2">
                                     <label className="text-sm font-bold text-gray-700">Email</label>
                                     <input value={profileEmail} onChange={e => setProfileEmail(e.target.value)} className="w-full p-3 bg-white border border-gray-200 rounded-xl" />
                                 </div>

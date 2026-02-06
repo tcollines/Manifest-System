@@ -9,6 +9,7 @@ import EventsView from './components/EventsView';
 import ReportsView from './components/ReportsView';
 import SettingsView from './components/SettingsView';
 import RegistrationDashboard from './components/RegistrationDashboard';
+import HealingDashboard from './components/HealingDashboard';
 import NextGenDashboard from './components/NextGenDashboard';
 import NextGenFollowUp from './components/NextGenFollowUp';
 import NextGenTeam from './components/NextGenTeam';
@@ -240,8 +241,10 @@ const App: React.FC = () => {
     try {
       setEvents(prev => [newEvent, ...prev]);
       await EventStore.add(newEvent);
-      const { data: updatedEvents } = await EventStore.getAll({ limit: 50 });
-      setEvents(updatedEvents);
+      const updatedEventsResp = await EventStore.getAll({ limit: 50 });
+      if (updatedEventsResp.status === 'success' && updatedEventsResp.data) {
+        setEvents(updatedEventsResp.data);
+      }
       showToast(`${newEvent.type} created successfully!`, 'success');
     } catch (error: any) {
       console.error("Failed to save event:", error);
@@ -270,7 +273,8 @@ const App: React.FC = () => {
       if (response.status === 'success' && response.data) {
         setAllUsers(response.data);
       } else {
-        throw new Error(response.message || 'Failed to add user');
+        const errorMsg = response.status === 'error' ? response.message : 'Failed to add user';
+        throw new Error(errorMsg);
       }
     } catch (e: any) {
       alert(e.message || "Failed to add user");
@@ -291,7 +295,8 @@ const App: React.FC = () => {
       if (response.status === 'success' && response.data) {
         setAllUsers(response.data);
       } else {
-        throw new Error(response.message || 'Failed to update user');
+        const errorMsg = response.status === 'error' ? response.message : 'Failed to update user';
+        throw new Error(errorMsg);
       }
       showToast("User updated successfully!", 'success');
     } catch (e: any) {
@@ -394,7 +399,9 @@ const App: React.FC = () => {
               <Route path="dashboard" element={<Dashboard openModal={setModalType} />} />
             </Route>
 
-            <Route path="team-dashboard" element={<TeamLeaderDashboard />} />
+            <Route element={<ProtectedRoute currentUser={currentUser} allowedRoles={['TeamLeader']} />}>
+              <Route path="team-dashboard" element={<TeamLeaderDashboard />} />
+            </Route>
 
             {/* Public or Shared Routes */}
             <Route path="public-soul-entry" element={<PublicSoulEntry />} />
@@ -444,6 +451,11 @@ const App: React.FC = () => {
             {/* Finance (d4) */}
             <Route element={<ProtectedRoute currentUser={currentUser} allowedDepartments={['d4']} />}>
               <Route path="finance" element={<FinanceDashboard currentUser={currentUser} events={events} onOpenModal={setModalType} />} />
+            </Route>
+
+            {/* Healing (d8) */}
+            <Route element={<ProtectedRoute currentUser={currentUser} allowedDepartments={['d8']} />}>
+              <Route path="healing" element={<HealingDashboard currentUser={currentUser} />} />
             </Route>
 
             {/* Transportation (d5) */}

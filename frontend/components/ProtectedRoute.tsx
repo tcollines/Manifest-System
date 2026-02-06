@@ -1,6 +1,7 @@
 import React from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { User } from '../types';
+import { getDashboardForUser } from '../utils';
 
 interface ProtectedRouteProps {
     currentUser: User | null;
@@ -37,7 +38,8 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
         if (!currentUser.departmentId || !allowedDepartments.includes(currentUser.departmentId)) {
             // User is not in the allowed department
             console.warn(`Access Denied: User ${currentUser.username} (Dept: ${currentUser.departmentId}) attempted to access restricted route.`);
-            return <Navigate to={redirectPath} replace />;
+            const target = getDashboardForUser(currentUser);
+            return <Navigate to={target} replace />;
         }
     }
 
@@ -46,7 +48,8 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     if (allowedRoles.length > 0) {
         if (!allowedRoles.includes(currentUser.role)) {
             console.warn(`Access Denied: User ${currentUser.username} (Role: ${currentUser.role}) attempted to access restricted route.`);
-            return <Navigate to={redirectPath} replace />;
+            const target = getDashboardForUser(currentUser);
+            return <Navigate to={target} replace />;
         }
     }
 

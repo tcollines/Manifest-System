@@ -17,8 +17,11 @@ const mapStationFromDB = (s: any): ExtendedStation => ({
   registeredAttendees: s.registered_attendees,
   vehicleStatus: s.vehicle_status,
   eventId: s.event_id,
+  dataEntrantId: s.data_entrant_id,
+  dataEntrantName: s.data_entrant_name,
   coordinatorName: s.coordinator_name,
   coordinatorContact: s.coordinator_contact,
+  dataEntrantContact: s.data_entrant_contact,
   coordinatorEmail: s.coordinator_email
 });
 
@@ -29,8 +32,11 @@ const mapStationToDB = (s: ExtendedStation) => ({
   registered_attendees: s.registeredAttendees,
   vehicle_status: s.vehicleStatus,
   event_id: s.eventId,
+  data_entrant_id: s.dataEntrantId,
+  data_entrant_name: s.dataEntrantName,
   coordinator_name: s.coordinatorName,
   coordinator_contact: s.coordinatorContact,
+  data_entrant_contact: s.dataEntrantContact,
   coordinator_email: s.coordinatorEmail
 });
 

@@ -21,7 +21,8 @@ import {
   Package,
   BookOpen,
   Phone,
-  UserPlus
+  UserPlus,
+  Heart
 } from 'lucide-react';
 import { ModalType, User } from '../types';
 
@@ -41,6 +42,9 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, onLogout, isOpen, onClos
   const isFinanceHead = currentUser.role === 'Head of Dept' && currentUser.departmentId === 'd4';
   const isTransportationHead = currentUser.role === 'Head of Dept' && currentUser.departmentId === 'd5';
   const isSchoolsHead = currentUser.role === 'Head of Dept' && currentUser.departmentId === 'd7';
+  // Healing Head or Staff (d8) - Restricted View
+  const isHealingHead = (currentUser.role === 'Head of Dept' || currentUser.role === 'Staff') && currentUser.departmentId === 'd8';
+
   const isStageCoordinator = currentUser.role === 'Coordinator' && !!currentUser.stationId;
   const isVehicleCoordinator = currentUser.role === 'Coordinator' && !currentUser.stationId;
   const isLogisticsEntrant = currentUser.role === 'Logistics';
@@ -97,6 +101,13 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, onLogout, isOpen, onClos
       { id: 'requisitions', label: 'Requisitions', icon: FileText },
       { id: 'assets', label: 'Assets', icon: Package },
     ];
+  } else if (isHealingHead) {
+    menuItems = [
+      { id: 'healing', label: 'Healing Dept', icon: Heart },
+      { id: 'requisitions', label: 'Requisitions', icon: FileText },
+      { id: 'assets', label: 'Assets', icon: Package },
+      { id: 'settings', label: 'Settings', icon: Settings },
+    ];
   } else if (isFollowUpHead) {
     menuItems = [
       { id: 'follow-up', label: 'Follow Up Dashboard', icon: UserPlus },
@@ -140,6 +151,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, onLogout, isOpen, onClos
       { id: 'departments', label: 'Departments', icon: Users, roles: ['Administrator'], path: '/departments' },
       { id: 'events', label: 'Events & Services', icon: Calendar, roles: ['Administrator', 'Head of Dept', 'Staff'], path: '/events' },
       { id: 'reports', label: 'Reports', icon: BarChart2, roles: ['Administrator', 'Head of Dept'], path: '/reports' },
+      { id: 'healing', label: 'Healing Dept', icon: Heart, roles: ['Administrator', 'Head of Dept', 'Staff'], path: '/healing' },
       { id: 'requisitions', label: 'Requisitions', icon: FileText, roles: ['Administrator', 'Head of Dept', 'Staff'], path: '/requisitions' },
       { id: 'assets', label: 'Assets', icon: Package, roles: ['Administrator', 'Head of Dept'], path: '/assets' },
       { id: 'settings', label: 'Settings', icon: Settings, roles: ['Administrator', 'Head of Dept', 'Staff', 'Volunteer'], path: '/settings' },
@@ -191,6 +203,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, onLogout, isOpen, onClos
       case 'transportation': return '/transportation';
       case 'schools': return '/schools';
       case 'follow-up': return '/follow-up';
+      case 'healing': return '/healing';
       case 'stage-dashboard': return '/stage-dashboard';
       default: return '/dashboard';
     }

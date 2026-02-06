@@ -238,6 +238,9 @@ export interface PickUpStation {
   vehicleStatus: 'Pending' | 'Arrived' | 'In Transit';
   eventId: string;
   dataEntrantId?: string;
+  dataEntrantName?: string;
+  coordinatorContact?: string;
+  dataEntrantContact?: string;
 }
 
 export interface Transaction {
