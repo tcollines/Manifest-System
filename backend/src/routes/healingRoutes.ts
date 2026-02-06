@@ -17,6 +17,7 @@ router.post('/reports', async (req, res) => {
                 hospital_name,
                 labourers_count,
                 souls_count,
+                people_reached: req.body.people_reached || 0,
                 notes,
                 created_by: captured_by
             }])
@@ -94,11 +95,11 @@ router.get('/reports', async (req, res) => {
 router.put('/reports/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        const { date, hospital_name, labourers_count, souls_count, notes } = req.body;
+        const { date, hospital_name, labourers_count, souls_count, notes, people_reached } = req.body;
 
         const { data, error } = await supabase
             .from('healing_reports')
-            .update({ date, hospital_name, labourers_count, souls_count, notes })
+            .update({ date, hospital_name, labourers_count, souls_count, notes, people_reached })
             .eq('id', id)
             .select()
             .single();

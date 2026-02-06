@@ -22,10 +22,17 @@ const HealingDashboard: React.FC<HealingDashboardProps> = ({ currentUser }) => {
     const [stats, setStats] = useState({ totalReports: 0, totalTestimonies: 0, totalSouls: 0 });
 
     // Form State
-    const [formData, setFormData] = useState({
+    const [formData, setFormData] = useState<{
+        date: string;
+        hospital_name: string;
+        labourers_count: number | '';
+        people_reached: number | '';
+        notes: string;
+    }>({
         date: new Date().toISOString().split('T')[0],
         hospital_name: '',
-        labourers_count: 0,
+        labourers_count: '',
+        people_reached: '',
         notes: ''
     });
 
@@ -92,20 +99,40 @@ const HealingDashboard: React.FC<HealingDashboardProps> = ({ currentUser }) => {
 
         try {
             setLoading(true);
-            await HealingStore.createReport({
-                ...formData,
-                souls_count: soulsList.length,
-                testimonies: testimoniesList,
-                souls: soulsList,
-                captured_by: currentUser.id
-            });
+            // Check if we are updating (though logic for edit relies on editingReport state which isn't fully shown here but usually wraps this)
+            // Existing code showed distinct update logic or combined.
+            // Let's stick to the visible createReport call in the snippet I read, but wait, the previous tool failure message implies I should be careful.
+            // The VIEWED file lines 88-124 show a createReport call.
+            // I will update that call.
 
-            showToast('Report submitted successfully!', 'success');
+            if (editingReport && editingReport.id) {
+                await HealingStore.updateReport(editingReport.id, {
+                    ...formData,
+                    labourers_count: Number(formData.labourers_count) || 0,
+                    souls_count: soulsList.length,
+                    people_reached: Number(formData.people_reached) || 0,
+                });
+                showToast('Report updated successfully', 'success');
+                setEditingReport(null);
+            } else {
+                await HealingStore.createReport({
+                    ...formData,
+                    labourers_count: Number(formData.labourers_count) || 0,
+                    souls_count: soulsList.length,
+                    people_reached: Number(formData.people_reached) || 0,
+                    testimonies: testimoniesList,
+                    souls: soulsList,
+                    captured_by: currentUser.id
+                });
+                showToast('Report submitted successfully!', 'success');
+            }
+
             setActiveTab('overview');
             setFormData({
                 date: new Date().toISOString().split('T')[0],
                 hospital_name: '',
-                labourers_count: 0,
+                labourers_count: '',
+                people_reached: '',
                 notes: ''
             });
             setSoulsList([]);
@@ -165,7 +192,8 @@ const HealingDashboard: React.FC<HealingDashboardProps> = ({ currentUser }) => {
         setFormData({
             date: report.date.split('T')[0],
             hospital_name: report.hospital_name,
-            labourers_count: report.labourers_count,
+            labourers_count: report.labourers_count || '',
+            people_reached: report.people_reached || '',
             notes: report.notes || ''
         });
 
@@ -485,8 +513,33 @@ const HealingDashboard: React.FC<HealingDashboardProps> = ({ currentUser }) => {
                                         <input
                                             type="number"
                                             value={formData.labourers_count}
-                                            onChange={e => setFormData({ ...formData, labourers_count: parseInt(e.target.value) || 0 })}
-                                            className="w-full px-4 py-2 border rounded-xl focus:ring-2 focus:ring-ministry-orange"
+                                            onChange={e => {
+                                                const val = e.target.value;
+                                                setFormData({
+                                                    ...formData,
+                                                    labourers_count: val === '' ? '' : parseInt(val)
+                                                });
+                                            }}
+                                            onKeyDown={(e) => ['ArrowUp', 'ArrowDown'].includes(e.key) && e.preventDefault()}
+                                            onWheel={(e) => e.currentTarget.blur()}
+                                            className="w-full px-4 py-2 border rounded-xl focus:ring-2 focus:ring-ministry-orange no-spinner"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">People Reached</label>
+                                        <input
+                                            type="number"
+                                            value={formData.people_reached}
+                                            onChange={e => {
+                                                const val = e.target.value;
+                                                setFormData({
+                                                    ...formData,
+                                                    people_reached: val === '' ? '' : parseInt(val)
+                                                });
+                                            }}
+                                            onKeyDown={(e) => ['ArrowUp', 'ArrowDown'].includes(e.key) && e.preventDefault()}
+                                            onWheel={(e) => e.currentTarget.blur()}
+                                            className="w-full px-4 py-2 border rounded-xl focus:ring-2 focus:ring-ministry-orange no-spinner"
                                         />
                                     </div>
                                     <div className="md:col-span-2">

@@ -1,0 +1,1 @@
+ALTER TABLE healing_reports ADD COLUMN IF NOT EXISTS people_reached INTEGER DEFAULT 0;

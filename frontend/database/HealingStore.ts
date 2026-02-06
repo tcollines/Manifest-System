@@ -12,6 +12,7 @@ export interface HealingReport {
     created_at: string;
     created_by?: string;
     healing_testimonies?: HealingTestimony[];
+    people_reached?: number;
 }
 
 export interface HealingTestimony {
@@ -30,6 +31,7 @@ export const HealingStore = {
         hospital_name: string;
         labourers_count: number;
         souls_count: number;
+        people_reached: number;
         notes?: string;
         captured_by: string;
         testimonies: { content: string; testifier_name?: string; testifier_contact?: string }[];
