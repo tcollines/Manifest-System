@@ -150,6 +150,8 @@ export const getDashboardForUser = (user: User): string => {
     // Role-specific overrides (BEFORE Department Check)
     // Role-specific overrides (BEFORE Department Check)
     if (user.role === 'Logistics') return '/registration';
+    if (user.role === 'Vehicle Coordinator') return '/transportation';
+    if (user.role === 'Stage Coordinator') return '/stage-dashboard';
     if (user.role === 'Coordinator') {
         if (user.stationId) return '/stage-dashboard';
         return '/transportation';

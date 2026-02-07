@@ -7,12 +7,14 @@ import { safeFetch } from '../services/safeFetch';
 export const mapVehicleFromDB = (v: any): Vehicle => ({
     id: v.id,
     stationId: v.station_id,
+    eventId: v.event_id, // Map from DB
     number_plate: v.number_plate,
     driverName: v.driver_name,
     driverContact: v.driver_contact,
     driverNin: v.driver_nin,
     type: v.type,
     coordinator: v.coordinator,
+    coordinatorUid: v.coordinator_uid, // Map from DB
     coordinatorContact: v.coordinator_contact, // Map from DB
     timeArrival: v.time_arrival,
     status: v.status,
@@ -46,12 +48,13 @@ export const mapPassengerFromDB = (p: any): Passenger => ({
 });
 
 export const VehicleStore = {
-    getVehicles: async (params?: { coordinator?: string; eventId?: string }): Promise<ServiceResponse<Vehicle[]>> => {
+    getVehicles: async (params?: { coordinator?: string; coordinatorUid?: string; eventId?: string }): Promise<ServiceResponse<Vehicle[]>> => {
         return safeFetch(
             () => {
                 let url = '/vehicles';
                 const queryParams = new URLSearchParams();
                 if (params?.coordinator) queryParams.append('coordinator', params.coordinator);
+                if (params?.coordinatorUid) queryParams.append('coordinatorUid', params.coordinatorUid);
                 if (params?.eventId) queryParams.append('eventId', params.eventId);
 
                 const queryString = queryParams.toString();
@@ -68,6 +71,7 @@ export const VehicleStore = {
         const payload = {
             id: vehicle.id,
             station_id: vehicle.stationId,
+            event_id: vehicle.eventId, // Added field
             number_plate: vehicle.number_plate,
             driver_name: vehicle.driverName,
             driver_contact: vehicle.driverContact,
@@ -100,6 +104,7 @@ export const VehicleStore = {
     updateVehicle: async (vehicle: Vehicle): Promise<void> => {
         const payload = {
             station_id: vehicle.stationId,
+            event_id: vehicle.eventId, // Added field
             number_plate: vehicle.number_plate,
             driver_name: vehicle.driverName,
             driver_contact: vehicle.driverContact,
@@ -195,7 +200,7 @@ export const VehicleStore = {
                 return apiFetch(url);
             },
             'Failed to fetch passengers',
-            (data: any[]) => data ? data.map(mapPassengerFromDB).sort((a, b) => a.name.localeCompare(b.name)) : []
+            (data: any[]) => data ? data.map(mapPassengerFromDB) : []
         );
     },
 

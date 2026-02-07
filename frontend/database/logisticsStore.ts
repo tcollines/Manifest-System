@@ -32,11 +32,8 @@ const mapStationToDB = (s: ExtendedStation) => ({
   registered_attendees: s.registeredAttendees,
   vehicle_status: s.vehicleStatus,
   event_id: s.eventId,
-  data_entrant_id: s.dataEntrantId,
-  data_entrant_name: s.dataEntrantName,
   coordinator_name: s.coordinatorName,
   coordinator_contact: s.coordinatorContact,
-  data_entrant_contact: s.dataEntrantContact,
   coordinator_email: s.coordinatorEmail
 });
 

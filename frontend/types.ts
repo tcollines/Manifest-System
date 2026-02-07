@@ -161,12 +161,14 @@ export interface VehicleFinance {
 export interface Vehicle {
   id: string;
   stationId: string;
+  eventId?: string; // Links vehicle to a specific event
   number_plate: string;
   driverName: string;
   driverContact: string;
   driverNin?: string; // Added field
   type: 'Car' | 'Taxi' | 'Coaster' | 'Bus';
   coordinator: string;
+  coordinatorUid?: string; // ID for robust matching
   coordinatorContact?: string; // Snapshot of contact info
   timeArrival: string;
   passengerCount?: number;
@@ -291,6 +293,10 @@ export interface Soul {
   // New Fields for Healing Dept
   nextOfKinName?: string;
   nextOfKinContact?: string;
+  // Traceability Fields
+  eventId?: string;
+  stationId?: string;
+  vehicleId?: string;
 }
 
 export enum ModalType {

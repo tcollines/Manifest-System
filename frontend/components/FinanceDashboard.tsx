@@ -297,74 +297,82 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, events
 
     // --- NEW: Update Finance Only (No Stage Change) ---
     const handleUpdateFinance = async () => {
-        if (!selectedVehicle) return;
-        const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        try {
+            if (!selectedVehicle) return;
+            const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-        const updatedVehicle: Vehicle = {
-            ...selectedVehicle,
-            financeDetails: {
-                ...selectedVehicle.financeDetails,
-                ongoingDispatch: fleetJourneyTab === 'Ongoing' ? financeForm.dispatch : (selectedVehicle.financeDetails?.ongoingDispatch || ''),
-                ongoingBalance: fleetJourneyTab === 'Ongoing' ? financeForm.balance : (selectedVehicle.financeDetails?.ongoingBalance || ''),
-                // Ensure other fields are preserved
-                returnDispatch: selectedVehicle.financeDetails?.returnDispatch || '',
-                returnBalance: selectedVehicle.financeDetails?.returnBalance || '',
-                processedAt: new Date().toISOString()
-            }
-        };
+            const updatedVehicle: Vehicle = {
+                ...selectedVehicle,
+                financeDetails: {
+                    ...selectedVehicle.financeDetails,
+                    ongoingDispatch: fleetJourneyTab === 'Ongoing' ? financeForm.dispatch : (selectedVehicle.financeDetails?.ongoingDispatch || ''),
+                    ongoingBalance: fleetJourneyTab === 'Ongoing' ? financeForm.balance : (selectedVehicle.financeDetails?.ongoingBalance || ''),
+                    // Ensure other fields are preserved
+                    returnDispatch: selectedVehicle.financeDetails?.returnDispatch || '',
+                    returnBalance: selectedVehicle.financeDetails?.returnBalance || '',
+                    processedAt: new Date().toISOString()
+                }
+            };
 
-        await VehicleStore.updateVehicle(updatedVehicle);
-        setVehicles(prev => prev.map(v => v.id === updatedVehicle.id ? updatedVehicle : v));
-        setSelectedVehicle(updatedVehicle); // Update local state to reflect changes immediately
-        showToast('Finance Details Updated Successfully', 'success');
+            await VehicleStore.updateVehicle(updatedVehicle);
+            setVehicles(prev => prev.map(v => v.id === updatedVehicle.id ? updatedVehicle : v));
+            setSelectedVehicle(updatedVehicle); // Update local state to reflect changes immediately
+            showToast('Finance Details Updated Successfully', 'success');
+        } catch (error: any) {
+            console.error("Error updating finance details:", error);
+            showToast(`Failed to update finance details: ${error.message || 'Unknown error'}`, 'error');
+        }
     };
 
     // --- REFACTORED: Dispatch Vehicle (Stage Transition) ---
     const handleDispatchVehicle = async () => {
-        if (!selectedVehicle) return;
-        const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        try {
+            if (!selectedVehicle) return;
+            const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-        // Ensure we use the latest values (either from form if just typed, or from vehicle object)
-        // We explicitly prioritize the form values if we are in the 'Ongoing' tab, effectively doing an "Update & Dispatch".
+            // Ensure we use the latest values
+            const updatedVehicle: Vehicle = {
+                ...selectedVehicle,
+                approvals: {
+                    ...selectedVehicle.approvals!,
+                    finance: 'Approved'
+                },
+                ongoingStartTime: fleetJourneyTab === 'Ongoing' ? now : selectedVehicle.ongoingStartTime,
+                returnStartTime: fleetJourneyTab === 'Return' ? now : selectedVehicle.returnStartTime,
+                financeDetails: {
+                    ...selectedVehicle.financeDetails,
+                    ongoingDispatch: fleetJourneyTab === 'Ongoing' ? financeForm.dispatch : (selectedVehicle.financeDetails?.ongoingDispatch || ''),
+                    ongoingBalance: fleetJourneyTab === 'Ongoing' ? financeForm.balance : (selectedVehicle.financeDetails?.ongoingBalance || ''),
 
-        const updatedVehicle: Vehicle = {
-            ...selectedVehicle,
-            approvals: {
-                ...selectedVehicle.approvals!,
-                finance: 'Approved'
-            },
-            ongoingStartTime: fleetJourneyTab === 'Ongoing' ? now : selectedVehicle.ongoingStartTime,
-            returnStartTime: fleetJourneyTab === 'Return' ? now : selectedVehicle.returnStartTime,
-            financeDetails: {
-                ...selectedVehicle.financeDetails,
-                ongoingDispatch: fleetJourneyTab === 'Ongoing' ? financeForm.dispatch : (selectedVehicle.financeDetails?.ongoingDispatch || ''),
-                ongoingBalance: fleetJourneyTab === 'Ongoing' ? financeForm.balance : (selectedVehicle.financeDetails?.ongoingBalance || ''),
+                    // Return Logic
+                    returnDispatch: fleetJourneyTab === 'Return'
+                        ? String(parseFloat(selectedVehicle.financeDetails?.ongoingDispatch || '0') - parseFloat(selectedVehicle.financeDetails?.ongoingBalance || '0'))
+                        : (selectedVehicle.financeDetails?.returnDispatch || ''),
+                    returnBalance: fleetJourneyTab === 'Return' ? '0' : (selectedVehicle.financeDetails?.returnBalance || ''),
 
-                // Return Logic: If dispatching return, calculate logic
-                returnDispatch: fleetJourneyTab === 'Return'
-                    ? String(parseFloat(selectedVehicle.financeDetails?.ongoingDispatch || '0') - parseFloat(selectedVehicle.financeDetails?.ongoingBalance || '0'))
-                    : (selectedVehicle.financeDetails?.returnDispatch || ''),
-                returnBalance: fleetJourneyTab === 'Return' ? '0' : (selectedVehicle.financeDetails?.returnBalance || ''),
+                    processedAt: new Date().toISOString()
+                },
+                currentStage: selectedVehicle.currentStage === 'FinanceApproval' ? 'Transit' : selectedVehicle.currentStage,
+                journeyDirection: fleetJourneyTab === 'Return' ? 'Return' : selectedVehicle.journeyDirection
+            };
 
-                processedAt: new Date().toISOString()
-            },
-            currentStage: selectedVehicle.currentStage === 'FinanceApproval' ? 'Transit' : selectedVehicle.currentStage,
-            journeyDirection: fleetJourneyTab === 'Return' ? 'Return' : selectedVehicle.journeyDirection
-        };
+            if (fleetJourneyTab === 'Ongoing' && (!updatedVehicle.financeDetails?.ongoingDispatch || updatedVehicle.financeDetails.ongoingDispatch === '0')) {
+                if (!confirm("Total Vehicle Cost is 0 or empty. Are you sure you want to dispatch?")) return;
+            }
 
-        if (fleetJourneyTab === 'Ongoing' && (!updatedVehicle.financeDetails?.ongoingDispatch || updatedVehicle.financeDetails.ongoingDispatch === '0')) {
-            if (!confirm("Total Vehicle Cost is 0 or empty. Are you sure you want to dispatch?")) return;
+            await VehicleStore.updateVehicle(updatedVehicle);
+            setVehicles(prev => prev.map(v => v.id === updatedVehicle.id ? updatedVehicle : v));
+            setSelectedVehicle(null);
+            showToast(
+                fleetJourneyTab === 'Ongoing'
+                    ? 'Finance Updated & Vehicle Dispatched to Transit'
+                    : 'Return Journey Cleared & Vehicle Released',
+                'success'
+            );
+        } catch (error: any) {
+            console.error("Error dispatching vehicle:", error);
+            showToast(`Failed to dispatch vehicle: ${error.message || 'Unknown error'}`, 'error');
         }
-
-        await VehicleStore.updateVehicle(updatedVehicle);
-        setVehicles(prev => prev.map(v => v.id === updatedVehicle.id ? updatedVehicle : v));
-        setSelectedVehicle(null);
-        showToast(
-            fleetJourneyTab === 'Ongoing'
-                ? 'Finance Updated & Vehicle Dispatched to Transit'
-                : 'Return Journey Cleared & Vehicle Released',
-            'success'
-        );
     };
 
     const handlePrintFleetReport = () => {

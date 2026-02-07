@@ -859,6 +859,7 @@ const FollowUpDashboard: React.FC<FollowUpDashboardProps> = ({ onOpenModal, curr
                                 sourceName={
                                     (activeTab === 'events' ? events : services).find(e => e.id === selectedEventId)?.title
                                 }
+                                eventId={selectedEventId || undefined}
                                 initialData={editingSoul || undefined}
                                 // existingMember={preFilledMember || undefined} // Removed legacy prop
                                 onSubmit={handleAddSoul}

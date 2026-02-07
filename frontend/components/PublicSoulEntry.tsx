@@ -24,7 +24,11 @@ const PublicSoulEntry: React.FC = () => {
                 return;
             }
             try {
-                const { data: events } = await EventStore.getAll();
+                const response = await EventStore.getAll();
+                if (response.status === 'error' || !response.data) {
+                    throw new Error('Failed to fetch events');
+                }
+                const events = response.data;
                 const event = events.find(e => e.id === eventId);
                 if (event) {
                     setEventData(event);
@@ -123,6 +127,7 @@ const PublicSoulEntry: React.FC = () => {
                 <SoulEntryForm
                     sourceType={eventData?.type || 'Event'}
                     sourceId={eventId!}
+                    eventId={eventId}
                     onSubmit={handleSubmit}
                 />
 

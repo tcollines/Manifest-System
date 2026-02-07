@@ -45,8 +45,8 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, onLogout, isOpen, onClos
   // Healing Head or Staff (d8) - Restricted View
   const isHealingHead = (currentUser.role === 'Head of Dept' || currentUser.role === 'Staff') && currentUser.departmentId === 'd8';
 
-  const isStageCoordinator = currentUser.role === 'Coordinator' && !!currentUser.stationId;
-  const isVehicleCoordinator = currentUser.role === 'Coordinator' && !currentUser.stationId;
+  const isStageCoordinator = (currentUser.role === 'Stage Coordinator' || currentUser.role === 'Coordinator') && !!currentUser.stationId;
+  const isVehicleCoordinator = (currentUser.role === 'Vehicle Coordinator' || currentUser.role === 'Coordinator') && !currentUser.stationId;
   const isLogisticsEntrant = currentUser.role === 'Logistics';
   const isTeamLeader = currentUser.role === 'TeamLeader';
   const isFollowUpHead = (currentUser.role === 'Head of Dept' || currentUser.role === 'Dept Admin') && currentUser.departmentId === 'd6';

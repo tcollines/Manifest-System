@@ -55,7 +55,7 @@ const StageCoordinatorDashboard: React.FC<StageCoordinatorDashboardProps> = ({ c
     const [activeTab, setActiveTab] = useState<'overview' | 'staff' | 'vehicles' | 'map'>('overview');
 
     // Forms
-    const [newUser, setNewUser] = useState({ name: '', username: '', password: '', contact: '', role: 'Coordinator' });
+    const [newUser, setNewUser] = useState({ name: '', username: '', password: '', contact: '', role: 'Vehicle Coordinator' });
     const [isAddingStaff, setIsAddingStaff] = useState(false);
 
     // Google Maps Loader
@@ -107,7 +107,11 @@ const StageCoordinatorDashboard: React.FC<StageCoordinatorDashboardProps> = ({ c
             const userRes = await UserStore.getAll({ eventId: myStation.eventId });
             const allUsers = userRes.status === 'success' ? userRes.data : [];
             setStaff(allUsers.filter(u => u.stationId === currentUser.stationId && u.id !== currentUser.id));
-            setAllCoordinators(allUsers.filter(u => u.role === 'Coordinator'));
+            setAllCoordinators(allUsers.filter(u =>
+                u.role === 'Vehicle Coordinator' ||
+                u.role === 'Stage Coordinator' ||
+                u.role === 'Coordinator'
+            ));
 
             // 4. Get Passengers for this event (Server-scoped)
             const passengerRes = await VehicleStore.getPassengers({ eventId: myStation.eventId });
@@ -115,7 +119,7 @@ const StageCoordinatorDashboard: React.FC<StageCoordinatorDashboardProps> = ({ c
                 const stationPassengers = passengerRes.data.filter(p =>
                     myVehicles.some(v => v.id === p.vehicleId)
                 );
-                setPassengers(stationPassengers.sort((a, b) => a.name.localeCompare(b.name)));
+                setPassengers(stationPassengers);
             }
 
         } catch (error) {
@@ -201,7 +205,7 @@ const StageCoordinatorDashboard: React.FC<StageCoordinatorDashboardProps> = ({ c
                 username: newUser.username,
                 password: newUser.password,
                 contact: newUser.contact,
-                role: newUser.role as 'Coordinator' | 'Logistics',
+                role: newUser.role as 'Vehicle Coordinator' | 'Stage Coordinator' | 'Coordinator' | 'Logistics',
                 departmentId: 'd5', // Transportation default
                 stationId: currentUser.stationId, // Link to this stage
                 email: '',
@@ -215,7 +219,7 @@ const StageCoordinatorDashboard: React.FC<StageCoordinatorDashboardProps> = ({ c
 
             await UserStore.add(userToAdd);
             showToast(`${newUser.role} added successfully`, "success");
-            setNewUser({ name: '', username: '', password: '', contact: '', role: 'Coordinator' });
+            setNewUser({ name: '', username: '', password: '', contact: '', role: 'Vehicle Coordinator' });
             setIsAddingStaff(false);
             loadStationData();
         } catch (error) {
@@ -433,7 +437,8 @@ const StageCoordinatorDashboard: React.FC<StageCoordinatorDashboardProps> = ({ c
                                             onChange={e => setNewUser({ ...newUser, role: e.target.value })}
                                             className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 outline-none focus:border-ministry-orange"
                                         >
-                                            <option value="Coordinator">Vehicle Coordinator</option>
+                                            <option value="Vehicle Coordinator">Vehicle Coordinator</option>
+                                            <option value="Stage Coordinator">Stage Coordinator</option>
                                             <option value="Data Entrant">Data Entrant</option>
                                         </select>
                                     </div>
@@ -504,7 +509,7 @@ const StageCoordinatorDashboard: React.FC<StageCoordinatorDashboardProps> = ({ c
                                         <div>
                                             <p className="font-bold text-gray-800">{member.name}</p>
                                             <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1">
-                                                {member.role === 'Logistics' ? 'Data Entrant' : 'Vehicle Coord'}
+                                                {member.role === 'Logistics' ? 'Data Entrant' : member.role}
                                             </p>
                                             <p className="text-xs text-gray-400 font-mono">{member.username}</p>
                                         </div>

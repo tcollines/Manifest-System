@@ -110,7 +110,7 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
     const [selectedCoordinator, setSelectedCoordinator] = useState('');
 
     // --- COORDINATOR SPECIFIC STATE ---
-    const isCoordinatorView = currentUser?.role === 'Coordinator';
+    const isCoordinatorView = currentUser?.role === 'Vehicle Coordinator' || currentUser?.role === 'Stage Coordinator' || currentUser?.role === 'Coordinator';
     const [myVehicle, setMyVehicle] = useState<Vehicle | null>(null);
     const [activeJourneyTab, setActiveJourneyTab] = useState<'Ongoing' | 'Return'>('Ongoing');
     const [passengers, setPassengers] = useState<Passenger[]>([]);
@@ -137,7 +137,7 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
     // Force re-render state
     const [, forceUpdate] = useState(0);
 
-    const refreshData = async (targetEventId: string) => {
+    const refreshData = async (targetEventId: string = selectedEventId) => {
         const isCoord = isCoordinatorView && currentUser;
 
         // Prevent global fetch if not coordinator and no event selected
@@ -153,12 +153,16 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
             if (isCoord) {
                 // COORDINATOR VIEW: Parallelize My Vehicle and My Passengers
                 const [vehicleRes, passengerRes] = await Promise.all([
-                    VehicleStore.getVehicles({ coordinator: currentUser.name }),
-                    Promise.resolve({ status: 'success', data: [] }) // Placeholder for parallel fetch
+                    VehicleStore.getVehicles({ coordinatorUid: currentUser.id, coordinator: currentUser.name }), // Use both ID and name for robust search
+                    Promise.resolve({ status: 'success', data: [] })
                 ]);
 
                 const fetchedVehicles = vehicleRes.status === 'success' ? vehicleRes.data : [];
-                const mine = fetchedVehicles.find(v => v.coordinator?.trim().toLowerCase() === currentUser.name.trim().toLowerCase());
+                // Primary match by ID, fallback to name for legacy data
+                const mine = fetchedVehicles.find(v =>
+                    (v.coordinatorUid === currentUser.id) ||
+                    (v.coordinator?.trim().toLowerCase() === currentUser.name.trim().toLowerCase())
+                );
 
                 if (mine) {
                     let updated = mine;
@@ -182,7 +186,7 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
                     VehicleStore.getVehicles({ eventId: targetEventId }),
                     LogisticsStore.getStations(targetEventId),
                     VehicleStore.getPassengers({ eventId: targetEventId }),
-                    UserStore.getAll({ role: 'Coordinator', eventId: targetEventId }) // Broaden: removed strict d5 to ensure they show
+                    UserStore.getAll({ eventId: targetEventId }) // Broaden: fetch all relevant users and filter locally for flexibility
                 ]);
 
                 // 1. Stations
@@ -234,9 +238,9 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
                             id: `fallback-${name}`,
                             name: name,
                             username: name.toLowerCase().replace(/\s+/g, ''),
-                            role: 'Coordinator',
+                            role: 'Vehicle Coordinator', // Default to Vehicle Coordinator for fallback
                             departmentId: 'transport',
-                            status: 'active',
+                            status: 'Active',
                             contact: 'N/A',
                             email: `${name.toLowerCase().replace(/\s+/g, '')}@example.com`,
                             password: '***',
@@ -573,7 +577,7 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
         const newUser: User = {
             id: crypto.randomUUID(),
             name: newCoordinator.name.trim(),
-            role: 'Coordinator',
+            role: formRoleType === 'vehicle' ? 'Vehicle Coordinator' : 'Stage Coordinator',
             username: newCoordinator.username,
             password: newCoordinator.password,
             departmentId: 'd5',
@@ -1562,7 +1566,7 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
                                                     <p className="text-xs text-gray-400">@{c.username}</p>
                                                     <div className="mt-1 flex flex-wrap gap-2">
                                                         {/* Role Badge */}
-                                                        {c.stationId ? (
+                                                        {c.role === 'Stage Coordinator' || c.stationId ? (
                                                             <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 border border-blue-200">
                                                                 Stage: {dbStations.find(s => s.id === c.stationId)?.name || 'Unknown Station'}
                                                             </span>

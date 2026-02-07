@@ -229,13 +229,19 @@ export const cleanupPastEvents = async () => {
 
             if (stations && stations.length > 0) {
                 const stationIds = stations.map(s => s.id);
-                const { count } = await supabase.from('users').delete({ count: 'exact' }).in('station_id', stationIds);
-                if (count && count > 0) console.log(`Cleaned up ${count} entrants for ${event.title}`);
+                // Soft Cleanup: Remove credentials, keep details
+                const { count } = await supabase.from('users')
+                    .update({ username: null, password: null, status: 'Inactive' })
+                    .in('station_id', stationIds);
+                if (count && count > 0) console.log(`Cleaned up credentials for ${count} entrants for ${event.title}`);
             }
 
-            // 2. Delete Event Coordinators
-            const { count: coordCount } = await supabase.from('users').delete({ count: 'exact' }).eq('event_id', event.id).eq('role', 'Coordinator');
-            if (coordCount && coordCount > 0) console.log(`Cleaned up ${coordCount} coordinators for ${event.title}`);
+            // 2. Cleanup Event Coordinators
+            const { count: coordCount } = await supabase.from('users')
+                .update({ username: null, password: null, status: 'Inactive' })
+                .eq('event_id', event.id)
+                .eq('role', 'Coordinator');
+            if (coordCount && coordCount > 0) console.log(`Cleaned up credentials for ${coordCount} coordinators for ${event.title}`);
         }
 
     } catch (e) {

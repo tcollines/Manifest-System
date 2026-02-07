@@ -1,36 +1,52 @@
 import { Request, Response } from 'express';
 import { supabase } from '../supabase';
+import { v4 as uuidv4 } from 'uuid';
+
+// Helper: Generate simple username
+const generateUsername = (name: string) => {
+    return name.trim().replace(/\s+/g, '').toLowerCase() + Math.floor(Math.random() * 1000);
+};
 
 // --- Vehicles ---
 export const getVehicles = async (req: Request, res: Response) => {
     const coordinator = req.query.coordinator as string;
+    const coordinatorUid = req.query.coordinatorUid as string;
     const eventId = req.query.eventId as string;
+    const stationId = req.query.stationId as string; // NEW: Support Stage Scoping
+
     // Treat 'undefined' or 'null' strings from frontend as falsey
     const validEventId = (eventId && eventId !== 'undefined' && eventId !== 'null') ? eventId : null;
 
     try {
         // STRICT SCOPING RULE: Never return global list
-        // Allow coordinator-specific fetch (e.g. "My Vehicle") OR event-specific fetch
-        if (!validEventId && !coordinator) {
-            console.warn('[BACKEND] Blocked global vehicle fetch attempt. Missing eventId.');
+        // If neither coordinator nor eventId nor stationId is provided, block request
+        // Exception: If we decide to allow global list for super-admin, we'd need auth middleware check.
+        // For now, assume frontend always sends context.
+        if (!coordinator && !validEventId && !stationId) {
+            // Fallback: If absolutely no filter, return empty or limit 50? 
+            // Better to return empty to prevent data leak
             return res.json([]);
         }
 
         let query = supabase.from('vehicles').select('*');
-        if (coordinator) {
+
+        if (coordinatorUid && coordinator) {
+            query = query.or(`coordinator_uid.eq.${coordinatorUid},coordinator.eq.${coordinator}`);
+        } else if (coordinatorUid) {
+            query = query.eq('coordinator_uid', coordinatorUid);
+        } else if (coordinator) {
+            // Fallback to name if no UID provided
             query = query.eq('coordinator', coordinator);
         }
+
         if (validEventId) {
-            console.log(`[BACKEND] Fetching vehicles for event: ${validEventId}`);
-            // Get station IDs for this event first
-            const { data: stations } = await supabase.from('pickup_stations').select('id').eq('event_id', validEventId);
-            const stationIds = (stations || []).map(s => s.id);
-            if (stationIds.length > 0) {
-                query = query.in('station_id', stationIds);
-            } else {
-                return res.json([]); // No stations for this event, so no vehicles
-            }
+            query = query.eq('event_id', validEventId);
         }
+
+        if (stationId) {
+            query = query.eq('station_id', stationId);
+        }
+
         const { data, error } = await query;
         if (error) throw error;
         res.json(data);
@@ -41,10 +57,69 @@ export const getVehicles = async (req: Request, res: Response) => {
 
 export const addVehicle = async (req: Request, res: Response) => {
     try {
-        const { error } = await supabase.from('vehicles').insert([req.body]);
+        const { coordinator, event_id, station_id, coordinator_contact } = req.body;
+        let { coordinator_uid } = req.body;
+
+        // 1. Resolve Coordinator UID if missing
+        if (!coordinator_uid && coordinator) {
+            const { data: existingUser } = await supabase
+                .from('users')
+                .select('id')
+                .ilike('name', coordinator)
+                .maybeSingle(); // Use maybeSingle to avoid error if multiple/none
+
+            if (existingUser) {
+                coordinator_uid = existingUser.id;
+            } else {
+                // Auto-create User for this coordinator
+                const newUserId = uuidv4();
+                const { error: createError } = await supabase.from('users').insert([{
+                    id: newUserId,
+                    name: coordinator,
+                    role: 'Vehicle Coordinator',
+                    username: generateUsername(coordinator),
+                    password: 'ChangeMe123!', // Standard default
+                    contact: coordinator_contact || null,
+                    event_id: event_id,
+                    department_id: 'd5', // Transportation Department
+                    status: 'Active'
+                }]);
+
+                if (!createError) {
+                    coordinator_uid = newUserId;
+                } else {
+                    console.error("Failed to auto-create user for vehicle:", createError.message);
+                    // Fallback: Proceed without UID? Or fail?
+                    // Let's proceed, but we won't be able to enforce limit effectively.
+                }
+            }
+        }
+
+        // 2. Enforce Limit: Check for duplicate assignment
+        if (coordinator_uid && event_id) {
+            const { data: dups, error: dupError } = await supabase
+                .from('vehicles')
+                .select('id')
+                .eq('event_id', event_id)
+                .eq('coordinator_uid', coordinator_uid);
+
+            if (dupError) throw dupError;
+            if (dups && dups.length > 0) {
+                return res.status(400).json({ error: `Coordinator '${coordinator}' is already assigned to another vehicle in this event.` });
+            }
+        }
+
+        // 3. Insert Vehicle
+        const payload = {
+            ...req.body,
+            coordinator_uid // Ensure UID is saved
+        };
+
+        const { error } = await supabase.from('vehicles').insert([payload]);
         if (error) throw error;
         res.status(201).json({ message: 'Vehicle added' });
     } catch (error: any) {
+        console.error("Add Vehicle Error:", error);
         res.status(500).json({ error: error.message });
     }
 };
@@ -52,7 +127,67 @@ export const addVehicle = async (req: Request, res: Response) => {
 export const updateVehicle = async (req: Request, res: Response) => {
     const { id } = req.params;
     try {
-        const { error } = await supabase.from('vehicles').update(req.body).eq('id', id);
+        const { coordinator, event_id, coordinator_contact } = req.body;
+        // Check if coordinator is changing
+        // If 'coordinator' name matches current, we might not need to re-resolve, 
+        // BUT if they updated the name string, we should re-resolve.
+
+        let { coordinator_uid } = req.body;
+
+        // 1. Resolve UID if we have a name but no UID
+        if (!coordinator_uid && coordinator) {
+            const { data: existingUser } = await supabase
+                .from('users')
+                .select('id')
+                .ilike('name', coordinator)
+                .maybeSingle();
+
+            if (existingUser) {
+                coordinator_uid = existingUser.id;
+            } else {
+                // Auto-create User
+                const newUserId = uuidv4();
+                const { error: createError } = await supabase.from('users').insert([{
+                    id: newUserId,
+                    name: coordinator,
+                    role: 'Coordinator',
+                    username: generateUsername(coordinator),
+                    password: 'ChangeMe123!',
+                    contact: coordinator_contact || null,
+                    event_id: event_id, // Might be undefined if not in body
+                    status: 'Active'
+                }]);
+                if (!createError) coordinator_uid = newUserId;
+            }
+        }
+
+        // 2. Enforce Limit (Ignore current vehicle)
+        // Need event_id. If not in body, fetch from DB?
+        // Usually update contains event_id? Frontend sends what it has.
+        // Let's fetch current vehicle to be safe if event_id missing
+        let targetEventId = event_id;
+        if (!targetEventId) {
+            const { data: currentV } = await supabase.from('vehicles').select('event_id').eq('id', id).single();
+            targetEventId = currentV?.event_id;
+        }
+
+        if (coordinator_uid && targetEventId) {
+            const { data: dups } = await supabase
+                .from('vehicles')
+                .select('id')
+                .eq('event_id', targetEventId)
+                .eq('coordinator_uid', coordinator_uid)
+                .neq('id', id); // Exclude self
+
+            if (dups && dups.length > 0) {
+                return res.status(400).json({ error: `Coordinator '${coordinator}' is already assigned to another vehicle in this event.` });
+            }
+        }
+
+        const payload = { ...req.body };
+        if (coordinator_uid) payload.coordinator_uid = coordinator_uid;
+
+        const { error } = await supabase.from('vehicles').update(payload).eq('id', id);
         if (error) throw error;
         res.json({ message: 'Vehicle updated' });
     } catch (error: any) {
@@ -147,7 +282,7 @@ export const getPassengers = async (req: Request, res: Response) => {
                 return res.json([]); // No stations for this event
             }
         }
-        const { data, error } = await query;
+        const { data, error } = await query.order('created_at', { ascending: true });
         if (error) throw error;
         res.json(data);
     } catch (error: any) {
@@ -233,4 +368,3 @@ export const updatePersonalVehicleStatus = async (req: Request, res: Response) =
         res.status(500).json({ error: error.message });
     }
 };
-

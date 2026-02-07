@@ -22,8 +22,12 @@ const RoleRedirect: React.FC<RoleRedirectProps> = ({ user }) => {
             navigate('/registration');
             return;
         }
-        if (user.role === 'Coordinator') {
+        if (user.role === 'Coordinator' || user.role === 'Vehicle Coordinator') {
             navigate('/transportation');
+            return;
+        }
+        if (user.role === 'Stage Coordinator') {
+            navigate('/stage-dashboard');
             return;
         }
 
