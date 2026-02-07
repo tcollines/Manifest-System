@@ -511,6 +511,7 @@ const FollowUpDashboard: React.FC<FollowUpDashboardProps> = ({ onOpenModal, curr
                             <th className="px-6 py-3">Source</th>
                             <th className="px-6 py-3">Status</th>
                             <th className="px-6 py-3">Date</th>
+                            <th className="px-6 py-3 text-right">Actions</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-50">
@@ -524,11 +525,17 @@ const FollowUpDashboard: React.FC<FollowUpDashboardProps> = ({ onOpenModal, curr
                                     <div className="text-xs text-gray-400 mt-0.5">{soul.residence}</div>
                                 </td>
                                 <td className="px-6 py-4">
-                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
+                                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${soul.sourceType === 'Healing Dept'
+                                        ? 'bg-red-50 text-red-700'
+                                        : 'bg-gray-100 text-gray-800'
+                                        }`}>
                                         {soul.sourceType}
                                     </span>
                                     <div className="text-xs text-gray-500 mt-0.5">
-                                        {((soul.sourceType === 'Event' ? events : services).find(e => e.id === soul.sourceId)?.title) || 'Unknown Source'}
+                                        {soul.sourceType === 'Healing Dept'
+                                            ? (soul.notes?.replace('Healing Outreach: ', '') || 'Hospital Outreach')
+                                            : ((soul.sourceType === 'Event' ? events : services).find(e => e.id === soul.sourceId)?.title) || 'Unknown Source'
+                                        }
                                     </div>
                                 </td>
                                 <td className="px-6 py-4">
@@ -541,6 +548,29 @@ const FollowUpDashboard: React.FC<FollowUpDashboardProps> = ({ onOpenModal, curr
                                 </td>
                                 <td className="px-6 py-4 text-gray-500">
                                     {new Date(soul.createdAt || '').toLocaleDateString()}
+                                </td>
+                                <td className="px-6 py-4 text-right">
+                                    <button
+                                        onClick={async () => {
+                                            const confirmed = await showConfirm(
+                                                <span>Are you sure you want to delete <strong>{soul.firstName} {soul.lastName}</strong>? This cannot be undone.</span>,
+                                                { title: 'Delete Soul', confirmText: 'Delete', isDestructive: true }
+                                            );
+                                            if (confirmed) {
+                                                try {
+                                                    await SoulsStore.delete(soul.id || '');
+                                                    showToast('Soul deleted successfully', 'success');
+                                                    loadData();
+                                                } catch (e) {
+                                                    showToast('Failed to delete soul', 'error');
+                                                }
+                                            }
+                                        }}
+                                        className="text-gray-400 hover:text-red-600 transition-colors p-1"
+                                        title="Delete Soul"
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
                                 </td>
                             </tr>
                         ))}

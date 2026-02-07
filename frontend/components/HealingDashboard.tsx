@@ -41,7 +41,14 @@ const HealingDashboard: React.FC<HealingDashboardProps> = ({ currentUser }) => {
     const [testimoniesList, setTestimoniesList] = useState<{ content: string; testifier_name: string; testifier_contact: string }[]>([]);
 
     // Temporary inputs
-    const [tempSoul, setTempSoul] = useState({ firstName: '', lastName: '', phone: '', gender: 'Male' });
+    const [tempSoul, setTempSoul] = useState({
+        fullName: '',
+        phone: '',
+        gender: 'Male',
+        residence: '',
+        nextOfKinName: '',
+        nextOfKinContact: ''
+    });
     const [tempTestimony, setTempTestimony] = useState({ content: '', testifier_name: '', testifier_contact: '' });
 
     // Editing State
@@ -74,12 +81,33 @@ const HealingDashboard: React.FC<HealingDashboardProps> = ({ currentUser }) => {
     };
 
     const handleAddSoul = () => {
-        if (!tempSoul.firstName || !tempSoul.lastName) {
-            showToast('First and Last Name are required', 'error');
+        if (!tempSoul.fullName) {
+            showToast('Full Name is required', 'error');
             return;
         }
-        setSoulsList([...soulsList, { ...tempSoul, gender: tempSoul.gender as 'Male' | 'Female' }]);
-        setTempSoul({ firstName: '', lastName: '', phone: '', gender: 'Male' });
+
+        // Split name
+        const nameParts = tempSoul.fullName.trim().split(' ');
+        const firstName = nameParts[0];
+        const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : 'Unknown';
+
+        setSoulsList([...soulsList, {
+            firstName,
+            lastName,
+            phone: tempSoul.phone,
+            gender: tempSoul.gender as 'Male' | 'Female',
+            residence: tempSoul.residence,
+            nextOfKinName: tempSoul.nextOfKinName,
+            nextOfKinContact: tempSoul.nextOfKinContact
+        }]);
+        setTempSoul({
+            fullName: '',
+            phone: '',
+            gender: 'Male',
+            residence: '',
+            nextOfKinName: '',
+            nextOfKinContact: ''
+        });
     };
 
     const handleAddTestimony = () => {
@@ -150,7 +178,21 @@ const HealingDashboard: React.FC<HealingDashboardProps> = ({ currentUser }) => {
     const handleUpdateSoul = async () => {
         if (!editingSoul || !editingSoul.id) return;
         try {
-            await HealingStore.updateSoul(editingSoul.id, editingSoul);
+            // Map camelCase to snake_case for DB update if needed, or rely on store
+            // Note: Soul interface uses camelCase, but DB likely expects snake_case for direct updates via controller
+            // The controller uses req.body directly. So let's ensure we send snake_case if possible, 
+            // OR checks generic update mapping. 
+            // Let's assume generic update expects snake_case properties if using row level update.
+            const payload = {
+                first_name: editingSoul.firstName || editingSoul.first_name, // Handle both if type confusion
+                last_name: editingSoul.lastName || editingSoul.last_name,
+                phone: editingSoul.phone,
+                residence: editingSoul.residence,
+                next_of_kin_name: editingSoul.nextOfKinName,
+                next_of_kin_contact: editingSoul.nextOfKinContact,
+                notes: editingSoul.notes
+            };
+            await HealingStore.updateSoul(editingSoul.id, payload as any);
             showToast('Soul updated successfully', 'success');
             setEditingSoul(null);
             loadData();
@@ -260,9 +302,7 @@ const HealingDashboard: React.FC<HealingDashboardProps> = ({ currentUser }) => {
                     <p className="text-gray-500">Manage hospital outreaches, souls won, and testimonies.</p>
                 </div>
                 <div className="flex space-x-3">
-                    <button onClick={() => navigate('/')} className="px-4 py-2 border rounded-xl hover:bg-gray-50">
-                        <ArrowLeft size={18} />
-                    </button>
+
                     {(activeTab === 'overview' || activeTab === 'reports') && (
                         <button
                             onClick={() => setActiveTab('new')}
@@ -353,7 +393,8 @@ const HealingDashboard: React.FC<HealingDashboardProps> = ({ currentUser }) => {
                                     <th className="px-6 py-4 font-medium">Name</th>
                                     <th className="px-6 py-4 font-medium">Phone</th>
                                     <th className="px-6 py-4 font-medium">Gender</th>
-                                    <th className="px-6 py-4 font-medium">Outreach</th>
+                                    <th className="px-6 py-4 font-medium">Hospital</th>
+                                    <th className="px-6 py-4 font-medium">Next of Kin</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
@@ -364,6 +405,16 @@ const HealingDashboard: React.FC<HealingDashboardProps> = ({ currentUser }) => {
                                         <td className="px-6 py-4 text-gray-600 font-mono text-xs">{soul.phone}</td>
                                         <td className="px-6 py-4 text-gray-600">{soul.gender}</td>
                                         <td className="px-6 py-4 text-gray-500 text-sm italic">{soul.notes?.replace('Healing Outreach: ', '') || '-'}</td>
+                                        <td className="px-6 py-4 text-sm">
+                                            {soul.next_of_kin_name ? (
+                                                <div>
+                                                    <div className="font-medium text-gray-800">{soul.next_of_kin_name}</div>
+                                                    <div className="text-xs text-blue-600">{soul.next_of_kin_contact}</div>
+                                                </div>
+                                            ) : (
+                                                <span className="text-gray-400">-</span>
+                                            )}
+                                        </td>
                                         <td className="px-6 py-4 flex space-x-2">
                                             <button
                                                 onClick={() => setEditingSoul(soul as Soul)}
@@ -414,7 +465,7 @@ const HealingDashboard: React.FC<HealingDashboardProps> = ({ currentUser }) => {
                                     {/* @ts-ignore */}
                                     <span>{testimony.healing_reports?.hospital_name}</span>
                                 </div>
-                                <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex space-x-1">
+                                <div className="absolute top-2 right-2 flex space-x-1">
                                     <button
                                         onClick={() => setEditingTestimony(testimony)}
                                         className="p-1.5 bg-white text-blue-500 rounded-full shadow-sm hover:bg-blue-50"
@@ -628,17 +679,10 @@ const HealingDashboard: React.FC<HealingDashboardProps> = ({ currentUser }) => {
                             <div className="space-y-3 mb-6">
                                 <input
                                     type="text"
-                                    placeholder="First Name"
+                                    placeholder="Full Name (First & Last)"
                                     className="w-full px-4 py-2 border rounded-xl"
-                                    value={tempSoul.firstName}
-                                    onChange={e => setTempSoul({ ...tempSoul, firstName: e.target.value })}
-                                />
-                                <input
-                                    type="text"
-                                    placeholder="Last Name"
-                                    className="w-full px-4 py-2 border rounded-xl"
-                                    value={tempSoul.lastName}
-                                    onChange={e => setTempSoul({ ...tempSoul, lastName: e.target.value })}
+                                    value={tempSoul.fullName}
+                                    onChange={e => setTempSoul({ ...tempSoul, fullName: e.target.value })}
                                 />
                                 <PhoneInput
                                     value={tempSoul.phone}
@@ -653,6 +697,30 @@ const HealingDashboard: React.FC<HealingDashboardProps> = ({ currentUser }) => {
                                     <option value="Male">Male</option>
                                     <option value="Female">Female</option>
                                 </select>
+                                <input
+                                    type="text"
+                                    placeholder="Place of Residence"
+                                    className="w-full px-4 py-2 border rounded-xl"
+                                    value={tempSoul.residence}
+                                    onChange={e => setTempSoul({ ...tempSoul, residence: e.target.value })}
+                                />
+                                <div className="pt-2 border-t border-gray-100">
+                                    <p className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wider">Next of Kin (Optional)</p>
+                                    <div className="space-y-2">
+                                        <input
+                                            type="text"
+                                            placeholder="NOK Name"
+                                            className="w-full px-4 py-2 border rounded-xl bg-gray-50"
+                                            value={tempSoul.nextOfKinName}
+                                            onChange={e => setTempSoul({ ...tempSoul, nextOfKinName: e.target.value })}
+                                        />
+                                        <PhoneInput
+                                            value={tempSoul.nextOfKinContact}
+                                            onChange={(val) => setTempSoul({ ...tempSoul, nextOfKinContact: val })}
+                                            placeholder="NOK Contact"
+                                        />
+                                    </div>
+                                </div>
                                 <button
                                     onClick={handleAddSoul}
                                     className="w-full flex items-center justify-center space-x-2 bg-green-500 hover:bg-green-600 text-white py-2.5 rounded-xl font-bold transition-colors"
@@ -718,6 +786,28 @@ const HealingDashboard: React.FC<HealingDashboardProps> = ({ currentUser }) => {
                                 onChange={val => setEditingSoul({ ...editingSoul, phone: val })}
                                 placeholder="Phone"
                             />
+                            <input
+                                className="w-full px-4 py-2 border rounded-xl"
+                                value={editingSoul.residence || ''}
+                                onChange={e => setEditingSoul({ ...editingSoul, residence: e.target.value })}
+                                placeholder="Place of Residence"
+                            />
+                            <div className="pt-2 border-t border-gray-100">
+                                <p className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wider">Next of Kin (Optional)</p>
+                                <div className="space-y-2">
+                                    <input
+                                        className="w-full px-4 py-2 border rounded-xl bg-gray-50"
+                                        value={editingSoul.nextOfKinName || ''}
+                                        onChange={e => setEditingSoul({ ...editingSoul, nextOfKinName: e.target.value })}
+                                        placeholder="NOK Name"
+                                    />
+                                    <PhoneInput
+                                        value={editingSoul.nextOfKinContact || ''}
+                                        onChange={val => setEditingSoul({ ...editingSoul, nextOfKinContact: val })}
+                                        placeholder="NOK Contact"
+                                    />
+                                </div>
+                            </div>
                             <textarea
                                 className="w-full px-4 py-2 border rounded-xl"
                                 value={editingSoul.notes || ''}

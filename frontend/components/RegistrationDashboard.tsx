@@ -1,15 +1,8 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useNotification } from './ui/NotificationSystem';
 import { isEventLocked, isServiceClosed, validatePlate, validateContact, validateDriverIdentity } from '../utils';
 import { VEHICLE_TYPES } from '../constants';
 import { ModalType, MinistryEvent, User, Vehicle, Passenger, PickUpStation, PersonalVehicle, Member, ServiceResponse } from '../types';
-
-interface RegistrationDashboardProps {
-  events: MinistryEvent[];
-  currentUser: User;
-  onOpenModal?: (type: ModalType) => void;
-}
 import { VehicleStore } from '../database/vehicleStore';
 import { UserStore } from '../database/userStore';
 import { MemberStore } from '../database/memberStore';
@@ -38,7 +31,6 @@ import {
   Users,
   Eye,
   Download,
-
   ChevronRight,
   Shield,
   Trash2,
@@ -73,6 +65,7 @@ import ManualCountModal from './ManualCountModal';
 interface RegistrationDashboardProps {
   events: MinistryEvent[];
   currentUser: User;
+  onOpenModal?: (type: ModalType) => void;
 }
 
 type Tab = 'checkin' | 'events' | 'database';

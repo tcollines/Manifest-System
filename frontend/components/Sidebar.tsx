@@ -58,6 +58,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, onLogout, isOpen, onClos
   if (isSchoolsHead) {
     menuItems = [
       { id: 'schools', label: 'Schools Dashboard', icon: BookOpen },
+      { id: 'reports', label: 'Monthly Reports', icon: BarChart2 },
       { id: 'requisitions', label: 'Requisitions', icon: FileText },
       { id: 'settings', label: 'Team Management', icon: Users },
       { id: 'assets', label: 'Assets', icon: Package },
@@ -65,6 +66,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, onLogout, isOpen, onClos
   } else if (isRegistrationHead) {
     menuItems = [
       { id: 'registration', label: 'Registration Dashboard', icon: ClipboardCheck },
+      { id: 'reports', label: 'Monthly Reports', icon: BarChart2 },
       { id: 'settings', label: 'Team Management', icon: Users },
       { id: 'requisitions', label: 'Requisitions', icon: FileText },
       { id: 'assets', label: 'Assets', icon: Package },
@@ -73,7 +75,8 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, onLogout, isOpen, onClos
     menuItems = [
       { id: 'next-gen', label: 'Next Gen Dashboard', icon: Baby },
       { id: 'next-gen-follow-up', label: 'Follow Up', icon: UserPlus },
-      { id: 'next-gen-reports', label: 'Reports', icon: BarChart2 },
+      { id: 'next-gen-reports', label: 'Stats Reports', icon: BarChart2 }, // kept original next-gen-reports
+      { id: 'reports', label: 'Monthly Reports', icon: FileText }, // Added distinct
       { id: 'events', label: 'Events & Services', icon: Calendar },
       { id: 'next-gen-team', label: 'Volunteer Team', icon: Users },
       { id: 'settings', label: 'Team Management', icon: Users },
@@ -83,6 +86,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, onLogout, isOpen, onClos
   } else if (isParkingHead) {
     menuItems = [
       { id: 'parking', label: 'Parking Dashboard', icon: Car },
+      { id: 'reports', label: 'Monthly Reports', icon: BarChart2 },
       { id: 'settings', label: 'Team Management', icon: Users },
       { id: 'requisitions', label: 'Requisitions', icon: FileText },
       { id: 'assets', label: 'Assets', icon: Package },
@@ -90,6 +94,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, onLogout, isOpen, onClos
   } else if (isTransportationHead) {
     menuItems = [
       { id: 'transportation', label: 'Transportation Dashboard', icon: Bus },
+      { id: 'reports', label: 'Monthly Reports', icon: BarChart2 },
       { id: 'settings', label: 'Team Management', icon: Users },
       { id: 'requisitions', label: 'Requisitions', icon: FileText },
       { id: 'assets', label: 'Assets', icon: Package },
@@ -97,6 +102,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, onLogout, isOpen, onClos
   } else if (isFinanceHead) {
     menuItems = [
       { id: 'finance', label: 'Finance Dashboard', icon: CreditCard },
+      { id: 'reports', label: 'Monthly Reports', icon: BarChart2 },
       { id: 'settings', label: 'Team Management', icon: Users },
       { id: 'requisitions', label: 'Requisitions', icon: FileText },
       { id: 'assets', label: 'Assets', icon: Package },
@@ -104,6 +110,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, onLogout, isOpen, onClos
   } else if (isHealingHead) {
     menuItems = [
       { id: 'healing', label: 'Healing Dept', icon: Heart },
+      { id: 'reports', label: 'Monthly Reports', icon: BarChart2 },
       { id: 'requisitions', label: 'Requisitions', icon: FileText },
       { id: 'assets', label: 'Assets', icon: Package },
       { id: 'settings', label: 'Settings', icon: Settings },
@@ -111,6 +118,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, onLogout, isOpen, onClos
   } else if (isFollowUpHead) {
     menuItems = [
       { id: 'follow-up', label: 'Follow Up Dashboard', icon: UserPlus },
+      { id: 'reports', label: 'Monthly Reports', icon: BarChart2 }, // Added
       { id: 'settings', label: 'Team Management', icon: Users },
       { id: 'requisitions', label: 'Requisitions', icon: FileText },
       { id: 'assets', label: 'Assets', icon: Package },
@@ -137,7 +145,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, onLogout, isOpen, onClos
       { id: 'team-dashboard', label: 'Dashboard', icon: LayoutDashboard }, // Read-only dashboard
       { id: 'departments', label: 'Departments', icon: Users },
       { id: 'events', label: 'Events & Services', icon: Calendar },
-      { id: 'reports', label: 'Reports', icon: BarChart2 },
+      { id: 'reports', label: 'Monthly Reports', icon: BarChart2 },
       { id: 'requisitions', label: 'Requisitions', icon: FileText },
       { id: 'assets', label: 'Assets', icon: Package },
       { id: 'manifest-settings', label: 'Manifest Settings', icon: Map }, // Extra Tab
@@ -151,7 +159,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, onLogout, isOpen, onClos
       { id: 'departments', label: 'Departments', icon: Users, roles: ['Administrator'], path: '/departments' },
       { id: 'events', label: 'Events & Services', icon: Calendar, roles: ['Administrator', 'Head of Dept', 'Staff'], path: '/events' },
       { id: 'reports', label: 'Reports', icon: BarChart2, roles: ['Administrator', 'Head of Dept'], path: '/reports' },
-      { id: 'healing', label: 'Healing Dept', icon: Heart, roles: ['Administrator', 'Head of Dept', 'Staff'], path: '/healing' },
       { id: 'requisitions', label: 'Requisitions', icon: FileText, roles: ['Administrator', 'Head of Dept', 'Staff'], path: '/requisitions' },
       { id: 'assets', label: 'Assets', icon: Package, roles: ['Administrator', 'Head of Dept'], path: '/assets' },
       { id: 'settings', label: 'Settings', icon: Settings, roles: ['Administrator', 'Head of Dept', 'Staff', 'Volunteer'], path: '/settings' },

@@ -7,7 +7,8 @@ const router = Router();
 // POST /healing/reports
 router.post('/reports', async (req, res) => {
     try {
-        const { date, hospital_name, labourers_count, souls_count, notes, captured_by, testimonies, souls } = req.body;
+        const { date, hospital_name, labourers_count, souls_count, people_reached, notes, captured_by, testimonies, souls } = req.body;
+        console.log('Received Healing Report Payload:', JSON.stringify(req.body, null, 2));
 
         // A. Insert Report
         const { data: report, error: reportError } = await supabase
@@ -51,10 +52,14 @@ router.post('/reports', async (req, res) => {
                 last_name: s.lastName,
                 phone: s.phone,
                 gender: s.gender,
-                source_type: 'Outreach', // As decided
+                source_type: 'Healing Dept', // As decided
                 source_id: reportId,     // Link to this report
                 captured_by: captured_by, // Ensure we track who added them
-                notes: `Healing Outreach: ${hospital_name}`
+                notes: `Healing Outreach: ${hospital_name}`,
+                residence: s.residence,
+                next_of_kin_name: s.nextOfKinName,
+                next_of_kin_contact: s.nextOfKinContact,
+                status: 'New'
             }));
 
             const { error: soulsError } = await supabase
@@ -146,8 +151,8 @@ router.get('/souls', async (req, res) => {
         const { data, error } = await supabase
             .from('souls')
             .select('*')
-            .eq('source_type', 'Outreach')
-            .ilike('notes', '%Healing%') // Extra safety
+            .eq('source_type', 'Healing Dept')
+            // .ilike('notes', '%Healing%') // No longer needed as source_type is explicit
             .order('created_at', { ascending: false });
 
         if (error) throw error;

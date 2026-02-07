@@ -273,7 +273,7 @@ export interface Soul {
   gender: 'Male' | 'Female';
   residence: string;
   status: 'New' | 'Contacted' | 'Visited' | 'Integrated' | 'Lost' | 'Confirmed';
-  sourceType: 'Service' | 'Event' | 'Outreach' | 'Other';
+  sourceType: 'Service' | 'Event' | 'Outreach' | 'Other' | 'Healing Dept';
   sourceId?: string;
   capturedBy?: string; // User ID or Name
   notes?: string;
@@ -288,6 +288,9 @@ export interface Soul {
     contact: string;
   };
   ministry?: 'Main' | 'Next Gen';
+  // New Fields for Healing Dept
+  nextOfKinName?: string;
+  nextOfKinContact?: string;
 }
 
 export enum ModalType {
@@ -387,7 +390,49 @@ export interface TrainingRequest {
   requesterName?: string;
 }
 
-// Data Fetching Architecture Response Type
+// Monthly Reporting System Types
+
+export interface Department {
+  id: string; // 'd1', 'd2', etc.
+  name: string;
+  headId?: string;
+  // Computed/Joined fields
+  headName?: string;
+}
+
+export interface ReportField {
+  id: string;
+  label: string;
+  type: 'text' | 'number' | 'date' | 'textarea';
+  required: boolean;
+  placeholder?: string;
+}
+
+export interface MonitoringReport {
+  id: string;
+  title: string;
+  month: string; // 'YYYY-MM'
+  deadline: string;
+  fields: ReportField[];
+  status: 'Draft' | 'Published' | 'Expired';
+  createdBy?: string;
+  createdAt: string;
+  // Computed
+  submissions?: ReportSubmission[];
+}
+
+export interface ReportSubmission {
+  id: string;
+  reportId: string;
+  departmentId: string;
+  content: Record<string, any>; // Keyed by field.id
+  status: 'Pending' | 'Draft' | 'Submitted';
+  submittedBy?: string;
+  submittedAt?: string;
+  // Joined
+  departmentName?: string;
+}
+
 export type ServiceResponse<T> =
   | { status: 'success'; data: T; count?: number }
   | { status: 'error'; message: string; error?: any };

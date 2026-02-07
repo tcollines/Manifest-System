@@ -483,7 +483,7 @@ const App: React.FC = () => {
             </Route>
 
             <Route path="events" element={<EventsView />} />
-            <Route path="reports" element={<ReportsView />} />
+            <Route path="reports" element={<ReportsView currentUser={currentUser} />} />
 
             <Route path="requisitions" element={
               currentUser?.role === 'TeamLeader'

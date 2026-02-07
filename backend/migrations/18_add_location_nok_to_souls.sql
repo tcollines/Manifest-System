@@ -1,0 +1,3 @@
+ALTER TABLE souls ADD COLUMN IF NOT EXISTS residence TEXT;
+ALTER TABLE souls ADD COLUMN IF NOT EXISTS next_of_kin_name TEXT;
+ALTER TABLE souls ADD COLUMN IF NOT EXISTS next_of_kin_contact TEXT;
