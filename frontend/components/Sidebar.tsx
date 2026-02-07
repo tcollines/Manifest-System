@@ -145,7 +145,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, onLogout, isOpen, onClos
       { id: 'team-dashboard', label: 'Dashboard', icon: LayoutDashboard }, // Read-only dashboard
       { id: 'departments', label: 'Departments', icon: Users },
       { id: 'events', label: 'Events & Services', icon: Calendar },
-      { id: 'reports', label: 'Monthly Reports', icon: BarChart2 },
+      { id: 'reports', label: 'Reports', icon: BarChart2 },
       { id: 'requisitions', label: 'Requisitions', icon: FileText },
       { id: 'assets', label: 'Assets', icon: Package },
       { id: 'manifest-settings', label: 'Manifest Settings', icon: Map }, // Extra Tab

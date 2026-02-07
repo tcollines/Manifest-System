@@ -123,7 +123,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({ currentUser }) => {
           { id: 'service', label: 'Service Analytics', icon: FileText, adminOnly: true },
           { id: 'financial', label: 'Financial Analytics', icon: DollarSign, adminOnly: true },
           { id: 'souls', label: 'Souls Analytics', icon: Heart, adminOnly: true },
-        ].filter(tab => !tab.adminOnly || currentUser?.role === 'Administrator')
+        ].filter(tab => !tab.adminOnly || ['Administrator', 'TeamLeader'].includes(currentUser?.role || ''))
           .map((tab) => {
             const Icon = tab.icon;
             const isActive = activeReport === tab.id;
