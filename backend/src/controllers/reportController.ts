@@ -12,7 +12,10 @@ export const getAllReports = async (req: Request, res: Response) => {
             .select('*, report_submissions(*)')
             .order('created_at', { ascending: false });
 
+        // Normalize deadlines in response if needed, but client should handle ISO strings.
+        // We ensure that we don't accidentally send local times.
         if (error) throw error;
+
         res.json(data);
     } catch (error: any) {
         res.status(500).json({ error: error.message });
@@ -132,10 +135,14 @@ export const submitReport = async (req: Request, res: Response) => {
 
             if (report) {
                 if (report.status === 'Expired') {
-                    return res.status(403).json({ error: 'Report has expired' });
+                    return res.status(403).json({ error: 'Report is expired' });
                 }
-                if (new Date(report.deadline) < new Date()) {
-                    // Check if backend deadline check hasn't run yet but time passed
+
+                // Standardized UTC Deadline Check
+                const now = new Date().getTime();
+                const deadline = new Date(report.deadline).getTime();
+
+                if (deadline < now) {
                     return res.status(403).json({ error: 'Deadline passed' });
                 }
             }

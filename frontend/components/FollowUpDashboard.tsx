@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSafeAsync } from '../hooks/useSafeAsync';
 import { useNotification } from './ui/NotificationSystem';
 import { supabase } from '../services/supabaseClient';
 import { Users, Calendar, Database, Plus, Search, Link as LinkIcon, Share2, Copy, Check, Filter, ChevronLeft, ChevronRight, X, Trash2, Pencil } from 'lucide-react';
@@ -46,32 +47,33 @@ const FollowUpDashboard: React.FC<FollowUpDashboardProps> = ({ onOpenModal, curr
     const [isSearchingMembers, setIsSearchingMembers] = useState(false);
 
     // Debounce Search
+    // Safe Async Search
+    const searchRequest = useSafeAsync<Member[]>();
+
     useEffect(() => {
         if (searchQuery.length < 3) {
             setMemberSearchResults([]);
             return;
         }
 
-        const delayDebounceFn = setTimeout(async () => {
-            setIsSearchingMembers(true);
-            try {
-                let results: Member[] = [];
-                // If we are in a specific service view, search ALL members but check their status for this service
-                /* 
-                   NOTE: Users want to find members to add as souls. 
-                   We should search the global member database.
-                */
-                const { data } = await MemberStore.getMembers(1, 5, searchQuery);
-                results = data;
-                setMemberSearchResults(results);
-            } catch (error) {
-                console.error("Search failed", error);
-            } finally {
+        const delayDebounceFn = setTimeout(() => {
+            searchRequest.run(async (signal) => {
+                setIsSearchingMembers(true);
+                // Pass signal to query if supported, or just use wrapper cancellation
+                const response = await MemberStore.getMembers(1, 10, searchQuery);
+                return response.status === 'success' ? response.data : [];
+            }).then((data) => {
                 setIsSearchingMembers(false);
-            }
+                if (data) {
+                    setMemberSearchResults(data);
+                }
+            });
         }, 500);
 
-        return () => clearTimeout(delayDebounceFn);
+        return () => {
+            clearTimeout(delayDebounceFn);
+            searchRequest.cancel();
+        };
     }, [searchQuery]);
 
     useEffect(() => {
@@ -90,7 +92,9 @@ const FollowUpDashboard: React.FC<FollowUpDashboardProps> = ({ onOpenModal, curr
     const loadData = async () => {
         setIsLoading(true);
         try {
-            const { data: allEvents } = await EventStore.getAll();
+            const eventsResp = await EventStore.getAll();
+            const allEvents = eventsResp.status === 'success' ? eventsResp.data : [];
+
             setEvents(allEvents.filter(e => e.type === 'Event'));
             setServices(allEvents.filter(e => e.type === 'Service'));
 

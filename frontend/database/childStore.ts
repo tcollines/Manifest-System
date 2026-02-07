@@ -1,7 +1,8 @@
 
-import { Child } from '../types';
+import { Child, ServiceResponse } from '../types';
 import { apiFetch } from '../services/api';
 import { MOCK_CHILDREN } from '../constants';
+import { safeFetch } from '../services/safeFetch';
 
 const mapChildFromDB = (c: any): Child => ({
   id: c.id,
@@ -134,5 +135,13 @@ export const ChildStore = {
       console.error('Unexpected error fetching child attendance:', e);
       return 0;
     }
+  },
+
+  getCheckedInChildren: async (serviceId: string): Promise<ServiceResponse<Child[]>> => {
+    return safeFetch(
+      () => apiFetch(`/children?attended_service_ids=cs.{${serviceId}}`),
+      'Failed to fetch checked-in children',
+      (data: any[]) => data ? data.map(mapChildFromDB) : []
+    );
   }
 };

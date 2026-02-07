@@ -58,6 +58,14 @@ export const UserStore = {
     );
   },
 
+  get: async (id: string): Promise<ServiceResponse<User | null>> => {
+    return safeFetch(
+      () => apiFetch(`/users/${id}`),
+      'Failed to fetch user',
+      (data: any) => data ? mapUserFromDB(data) : null
+    );
+  },
+
   getByEmail: async (email: string): Promise<User | null> => {
     try {
       const result = await UserStore.getAll();

@@ -56,20 +56,26 @@ const App: React.FC = () => {
   // Helper functions defined before effects to avoid hoisting issues logic-wise
   const refreshData = async () => {
     try {
-      const [usersResponse, eventsResponse] = await Promise.all([
-        UserStore.getAll(),
-        EventStore.getAll({ limit: 50 }) // Fetch recent 50 for Dashboards
+      // FIX: Use Promise.allSettled to prevent partial failures from crashing the app
+      const results = await Promise.allSettled([
+        // UserStore.getAll(), // REMOVED: Too heavy for initial load. Fetched on demand in Settings.
+        EventStore.getAll({ limit: 50 })
       ]);
 
-      const users = usersResponse.status === 'success' ? usersResponse.data : [];
-      setAllUsers(users);
-
-      const eventList = eventsResponse.status === 'success' ? eventsResponse.data : [];
-      if (eventList.length > 0) {
-        setEvents(eventList);
+      // Handle Events
+      const eventResult = results[0]; // Was index 1, now index 0 since UserStore is removed
+      if (eventResult.status === 'fulfilled' && eventResult.value.status === 'success') {
+        setEvents(eventResult.value.data || []);
+      } else {
+        console.warn("Initial event fetch failed or returned partial data");
       }
+
+      // Setup All Users as empty initially - specific views will fetch what they need
+      // or we can fetch a small subset if absolutely necessary.
+      // For now, adhere to stability plan: Remove getAll() from critical path.
+
     } catch (e) {
-      console.error("Failed to load initial data", e);
+      console.error("Critical error during initial data load", e);
     }
   };
 
@@ -102,7 +108,16 @@ const App: React.FC = () => {
     const subscription = supabase
       .channel('public:db_changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, (payload) => {
-        refreshData();
+        // Optional: Refresh only current user or specific cached users if we had a cache.
+        // For now, do nothing or just check if *current* user handle changed.
+        if (currentUser) {
+          UserStore.get(currentUser.id).then(res => {
+            if (res.status === 'success' && res.data) {
+              setCurrentUser(res.data);
+              UserStore.saveSession(res.data);
+            }
+          });
+        }
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'ministry_events' }, (payload) => {
         refreshData();
