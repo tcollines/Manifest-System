@@ -3,6 +3,7 @@ import { useNotification } from './ui/NotificationSystem';
 import { DEPARTMENTS, CURRENCIES } from '../constants';
 import { User, ModalType, ManifestDetails } from '../types';
 import { UserStore } from '../database/userStore';
+import { ManifestStore } from '../database/manifestStore';
 import {
     Users,
     Map,
@@ -38,6 +39,27 @@ const SettingsView: React.FC<SettingsViewProps> = ({ users = [], openModal, onDe
     const { showToast, confirm: askConfirm } = useNotification();
     const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab || 'users');
     const [searchQuery, setSearchQuery] = useState('');
+    const [internalUsers, setInternalUsers] = useState<User[]>(users);
+
+    // Update internal users when prop changes
+    useEffect(() => {
+        if (users && users.length > 0) {
+            setInternalUsers(users);
+        }
+    }, [users]);
+
+    // On-demand fetch if list is empty
+    useEffect(() => {
+        if (activeTab === 'users' && internalUsers.length === 0) {
+            const loadUsers = async () => {
+                const resp = await UserStore.getAll();
+                if (resp.status === 'success' && resp.data) {
+                    setInternalUsers(resp.data);
+                }
+            };
+            loadUsers();
+        }
+    }, [activeTab, internalUsers.length]);
 
     // Profile State
     const [profileName, setProfileName] = useState(currentUser?.name || "");
@@ -78,8 +100,8 @@ const SettingsView: React.FC<SettingsViewProps> = ({ users = [], openModal, onDe
 
     // Filter users: Admins/Team Leaders see all, Leads see only their department
     const baseUsers = (isAdmin || isTeamLeader)
-        ? users
-        : users.filter(u => u.departmentId === currentUser?.departmentId);
+        ? internalUsers
+        : internalUsers.filter(u => u.departmentId === currentUser?.departmentId);
 
     const filteredUsers = baseUsers.filter(user => {
         if (!searchQuery) return true;
