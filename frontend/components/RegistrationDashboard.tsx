@@ -544,8 +544,6 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
           setMembers(prev => {
             // Avoid duplicates
             if (prev.find(m => m.id === newMember.id)) return prev;
-            // Map DB snake_case to CamelCase if necessary, but payload usually has raw DB columns
-            // We need to map it properly to Member interface
             const mapped: Member = {
               id: newMember.id,
               name: newMember.name,
@@ -562,20 +560,6 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
             return [mapped, ...prev];
           });
           setTotalMembers(prev => prev + 1);
-        }
-
-        // 2. Update Check-In Stats (if for current service)
-        const currentService = selectedServiceRef.current;
-        if (currentService && newMember.attended_service_ids?.includes(currentService.id)) {
-          setCheckInStats(prev => ({
-            total: prev.total + 1,
-            firstTimers: newMember.category === 'First Timer' ? prev.firstTimers + 1 : prev.firstTimers
-          }));
-          setCheckedInIds(prev => {
-            const newSet = new Set(prev);
-            newSet.add(newMember.id);
-            return newSet;
-          });
         }
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'members' }, async (payload) => {
@@ -615,39 +599,6 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
           return m;
         }));
 
-        // 2. Update Stats (Check if check-in status changed for THIS service)
-        // CRITICAL CHECK: Only update stats if attended_service_ids is actually in the payload
-        if (currentService && updated.attended_service_ids !== undefined) {
-          // Use Ref for "Old" State because payload.old might be incomplete
-          const wasCheckedIn = checkedInIdsRef.current.has(updated.id);
-          const isCheckedIn = updated.attended_service_ids.includes(currentService.id);
-
-          console.log(`[Stats Check] ID: ${updated.id}, Was: ${wasCheckedIn}, Is: ${isCheckedIn}`);
-
-          if (!wasCheckedIn && isCheckedIn) {
-            // Added check-in
-            setCheckInStats(prev => ({
-              total: prev.total + 1,
-              firstTimers: category === 'First Timer' ? prev.firstTimers + 1 : prev.firstTimers
-            }));
-            setCheckedInIds(prev => {
-              const newSet = new Set(prev);
-              newSet.add(updated.id);
-              return newSet;
-            });
-          } else if (wasCheckedIn && !isCheckedIn) {
-            // Removed check-in
-            setCheckInStats(prev => ({
-              total: Math.max(0, prev.total - 1),
-              firstTimers: category === 'First Timer' ? Math.max(0, prev.firstTimers - 1) : prev.firstTimers
-            }));
-            setCheckedInIds(prev => {
-              const newSet = new Set(prev);
-              newSet.delete(updated.id);
-              return newSet;
-            });
-          }
-        }
       })
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'members' }, (payload) => {
         const deletedId = payload.old.id;
@@ -658,18 +609,8 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
         setMembers(prev => prev.filter(m => m.id !== deletedId));
         setTotalMembers(prev => Math.max(0, prev - 1));
 
-        // 2. Update Stats
-        if (checkedInIdsRef.current.has(deletedId)) {
-          setCheckInStats(stats => ({
-            total: Math.max(0, stats.total - 1),
-            firstTimers: category === 'First Timer' ? Math.max(0, stats.firstTimers - 1) : stats.firstTimers
-          }));
-          setCheckedInIds(prev => {
-            const newSet = new Set(prev);
-            newSet.delete(deletedId);
-            return newSet;
-          });
-        }
+        // 2. Refresh stats? No, rely on service_attendance channel as well or just remove.
+        // If we delete a member, service_attendance trigger should fire.
       })
 
       // Other Tables: Keep using refreshData for now or implement similar logic

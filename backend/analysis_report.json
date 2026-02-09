@@ -1,0 +1,134 @@
+{
+  "totalRows": 4430,
+  "brokenCount": 4430,
+  "uniqueBrokenIDs": 1900,
+  "uniqueMissingUUIDs": 1852,
+  "breakdown": {
+    "legacy": 48,
+    "nulls": 0,
+    "invalidFormat": 0,
+    "missingUuid": 4382
+  },
+  "samples": [
+    {
+      "id": "d901324a-c42f-4e83-ba7c-fa164172689e",
+      "member_id": "d3fe5924-f8d4-4c66-bf9e-14057a5941d6",
+      "service_id": "45d9ddd2-3c36-40df-a0a6-1a61a6f30fbb",
+      "type": "MISSING_UUID"
+    },
+    {
+      "id": "e79617be-dc04-4a1a-966b-a58a2e9abb33",
+      "member_id": "3f61f00e-b0b5-4332-8efd-83380d7e2d49",
+      "service_id": "78a1a915-8195-4490-a895-437c6e84e389",
+      "type": "MISSING_UUID"
+    },
+    {
+      "id": "28a281c7-38d6-4a2d-ad36-07c9d6af235c",
+      "member_id": "eda1da4b-5819-4a0c-a938-353c7694fd27",
+      "service_id": "48ad2e52-088c-4065-bf8f-67ba70209629",
+      "type": "MISSING_UUID"
+    },
+    {
+      "id": "75739936-fa70-4539-864b-3caf9337511a",
+      "member_id": "2ffa7ba0-c94d-424d-9156-c55ac28c004c",
+      "service_id": "48ad2e52-088c-4065-bf8f-67ba70209629",
+      "type": "MISSING_UUID"
+    },
+    {
+      "id": "8c19e2f1-720b-44d4-8c68-77ce0f248ba6",
+      "member_id": "44ae078e-5f12-495c-811e-cbdf957b05e8",
+      "service_id": "38975f9c-5f10-4a62-8917-3ecd94896a76",
+      "type": "MISSING_UUID"
+    },
+    {
+      "id": "1eefc17d-2fd7-4bea-8501-902e7e172786",
+      "member_id": "0b0b2871-760a-473b-a67e-9153d5b5be21",
+      "service_id": "45d9ddd2-3c36-40df-a0a6-1a61a6f30fbb",
+      "type": "MISSING_UUID"
+    },
+    {
+      "id": "1d9fd70c-4662-430a-8805-f854fee3bf41",
+      "member_id": "2ffa7ba0-c94d-424d-9156-c55ac28c004c",
+      "service_id": "45d9ddd2-3c36-40df-a0a6-1a61a6f30fbb",
+      "type": "MISSING_UUID"
+    },
+    {
+      "id": "b9e3ca1e-79fe-48ad-a086-ab1704667682",
+      "member_id": "3f61f00e-b0b5-4332-8efd-83380d7e2d49",
+      "service_id": "1f6ca204-9e0f-4d4c-b1b8-021c9e2c1d17",
+      "type": "MISSING_UUID"
+    },
+    {
+      "id": "dca96814-2a9c-430d-903d-3068fdaf61fb",
+      "member_id": "de96c0da-fdee-4dfd-9a66-47bad8c26b20",
+      "service_id": "45d9ddd2-3c36-40df-a0a6-1a61a6f30fbb",
+      "type": "MISSING_UUID"
+    },
+    {
+      "id": "f73fb70c-73f5-4c89-a77a-68bbc3743c30",
+      "member_id": "2ffa7ba0-c94d-424d-9156-c55ac28c004c",
+      "service_id": "034b6944-df96-4948-a9bb-a498798d846e",
+      "type": "MISSING_UUID"
+    },
+    {
+      "id": "cbae5cfd-1685-4f4e-9131-249caedcc7ea",
+      "member_id": "0b0b2871-760a-473b-a67e-9153d5b5be21",
+      "service_id": "38975f9c-5f10-4a62-8917-3ecd94896a76",
+      "type": "MISSING_UUID"
+    },
+    {
+      "id": "96f90544-14bf-4748-9cb0-c7b5d922ea48",
+      "member_id": "de96c0da-fdee-4dfd-9a66-47bad8c26b20",
+      "service_id": "034b6944-df96-4948-a9bb-a498798d846e",
+      "type": "MISSING_UUID"
+    },
+    {
+      "id": "c7dcfacd-3d94-4b37-93a4-ae29e4ae2251",
+      "member_id": "859c2343-a83a-4e13-b1fb-8648f48a6a1c",
+      "service_id": "48ad2e52-088c-4065-bf8f-67ba70209629",
+      "type": "MISSING_UUID"
+    },
+    {
+      "id": "0a40b0e6-b8af-443a-86be-cf32df87f106",
+      "member_id": "f3ab8d46-bdba-4562-8428-98e68933726f",
+      "service_id": "48ad2e52-088c-4065-bf8f-67ba70209629",
+      "type": "MISSING_UUID"
+    },
+    {
+      "id": "0e90ae0b-5b8c-4422-b747-57f44c5bae8c",
+      "member_id": "df4c4473-5b0f-4d0c-bb25-c7138c4e4e1f",
+      "service_id": "48ad2e52-088c-4065-bf8f-67ba70209629",
+      "type": "MISSING_UUID"
+    },
+    {
+      "id": "66c9b3d4-d355-4c5e-b40e-f869ea969d97",
+      "member_id": "df4c4473-5b0f-4d0c-bb25-c7138c4e4e1f",
+      "service_id": "38975f9c-5f10-4a62-8917-3ecd94896a76",
+      "type": "MISSING_UUID"
+    },
+    {
+      "id": "bfa790f5-1996-4283-a4b4-561b554e8dce",
+      "member_id": "47c8db7d-f0a1-422b-b75d-c875a3123baf",
+      "service_id": "48ad2e52-088c-4065-bf8f-67ba70209629",
+      "type": "MISSING_UUID"
+    },
+    {
+      "id": "14e41640-f94a-4232-ad39-166ea79905ae",
+      "member_id": "6cd0d49b-15dd-4a97-9250-027b9baed476",
+      "service_id": "48ad2e52-088c-4065-bf8f-67ba70209629",
+      "type": "MISSING_UUID"
+    },
+    {
+      "id": "2e2db596-41ee-4378-b9dd-b2d125bf05ee",
+      "member_id": "6cd0d49b-15dd-4a97-9250-027b9baed476",
+      "service_id": "45d9ddd2-3c36-40df-a0a6-1a61a6f30fbb",
+      "type": "MISSING_UUID"
+    },
+    {
+      "id": "031c5d49-5ec3-44f9-a1d0-714319dbe19b",
+      "member_id": "6cd0d49b-15dd-4a97-9250-027b9baed476",
+      "service_id": "38975f9c-5f10-4a62-8917-3ecd94896a76",
+      "type": "MISSING_UUID"
+    }
+  ]
+}

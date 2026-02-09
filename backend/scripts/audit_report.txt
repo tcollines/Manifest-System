@@ -1,0 +1,24 @@
+--- COMPREHENSIVE UUID COMPLIANCE AUDIT ---
+
+1. Primary Key Type Verification
+❌ members: Error checking id type - Could not find the function public.exec_sql(sql_query) in the schema cache
+❌ users: Error checking id type - Could not find the function public.exec_sql(sql_query) in the schema cache
+❌ departments: Error checking id type - Could not find the function public.exec_sql(sql_query) in the schema cache
+❌ events: Error checking id type - Could not find the function public.exec_sql(sql_query) in the schema cache
+❌ services: Error checking id type - Could not find the function public.exec_sql(sql_query) in the schema cache
+❌ service_attendance: Error checking id type - Could not find the function public.exec_sql(sql_query) in the schema cache
+❌ souls: Error checking id type - Could not find the function public.exec_sql(sql_query) in the schema cache
+❌ requisitions: Error checking id type - Could not find the function public.exec_sql(sql_query) in the schema cache
+
+2. Referential Integrity Checks
+Checking service_attendance.member_id -> members.id...
+✅ service_attendance.member_id -> members: 0 Orphans
+Checking souls.member_id -> members.id...
+✅ souls.member_id -> members: 0 Orphans
+Checking users.department_id -> departments.id...
+❌ users.department_id -> departments: 1 Orphans Found!
+   Examples: d0
+
+3. Legacy ID Column Scan
+
+--- End of Audit ---

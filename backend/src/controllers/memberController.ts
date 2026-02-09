@@ -263,11 +263,18 @@ export const getServiceStats = async (req: Request, res: Response) => {
     try {
         const { data: attendance, error: attError } = await supabase
             .from('service_attendance')
-            .select('member_id')
+            .select('member_id, check_in_time')
             .eq('service_id', serviceId);
 
         if (attError) throw attError;
-        const memberIds = attendance?.map(a => a.member_id) || [];
+
+        // Filter out audit-excluded records (1970-01-01)
+        const validAttendance = (attendance || []).filter(a => {
+            if (!a.check_in_time) return true;
+            return !a.check_in_time.startsWith('1970-01-01');
+        });
+
+        const memberIds = validAttendance.map(a => a.member_id);
 
         if (memberIds.length === 0) {
             return res.json({ total: 0, firstTimers: 0, memberIds: [] });
@@ -279,7 +286,7 @@ export const getServiceStats = async (req: Request, res: Response) => {
             const chunk = memberIds.slice(i, i + chunkSize);
             const { data: chunkMembers, error: chunkError } = await supabase
                 .from('members')
-                .select('id, joined_date, category')
+                .select('id, joined_date, category, first_timer_service_id')
                 .in('id', chunk);
 
             if (chunkError) {
@@ -293,10 +300,14 @@ export const getServiceStats = async (req: Request, res: Response) => {
 
 
         const firstTimerCount = (members || []).filter(m => {
-            if (!m.joined_date) return false;
-            // Handle both ISO strings and DB space-separated timestamps
-            const joinedDate = m.joined_date.split('T')[0].split(' ')[0];
-            return joinedDate === serviceDate;
+            // Case 1: Joined on the exact date of the service
+            const joinedDate = m.joined_date ? m.joined_date.split('T')[0].split(' ')[0] : null;
+            if (joinedDate === serviceDate) return true;
+
+            // Case 2: Explicitly marked for this service as a first timer (handles pre-registration)
+            if (m.first_timer_service_id === serviceId) return true;
+
+            return false;
         }).length;
 
 
