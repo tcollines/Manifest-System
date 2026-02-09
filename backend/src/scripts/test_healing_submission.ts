@@ -1,5 +1,5 @@
 
-import fetch from 'node-fetch';
+
 
 async function testSubmission() {
     const payload = {
