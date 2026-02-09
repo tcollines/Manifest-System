@@ -8,43 +8,56 @@ interface RoleRedirectProps {
 
 const RoleRedirect: React.FC<RoleRedirectProps> = ({ user }) => {
     const navigate = useNavigate();
+    const [departments, setDepartments] = React.useState<any[]>([]);
 
     useEffect(() => {
         if (!user) return;
+
+        // Load Departments for 'Head of Dept'
+        if (user.role === 'Head of Dept') {
+            // We can lazy load or assumes loaded.
+            // Best to use a hook or store.
+            // For now, let's fetch.
+            import('../services/api').then(({ apiFetch }) => {
+                apiFetch('/departments').then(data => {
+                    const myDept = data.find((d: any) => d.id === user.departmentUid || d.code === user.departmentId);
+                    if (myDept && myDept.dashboardRoute) {
+                        navigate(myDept.dashboardRoute);
+                    } else {
+                        // Fallback if no route defined
+                        navigate('/dashboard');
+                    }
+                }).catch(() => navigate('/dashboard'));
+            });
+            return;
+        }
 
         if (user.role === 'Super Admin' || user.role === 'Administrator') {
             navigate('/dashboard');
             return;
         }
 
-        // Role-specific overrides
+        // Role-specific overrides from original logic
         if (user.role === 'Logistics') {
             navigate('/registration');
             return;
         }
-        if (user.role === 'Coordinator' || user.role === 'Vehicle Coordinator') {
-            navigate('/transportation');
-            return;
-        }
-        if (user.role === 'Stage Coordinator') {
-            navigate('/stage-dashboard');
+        if (user.role === 'Stage Coordinator' || user.role === 'Coordinator' || user.role === 'Vehicle Coordinator') {
+            if (user.stationId) navigate('/stage-dashboard');
+            else navigate('/transportation');
             return;
         }
 
-        // Map Department ID to Dashboard View
-        switch (user.departmentId) {
-            case 'd1': navigate('/registration'); break;
-            case 'd2': navigate('/next-gen'); break;
-            case 'd3': navigate('/parking'); break;
-            case 'd4': navigate('/finance'); break;
-            case 'd5': navigate('/transportation'); break;
-            case 'd6': navigate('/follow-up'); break;
-            case 'd7': navigate('/schools'); break;
-            default: navigate('/team-dashboard'); break;
-        }
+        // Default fallback if no specific role or department rule applies
+        navigate('/dashboard');
+
     }, [user, navigate]);
 
-    return <div className="flex items-center justify-center h-screen">Redirecting...</div>;
+    return (
+        <div className="min-h-screen flex items-center justify-center bg-gray-50">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-ministry-orange"></div>
+        </div>
+    );
 };
 
 export default RoleRedirect;

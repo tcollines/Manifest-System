@@ -12,6 +12,7 @@ import { ManifestStore } from '../database/manifestStore';
 import { EventStore } from '../database/eventStore';
 import { SoulsStore } from '../database/soulsStore';
 import { supabase } from '../services/supabaseClient';
+import { v4 as uuidv4 } from 'uuid';
 import * as XLSX from 'xlsx';
 import {
   ClipboardCheck,
@@ -1101,7 +1102,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
     }
 
     const newMember: Member = {
-      id: crypto.randomUUID(),
+      id: uuidv4(),
       name: formData.name,
       category: formData.category as any,
       phone: fullPhone,
@@ -1392,7 +1393,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
     try {
       const res = await VehicleStore.addVehicle({
         ...vehicleForm,
-        id: crypto.randomUUID(),
+        id: uuidv4(),
         number_plate: formatted, // Use formatted plate
         stationId: selectedStation.id,
         eventId: selectedStation.eventId,
@@ -1470,7 +1471,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
 
         if (name) {
           const newMember: Member = {
-            id: crypto.randomUUID(),
+            id: uuidv4(),
             name,
             phone,
             category: 'Member', // Forced as requested
@@ -1565,7 +1566,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
     e.preventDefault();
     try {
       const newEvent: MinistryEvent = {
-        id: crypto.randomUUID(),
+        id: uuidv4(),
         title: eventForm.title,
         type: eventFormType,
         date: eventForm.date,
@@ -1703,7 +1704,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
           } else {
             // Create new if none existed but added in edit
             const newEntrant: User = {
-              id: crypto.randomUUID(),
+              id: uuidv4(),
               name: stationForm.entrantName,
               username: stationForm.entrantUsername,
               password: stationForm.entrantPassword,
@@ -1737,7 +1738,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
     }
 
     // CREATE LOGIC
-    const stationId = crypto.randomUUID();
+    const stationId = uuidv4();
     const newStation: ExtendedStation = {
       id: stationId,
       name: stationForm.name,
@@ -1756,7 +1757,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
 
       if (stationForm.entrantName && stationForm.entrantUsername && stationForm.entrantPassword) {
         const newEntrant: User = {
-          id: crypto.randomUUID(),
+          id: uuidv4(),
           name: stationForm.entrantName,
           username: stationForm.entrantUsername,
           password: stationForm.entrantPassword,
@@ -1787,7 +1788,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
     }
 
     const newUser: User = {
-      id: crypto.randomUUID(),
+      id: uuidv4(),
       name: newEntrant.name,
       username: newEntrant.username,
       password: newEntrant.password,
@@ -1855,7 +1856,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
 
     const payload: Passenger = {
       ...passengerForm,
-      id: passengerForm.id || crypto.randomUUID(), // Use existing ID if editing
+      id: passengerForm.id || uuidv4(), // Use existing ID if editing
       vehicleId: selectedVehicle.id,
       contact: sanitize(finalContact) || '256',
       parentContact: sanitize(finalParentContact),

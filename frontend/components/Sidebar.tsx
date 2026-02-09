@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -24,7 +24,7 @@ import {
   UserPlus,
   Heart
 } from 'lucide-react';
-import { ModalType, User } from '../types';
+import { ModalType, User, Department } from '../types';
 
 interface SidebarProps {
   currentUser: User;
@@ -34,23 +34,40 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ currentUser, onLogout, isOpen, onClose }) => {
+  const [departments, setDepartments] = useState<Department[]>([]);
+
+  useEffect(() => {
+    const fetchDepts = async () => {
+      try {
+        const { apiFetch } = await import('../services/api');
+        const data = await apiFetch('/departments');
+        if (Array.isArray(data)) setDepartments(data);
+      } catch (e) {
+        console.error("Failed to load departments in sidebar", e);
+      }
+    };
+    fetchDepts();
+  }, []);
+
+  const getDeptId = (code: string) => departments.find(d => d.code === code)?.id;
+  const checkDept = (code: string) => currentUser.departmentUid === getDeptId(code) || currentUser.departmentId === code;
 
   // Custom Menus based on Department Leads
-  const isRegistrationHead = currentUser.role === 'Head of Dept' && currentUser.departmentId === 'd1';
-  const isNextGenHead = currentUser.role === 'Head of Dept' && currentUser.departmentId === 'd2';
-  const isParkingHead = currentUser.role === 'Head of Dept' && currentUser.departmentId === 'd3';
-  const isFinanceHead = currentUser.role === 'Head of Dept' && currentUser.departmentId === 'd4';
-  const isTransportationHead = currentUser.role === 'Head of Dept' && currentUser.departmentId === 'd5';
-  const isSchoolsHead = currentUser.role === 'Head of Dept' && currentUser.departmentId === 'd7';
+  const isRegistrationHead = currentUser.role === 'Head of Dept' && checkDept('d1');
+  const isNextGenHead = currentUser.role === 'Head of Dept' && checkDept('d2');
+  const isParkingHead = currentUser.role === 'Head of Dept' && checkDept('d3');
+  const isFinanceHead = currentUser.role === 'Head of Dept' && checkDept('d4');
+  const isTransportationHead = currentUser.role === 'Head of Dept' && checkDept('d5');
+  const isSchoolsHead = currentUser.role === 'Head of Dept' && checkDept('d7');
   // Healing Head or Staff (d8) - Restricted View
-  const isHealingHead = (currentUser.role === 'Head of Dept' || currentUser.role === 'Staff') && currentUser.departmentId === 'd8';
+  const isHealingHead = (currentUser.role === 'Head of Dept' || currentUser.role === 'Staff') && checkDept('d8');
 
   const isStageCoordinator = (currentUser.role === 'Stage Coordinator' || currentUser.role === 'Coordinator') && !!currentUser.stationId;
   const isVehicleCoordinator = (currentUser.role === 'Vehicle Coordinator' || currentUser.role === 'Coordinator') && !currentUser.stationId;
   const isLogisticsEntrant = currentUser.role === 'Logistics';
   const isTeamLeader = currentUser.role === 'TeamLeader';
-  const isFollowUpHead = (currentUser.role === 'Head of Dept' || currentUser.role === 'Dept Admin') && currentUser.departmentId === 'd6';
-  const isFollowUpMember = currentUser.role === 'Member' && currentUser.departmentId === 'd6';
+  const isFollowUpHead = (currentUser.role === 'Head of Dept' || currentUser.role === 'Dept Admin') && checkDept('d6');
+  const isFollowUpMember = currentUser.role === 'Member' && checkDept('d6');
 
   let menuItems: any[] = [];
 

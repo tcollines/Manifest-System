@@ -8,13 +8,7 @@ export interface KPI {
   icon: string;
 }
 
-export interface Department {
-  id: string;
-  name: string;
-  head: string;
-  members: number;
-  status: 'Active' | 'Inactive';
-}
+
 
 export interface VolunteerAttendance {
   id: string;
@@ -80,7 +74,8 @@ export interface User {
   id: string;
   name: string;
   role: string;
-  departmentId?: string;
+  departmentId?: string; // Legacy Code (e.g. 'd1')
+  departmentUid?: string; // New UUID
   // Credentials & Contact
   username?: string;
   password?: string;
@@ -399,11 +394,15 @@ export interface TrainingRequest {
 // Monthly Reporting System Types
 
 export interface Department {
-  id: string; // 'd1', 'd2', etc.
+  id: string; // UUID
+  code: string; // 'd1', 'd2' etc.
   name: string;
   headId?: string;
+  dashboardRoute?: string; // e.g. /registration
+  status?: 'Active' | 'Inactive';
   // Computed/Joined fields
   headName?: string;
+  members?: number;
 }
 
 export interface ReportField {

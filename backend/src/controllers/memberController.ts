@@ -273,14 +273,32 @@ export const getServiceStats = async (req: Request, res: Response) => {
             return res.json({ total: 0, firstTimers: 0, memberIds: [] });
         }
 
-        const { data: members, error: memError } = await supabase
-            .from('members')
-            .select('id, joined_date, category')
-            .in('id', memberIds);
+        let members: any[] = [];
+        const chunkSize = 200;
+        for (let i = 0; i < memberIds.length; i += chunkSize) {
+            const chunk = memberIds.slice(i, i + chunkSize);
+            const { data: chunkMembers, error: chunkError } = await supabase
+                .from('members')
+                .select('id, joined_date, category')
+                .in('id', chunk);
 
-        if (memError) throw memError;
+            if (chunkError) {
+                console.error(`[getServiceStats] Chunk error:`, chunkError);
+                throw chunkError;
+            }
+            if (chunkMembers) {
+                members = members.concat(chunkMembers);
+            }
+        }
 
-        const firstTimerCount = (members || []).filter(m => m.category === 'First Timer').length;
+
+        const firstTimerCount = (members || []).filter(m => {
+            if (!m.joined_date) return false;
+            // Handle both ISO strings and DB space-separated timestamps
+            const joinedDate = m.joined_date.split('T')[0].split(' ')[0];
+            return joinedDate === serviceDate;
+        }).length;
+
 
         const validMemberIds = members?.map(m => m.id) || [];
 
