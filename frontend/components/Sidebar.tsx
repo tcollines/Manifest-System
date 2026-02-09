@@ -50,7 +50,11 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, onLogout, isOpen, onClos
   }, []);
 
   const getDeptId = (code: string) => departments.find(d => d.code === code)?.id;
-  const checkDept = (code: string) => currentUser.departmentUid === getDeptId(code) || currentUser.departmentId === code;
+  const checkDept = (code: string) => {
+    const deptId = getDeptId(code);
+    if (!deptId) return false; // If department hasn't loaded or doesn't exist, don't match
+    return currentUser.departmentUid === deptId || currentUser.departmentId === code;
+  };
 
   // Custom Menus based on Department Leads
   const isRegistrationHead = currentUser.role === 'Head of Dept' && checkDept('d1');
