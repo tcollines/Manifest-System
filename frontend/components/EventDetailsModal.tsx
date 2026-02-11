@@ -71,8 +71,18 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({ event, onClose })
         }
 
         const highlights = await EventStore.getHighlights(targetEventId);
+
+        // Parallel Fetch: Get accurate Souls Count from SoulsStore (Source of Truth)
+        // The SQL function might return 0 if only looking at passengers, but SoulsStore looks at souls table + next gen
+        const soulsCount = await SoulsStore.getServiceStats(targetEventId);
+
         if (highlights) {
-          setStats(highlights);
+          setStats({
+            ...highlights,
+            soulsWon: soulsCount // Override with direct store fetch
+          });
+        } else {
+          setStats(prev => ({ ...prev, soulsWon: soulsCount }));
         }
       } catch (error) {
         console.error("Error calculating event stats:", error);
@@ -114,8 +124,8 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({ event, onClose })
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
             <StatCard label="Total Attendees" value={stats.attendees} icon={Users} colorClass="bg-blue-500" />
-            <StatCard label="First Timers" value={stats.firstTimers} icon={Users} colorClass="bg-green-500" />
             <StatCard label="Souls Won" value={stats.soulsWon || event.stats.soulsWon || 0} icon={Heart} colorClass="bg-red-500" />
+            <StatCard label="First Timers" value={stats.firstTimers} icon={Users} colorClass="bg-green-500" />
 
             {/* Dynamic Stats */}
             <StatCard label="Fleet Vehicles" value={stats.vehicles} icon={Bus} colorClass="bg-yellow-500" />

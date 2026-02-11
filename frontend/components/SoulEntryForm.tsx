@@ -14,11 +14,12 @@ interface SoulEntryFormProps {
     eventId?: string;
     stationId?: string;
     vehicleId?: string;
+    capturedBy?: string;
 }
 
 const SoulEntryForm: React.FC<SoulEntryFormProps> = ({
     sourceType, sourceId, sourceName, existingMember, initialData,
-    eventId, stationId, vehicleId,
+    eventId, stationId, vehicleId, capturedBy,
     onSubmit, onCancel
 }) => {
     const { confirm: askConfirm } = useNotification();
@@ -95,7 +96,7 @@ const SoulEntryForm: React.FC<SoulEntryFormProps> = ({
             eventId: resolvedEventId,
             stationId,
             vehicleId,
-            capturedBy: 'System' // Default, acts as filler until auth context is passed or "self" for public
+            capturedBy: capturedBy || 'System' // Default to System for backward compatibility
         });
         // Reset form
         setFormData({

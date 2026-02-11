@@ -42,7 +42,10 @@ const mapSoulToDB = (s: Soul) => ({
     age: s.age,
     occupation: s.occupation,
     invited_by: s.invitedBy,
-    ministry: s.ministry
+    ministry: s.ministry,
+    event_id: s.eventId,
+    station_id: s.stationId,
+    vehicle_id: s.vehicleId
 });
 
 export const SoulsStore = {

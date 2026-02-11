@@ -1,0 +1,8 @@
+{
+  "error": {
+    "code": "23502",
+    "details": "Failing row contains (null, TestUUID, AutoCheck, 0700000002, null, Male, TestLab, New, Event, a1a110f7-c859-4b0c-92ba-7b2b1c12881c, 00000000-0000-0000-0000-000000000000, null, 2026-02-10 23:28:21.797644+00, 2026-02-10 23:28:21.797644+00, null, null, null, null, null, null, null, a1a110f7-c859-4b0c-92ba-7b2b1c12881c, 741255a7-b6fd-476b-b2da-ab3f4e7294a6, null, a1a110f7-c859-4b0c-92ba-7b2b1c12881c, 741255a7-b6fd-476b-b2da-ab3f4e7294a6, null, null).",
+    "hint": null,
+    "message": "null value in column \"id\" of relation \"souls\" violates not-null constraint"
+  }
+}

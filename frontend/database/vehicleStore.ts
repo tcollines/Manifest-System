@@ -219,7 +219,9 @@ export const VehicleStore = {
             boarding_type: passenger.boardingType,
             gender: passenger.gender,
             parent_contact: passenger.parentContact,
-            soul_won: passenger.soulWon
+            soul_won: passenger.soulWon,
+            event_id: passenger.eventId, // Added field
+            station_id: passenger.stationId // Added field
         };
         try {
             await apiFetch('/vehicles/passengers', {
@@ -246,7 +248,8 @@ export const VehicleStore = {
             boarding_type: passenger.boardingType,
             gender: passenger.gender,
             parent_contact: passenger.parentContact,
-            soul_won: passenger.soulWon
+            soul_won: passenger.soulWon,
+            event_id: passenger.eventId // Added field
         };
         try {
             await apiFetch(`/vehicles/passengers/${passenger.id}`, {

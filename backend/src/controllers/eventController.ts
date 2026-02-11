@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { supabase } from '../supabase';
 import { v4 as uuidv4 } from 'uuid';
+import { toUUID, logLegacyFallback } from '../utils/uuid';
 
 export const getAllEvents = async (req: Request, res: Response) => {
     try {
@@ -53,9 +54,15 @@ export const createEvent = async (req: Request, res: Response) => {
         // Track the old ID for data migration
         const oldId = (inputId && String(inputId).startsWith('evt-')) ? String(inputId) : null;
 
-        // Ensure ID is present (Manual Gen if DB doesn't default)
+        // In Phase 3B, 'id' is the native UUID column. 
+        // We ensure a UUID is assigned if missing or if it was a temp 'evt-' ID.
         if (!payload.id || String(payload.id).startsWith('evt-')) {
             payload.id = uuidv4();
+        }
+
+        // Keep legacy_id for tracing
+        if (oldId) {
+            payload.legacy_id = oldId;
         }
 
         // Force service_number if missing (Fix for NOT NULL constraint)
@@ -95,7 +102,17 @@ export const createEvent = async (req: Request, res: Response) => {
 export const updateEvent = async (req: Request, res: Response) => {
     const { id } = req.params;
     try {
-        const { error } = await supabase.from('ministry_events').update(req.body).eq('id', id);
+        const payload = { ...req.body };
+        const idUuid = toUUID(id);
+
+        if (idUuid) {
+            payload.id = idUuid;
+            payload.legacy_id = id;
+        }
+
+        const { error } = await supabase.from('ministry_events')
+            .update(payload)
+            .or(`id.eq.${idUuid},legacy_id.eq.${id}`);
         if (error) throw error;
         res.json({ message: 'Event updated' });
     } catch (error: any) {
@@ -181,7 +198,7 @@ export const deleteEvent = async (req: Request, res: Response) => {
         await supabase.from('next_gen_souls').delete().eq('service_id', id);
 
         // 11. Delete the Event itself
-        const { error } = await supabase.from('ministry_events').delete().eq('id', id);
+        const { error } = await supabase.from('ministry_events').delete().or(`id.eq.${toUUID(id)},legacy_id.eq.${id}`);
         if (error) throw error;
 
         res.json({ message: 'Event and related data deleted' });
@@ -193,12 +210,125 @@ export const deleteEvent = async (req: Request, res: Response) => {
 export const getEventHighlights = async (req: Request, res: Response) => {
     const { id } = req.params;
     try {
-        const { data, error } = await supabase.rpc('get_event_highlights', { event_uuid: id });
+        let eventUuid = toUUID(id);
 
-        if (error) throw error;
+        if (!eventUuid) {
+            const { data: event } = await supabase
+                .from('ministry_events')
+                .select('id')
+                .eq('legacy_id', id)
+                .single();
 
-        res.json(data);
+            eventUuid = event?.id;
+            logLegacyFallback('ministry_events', id, 'getEventHighlights');
+        }
+
+        if (!eventUuid) {
+            return res.status(400).json({ error: "Event not found or missing UUID mapping" });
+        }
+
+        // 1. Fetch Event Header & Metadata (Base Stats Source)
+        const eventQuery = supabase.from('ministry_events').select('*').eq('id', eventUuid).single();
+
+        // 2. Fetch Service Attendance
+        const attendanceQuery = supabase.from('service_attendance').select('member_id').eq('service_id', eventUuid);
+
+        // 3. Fetch Souls (Main Table)
+        const soulsQuery = supabase.from('souls').select('id').or(`event_id.eq.${eventUuid},source_id.eq.${eventUuid}`);
+
+        // 4. Fetch Next Gen Souls
+        const nextGenSoulsQuery = supabase.from('next_gen_souls').select('id').eq('service_id', eventUuid);
+
+        // 5. Fetch Finance Expenditure
+        const financeQuery = supabase.from('transactions').select('amount').eq('event_id', eventUuid).eq('type', 'Expense');
+
+        // Execute core queries in parallel
+        const [
+            { data: eventData },
+            { data: attendanceData },
+            { data: soulsData },
+            { data: nextGenData },
+            { data: financeData }
+        ] = await Promise.all([
+            eventQuery,
+            attendanceQuery,
+            soulsQuery,
+            nextGenSoulsQuery,
+            financeQuery
+        ]);
+
+        // 6. Logistics Stats (Heavier chain)
+        let fleetCount = 0;
+        let logisticsChildren = 0;
+        let pCount = 0;
+        let pFirstTimers = 0;
+        let pStudents = 0;
+        let pInstitutions = 0;
+        let pSouls = 0;
+        let fleetExpenditure = 0;
+
+        const { data: stations } = await supabase.from('pickup_stations').select('id').eq('event_id', eventUuid);
+        if (stations && stations.length > 0) {
+            const stationIds = stations.map(s => s.id);
+            const { data: vehicles } = await supabase.from('vehicles').select('id, children, finance_details').in('station_id', stationIds);
+
+            if (vehicles && vehicles.length > 0) {
+                fleetCount = vehicles.length;
+                logisticsChildren = vehicles.reduce((acc, v) => acc + (v.children || 0), 0);
+
+                // Extract fleet expenditure
+                fleetExpenditure = vehicles.reduce((acc, v) => {
+                    const dispatch = v.finance_details?.ongoingDispatch;
+                    return acc + (dispatch ? parseFloat(dispatch) || 0 : 0);
+                }, 0);
+
+                const vehicleIds = vehicles.map(v => v.id);
+                const { data: passengers } = await supabase.from('passengers')
+                    .select('id, is_first_time, category, soul_won')
+                    .in('vehicle_id', vehicleIds);
+
+                if (passengers) {
+                    pCount = passengers.length;
+                    pFirstTimers = passengers.filter(p => p.is_first_time === 'Yes').length;
+                    pStudents = passengers.filter(p => p.category === 'Student').length;
+                    pInstitutions = passengers.filter(p => p.category === 'Institution').length;
+                    pSouls = passengers.filter(p => p.soul_won === true).length;
+                }
+            }
+        }
+
+        // 7. Personal Cars
+        const { count: pcCount } = await supabase.from('personal_vehicles')
+            .select('*', { count: 'exact', head: true })
+            .or(`current_service_id.eq.${eventUuid},attended_service_ids.cs.{"${eventUuid}"}`);
+
+        // 8. Aggregate final values
+        const serviceAttendanceCount = attendanceData?.length || 0;
+        const soulsTotal = (soulsData?.length || 0) + (nextGenData?.length || 0) || pSouls;
+        const financeExpenditure = financeData?.reduce((acc, t) => acc + (t.amount || 0), 0) || 0;
+
+        // Final Logic consistent with RPC: MAX(Logistics, Service)
+        const finalAttendees = Math.max(pCount + logisticsChildren, serviceAttendanceCount);
+
+        // If we found NO data via live check-in tables, fallback to the snapshot in ministry_events.stats
+        // This handles "historical" records from before the real-time system was active.
+        const snapshot = eventData?.stats || {};
+
+        const response = {
+            vehicles: fleetCount || snapshot.vehicles || 0,
+            personalCars: pcCount || snapshot.personalCars || 0,
+            students: pStudents || snapshot.students || 0,
+            institutions: pInstitutions || snapshot.institutions || 0,
+            attendees: finalAttendees || snapshot.attendees || 0,
+            firstTimers: pFirstTimers || snapshot.firstTimers || 0,
+            soulsWon: soulsTotal || snapshot.soulsWon || 0,
+            children: logisticsChildren || snapshot.children || 0,
+            expenditure: (fleetExpenditure + financeExpenditure) || (snapshot.expenditure ? parseFloat(snapshot.expenditure.replace(/,/g, '')) : 0) || 0
+        };
+
+        res.json(response);
     } catch (error: any) {
+        console.error("[getEventHighlights] Error:", error);
         res.status(500).json({ error: error.message });
     }
 };

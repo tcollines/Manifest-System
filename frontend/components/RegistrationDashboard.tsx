@@ -56,7 +56,8 @@ import {
   History,
   Settings,
   User as UserIcon,
-  Copy
+  Copy,
+  Heart
 } from 'lucide-react';
 import EventDetailsModal from './EventDetailsModal';
 import { AssetsTab } from './AssetsTab';
@@ -300,7 +301,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
   const [isChildCountModalOpen, setIsChildCountModalOpen] = useState(false);
 
   // Check-in Stats State
-  const [checkInStats, setCheckInStats] = useState({ total: 0, firstTimers: 0 });
+  const [checkInStats, setCheckInStats] = useState({ total: 0, firstTimers: 0, soulsWon: 0 });
   const [checkedInIds, setCheckedInIds] = useState<Set<string>>(new Set());
 
   // Member Details View State
@@ -335,7 +336,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
           try {
             const stats = await MemberStore.getServiceStats(selectedService.id, selectedService.date);
             const childrenCount = selectedService.stats?.manualChildrenCount || 0;
-            setCheckInStats({ total: stats.total + childrenCount, firstTimers: stats.firstTimers });
+            setCheckInStats(prev => ({ ...prev, total: stats.total + childrenCount, firstTimers: stats.firstTimers }));
             setCheckedInIds(new Set(stats.memberIds));
           } catch (error) {
             console.error("Realtime sync failed:", error);
@@ -344,8 +345,24 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
       )
       .subscribe();
 
+    const channel_souls = supabase
+      .channel(`service-souls-${selectedService.id}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'souls', filter: `source_id=eq.${selectedService.id}` },
+        async () => {
+          try {
+            // Re-fetch souls count
+            const count = await SoulsStore.getServiceStats(selectedService.id);
+            setCheckInStats(prev => ({ ...prev, soulsWon: count }));
+          } catch (e) { console.error("Souls sync failed", e); }
+        }
+      )
+      .subscribe();
+
     return () => {
       supabase.removeChannel(channel);
+      supabase.removeChannel(channel_souls);
     };
   }, [selectedService?.id, viewMode]);
 
@@ -651,8 +668,9 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
     setViewMode('service-active');
     // Fetch initial stats
     const stats = await MemberStore.getServiceStats(service.id, service.date);
+    const souls = await SoulsStore.getServiceStats(service.id);
     const childrenCount = service.stats?.manualChildrenCount || 0;
-    setCheckInStats({ total: stats.total + childrenCount, firstTimers: stats.firstTimers });
+    setCheckInStats({ total: stats.total + childrenCount, firstTimers: stats.firstTimers, soulsWon: souls });
     setCheckedInIds(new Set(stats.memberIds));
   };
 
@@ -666,6 +684,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
       ['Date', selectedService.date],
       ['Total Members Checked In', checkInStats.total],
       ['First Timers', checkInStats.firstTimers],
+      ['Souls Won', checkInStats.soulsWon],
       ['Children Count', selectedService.stats?.manualChildrenCount || 0]
     ];
 
@@ -1783,8 +1802,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
       finalContact = '256'; // Default placeholder for Contact if Parent Contact is used
     }
 
-    console.log("Submitting Passenger Form:", passengerForm); // DEBUG
-
+    // Contact Confirmation (Hardened)
     // Contact Confirmation (Hardened)
     const isContactEmpty = !finalContact || finalContact === '256' || finalContact.length <= 3;
     const isParentContactEmpty = !finalParentContact || finalParentContact === '256' || finalParentContact.length <= 3;
@@ -1794,11 +1812,28 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
         return;
       }
     }
+    const resolvedEventId = selectedVehicle.eventId
+      || stations.find(s => s.id === selectedVehicle.stationId)?.eventId
+      || selectedLogisticsEvent?.id
+      || selectedService?.id;
+
+    if (!resolvedEventId) {
+      console.error("CRITICAL: No Event ID resolved!", {
+        vehicleEventId: selectedVehicle.eventId,
+        stationEventId: stations.find(s => s.id === selectedVehicle.stationId)?.eventId,
+        logisticsEventId: selectedLogisticsEvent?.id,
+        serviceId: selectedService?.id,
+        vehicleStationId: selectedVehicle.stationId
+      });
+      showToast("System Error: Could not determine current Event. Please refresh.", 'error');
+      return;
+    }
 
     const payload: Passenger = {
       ...passengerForm,
       id: passengerForm.id || uuidv4(), // Use existing ID if editing
       vehicleId: selectedVehicle.id,
+      eventId: resolvedEventId,
       contact: sanitize(finalContact) || '256',
       parentContact: sanitize(finalParentContact),
       residence: sanitize(passengerForm.residence) || '',
@@ -1809,18 +1844,14 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
       soulWon: passengerForm.soulWon // Default handled in store if needed, or pass correctly
     };
 
-    console.log("Passenger Payload:", payload); // DEBUG
-
     try {
       if (passengerForm.id) {
         // UPDATE MODE
-        console.log("Updating existing passenger..."); // DEBUG
         await VehicleStore.updatePassenger(payload);
         setPassengers(prev => prev.map(p => p.id === payload.id ? payload : p));
         showToast("Passenger updated successfully", 'success');
       } else {
         // CREATE MODE
-        console.log("Adding new passenger..."); // DEBUG
         await VehicleStore.addPassenger(payload);
         setPassengers([...passengers, payload]);
         showToast("Passenger added successfully", 'success');
@@ -2444,6 +2475,15 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
                       </div>
                       <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Children Count</p>
                       <p className="text-4xl font-black text-gray-900 mt-2">{selectedService.stats?.manualChildrenCount || 0}</p>
+                    </div>
+
+                    {/* Souls Won */}
+                    <div className="bg-white border border-gray-200 p-6 rounded-2xl shadow-sm flex flex-col items-center justify-center text-center">
+                      <div className="p-3 bg-red-50 text-red-600 rounded-full mb-3">
+                        <Heart className="w-6 h-6" />
+                      </div>
+                      <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Souls Won</p>
+                      <p className="text-4xl font-black text-gray-900 mt-2">{checkInStats.soulsWon}</p>
                     </div>
                   </div>
 

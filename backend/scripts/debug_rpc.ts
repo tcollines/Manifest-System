@@ -1,24 +1,25 @@
+
 import { createClient } from '@supabase/supabase-js';
-import dotenv from 'dotenv';
-import path from 'path';
+import * as dotenv from 'dotenv';
+import * as path from 'path';
 
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
-const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+const supabaseUrl = process.env.SUPABASE_URL!;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const supabase = createClient(supabaseUrl, supabaseKey);
 
-async function runSql(sql: string) {
-    console.log(`Executing SQL: ${sql}`);
-    const { data, error } = await supabase.rpc('exec_sql', { sql_query: sql });
+async function debug() {
+    console.log('--- Debugging RPC get_event_highlights ---');
+    const id = '38975f9c-5f10-4a62-8917-3ecd94896a76'; // S378
+
+    const { data, error } = await supabase.rpc('get_event_highlights', { event_uuid: id });
+
     if (error) {
-        console.error('SQL Execution Failed:', error);
+        console.error('RPC ERROR:', error);
     } else {
-        console.log('Result:', JSON.stringify(data, null, 2));
+        console.log('RPC DATA:', JSON.stringify(data, null, 2));
     }
 }
 
-const sql = process.argv.slice(2).join(' ');
-if (sql) {
-    runSql(sql);
-} else {
-    console.log('Usage: npx ts-node debug_rpc.ts "SELECT ..."');
-}
+debug();

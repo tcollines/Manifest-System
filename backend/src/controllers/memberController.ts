@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
 import { supabase } from '../supabase';
+import { v4 as uuidv4 } from 'uuid';
+import { toUUID, logLegacyFallback } from '../utils/uuid';
 
 export const getMembers = async (req: Request, res: Response) => {
     // DEBUG LOGGING
@@ -96,7 +98,8 @@ export const addMember = async (req: Request, res: Response) => {
         const safeServiceIds = Array.isArray(rawIds) ? rawIds : [rawIds];
 
         const { data, error } = await supabase.rpc('submit_member_entry', {
-            _id: m.id || null,
+            _id: m.id ? toUUID(m.id) : uuidv4(), // Ensure ID is UUID, generate if not provided
+            _legacy_id: m.id || null, // Store original ID as legacy_id
             _name: m.name || null,
             _category: m.category || null,
             _phone: m.phone || null,
@@ -107,7 +110,8 @@ export const addMember = async (req: Request, res: Response) => {
             _born_again: m.born_again || null,
             _joined_date: m.joined_date || m.joinedDate || new Date().toISOString(),
             _attended_service_ids: safeServiceIds || [],
-            _current_service_id: m.currentServiceId || null // Pass context for first-timer logic
+            _current_service_id: m.currentServiceId ? toUUID(m.currentServiceId) : null, // Pass context for first-timer logic
+            _legacy_current_service_id: m.currentServiceId || null
         });
 
         if (error) {
@@ -135,7 +139,7 @@ export const addMember = async (req: Request, res: Response) => {
 };
 
 export const updateMember = async (req: Request, res: Response) => {
-    const { id } = req.params;
+    const { id } = req.params; // This 'id' can be UUID or legacy
     const m = req.body;
 
     // Map frontend CamelCase to DB snake_case
@@ -154,10 +158,14 @@ export const updateMember = async (req: Request, res: Response) => {
     if (m.email !== undefined) updates.email = m.email; // Add if missing
     // Add other fields as necessary based on schema
     if (m.attendedServiceIds !== undefined) updates.attended_service_ids = m.attendedServiceIds;
-
+    if (m.firstTimerServiceId !== undefined) {
+        updates.first_timer_service_id = m.firstTimerServiceId ? toUUID(m.firstTimerServiceId) : null;
+        updates.legacy_first_timer_service_id = m.firstTimerServiceId || null;
+    }
 
     try {
-        const { error } = await supabase.from('members').update(updates).eq('id', id);
+        // Update using either the UUID 'id' or the 'legacy_id'
+        const { error } = await supabase.from('members').update(updates).or(`id.eq.${toUUID(id)},legacy_id.eq.${id}`);
         if (error) throw error;
         res.json({ message: 'Member updated', updates });
     } catch (error: any) {
@@ -167,9 +175,24 @@ export const updateMember = async (req: Request, res: Response) => {
 };
 
 export const deleteMember = async (req: Request, res: Response) => {
-    const { ids } = req.body; // Expecting array of IDs
+    const { ids } = req.body; // Expecting array of IDs (can be UUID or legacy)
     try {
-        const { error } = await supabase.from('members').delete().in('id', ids);
+        // Convert all IDs to UUIDs for the 'id' column, or use legacy_id for non-UUIDs
+        const uuidIds = ids.map((id: string) => toUUID(id)).filter(Boolean);
+        const legacyIds = ids.filter((id: string) => !toUUID(id));
+
+        let query = supabase.from('members').delete();
+        if (uuidIds.length > 0 && legacyIds.length > 0) {
+            query = query.or(`id.in.(${uuidIds.join(',')}),legacy_id.in.(${legacyIds.join(',')})`);
+        } else if (uuidIds.length > 0) {
+            query = query.in('id', uuidIds);
+        } else if (legacyIds.length > 0) {
+            query = query.in('legacy_id', legacyIds);
+        } else {
+            return res.status(400).json({ error: 'No valid IDs provided for deletion.' });
+        }
+
+        const { error } = await query;
         if (error) throw error;
         res.json({ message: 'Members deleted' });
     } catch (error: any) {
@@ -178,7 +201,7 @@ export const deleteMember = async (req: Request, res: Response) => {
 };
 
 export const checkInMember = async (req: Request, res: Response) => {
-    const { memberId, serviceId } = req.body;
+    const { memberId, serviceId } = req.body; // memberId and serviceId can be UUID or legacy
     try {
         // Normalize serviceId to array
         const serviceIds = Array.isArray(serviceId) ? serviceId : [serviceId];
@@ -203,12 +226,12 @@ export const checkInMember = async (req: Request, res: Response) => {
         };
 
         if (validIds.length > 0) {
-            // Check existing
+            // Check existing attendance for the member across all valid service IDs
             const { data: existing } = await supabase
                 .from('service_attendance')
                 .select('service_id')
-                .eq('member_id', memberId)
-                .in('service_id', validIds);
+                .or(`member_id.eq.${toUUID(memberId)},legacy_member_id.eq.${memberId}`)
+                .or(`service_id.in.(${validIds.map(toUUID).filter(Boolean).join(',')}),legacy_service_id.in.(${validIds.join(',')})`);
 
             const existingSet = new Set(existing?.map(e => e.service_id));
             const toInsert = validIds.filter((id: string) => !existingSet.has(id));
@@ -216,33 +239,51 @@ export const checkInMember = async (req: Request, res: Response) => {
             results.alreadyCheckedIn = Array.from(existingSet) as string[];
 
             if (toInsert.length > 0) {
-                const rows = toInsert.map((sid: string) => ({
-                    member_id: memberId,
-                    service_id: sid,
-                    check_in_time: new Date().toISOString()
-                }));
+                const rows = toInsert.map((sid: string) => {
+                    return {
+                        member_id: toUUID(memberId),
+                        legacy_member_id: memberId,
+                        service_id: toUUID(sid),
+                        legacy_service_id: sid,
+                        check_in_time: new Date().toISOString()
+                    };
+                });
 
                 const { error } = await supabase.from('service_attendance').insert(rows);
                 if (error) throw error;
                 results.checkedIn = toInsert;
             }
 
-            // 3. Update Check In Time AND Sync attended_service_ids
+            // 3. Update Member's Check In Time AND Sync attended_service_ids AND Category
             // Fetch member to get current IDs AND Category
-            const { data: member } = await supabase.from('members').select('attended_service_ids, category').eq('id', memberId).single();
+            const { data: member } = await supabase.from('members')
+                .select('attended_service_ids, category, first_timer_service_id')
+                .or(`id.eq.${toUUID(memberId)},legacy_id.eq.${memberId}`)
+                .single();
+
             const currentIds = member?.attended_service_ids || [];
 
             // USE validIds (All requested Check-ins) instead of toInsert (Only new DB rows)
-            const newIds = Array.from(new Set([...currentIds, ...validIds]));
+            const newIds = Array.from(new Set([...currentIds, ...validIds.map(toUUID)])); // Store UUIDs in attended_service_ids
 
             // AUTO-PROMOTE: If they were 'First Timer', they are now a 'Member' (Returning visitor)
             const newCategory = (member?.category === 'First Timer') ? 'Member' : (member?.category);
 
-            await supabase.from('members').update({
-                check_in_time: new Date().toISOString(), // Standardize to ISO
+            const updatePayload: any = {
+                check_in_time: new Date().toISOString(),
                 attended_service_ids: newIds,
-                category: newCategory // Update category if promoted
-            }).eq('id', memberId);
+                category: newCategory
+            };
+
+            // If member was marked as first-timer for one of the services being checked into, clear that flag
+            if (member?.first_timer_service_id && validIds.map(toUUID).includes(member.first_timer_service_id)) {
+                updatePayload.first_timer_service_id = null;
+                updatePayload.legacy_first_timer_service_id = null;
+            }
+
+            await supabase.from('members')
+                .update(updatePayload)
+                .or(`id.eq.${toUUID(memberId)},legacy_id.eq.${memberId}`);
         }
 
         res.json({
@@ -257,14 +298,15 @@ export const checkInMember = async (req: Request, res: Response) => {
 };
 
 export const getServiceStats = async (req: Request, res: Response) => {
-    const { serviceId } = req.params;
+    const { serviceId } = req.params; // serviceId can be UUID or legacy
     const serviceDate = req.query.date as string;
 
     try {
+        // Query attendance using either UUID or legacy ID
         const { data: attendance, error: attError } = await supabase
             .from('service_attendance')
             .select('member_id, check_in_time')
-            .eq('service_id', serviceId);
+            .or(`service_id.eq.${toUUID(serviceId)},legacy_service_id.eq.${serviceId}`);
 
         if (attError) throw attError;
 
@@ -281,16 +323,32 @@ export const getServiceStats = async (req: Request, res: Response) => {
         }
 
         let members: any[] = [];
-        const chunkSize = 200;
+        const chunkSize = 50; // Reduced from 200 to avoid URL length limits in some environments
         for (let i = 0; i < memberIds.length; i += chunkSize) {
             const chunk = memberIds.slice(i, i + chunkSize);
+
+            // Build optimized query to minimize URL length
+            const uuids = chunk.map(toUUID).filter(Boolean);
+            const legacyIds = chunk.filter(id => !toUUID(id));
+
+            let query = '';
+            if (uuids.length > 0 && legacyIds.length > 0) {
+                query = `id.in.(${uuids.join(',')}),legacy_id.in.(${legacyIds.join(',')})`;
+            } else if (uuids.length > 0) {
+                query = `id.in.(${uuids.join(',')})`;
+            } else if (legacyIds.length > 0) {
+                query = `legacy_id.in.(${legacyIds.join(',')})`;
+            }
+
+            if (!query) continue;
+
             const { data: chunkMembers, error: chunkError } = await supabase
                 .from('members')
-                .select('id, joined_date, category, first_timer_service_id')
-                .in('id', chunk);
+                .select('id, legacy_id, joined_date, category, first_timer_service_id')
+                .or(query);
 
             if (chunkError) {
-                console.error(`[getServiceStats] Chunk error:`, chunkError);
+                console.error(`[getServiceStats] Chunk error at offset ${i}:`, chunkError);
                 throw chunkError;
             }
             if (chunkMembers) {
@@ -298,18 +356,16 @@ export const getServiceStats = async (req: Request, res: Response) => {
             }
         }
 
-
         const firstTimerCount = (members || []).filter(m => {
             // Case 1: Joined on the exact date of the service
             const joinedDate = m.joined_date ? m.joined_date.split('T')[0].split(' ')[0] : null;
             if (joinedDate === serviceDate) return true;
 
             // Case 2: Explicitly marked for this service as a first timer (handles pre-registration)
-            if (m.first_timer_service_id === serviceId) return true;
+            if (m.first_timer_service_id === toUUID(serviceId)) return true; // Compare UUIDs
 
             return false;
         }).length;
-
 
         const validMemberIds = members?.map(m => m.id) || [];
 
@@ -324,13 +380,13 @@ export const getServiceStats = async (req: Request, res: Response) => {
 }
 
 export const getMemberDetails = async (req: Request, res: Response) => {
-    const { id } = req.params;
+    const { id } = req.params; // id can be UUID or legacy
     try {
         // 1. Fetch Member Profile
         const { data: member, error: memError } = await supabase
             .from('members')
             .select('*')
-            .eq('id', id)
+            .or(`id.eq.${toUUID(id)},legacy_id.eq.${id}`)
             .single();
 
         if (memError || !member) throw new Error("Member not found");
@@ -339,7 +395,7 @@ export const getMemberDetails = async (req: Request, res: Response) => {
         const { data: attendance, error: attError } = await supabase
             .from('service_attendance')
             .select('service_id, check_in_time')
-            .eq('member_id', id)
+            .or(`member_id.eq.${toUUID(id)},legacy_member_id.eq.${id}`)
             .order('check_in_time', { ascending: false });
 
         if (attError) throw attError;
@@ -351,7 +407,7 @@ export const getMemberDetails = async (req: Request, res: Response) => {
             const { data: events } = await supabase
                 .from('ministry_events')
                 .select('id, title, date')
-                .in('id', attendedServiceIds);
+                .in('id', attendedServiceIds); // attendedServiceIds are already UUIDs
 
             history = (attendance || []).map(a => {
                 const evt = events?.find(e => e.id === a.service_id);
@@ -386,7 +442,7 @@ export const getMemberDetails = async (req: Request, res: Response) => {
 }
 
 export const searchMembersWithStatus = async (req: Request, res: Response) => {
-    const { serviceId } = req.params;
+    const { serviceId } = req.params; // serviceId can be UUID or legacy
     const queryStr = req.query.query as string || '';
 
     try {
@@ -406,13 +462,14 @@ export const searchMembersWithStatus = async (req: Request, res: Response) => {
         const { data: members, error: memError } = await queryBuilder.limit(20);
         if (memError || !members) return res.json([]);
 
-        const memberIds = members.map(m => m.id);
+        const memberIds = members.map(m => m.id); // These are UUIDs
 
+        // Query attendance using either UUID or legacy ID for service and member
         const { data: attendance, error: attError } = await supabase
             .from('service_attendance')
-            .select('member_id')
-            .eq('service_id', serviceId)
-            .in('member_id', memberIds);
+            .select('member_id') // Only need member_id to check attendance
+            .or(`service_id.eq.${toUUID(serviceId)},legacy_service_id.eq.${serviceId}`)
+            .or(`member_id.in.(${memberIds.filter(Boolean).join(',')}),legacy_member_id.in.(${members.map(m => m.legacy_id).filter(Boolean).join(',')})`);
 
         if (attError) throw attError;
 
@@ -436,11 +493,19 @@ export const getEventAttendees = async (req: Request, res: Response) => {
     const { id } = req.params;
     console.log('[GET ATTENDEES] Fetching for service/event:', id);
     try {
-        // 1. Get Direct Check-ins from Service Attendance
-        const { data: attendance, error: attError } = await supabase
-            .from('service_attendance')
-            .select('member_id, check_in_time')
-            .eq('service_id', id);
+        const idUuid = toUUID(id);
+
+        // 1. Get Direct Check-ins: Prefer service_id_uuid
+        let attQuery = supabase.from('service_attendance').select('member_id, check_in_time');
+
+        if (idUuid) {
+            attQuery = attQuery.or(`service_id.eq.${idUuid},legacy_service_id.eq.${id}`);
+        } else {
+            attQuery = attQuery.eq('legacy_service_id', id);
+            logLegacyFallback('service_attendance', id, 'getEventAttendees_Direct');
+        }
+
+        const { data: attendance, error: attError } = await attQuery;
 
         if (attError) throw attError;
 
@@ -466,25 +531,35 @@ export const getEventAttendees = async (req: Request, res: Response) => {
         }
 
         // 2. Get Passengers from Logistics (Stations -> Vehicles -> Passengers)
-        // Find stations for this event
-        const { data: stations } = await supabase.from('pickup_stations').select('id').eq('event_id', id);
+        // Find stations for this event: Prefer authoritative event_id
+        let stationQuery = supabase.from('pickup_stations').select('id');
+        if (idUuid) {
+            stationQuery = stationQuery.or(`event_id.eq.${idUuid},legacy_event_id.eq.${id}`);
+        } else {
+            stationQuery = stationQuery.eq('legacy_event_id', id);
+            logLegacyFallback('pickup_stations', id, 'getEventAttendees_Stations');
+        }
+
+        const { data: stations } = await stationQuery;
 
         let passengerAttendees: any[] = [];
         if (stations && stations.length > 0) {
             const stationIds = stations.map(s => s.id);
 
-            // Find vehicles in these stations
-            const { data: vehicles } = await supabase.from('vehicles').select('id').in('station_id', stationIds);
+            // Find vehicles: Prefer authoritative station_id
+            let vQuery = supabase.from('vehicles').select('id');
+            vQuery = vQuery.or(`station_id.in.(${stationIds.filter(s => toUUID(s)).join(',')}),legacy_station_id.in.(${stationIds.join(',')})`);
+
+            const { data: vehicles } = await vQuery;
 
             if (vehicles && vehicles.length > 0) {
                 const vehicleIds = vehicles.map(v => v.id);
 
-                // Find passengers in these vehicles
-                const { data: passengers, error: passError } = await supabase
-                    .from('passengers')
-                    .select('*')
-                    .in('vehicle_id', vehicleIds)
-                    .limit(5000); // Increase limit just in case
+                // Find passengers: Prefer authoritative vehicle_id
+                let pQuery = supabase.from('passengers').select('*');
+                pQuery = pQuery.or(`vehicle_id.in.(${vehicleIds.filter(v => toUUID(v)).join(',')}),legacy_vehicle_id.in.(${vehicleIds.join(',')})`);
+
+                const { data: passengers, error: passError } = await pQuery.limit(5000);
 
                 if (passError) throw passError;
 
@@ -533,6 +608,7 @@ export const getMembersByIds = async (req: Request, res: Response) => {
             return res.json([]);
         }
 
+        // Original logic for getMembersByIds (multiple IDs)
         const { data, error } = await supabase
             .from('members')
             .select('*')
@@ -540,6 +616,29 @@ export const getMembersByIds = async (req: Request, res: Response) => {
 
         if (error) throw error;
         res.json(data || []);
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+// New function for getting a single member by ID, preferring native UUID
+export const getMemberById = async (req: Request, res: Response) => {
+    const { id } = req.params;
+    try {
+        const idUuid = toUUID(id);
+        let query = supabase.from('members').select('*');
+
+        if (idUuid) {
+            // id is now UUID, legacy_id is original TEXT
+            query = query.or(`id.eq.${idUuid},legacy_id.eq.${id}`);
+        } else {
+            query = query.eq('legacy_id', id);
+            logLegacyFallback('members', id, 'getMemberById');
+        }
+
+        const { data, error } = await query.single();
+        if (error) throw error;
+        res.json(data || null); // Return null if not found for single item
     } catch (error: any) {
         res.status(500).json({ error: error.message });
     }

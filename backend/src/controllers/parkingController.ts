@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
 import { supabase } from '../supabase';
+import { v4 as uuidv4 } from 'uuid';
+import { toUUID } from '../utils/uuid';
 
 export const getPersonalVehicles = async (req: Request, res: Response) => {
     try {
@@ -13,7 +15,12 @@ export const getPersonalVehicles = async (req: Request, res: Response) => {
 
 export const addPersonalVehicle = async (req: Request, res: Response) => {
     try {
-        const { error } = await supabase.from('personal_vehicles').insert([req.body]);
+        const payload = {
+            ...req.body,
+            id: req.body.id ? toUUID(req.body.id) : uuidv4(),
+            legacy_id: req.body.id || null
+        };
+        const { error } = await supabase.from('personal_vehicles').insert([payload]);
         if (error) throw error;
         res.status(201).json({ message: 'Personal vehicle added' });
     } catch (error: any) {
@@ -47,11 +54,12 @@ export const checkInPersonalVehicle = async (req: Request, res: Response) => {
 
         const { error: updateError } = await supabase.from('personal_vehicles').update({
             status: 'Checked In',
-            current_service_id: serviceId,
+            current_service_id: toUUID(serviceId),
+            legacy_current_service_id: serviceId,
             check_in_time: checkInTime,
             check_out_time: null,
             attended_service_ids: newHistory
-        }).eq('id', id);
+        }).or(`id.eq.${toUUID(id)},legacy_id.eq.${id}`);
 
         if (updateError) throw updateError;
 

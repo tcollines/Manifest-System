@@ -11,6 +11,7 @@ import { LogisticsStore, ExtendedStation } from '../database/logisticsStore';
 import { SoulsStore } from '../database/soulsStore';
 import { supabase } from '../services/supabaseClient';
 import { validateContact, isEventLocked } from '../utils';
+import { v5 as uuidv5, validate as validateUuid } from 'uuid';
 import {
     Bus,
     Navigation,
@@ -51,6 +52,8 @@ const mapContainerStyle = {
     width: '100%',
     height: '100%'
 };
+
+const PASSENGER_NAMESPACE = '6ba7b810-9dad-11d1-80b4-00c04fd430c8'; // URL Namespace UUID as base
 
 const center = {
     lat: 0.3476,
@@ -446,6 +449,7 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
         const newP: Passenger = {
             id: crypto.randomUUID(),
             vehicleId: myVehicle.id,
+            eventId: myVehicle.eventId || selectedEventId, // Robust Fallback
             name: returnPassengerForm.name,
             contact: returnPassengerForm.contact,
             residence: returnPassengerForm.residence,
@@ -484,6 +488,16 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
         const p = passengers.find(p => p.id === passengerId);
         if (!p || !myVehicle) return;
 
+        // RESOLVE EVENT ID:
+        // Coordinators might be in "My Vehicle" view without a globally selected event.
+        // We must fallback to the vehicle's linked event ID.
+        const effectiveEventId = selectedEventId || myVehicle.eventId;
+
+        if (!effectiveEventId) {
+            showToast("System Error: Could not link this soul to an active event. Please refresh.", "error");
+            return;
+        }
+
         const newSoulWonStatus = !p.soulWon;
         const updatedPassenger = { ...p, soulWon: newSoulWonStatus };
 
@@ -491,14 +505,22 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
         setPassengers(passengers.map(pas => pas.id === passengerId ? updatedPassenger : pas));
         await VehicleStore.updatePassenger(updatedPassenger);
 
+        // Deterministic Soul ID: Use Passenger ID if UUID, else generate v5 Namespace UUID
+        // This ensures Legacy IDs (e.g. "P-123") don't break the UUID constraint, 
+        // while maintaining the 1:1 link for toggling off.
+        let soulId = p.id;
+        if (!validateUuid(p.id)) {
+            soulId = uuidv5(p.id, PASSENGER_NAMESPACE);
+        }
+
         if (newSoulWonStatus) {
-            // Add to Souls Store (Deterministic ID)
+            // Add to Souls Store
             const nameParts = p.name.split(' ');
             const firstName = nameParts[0];
             const lastName = nameParts.slice(1).join(' ') || 'Unknown';
 
             const newSoul: Soul = {
-                id: p.id, // Deterministic Link
+                id: soulId, // Deterministic Link
                 firstName,
                 lastName,
                 phone: p.contact,
@@ -506,9 +528,13 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
                 residence: p.residence,
                 status: 'New',
                 sourceType: 'Event',
-                sourceId: selectedEventId,
-                capturedBy: currentUser?.name || 'Vehicle Coordinator',
-                createdAt: new Date().toISOString()
+                sourceId: effectiveEventId,
+                capturedBy: currentUser?.id || '00000000-0000-0000-0000-000000000000',
+                createdAt: new Date().toISOString(),
+                // Traceability
+                eventId: effectiveEventId,
+                stationId: p.vehicleId ? vehicles.find(v => v.id === p.vehicleId)?.stationId : undefined,
+                vehicleId: p.vehicleId
             };
 
             try {
@@ -521,7 +547,7 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
         } else {
             // REMOVE from Souls Store
             try {
-                await SoulsStore.delete(p.id);
+                await SoulsStore.delete(soulId);
                 showToast(`Soul status removed for ${p.name.split(' ')[0]}`, 'info');
             } catch (error) {
                 console.error("Failed to remove soul", error);

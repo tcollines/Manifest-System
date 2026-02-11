@@ -225,6 +225,8 @@ export interface Passenger {
   gender?: 'Male' | 'Female';
   soulWon?: boolean;
   parentContact?: string;
+  eventId?: string; // Links passenger to specific event
+  stationId?: string; // Links passenger to specific station
 }
 
 export interface PickUpStation {

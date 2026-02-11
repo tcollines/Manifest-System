@@ -1,0 +1,1 @@
+ALTER TABLE passengers ADD COLUMN IF NOT EXISTS station_id UUID REFERENCES pickup_stations(id); ALTER TABLE passengers ADD COLUMN IF NOT EXISTS legacy_station_id TEXT; CREATE INDEX IF NOT EXISTS idx_passengers_station_id ON passengers(station_id);

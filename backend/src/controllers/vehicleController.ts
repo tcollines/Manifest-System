@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { supabase } from '../supabase';
 import { v4 as uuidv4 } from 'uuid';
+import { toUUID, logLegacyFallback } from '../utils/uuid';
 
 // Helper: Generate simple username
 const generateUsername = (name: string) => {
@@ -24,7 +25,6 @@ export const getVehicles = async (req: Request, res: Response) => {
         // For now, assume frontend always sends context.
         if (!coordinator && !validEventId && !stationId) {
             // Fallback: If absolutely no filter, return empty or limit 50? 
-            // Better to return empty to prevent data leak
             return res.json([]);
         }
 
@@ -40,11 +40,23 @@ export const getVehicles = async (req: Request, res: Response) => {
         }
 
         if (validEventId) {
-            query = query.eq('event_id', validEventId);
+            const idUuid = toUUID(validEventId);
+            if (idUuid) {
+                query = query.or(`event_id.eq.${idUuid},legacy_event_id.eq.${validEventId}`);
+            } else {
+                query = query.eq('legacy_event_id', validEventId);
+                logLegacyFallback('vehicles', validEventId, 'getVehicles_Event');
+            }
         }
 
         if (stationId) {
-            query = query.eq('station_id', stationId);
+            const idUuid = toUUID(stationId);
+            if (idUuid) {
+                query = query.or(`station_id.eq.${idUuid},legacy_station_id.eq.${stationId}`);
+            } else {
+                query = query.eq('legacy_station_id', stationId);
+                logLegacyFallback('vehicles', stationId, 'getVehicles_Station');
+            }
         }
 
         const { data, error } = await query;
@@ -109,10 +121,16 @@ export const addVehicle = async (req: Request, res: Response) => {
             }
         }
 
-        // 3. Insert Vehicle
+        // 3. Insert Vehicle (Phase 3B: id, station_id, event_id are UUIDs)
         const payload = {
             ...req.body,
-            coordinator_uid // Ensure UID is saved
+            coordinator_uid,
+            id: req.body.id ? toUUID(req.body.id) : uuidv4(),
+            legacy_id: req.body.id || null,
+            station_id: toUUID(station_id),
+            legacy_station_id: station_id,
+            event_id: toUUID(event_id),
+            legacy_event_id: event_id
         };
 
         const { error } = await supabase.from('vehicles').insert([payload]);
@@ -187,7 +205,22 @@ export const updateVehicle = async (req: Request, res: Response) => {
         const payload = { ...req.body };
         if (coordinator_uid) payload.coordinator_uid = coordinator_uid;
 
-        const { error } = await supabase.from('vehicles').update(payload).eq('id', id);
+        // Sync authoritative UUIDs and legacy tracing
+        const idUuid = toUUID(id);
+        if (idUuid) {
+            payload.id = idUuid;
+            payload.legacy_id = id;
+        }
+        if (payload.station_id) {
+            payload.legacy_station_id = payload.station_id;
+            payload.station_id = toUUID(payload.station_id);
+        }
+        if (targetEventId) {
+            payload.legacy_event_id = targetEventId;
+            payload.event_id = toUUID(targetEventId);
+        }
+
+        const { error } = await supabase.from('vehicles').update(payload).or(`id.eq.${idUuid},legacy_id.eq.${id}`);
         if (error) throw error;
         res.json({ message: 'Vehicle updated' });
     } catch (error: any) {
@@ -264,7 +297,13 @@ export const getPassengers = async (req: Request, res: Response) => {
 
         let query = supabase.from('passengers').select('*');
         if (vehicleId) {
-            query = query.eq('vehicle_id', vehicleId);
+            const idUuid = toUUID(vehicleId);
+            if (idUuid) {
+                query = query.or(`vehicle_id.eq.${idUuid},legacy_vehicle_id.eq.${vehicleId}`);
+            } else {
+                query = query.eq('legacy_vehicle_id', vehicleId);
+                logLegacyFallback('passengers', vehicleId, 'getPassengers_Vehicle');
+            }
         }
         if (validEventId) {
             // Complex join-like filter: passengers -> vehicles -> stations -> event_id
@@ -292,18 +331,54 @@ export const getPassengers = async (req: Request, res: Response) => {
 
 export const addPassenger = async (req: Request, res: Response) => {
     try {
-        const { error } = await supabase.from('passengers').insert([req.body]);
-        if (error) throw error;
+        const payload = {
+            ...req.body,
+            id: req.body.id ? toUUID(req.body.id) : uuidv4(),
+            legacy_id: req.body.id || null,
+            vehicle_id: toUUID(req.body.vehicle_id),
+            legacy_vehicle_id: req.body.vehicle_id,
+            event_id: toUUID(req.body.event_id),
+            legacy_event_id: req.body.event_id,
+            gender: req.body.gender || 'Male',
+            is_first_time: req.body.is_first_time || req.body.isFirstTime || 'No',
+            station_id: toUUID(req.body.station_id),
+            legacy_station_id: req.body.station_id
+        };
+        const { error } = await supabase.from('passengers').insert([payload]);
+        if (error) {
+            console.error("PASSENGER INSERT ERROR:", JSON.stringify(error, null, 2));
+            console.log("PASSENGER INSERT PAYLOAD:", JSON.stringify(payload, null, 2));
+            throw error;
+        }
         res.status(201).json({ message: 'Passenger added' });
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        // Ensure error is logged even if caught
+        if (!error.code) { // If not logged above
+            console.error("PASSENGER ADD EXCEPTION:", error);
+        }
+        res.status(500).json({ error: error.message, details: error.details });
     }
 };
 
 export const updatePassenger = async (req: Request, res: Response) => {
     const { id } = req.params;
     try {
-        const { error } = await supabase.from('passengers').update(req.body).eq('id', id);
+        const payload = { ...req.body };
+        const idUuid = toUUID(id);
+        if (idUuid) {
+            payload.id = idUuid;
+            payload.legacy_id = id;
+        }
+        if (payload.vehicle_id) {
+            payload.legacy_vehicle_id = payload.vehicle_id;
+            payload.vehicle_id = toUUID(payload.vehicle_id);
+        }
+        if (payload.event_id) {
+            payload.legacy_event_id = payload.event_id;
+            payload.event_id = toUUID(payload.event_id);
+        }
+
+        const { error } = await supabase.from('passengers').update(payload).or(`id.eq.${idUuid},legacy_id.eq.${id}`);
         if (error) throw error;
         res.json({ message: 'Passenger updated' });
     } catch (error: any) {
@@ -337,7 +412,9 @@ export const addPersonalVehicle = async (req: Request, res: Response) => {
     try {
         const payload = {
             ...req.body,
-            registered_date: new Date().toISOString()
+            registered_date: new Date().toISOString(),
+            id: req.body.id ? toUUID(req.body.id) : uuidv4(),
+            legacy_id: req.body.id || null
         };
         const { error } = await supabase.from('personal_vehicles').insert([payload]);
         if (error) throw error;
@@ -356,7 +433,8 @@ export const updatePersonalVehicleStatus = async (req: Request, res: Response) =
 
         if (status === 'Checked In') {
             payload.check_in_time = now;
-            payload.current_service_id = serviceId;
+            payload.current_service_id = toUUID(serviceId);
+            payload.legacy_current_service_id = serviceId;
         } else {
             payload.check_out_time = now;
         }

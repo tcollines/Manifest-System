@@ -1,11 +1,22 @@
 import { Request, Response } from 'express';
 import { supabase } from '../supabase';
+import { v4 as uuidv4 } from 'uuid';
+import { toUUID, logLegacyFallback } from '../utils/uuid';
 
 export const getStations = async (req: Request, res: Response) => {
     const eventId = req.query.eventId as string;
     try {
         let query = supabase.from('pickup_stations').select('*');
-        if (eventId) query = query.eq('event_id', eventId);
+        if (eventId) {
+            const idUuid = toUUID(eventId);
+            if (idUuid) {
+                // event_id is now UUID, legacy_event_id is original TEXT
+                query = query.or(`event_id.eq.${idUuid},legacy_event_id.eq.${eventId}`);
+            } else {
+                query = query.eq('legacy_event_id', eventId);
+                logLegacyFallback('pickup_stations', eventId, 'getStations_Event');
+            }
+        }
         const { data, error } = await query;
         if (error) throw error;
         res.json(data);
@@ -16,7 +27,14 @@ export const getStations = async (req: Request, res: Response) => {
 
 export const addStation = async (req: Request, res: Response) => {
     try {
-        const { error } = await supabase.from('pickup_stations').insert([req.body]);
+        const payload = {
+            ...req.body,
+            id: req.body.id ? toUUID(req.body.id) : uuidv4(),
+            legacy_id: req.body.id || null,
+            event_id: toUUID(req.body.event_id),
+            legacy_event_id: req.body.event_id
+        };
+        const { error } = await supabase.from('pickup_stations').insert([payload]);
         if (error) throw error;
         res.status(201).json({ message: 'Station added' });
     } catch (error: any) {
@@ -27,7 +45,18 @@ export const addStation = async (req: Request, res: Response) => {
 export const updateStation = async (req: Request, res: Response) => {
     const { id } = req.params;
     try {
-        const { error } = await supabase.from('pickup_stations').update(req.body).eq('id', id);
+        const payload = { ...req.body };
+        const idUuid = toUUID(id);
+        if (idUuid) {
+            payload.id = idUuid;
+            payload.legacy_id = id;
+        }
+        if (payload.event_id) {
+            payload.legacy_event_id = payload.event_id;
+            payload.event_id = toUUID(payload.event_id);
+        }
+
+        const { error } = await supabase.from('pickup_stations').update(payload).or(`id.eq.${idUuid},legacy_id.eq.${id}`);
         if (error) throw error;
         res.json({ message: 'Station updated' });
     } catch (error: any) {
@@ -58,7 +87,7 @@ export const deleteStation = async (req: Request, res: Response) => {
         if (uError) throw uError;
 
         // 5. Delete the station
-        const { error } = await supabase.from('pickup_stations').delete().eq('id', id);
+        const { error } = await supabase.from('pickup_stations').delete().or(`id.eq.${toUUID(id)},legacy_id.eq.${id}`);
         if (error) throw error;
 
         res.json({ message: 'Station and related data deleted' });

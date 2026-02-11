@@ -115,6 +115,11 @@ const FollowUpDashboard: React.FC<FollowUpDashboardProps> = ({ onOpenModal, curr
     };
 
     const handleAddSoul = async (soulData: Omit<Soul, 'id' | 'createdAt'>) => {
+        // Validation: Ensure Event ID is present
+        if (!soulData.eventId && (soulData.sourceType === 'Event' || soulData.sourceType === 'Service')) {
+            showToast("Please select an event or service first.", 'error');
+            return;
+        }
         try {
             if (editingSoul) {
                 // UPDATE Existing
@@ -616,14 +621,20 @@ const FollowUpDashboard: React.FC<FollowUpDashboardProps> = ({ onOpenModal, curr
             {/* Navigation Tabs - Registration Theme */}
             <div className="flex space-x-1 bg-gray-100 p-1.5 rounded-xl w-fit overflow-x-auto">
                 <button
-                    onClick={() => setActiveTab('services')}
+                    onClick={() => {
+                        setActiveTab('services');
+                        setSelectedEventId(null);
+                    }}
                     className={`flex items-center space-x-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${activeTab === 'services' ? 'bg-black text-white shadow-md' : 'text-gray-500 hover:text-gray-900'}`}
                 >
                     <Calendar className={`w-4 h-4 ${activeTab === 'services' ? 'text-ministry-neon' : ''}`} />
                     <span>Services</span>
                 </button>
                 <button
-                    onClick={() => setActiveTab('events')}
+                    onClick={() => {
+                        setActiveTab('events');
+                        setSelectedEventId(null);
+                    }}
                     className={`flex items-center space-x-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${activeTab === 'events' ? 'bg-black text-white shadow-md' : 'text-gray-500 hover:text-gray-900'}`}
                 >
                     <Users className={`w-4 h-4 ${activeTab === 'events' ? 'text-ministry-neon' : ''}`} />
@@ -631,7 +642,10 @@ const FollowUpDashboard: React.FC<FollowUpDashboardProps> = ({ onOpenModal, curr
                 </button>
                 {canViewDatabase && (
                     <button
-                        onClick={() => setActiveTab('database')}
+                        onClick={() => {
+                            setActiveTab('database');
+                            setSelectedEventId(null);
+                        }}
                         className={`flex items-center space-x-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${activeTab === 'database' ? 'bg-black text-white shadow-md' : 'text-gray-500 hover:text-gray-900'}`}
                     >
                         <Database className={`w-4 h-4 ${activeTab === 'database' ? 'text-ministry-neon' : ''}`} />
@@ -722,7 +736,8 @@ const FollowUpDashboard: React.FC<FollowUpDashboardProps> = ({ onOpenModal, curr
                                                                                     notes: 'From Member Database',
                                                                                     sourceType: activeTab === 'events' ? 'Event' : 'Service',
                                                                                     sourceId: selectedEventId || '',
-                                                                                    capturedBy: 'System'
+                                                                                    eventId: selectedEventId || undefined,
+                                                                                    capturedBy: currentUser.id
                                                                                 });
                                                                                 setSearchQuery(''); // Clear search to reset view
                                                                             }}
@@ -860,6 +875,7 @@ const FollowUpDashboard: React.FC<FollowUpDashboardProps> = ({ onOpenModal, curr
                                     (activeTab === 'events' ? events : services).find(e => e.id === selectedEventId)?.title
                                 }
                                 eventId={selectedEventId || undefined}
+                                capturedBy={currentUser.id}
                                 initialData={editingSoul || undefined}
                                 // existingMember={preFilledMember || undefined} // Removed legacy prop
                                 onSubmit={handleAddSoul}
