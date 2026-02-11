@@ -18,16 +18,33 @@ export const getMembers = async (req: Request, res: Response) => {
         let query = supabase.from('members').select('id, name, category, phone, status, check_in_time, gender, residency, born_again, joined_date', { count: 'exact' });
 
         if (searchQuery) {
-            const tokens = searchQuery.split(/\s+/).filter(Boolean);
-            tokens.forEach(token => {
-                const tokenClean = token.replace(/\D/g, '');
-                if (tokenClean.length > 0) {
-                    // Use ILIKE with wildcards - supported by pg_trgm GIN index
-                    query = query.or(`name.ilike.%${token}%,phone.ilike.%${tokenClean}%`);
-                } else {
-                    query = query.or(`name.ilike.%${token}%`);
-                }
-            });
+            const isNumeric = /^\d+$/.test(searchQuery);
+            const isAlphabetic = /^[a-zA-Z\s]+$/.test(searchQuery);
+
+            if (isNumeric && searchQuery.length >= 7) {
+                // Optimize: Phone search only for long numbers
+                query = query.ilike('phone', `%${searchQuery}%`);
+            } else if (isAlphabetic) {
+                // Optimize: Name search only for pure letters
+                query = query.ilike('name', `%${searchQuery}%`);
+            } else {
+                // Fallback: Mixed search (Standard behavior)
+                const tokens = searchQuery.split(/\s+/).filter(Boolean);
+                let orConditions: string[] = [];
+
+                // Add whole phrase matches first
+                orConditions.push(`name.ilike.%${searchQuery}%`);
+
+                tokens.forEach(token => {
+                    const tokenClean = token.replace(/\D/g, '');
+                    if (tokenClean.length > 0) {
+                        orConditions.push(`phone.ilike.%${tokenClean}%`);
+                    }
+                    orConditions.push(`name.ilike.%${token}%`);
+                });
+
+                query = query.or([...new Set(orConditions)].join(','));
+            }
         }
 
         const from = (page - 1) * pageSize;

@@ -12,9 +12,13 @@ import { ServiceResponse } from '../types';
 export async function safeFetch<T, R = T>(
     fetcher: () => Promise<T>,
     errorMessage: string,
-    mapData?: (data: T) => R
+    mapData?: (data: T) => R,
+    signal?: AbortSignal
 ): Promise<ServiceResponse<R>> {
     try {
+        if (signal?.aborted) {
+            return { status: 'error', message: 'Request cancelled', error: 'Aborted' };
+        }
         const response: any = await fetcher();
 
         // Check if the response itself indicates an error (if API returns 200 but with error field)
@@ -66,6 +70,10 @@ export async function safeFetch<T, R = T>(
         };
 
     } catch (error: any) {
+        if (error.name === 'AbortError') {
+            // Silent return for cancellation
+            return { status: 'error', message: 'Request cancelled', error: 'Aborted' };
+        }
         console.error(`[SafeFetch] Error: ${errorMessage}`, error);
 
         // TODO: Add environment check here. 

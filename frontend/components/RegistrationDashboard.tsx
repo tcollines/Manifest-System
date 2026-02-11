@@ -57,7 +57,8 @@ import {
   Settings,
   User as UserIcon,
   Copy,
-  Heart
+  Heart,
+  Loader2
 } from 'lucide-react';
 import EventDetailsModal from './EventDetailsModal';
 import { AssetsTab } from './AssetsTab';
@@ -446,60 +447,76 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
     return debouncedValue;
   }
 
-  const debouncedSearchQuery = useDebounce(searchQuery, 600);
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
+
+  // Ultra-Fast Search Logic
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
 
   const refreshData = async () => {
     try {
+      // 1. Cancellation: Abort previous request
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      abortControllerRef.current = new AbortController();
+      const signal = abortControllerRef.current.signal;
+
       // Only search if query is empty (reset) or >= 2 chars
       const effectiveQuery = debouncedSearchQuery.length >= 2 ? debouncedSearchQuery : '';
-
       const queryToSend = effectiveQuery;
 
+      setIsSearching(!!effectiveQuery);
+
       // Special Fetch Logic for Check-In Filters
-      // If we are filtering by Check-In status, we want ALL checked-in members, not just the current page
       let membersPromise: Promise<ServiceResponse<Member[]>>;
+
+      // OPTIMIZATION: Reduce page size during search for faster rendering
+      const currentPageSize = effectiveQuery ? 20 : itemsPerPage;
 
       if (filterCategory) {
         if (checkedInIds.size > 0) {
-          // Fetch specific IDs
-          console.log("Filtering by IDs:", Array.from(checkedInIds));
+          // Fetch specific IDs (No signal support on getManyByIds yet, but it's fast)
           membersPromise = MemberStore.getManyByIds(Array.from(checkedInIds));
         } else {
-          // If filtering by stats but no one checked in, return empty
-          // Use explicit cast or ensure type safety matching ServiceResponse
           membersPromise = Promise.resolve({ status: 'success', data: [] } as ServiceResponse<Member[]>);
         }
       } else {
-        membersPromise = MemberStore.getMembers(currentPage, itemsPerPage, queryToSend);
+        // Pass signal for cancellation
+        membersPromise = MemberStore.getMembers(currentPage, currentPageSize, queryToSend, signal);
       }
 
+      // Parallel Fetch - Note: Only members fetch is cancellable for now, others let run (usually cached or fast)
       const [fetchedStations, fetchedVehicles, fetchedPassengers, fetchedMembersResult, fetchedUsers, fetchedPersonalCars] = await Promise.all([
         LogisticsStore.getStations(),
         VehicleStore.getVehicles({ eventId: selectedLogisticsEvent?.id }),
         VehicleStore.getPassengers({ eventId: selectedLogisticsEvent?.id }),
-        membersPromise,
+        membersPromise.catch(err => {
+          // Handle AbortError specifically to return a "cancelled" state
+          if (signal.aborted || err.name === 'AbortError') return { status: 'cancelled' } as any;
+          throw err;
+        }),
         UserStore.getAll(),
         VehicleStore.getPersonalVehicles()
       ]);
 
-      setStations(fetchedStations.status === 'success' ? fetchedStations.data : []);
-      // LogisticsStore was NOT refactored yet. Steps below refactor it.
-      // But VehicleStore IS refactored.
+      if (signal.aborted) return; // Stop if cancelled
 
+      setStations(fetchedStations.status === 'success' ? fetchedStations.data : []);
       setVehicles(fetchedVehicles.status === 'success' ? fetchedVehicles.data : []);
       setPersonalVehicles(fetchedPersonalCars.status === 'success' ? fetchedPersonalCars.data : []);
       setPassengers(fetchedPassengers.status === 'success' ? fetchedPassengers.data : []);
 
-      // Handle Member Result (Safe Fetch Pattern)
+      // Handle Member Result
       if (fetchedMembersResult.status === 'success' && Array.isArray(fetchedMembersResult.data)) {
         setMembers(fetchedMembersResult.data);
         setTotalMembers(fetchedMembersResult.count || fetchedMembersResult.data.length);
-      } else {
+      } else if (fetchedMembersResult.status !== 'cancelled') {
+        // Error handling
         const errorMsg = (fetchedMembersResult as any).message || "Unknown error";
         console.error("Member Fetch Error:", errorMsg);
         showToast(`Error loading members: ${errorMsg}`, 'error');
-        // Optionally set an error state variable to show a banner
-        setMembers([]); // Safe fallback to empty but with Toast warning
+        setMembers([]);
         setTotalMembers(0);
       }
 
@@ -507,10 +524,15 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
         ? fetchedUsers.data.filter(u => u.role === 'Vehicle Coordinator' || u.role === 'Coordinator')
         : []);
 
-
     } catch (error: any) {
-      console.error("Error refreshing data:", error);
-      showToast("Critical error refreshing data.", 'error');
+      if (error.name !== 'AbortError') {
+        console.error("Error refreshing data:", error);
+        showToast("Critical error refreshing data.", 'error');
+      }
+    } finally {
+      if (abortControllerRef?.current?.signal?.aborted === false) {
+        setIsSearching(false);
+      }
     }
   };
 
@@ -3357,7 +3379,12 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
             <div className="flex flex-col md:flex-row gap-4 items-center">
               {/* Search */}
               <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${isSearching ? 'text-ministry-orange animate-pulse' : 'text-gray-400'}`} />
+                {isSearching && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <Loader2 className="w-4 h-4 text-ministry-orange animate-spin" />
+                  </div>
+                )}
                 <input
                   type="text"
                   placeholder="Search database..."
