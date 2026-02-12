@@ -268,7 +268,7 @@ export const checkInMember = async (req: Request, res: Response) => {
             // 3. Update Member's Check In Time AND Sync attended_service_ids AND Category
             // Fetch member to get current IDs AND Category
             const { data: member } = await supabase.from('members')
-                .select('attended_service_ids, category, first_timer_service_id')
+                .select('attended_service_ids, category, first_timer_service_id, joined_date')
                 .or(`id.eq.${toUUID(memberId)},legacy_id.eq.${memberId}`)
                 .single();
 
