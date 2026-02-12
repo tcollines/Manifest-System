@@ -52,9 +52,12 @@ export const checkInPersonalVehicle = async (req: Request, res: Response) => {
         const currentHistory = vehicle.attended_service_ids || [];
         const newHistory = currentHistory.includes(serviceId) ? currentHistory : [...currentHistory, serviceId];
 
+        const serviceUuid = toUUID(serviceId);
+
         const { error: updateError } = await supabase.from('personal_vehicles').update({
             status: 'Checked In',
-            current_service_id: toUUID(serviceId),
+            current_service_id: serviceId, // Maintain legacy string if needed
+            current_service_id_uuid: serviceUuid, // authoritative UUID
             check_in_time: checkInTime,
             check_out_time: null,
             attended_service_ids: newHistory

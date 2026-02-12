@@ -5,22 +5,30 @@ import * as path from 'path';
 
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
-async function testConnection() {
-    console.log('Testing connection to pooler...');
+async function testConn() {
+    const connectionString = process.env.DATABASE_URL;
+    console.log(`Connecting to: ${connectionString?.split('@')[1]}`); // Mask password
+
+    // Try to strip the options part if present
+    const cleanConn = connectionString?.split('?')[0];
+
     const client = new Client({
-        connectionString: process.env.DATABASE_URL,
-        ssl: { rejectUnauthorized: false }
+        connectionString: cleanConn,
+        ssl: {
+            rejectUnauthorized: false
+        }
     });
 
     try {
         await client.connect();
-        console.log('✅ Connection successful!');
-        const res = await client.query('SELECT current_database();');
-        console.log('Database:', res.rows[0].current_database);
+        console.log("SUCCESS: Connected to DB!");
+        const res = await client.query('SELECT current_database(), current_user');
+        console.log(res.rows[0]);
+    } catch (e: any) {
+        console.error("FAIL:", e.message);
+    } finally {
         await client.end();
-    } catch (err: any) {
-        console.error('❌ Connection failed:', err.message);
     }
 }
 
-testConnection();
+testConn();

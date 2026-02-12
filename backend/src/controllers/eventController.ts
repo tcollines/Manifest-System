@@ -316,7 +316,7 @@ export const getEventHighlights = async (req: Request, res: Response) => {
         // 7. Personal Cars
         const { count: pcCount } = await supabase.from('personal_vehicles')
             .select('*', { count: 'exact', head: true })
-            .or(`current_service_id.eq.${eventUuid},attended_service_ids.cs.{"${eventUuid}"}`);
+            .or(`current_service_id.eq.${eventUuid},current_service_id_uuid.eq.${eventUuid},attended_service_ids.cs.{"${eventUuid}"}`);
 
         // 8. Aggregate final values
         const serviceAttendanceCount = attendanceData?.length || 0;
