@@ -18,7 +18,7 @@ export const addPersonalVehicle = async (req: Request, res: Response) => {
         const payload = {
             ...req.body,
             id: req.body.id ? toUUID(req.body.id) : uuidv4(),
-            legacy_id: req.body.id || null
+            // legacy_id: req.body.id || null // REMOVED: Column does not exist
         };
         const { error } = await supabase.from('personal_vehicles').insert([payload]);
         if (error) throw error;
@@ -55,11 +55,10 @@ export const checkInPersonalVehicle = async (req: Request, res: Response) => {
         const { error: updateError } = await supabase.from('personal_vehicles').update({
             status: 'Checked In',
             current_service_id: toUUID(serviceId),
-            legacy_current_service_id: serviceId,
             check_in_time: checkInTime,
             check_out_time: null,
             attended_service_ids: newHistory
-        }).or(`id.eq.${toUUID(id)},legacy_id.eq.${id}`);
+        }).eq('id', id);
 
         if (updateError) throw updateError;
 

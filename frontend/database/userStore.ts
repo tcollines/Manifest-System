@@ -30,8 +30,8 @@ const mapUserToDB = (u: User) => {
     id: u.id,
     name: u.name,
     role: u.role,
-    departmentId: u.department_id,
-    departmentUid: u.department_uid,
+    department_id: u.departmentId || u.department_id, // Map from App camelCase
+    department_uid: u.departmentUid,
     username: u.username,
     password: u.password,
     contact: u.contact,

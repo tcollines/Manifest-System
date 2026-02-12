@@ -469,12 +469,16 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
       setIsSearching(!!effectiveQuery);
 
       // Special Fetch Logic for Check-In Filters
+      // Only apply filterCategory if we are in the Check-In tab
+      const isCheckInTab = activeTab === 'checkin';
+      const effectiveFilterCategory = isCheckInTab ? filterCategory : null;
+
       let membersPromise: Promise<ServiceResponse<Member[]>>;
 
       // OPTIMIZATION: Reduce page size during search for faster rendering
       const currentPageSize = effectiveQuery ? 20 : itemsPerPage;
 
-      if (filterCategory) {
+      if (effectiveFilterCategory) {
         if (checkedInIds.size > 0) {
           // Fetch specific IDs (No signal support on getManyByIds yet, but it's fast)
           membersPromise = MemberStore.getManyByIds(Array.from(checkedInIds));
@@ -1574,12 +1578,16 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
 
   const filteredMembers = members.filter(m => {
     // 0. Stats Card Filter (Drill-down)
-    if (filterCategory) {
+    // Only apply filterCategory if we are in the Check-In tab
+    const isCheckInTab = activeTab === 'checkin';
+    const effectiveFilterCategory = isCheckInTab ? filterCategory : null;
+
+    if (effectiveFilterCategory) {
       // Must be checked in - (Essential to prevent showing all members if fetch fallback occurs)
       if (!checkedInIds.has(m.id)) return false;
 
       // If specific category
-      if (filterCategory !== 'CHECKED_IN_ALL' && m.category !== filterCategory) return false;
+      if (effectiveFilterCategory !== 'CHECKED_IN_ALL' && m.category !== effectiveFilterCategory) return false;
     }
 
     const tokens = searchQuery.toLowerCase().split(/\s+/).filter(Boolean);
@@ -3444,7 +3452,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
                   <table className="w-full text-left relative">
                     <thead className="bg-gray-50 border-b border-gray-100 sticky top-0 z-20 shadow-sm">
                       <tr>
-                        <th className="p-4 w-10"><input type="checkbox" onChange={handleSelectAll} checked={selectedMemberIds.size === members.length && members.length > 0} className="rounded border-gray-300" /></th>
+                        <th className="p-4 w-10"><input type="checkbox" onChange={handleSelectAll} checked={selectedMemberIds.size === filteredMembers.length && filteredMembers.length > 0} className="rounded border-gray-300" /></th>
                         <th className="p-4 text-xs font-bold text-gray-500 uppercase">Name</th>
                         <th className="p-4 text-xs font-bold text-gray-500 uppercase">Category</th>
                         <th className="p-4 text-xs font-bold text-gray-500 uppercase">Phone</th>
@@ -3453,7 +3461,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
-                      {members.map((member) => (
+                      {filteredMembers.map((member) => (
                         <tr key={member.id} className="hover:bg-gray-50 transition-colors group">
                           <td className="p-4"><input type="checkbox" checked={selectedMemberIds.has(member.id)} onChange={() => handleSelectOne(member.id)} className="rounded border-gray-300" /></td>
                           <td className="p-4 font-bold text-gray-900">{member.name}</td>
@@ -3591,11 +3599,22 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
                 <div className="space-y-3 max-h-[500px] overflow-y-auto">
                   {selectedMemberDetails.history.map((record, idx) => (
                     <div key={idx} className="flex items-center p-3 bg-gray-50 rounded-lg border border-gray-100">
-                      <div className="p-2 bg-green-100 rounded-full mr-3">
-                        <CheckCircle className="w-4 h-4 text-green-600" />
+                      <div className={`p-2 rounded-full mr-3 ${record.type === 'Service' || !record.type ? 'bg-green-100' : 'bg-purple-100'}`}>
+                        {record.type === 'Service' || !record.type ? (
+                          <CheckCircle className="w-4 h-4 text-green-600" />
+                        ) : (
+                          <Calendar className="w-4 h-4 text-purple-600" />
+                        )}
                       </div>
                       <div>
-                        <p className="text-sm font-bold text-gray-900">{record.title}</p>
+                        <p className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                          {record.title}
+                          {record.type && record.type !== 'Service' && (
+                            <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 font-bold border border-purple-200">
+                              {record.type}
+                            </span>
+                          )}
+                        </p>
                         <p className="text-xs text-gray-500">{record.date} at {record.checkInTime}</p>
                       </div>
                     </div>

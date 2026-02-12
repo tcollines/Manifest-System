@@ -19,31 +19,25 @@ export const getMembers = async (req: Request, res: Response) => {
 
         if (searchQuery) {
             const isNumeric = /^\d+$/.test(searchQuery);
-            const isAlphabetic = /^[a-zA-Z\s]+$/.test(searchQuery);
 
             if (isNumeric && searchQuery.length >= 7) {
                 // Optimize: Phone search only for long numbers
                 query = query.ilike('phone', `%${searchQuery}%`);
-            } else if (isAlphabetic) {
-                // Optimize: Name search only for pure letters
-                query = query.ilike('name', `%${searchQuery}%`);
             } else {
-                // Fallback: Mixed search (Standard behavior)
+                // Flexible Search: "John Doe" matches "Doe John"
+                // Logic: (Name matches T1 OR Phone matches T1) AND (Name matches T2 OR Phone matches T2)...
                 const tokens = searchQuery.split(/\s+/).filter(Boolean);
-                let orConditions: string[] = [];
-
-                // Add whole phrase matches first
-                orConditions.push(`name.ilike.%${searchQuery}%`);
 
                 tokens.forEach(token => {
                     const tokenClean = token.replace(/\D/g, '');
                     if (tokenClean.length > 0) {
-                        orConditions.push(`phone.ilike.%${tokenClean}%`);
+                        // Match Name OR Phone
+                        query = query.or(`name.ilike.%${token}%,phone.ilike.%${tokenClean}%`);
+                    } else {
+                        // Match Name only (token has no digits)
+                        query = query.or(`name.ilike.%${token}%`);
                     }
-                    orConditions.push(`name.ilike.%${token}%`);
                 });
-
-                query = query.or([...new Set(orConditions)].join(','));
             }
         }
 
@@ -284,7 +278,12 @@ export const checkInMember = async (req: Request, res: Response) => {
             const newIds = Array.from(new Set([...currentIds, ...validIds.map(toUUID)])); // Store UUIDs in attended_service_ids
 
             // AUTO-PROMOTE: If they were 'First Timer', they are now a 'Member' (Returning visitor)
-            const newCategory = (member?.category === 'First Timer') ? 'Member' : (member?.category);
+            // Rule: Only promote if they joined BEFORE today. If they joined today, they are still a First Timer for this service.
+            const todayStr = new Date().toISOString().split('T')[0];
+            const joinedStr = member?.joined_date ? new Date(member.joined_date).toISOString().split('T')[0] : todayStr;
+            const isReturnVisit = joinedStr < todayStr;
+
+            const newCategory = (member?.category === 'First Timer' && isReturnVisit) ? 'Member' : (member?.category);
 
             const updatePayload: any = {
                 check_in_time: new Date().toISOString(),
@@ -420,10 +419,12 @@ export const getMemberDetails = async (req: Request, res: Response) => {
         const attendedServiceIds = attendance?.map(a => a.service_id) || [];
 
         let history: any[] = [];
+        let serviceCount = 0;
+
         if (attendedServiceIds.length > 0) {
             const { data: events } = await supabase
                 .from('ministry_events')
-                .select('id, title, date')
+                .select('id, title, date, type')
                 .in('id', attendedServiceIds); // attendedServiceIds are already UUIDs
 
             history = (attendance || []).map(a => {
@@ -432,9 +433,13 @@ export const getMemberDetails = async (req: Request, res: Response) => {
                     serviceId: a.service_id,
                     date: evt?.date || new Date(a.check_in_time).toISOString().split('T')[0],
                     title: evt?.title || 'Unknown Service',
+                    type: evt?.type || 'Service', // Return type for frontend
                     checkInTime: new Date(a.check_in_time).toLocaleTimeString()
                 };
             });
+
+            // FIX: Only count actual 'Service' types towards the "Total Attended" metric
+            serviceCount = events?.filter(e => e.type === 'Service').length || 0;
         }
 
         // 3. Expected Services
@@ -448,7 +453,7 @@ export const getMemberDetails = async (req: Request, res: Response) => {
 
         res.json({
             member: member,
-            attendedCount: attendedServiceIds.length,
+            attendedCount: serviceCount, // Use the filtered count
             totalServices: totalServices || 0,
             history: history
         });

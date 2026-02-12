@@ -123,8 +123,23 @@ export const updateEvent = async (req: Request, res: Response) => {
 export const deleteEvent = async (req: Request, res: Response) => {
     const { id } = req.params;
     try {
+        // 0. Resolve Event UUID (Robust deletion for both Legacy & UUID)
+        const eventUuid = toUUID(id);
+        const { data: event } = await supabase
+            .from('ministry_events')
+            .select('id, legacy_id')
+            .or(`id.eq.${eventUuid || '00000000-0000-0000-0000-000000000000'},legacy_id.eq.${id}`)
+            .single();
+
+        if (!event) {
+            return res.status(404).json({ error: "Event not found" });
+        }
+
+        const targetId = event.id; // Correct UUID
+
         // 1. Delete Logistics Linked to Event
-        const { data: stations } = await supabase.from('pickup_stations').select('id').eq('event_id', id);
+        // We use OR logic to be safe if stations are still linked via legacy ID in some cases
+        const { data: stations } = await supabase.from('pickup_stations').select('id').or(`event_id.eq.${targetId},event_id.eq.${id}`);
 
         if (stations && stations.length > 0) {
             const stationIds = stations.map(s => s.id);
@@ -150,55 +165,56 @@ export const deleteEvent = async (req: Request, res: Response) => {
 
         // 1.6 Delete Event Coordinators (Vehicle Coordinators linked directly to Event)
         // This ensures vehicle coordinators created for this event are also cleaned up
-        await supabase.from('users').delete().eq('event_id', id).eq('role', 'Coordinator');
+        await supabase.from('users').delete().eq('event_id', targetId).eq('role', 'Coordinator');
 
-        // 2. Remove Attendance from Members
-        const { data: members } = await supabase.from('members').select('id, attended_service_ids').contains('attended_service_ids', [id]);
+        // 2. Remove Attendance from Members (Handle UUID and Legacy ID just in case)
+        const { data: members } = await supabase.from('members').select('id, attended_service_ids').or(`attended_service_ids.cs.{${targetId}},attended_service_ids.cs.{${id}}`);
         if (members && members.length > 0) {
             for (const m of members) {
-                const newIds = (m.attended_service_ids || []).filter((i: string) => i !== id);
+                const newIds = (m.attended_service_ids || []).filter((i: string) => i !== targetId && i !== id);
                 await supabase.from('members').update({ attended_service_ids: newIds }).eq('id', m.id);
             }
         }
 
         // 3. Remove Attendance from Children
-        const { data: children } = await supabase.from('children').select('id, attended_service_ids').contains('attended_service_ids', [id]);
+        const { data: children } = await supabase.from('children').select('id, attended_service_ids').or(`attended_service_ids.cs.{${targetId}},attended_service_ids.cs.{${id}}`);
         if (children && children.length > 0) {
             for (const c of children) {
-                const newIds = (c.attended_service_ids || []).filter((i: string) => i !== id);
+                const newIds = (c.attended_service_ids || []).filter((i: string) => i !== targetId && i !== id);
                 await supabase.from('children').update({ attended_service_ids: newIds }).eq('id', c.id);
             }
         }
 
         // 4. Remove Attendance from Personal Vehicles
-        const { data: pCars } = await supabase.from('personal_vehicles').select('id, attended_service_ids').contains('attended_service_ids', [id]);
+        const { data: pCars } = await supabase.from('personal_vehicles').select('id, attended_service_ids').or(`attended_service_ids.cs.{${targetId}},attended_service_ids.cs.{${id}}`);
         if (pCars && pCars.length > 0) {
             for (const c of pCars) {
-                const newIds = (c.attended_service_ids || []).filter((i: string) => i !== id);
+                const newIds = (c.attended_service_ids || []).filter((i: string) => i !== targetId && i !== id);
                 await supabase.from('personal_vehicles').update({ attended_service_ids: newIds }).eq('id', c.id);
             }
         }
 
         // 5. Delete Related Incidents (FK Constraint fix)
-        await supabase.from('incidents').delete().eq('service_id', id);
+        await supabase.from('incidents').delete().eq('service_id', targetId);
 
         // 6. Delete Related Souls (Cleanup)
-        await supabase.from('souls').delete().eq('source_id', id).eq('source_type', 'Service');
+        // FIX: Delete by event_id (UUID) OR source_id (Legacy) to satisfy FK constraint
+        await supabase.from('souls').delete().or(`event_id.eq.${targetId},source_id.eq.${targetId},source_id.eq.${id}`);
 
         // 7. Delete Volunteer Attendance (FK Constraint fix)
-        await supabase.from('volunteer_attendance').delete().eq('service_id', id);
+        await supabase.from('volunteer_attendance').delete().eq('service_id', targetId);
 
         // 8. Unlink Personal Vehicles (FK Constraint fix)
-        await supabase.from('personal_vehicles').update({ current_service_id: null }).eq('current_service_id', id);
+        await supabase.from('personal_vehicles').update({ current_service_id: null }).or(`current_service_id.eq.${targetId},current_service_id.eq.${id}`);
 
         // 9. Delete Related Finance Transactions (FK Constraint fix)
-        await supabase.from('transactions').delete().eq('event_id', id);
+        await supabase.from('transactions').delete().eq('event_id', targetId);
 
         // 10. Delete Next Gen Souls (FK Constraint fix - revealed by error)
-        await supabase.from('next_gen_souls').delete().eq('service_id', id);
+        await supabase.from('next_gen_souls').delete().eq('service_id', targetId);
 
         // 11. Delete the Event itself
-        const { error } = await supabase.from('ministry_events').delete().or(`id.eq.${toUUID(id)},legacy_id.eq.${id}`);
+        const { error } = await supabase.from('ministry_events').delete().eq('id', targetId);
         if (error) throw error;
 
         res.json({ message: 'Event and related data deleted' });
