@@ -176,6 +176,13 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
                     setMyVehicle(updated);
                     if (updated.journeyDirection) setActiveJourneyTab(updated.journeyDirection);
 
+                    // FIX: Ensure real-time subscription listens to the correct event channel
+                    if (updated.eventId && updated.eventId !== selectedEventId) {
+                        // Use a timeout to avoid immediate state update within render cycle logic (though this is async)
+                        // and prevents potential race conditions with the fetch
+                        setTimeout(() => setSelectedEventId(updated.eventId!), 0);
+                    }
+
                     // Re-fetch passengers specifically for this vehicle to be sure
                     const pRes = await VehicleStore.getPassengers(mine.id);
                     setPassengers(pRes.status === 'success' ? pRes.data : []);

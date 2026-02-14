@@ -70,11 +70,14 @@ export const createUser = async (req: Request, res: Response) => {
     try {
         const payload = {
             ...req.body,
-            department_id: req.body.departmentId || req.body.department_id, // Map camelCase to snake_case
-            // departmentId is not removed but Supabase ignores extra fields if not strict? 
-            // Actually, the error said "Could not find the 'departmentId' column", so we MUST remove it or map it clean.
+            department_id: req.body.departmentId || req.body.department_id,
+            station_id: req.body.stationId || req.body.station_id,
+            event_id: req.body.eventId || req.body.event_id,
         };
-        delete payload.departmentId; // Remove invalid column
+        // Clean up camelCase keys
+        delete payload.departmentId;
+        delete payload.stationId;
+        delete payload.eventId;
 
         const { error } = await supabase.from('users').insert([payload]);
         if (error) throw error;
@@ -90,8 +93,12 @@ export const updateUser = async (req: Request, res: Response) => {
         const payload = {
             ...req.body,
             department_id: req.body.departmentId || req.body.department_id,
+            station_id: req.body.stationId || req.body.station_id,
+            event_id: req.body.eventId || req.body.event_id,
         };
         delete payload.departmentId;
+        delete payload.stationId;
+        delete payload.eventId;
 
         const { error } = await supabase.from('users').update(payload).eq('id', id);
         if (error) throw error;

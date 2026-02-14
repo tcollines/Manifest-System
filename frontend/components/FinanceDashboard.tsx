@@ -268,6 +268,7 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, events
 
     const handleOpenEventFleet = (event: MinistryEvent) => {
         setSelectedFleetEvent(event);
+        setSelectedEventId(event.id); // Sync global event ID to fetch data
         setFleetViewMode('vehicles');
         setFleetJourneyTab('Ongoing'); // Default
     };

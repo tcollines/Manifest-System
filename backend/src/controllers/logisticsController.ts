@@ -17,9 +17,31 @@ export const getStations = async (req: Request, res: Response) => {
                 logLegacyFallback('pickup_stations', eventId, 'getStations_Event');
             }
         }
-        const { data, error } = await query;
+        const { data: stations, error } = await query;
         if (error) throw error;
-        res.json(data);
+
+        // Fetch Data Entrants (Users with role 'Logistics' and a station_id)
+        const { data: entrants, error: userError } = await supabase
+            .from('users')
+            .select('id, name, contact, station_id')
+            .eq('role', 'Logistics')
+            .not('station_id', 'is', null);
+
+        if (userError) console.error("Error fetching entrants:", userError);
+
+        // Map entrants to stations
+        const enrichedStations = stations.map(station => {
+            // Find entrant for this station (assuming 1 per station for now, or take first)
+            const entrant = entrants?.find(u => u.station_id === station.id || u.station_id === station.legacy_id);
+            return {
+                ...station,
+                data_entrant_id: entrant?.id || null,
+                data_entrant_name: entrant?.name || null,
+                data_entrant_contact: entrant?.contact || null
+            };
+        });
+
+        res.json(enrichedStations);
     } catch (error: any) {
         res.status(500).json({ error: error.message });
     }
