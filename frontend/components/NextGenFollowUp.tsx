@@ -99,8 +99,8 @@ const NextGenFollowUp: React.FC<NextGenFollowUpProps> = ({ currentUser, events }
         }
 
         const results = children.filter(c =>
-            c.name.toLowerCase().includes(soulsSearchQuery.toLowerCase()) ||
-            c.parentContact.includes(soulsSearchQuery)
+            (c.name && c.name.toLowerCase().includes(soulsSearchQuery.toLowerCase())) ||
+            (c.parentContact && c.parentContact.includes(soulsSearchQuery))
         ).slice(0, 10);
 
         setChildSearchResults(results);
@@ -200,11 +200,11 @@ const NextGenFollowUp: React.FC<NextGenFollowUpProps> = ({ currentUser, events }
     const absentees = children.filter(c => c.status === 'Absent' && c.category !== 'First Timer');
 
     const filteredFirstTimers = firstTimers
-        .filter(c => c.name.toLowerCase().includes(searchQuery.toLowerCase()))
+        .filter(c => c.name && c.name.toLowerCase().includes(searchQuery.toLowerCase()))
         .filter(c => statusFilter === 'All' || c.followUpStatus === statusFilter || (!c.followUpStatus && statusFilter === 'Pending'));
 
     const filteredAbsentees = absentees
-        .filter(c => c.name.toLowerCase().includes(searchQuery.toLowerCase()))
+        .filter(c => c.name && c.name.toLowerCase().includes(searchQuery.toLowerCase()))
         .filter(c => statusFilter === 'All' || c.followUpStatus === statusFilter || (!c.followUpStatus && statusFilter === 'Pending'));
 
     const renderStatusBadge = (status?: string) => {
