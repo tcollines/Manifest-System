@@ -98,6 +98,22 @@ const SettingsView: React.FC<SettingsViewProps> = ({ users = [], openModal, onDe
         loadManifest();
     }, []);
 
+    // Departments State (Dynamic)
+    const [departments, setDepartments] = useState<any[]>(DEPARTMENTS); // Fallback to constants
+
+    useEffect(() => {
+        const fetchDepts = async () => {
+            try {
+                const { apiFetch } = await import('../services/api');
+                const data = await apiFetch('/departments');
+                if (Array.isArray(data)) setDepartments(data);
+            } catch (e) {
+                console.error("Failed to load departments in settings", e);
+            }
+        };
+        fetchDepts();
+    }, []);
+
     // Filter users: Admins/Team Leaders see all, Leads see only their department
     const baseUsers = (isAdmin || isTeamLeader)
         ? internalUsers
@@ -106,7 +122,8 @@ const SettingsView: React.FC<SettingsViewProps> = ({ users = [], openModal, onDe
     const filteredUsers = baseUsers.filter(user => {
         if (!searchQuery) return true;
         const query = searchQuery.toLowerCase();
-        const deptName = DEPARTMENTS.find(d => d.id === user.departmentId)?.name.toLowerCase() || '';
+        // Dynamic Lookup
+        const deptName = departments.find(d => d.id === user.departmentId || d.slug === user.departmentId)?.name.toLowerCase() || '';
 
         return (
             user.name.toLowerCase().includes(query) ||
@@ -404,7 +421,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ users = [], openModal, onDe
                                                 }`}>{user.role}</span>
                                         </td>
                                         <td className="px-6 py-4 text-sm text-gray-600">
-                                            {DEPARTMENTS.find(d => d.id === user.departmentId)?.name || 'N/A'}
+                                            {departments.find(d => d.id === user.departmentId || d.slug === user.departmentId)?.name || 'N/A'}
                                         </td>
                                         <td className="px-6 py-4 text-sm font-mono text-gray-500">{user.username}</td>
                                         <td className="px-6 py-4 text-right">

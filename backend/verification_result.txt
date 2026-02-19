@@ -1,0 +1,7 @@
+VERIFICATION START 2026-02-18T20:26:39.135Z
+--- VERIFYING USERS MIGRATION ---
+Error checking old IDs: 
+✅ New UUIDs found (4/4).
+--- DEFAULT VALUE TEST ---
+❌ INSERT Test Failed: null value in column "password" of relation "users" violates not-null constraint
+   (Did you forget to add DEFAULT gen_random_uuid()?)

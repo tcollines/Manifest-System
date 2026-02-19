@@ -84,7 +84,7 @@ export const IncidentStore = {
 
 const mapFromDB = (data: any): IncidentReport => ({
     id: data.id,
-    childId: data.child_id,
+    childId: data.child_id_uuid || data.child_id, // READ PATH: Prefer UUID
     serviceId: data.service_id,
     date: data.date,
     reportedBy: data.reported_by,

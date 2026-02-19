@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { supabase } from '../supabase';
+import { v4 as uuidv4 } from 'uuid';
 
 export const getChildren = async (req: Request, res: Response) => {
     try {
@@ -28,7 +29,7 @@ export const addChild = async (req: Request, res: Response) => {
         // CRITICAL: All arguments must be present (or have defaults in SQL). 
         // We default all optional/nullable fields to null to ensure signature match.
         const rpcParams = {
-            _id: c.id || null,
+            _id: c.id || uuidv4(), // GENERATE UUID IF MISSING
             _name: c.name || null,
             _parent_name: c.parentName || c.parent_name || null,
             _parent_contact: c.parentContact || c.parent_contact || null,
@@ -79,19 +80,34 @@ export const updateChild = async (req: Request, res: Response) => {
     const { id } = req.params;
     try {
         const updates = req.body;
-        delete updates.id;     // Cannot update PK
+        delete updates.id;     // Cannot update PK via this payload if it matches params
         delete updates._meta;  // Remove RPC metadata
+
+        // Ensure we don't accidentally try to update the PK columns if they are in body
+        delete updates.id_uuid; // Deprecated/Renamed
+        delete updates.legacy_id;
+        delete updates.id_legacy_deprecated;
 
         // AUTO-PROMOTE LOGIC:
         // If updating status to 'Checked In', check if they are currently 'First Timer'
         if (updates.status === 'Checked In' || updates.check_in_time || updates.checkInTime) {
-            const { data: current } = await supabase.from('children').select('category').eq('id', id).single();
+            // Fetch using dual-lookup
+            const { data: current } = await supabase
+                .from('children')
+                .select('category')
+                .or(`id.eq.${id},legacy_id.eq.${id}`) // POST-FLIP: 'id' is UUID, 'legacy_id' is Text
+                .single();
+
             if (current && current.category === 'First Timer') {
                 updates.category = 'Member';
             }
         }
 
-        const { error } = await supabase.from('children').update(updates).eq('id', id);
+        const { error } = await supabase
+            .from('children')
+            .update(updates)
+            .or(`id.eq.${id},legacy_id.eq.${id}`); // Universal Match
+
         if (error) throw error;
         res.json({ message: 'Child updated' });
     } catch (error: any) {
@@ -102,7 +118,11 @@ export const updateChild = async (req: Request, res: Response) => {
 export const deleteChild = async (req: Request, res: Response) => {
     const { id } = req.params;
     try {
-        const { error } = await supabase.from('children').delete().eq('id', id);
+        const { error } = await supabase
+            .from('children')
+            .delete()
+            .or(`id.eq.${id},legacy_id.eq.${id}`); // Universal Match
+
         if (error) throw error;
         res.json({ message: 'Child deleted' });
     } catch (error: any) {

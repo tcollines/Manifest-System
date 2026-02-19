@@ -19,7 +19,8 @@ const mapMemberFromDB = (m: any): Member => ({
   residency: m.residency,
   bornAgain: m.born_again,
   joinedDate: m.joined_date,
-  attendedServiceIds: m.attended_service_ids || []
+  attendedServiceIds: m.attended_service_ids || [],
+  createdAt: m.created_at
 });
 
 const mapMemberToDB = (m: Member) => ({

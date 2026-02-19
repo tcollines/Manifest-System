@@ -1,0 +1,26 @@
+[
+  {
+    "id": "u-1766828589838",
+    "username": "aine",
+    "role": "Administrator",
+    "created_at": "2025-12-27T09:43:13.810466+00:00"
+  },
+  {
+    "id": "u-1767098315400",
+    "username": "Ruth",
+    "role": "Lead",
+    "created_at": "2025-12-30T12:38:36.994387+00:00"
+  },
+  {
+    "id": "u-teamleader-001",
+    "username": "tl@entebbemanifest.com",
+    "role": "TeamLeader",
+    "created_at": "2025-12-27T09:40:48.184767+00:00"
+  },
+  {
+    "id": "u-admin-001",
+    "username": "admin",
+    "role": "Super Admin",
+    "created_at": "2026-01-29T16:20:33.699813+00:00"
+  }
+]

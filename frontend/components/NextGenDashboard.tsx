@@ -54,7 +54,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
     const [selectedService, setSelectedService] = useState<MinistryEvent | null>(null);
 
     // Stats Filter State
-    const [activeStatsFilter, setActiveStatsFilter] = useState<'All' | 'CheckIn' | 'CheckedOut' | 'FirstTimer' | 'Souls'>('CheckIn');
+    const [activeStatsFilter, setActiveStatsFilter] = useState<'All' | 'CheckIn' | 'CheckedOut' | 'FirstTimer' | 'Souls'>('All');
 
     // Confirmation Modal State
     const [confirmModal, setConfirmModal] = useState<{
@@ -756,16 +756,18 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                     </button>
 
 
-                    <button
-                        onClick={() => { setActiveTab('souls'); setViewMode('list'); }}
-                        className={`flex items-center space-x-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${activeTab === 'souls'
-                            ? 'bg-black text-white shadow-md'
-                            : 'text-gray-500 hover:text-gray-900'
-                            }`}
-                    >
-                        <Heart className={`w-4 h-4 ${activeTab === 'souls' ? 'text-ministry-neon' : ''}`} />
-                        <span>Souls DB</span>
-                    </button>
+                    {!isRestrictedUser && (
+                        <button
+                            onClick={() => { setActiveTab('souls'); setViewMode('list'); }}
+                            className={`flex items-center space-x-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${activeTab === 'souls'
+                                ? 'bg-black text-white shadow-md'
+                                : 'text-gray-500 hover:text-gray-900'
+                                }`}
+                        >
+                            <Heart className={`w-4 h-4 ${activeTab === 'souls' ? 'text-ministry-neon' : ''}`} />
+                            <span>Souls DB</span>
+                        </button>
+                    )}
                     {!isRestrictedUser && (
                         <button
                             onClick={() => { setActiveTab('database'); setViewMode('list'); }}

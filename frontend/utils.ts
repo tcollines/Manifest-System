@@ -144,10 +144,12 @@ export const validateDriverIdentity = (val: string) => {
     return { valid: true, formatted: clean, type: 'Permit/Foreign' };
 };
 
+
+import { DEPARTMENTS } from './constants';
+
 export const getDashboardForUser = (user: User): string => {
     if (user.role === 'Super Admin' || user.role === 'Administrator') return '/dashboard';
 
-    // Role-specific overrides (BEFORE Department Check)
     // Role-specific overrides (BEFORE Department Check)
     if (user.role === 'Logistics') return '/registration';
     if (user.role === 'Vehicle Coordinator') return '/transportation';
@@ -157,7 +159,30 @@ export const getDashboardForUser = (user: User): string => {
         return '/transportation';
     }
 
-    // Map Department ID to Dashboard View
+    // Dynamic Department Routing (Supports UUID, Slug, and Legacy Code)
+    const normalizedDeptId = user.departmentId?.toLowerCase();
+    const dept = DEPARTMENTS.find(d =>
+        d.id === user.departmentId ||
+        d.uuid === user.departmentId ||
+        d.slug === normalizedDeptId ||
+        d.code === normalizedDeptId // Legacy 'd1' support
+    );
+
+    if (dept) {
+        switch (dept.slug) {
+            case 'registration': return '/registration';
+            case 'next-gen': return '/next-gen';
+            case 'parking': return '/parking';
+            case 'finance': return '/finance';
+            case 'transportation': return '/transportation';
+            case 'follow-up': return '/follow-up';
+            case 'schools': return '/schools';
+            case 'healing': return '/healing';
+            case 'administration': return '/dashboard'; // Admin backup
+        }
+    }
+
+    // Check Legacy Hardcodes (Fail-safe if DEPARTMENTS lookup misses)
     switch (user.departmentId) {
         case 'd1': return '/registration';
         case 'd2': return '/next-gen';
@@ -170,3 +195,4 @@ export const getDashboardForUser = (user: User): string => {
         default: return '/team-dashboard'; // TeamLeader or Member
     }
 };
+

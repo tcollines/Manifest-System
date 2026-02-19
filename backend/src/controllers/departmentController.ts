@@ -6,7 +6,7 @@ export const getDepartments = async (req: Request, res: Response) => {
         const { data, error } = await supabase
             .from('departments')
             .select('*')
-            .order('code', { ascending: true });
+            .order('id', { ascending: true });
 
         if (error) throw error;
         res.json(data);

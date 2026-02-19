@@ -382,13 +382,15 @@ const NextGenFollowUp: React.FC<NextGenFollowUpProps> = ({ currentUser, events }
                                         </td>
                                         <td className="px-6 py-3 text-gray-500 text-xs">{soul.capturedBy}</td>
                                         <td className="px-6 py-3 text-right">
-                                            <button
-                                                onClick={() => handleDeleteSoul(soul.id)}
-                                                className="text-gray-400 hover:text-red-600 p-1 transition-colors"
-                                                title="Delete"
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
+                                            {currentUser?.role !== 'Staff' && currentUser?.role !== 'Member' && (
+                                                <button
+                                                    onClick={() => handleDeleteSoul(soul.id)}
+                                                    className="text-gray-400 hover:text-red-600 p-1 transition-colors"
+                                                    title="Delete"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            )}
                                         </td>
                                     </tr>
                                 ))}

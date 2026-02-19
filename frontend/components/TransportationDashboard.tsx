@@ -90,12 +90,23 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
     const [selectedEventId, setSelectedEventId] = useState<string>('');
 
     // Sync selectedEventId with events prop if not set
+    // Sync selectedEventId with events prop if not set
     useEffect(() => {
         if (!selectedEventId && events && events.length > 0) {
+            // Prioritize the user's assigned event (e.g. Stage Coordinators)
+            if (currentUser?.eventId) {
+                // Verify event exists in list to avoid dead ID
+                const myEvent = events.find(e => e.id === currentUser.eventId);
+                if (myEvent) {
+                    setSelectedEventId(currentUser.eventId);
+                    return;
+                }
+            }
+
             const firstEvent = events.find(e => e.type === 'Event');
             if (firstEvent) setSelectedEventId(firstEvent.id);
         }
-    }, [events, selectedEventId]);
+    }, [events, selectedEventId, currentUser]);
 
 
     const selectedEvent = events.find(e => e.id === selectedEventId);
@@ -113,7 +124,10 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
     const [selectedCoordinator, setSelectedCoordinator] = useState('');
 
     // --- COORDINATOR SPECIFIC STATE ---
-    const isCoordinatorView = currentUser?.role === 'Vehicle Coordinator' || currentUser?.role === 'Stage Coordinator' || currentUser?.role === 'Coordinator';
+    // --- COORDINATOR SPECIFIC STATE ---
+    // "isCoordinatorView" now strictly means "Single Vehicle Operator View" (Vehicle Coordinator)
+    // Stage Coordinators use the filtered Dashboard View (similar to Admin but scoped)
+    const isCoordinatorView = currentUser?.role === 'Vehicle Coordinator' || currentUser?.role === 'Coordinator';
     const [myVehicle, setMyVehicle] = useState<Vehicle | null>(null);
     const [activeJourneyTab, setActiveJourneyTab] = useState<'Ongoing' | 'Return'>('Ongoing');
     const [passengers, setPassengers] = useState<Passenger[]>([]);
@@ -142,6 +156,8 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
 
     const refreshData = async (targetEventId: string = selectedEventId) => {
         const isCoord = isCoordinatorView && currentUser;
+        const isStageCoord = currentUser?.role === 'Stage Coordinator' || currentUser?.role === 'Coordinator';
+        const isVehicleCoord = currentUser?.role === 'Vehicle Coordinator';
 
         // Prevent global fetch if not coordinator and no event selected
         if (!isCoord && !targetEventId) {
@@ -153,8 +169,8 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
 
         try {
 
-            if (isCoord) {
-                // COORDINATOR VIEW: Parallelize My Vehicle and My Passengers
+            if (isVehicleCoord) {
+                // VEHICLE COORDINATOR VIEW: Parallelize My Vehicle and My Passengers
                 const [vehicleRes, passengerRes] = await Promise.all([
                     VehicleStore.getVehicles({ coordinatorUid: currentUser.id, coordinator: currentUser.name }), // Use both ID and name for robust search
                     Promise.resolve({ status: 'success', data: [] })
@@ -178,8 +194,6 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
 
                     // FIX: Ensure real-time subscription listens to the correct event channel
                     if (updated.eventId && updated.eventId !== selectedEventId) {
-                        // Use a timeout to avoid immediate state update within render cycle logic (though this is async)
-                        // and prevents potential race conditions with the fetch
                         setTimeout(() => setSelectedEventId(updated.eventId!), 0);
                     }
 
@@ -190,6 +204,65 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
                     setMyVehicle(null);
                     setPassengers([]);
                 }
+            } else if (isStageCoord) {
+                // STAGE COORDINATOR VIEW: Fetch Station Scope + Unassigned
+                const [vehicleRes, userRes, passengerRes, stationRes] = await Promise.all([
+                    VehicleStore.getVehicles({ eventId: targetEventId }),
+                    UserStore.getAll({ eventId: targetEventId }),
+                    VehicleStore.getPassengers({ eventId: targetEventId }), // Fetch all, filter locally
+                    LogisticsStore.getStations(targetEventId)
+                ]);
+
+                const myStationId = currentUser.stationId;
+                const dbStations = stationRes.status === 'success' ? stationRes.data : [];
+                setDbStations(dbStations);
+
+                // 1. Vehicles: Filter by Station
+                const allVehicles = vehicleRes.status === 'success' ? vehicleRes.data : [];
+                const myStationVehicles = allVehicles.filter(v =>
+                    v.stationId === myStationId || v.stationId === dbStations.find(s => s.id === myStationId)?.legacy_id
+                );
+
+                // Tracked Vehicles Transformation
+                const trackedVehicles: TrackedVehicle[] = myStationVehicles.map(v => {
+                    const stages: JourneyStage[] = ['Onboarding', 'Verifying', 'RegApproval', 'FinanceApproval', 'Transit', 'Arrived'];
+                    const stage = v.currentStage || 'Onboarding';
+                    const idx = stages.indexOf(stage);
+                    return {
+                        ...v,
+                        status: (v.status || 'Pending') as any,
+                        progress: idx === -1 ? 0 : Math.round(((idx + 1) / stages.length) * 100),
+                        eta: `${Math.floor(Math.random() * 20) + 5} mins`,
+                        isDelayed: Math.random() > 0.8,
+                        currentStage: stage,
+                        journeyDirection: v.journeyDirection || 'Ongoing',
+                    };
+                });
+                setVehicles(trackedVehicles);
+
+                // 2. Coordinators: Filter by Station + Unassigned
+                const allUsers = userRes.status === 'success' ? userRes.data : [];
+                const stationStaff = allUsers.filter(u => {
+                    const isRelevantRole = u.role === 'Vehicle Coordinator' || u.role === 'Stage Coordinator';
+                    const isMyStation = u.stationId === myStationId;
+                    const isUnassigned = !u.stationId;
+                    // Show if role is relevant AND (belongs to my station OR is unassigned)
+                    return isRelevantRole && (isMyStation || isUnassigned);
+                });
+                setCoordinators(stationStaff);
+
+                // 3. Set My Vehicle (if any assigned specifically to me)
+                const mine = trackedVehicles.find(v =>
+                    (v.coordinatorUid === currentUser.id) ||
+                    (v.coordinator?.trim().toLowerCase() === currentUser.name.trim().toLowerCase())
+                );
+                setMyVehicle(mine || null);
+
+                // 4. Passengers (Filter by my station vehicles)
+                const allPassengers = passengerRes.status === 'success' ? passengerRes.data : [];
+                const myStationVehicleIds = myStationVehicles.map(v => v.id);
+                setPassengers(allPassengers.filter(p => myStationVehicleIds.includes(p.vehicleId)));
+
             } else {
                 // HEAD OF DEPT VIEW: Parallelize ALL event-scoped data
                 const [vehicleRes, stationRes, passengerRes, userRes] = await Promise.all([
@@ -614,7 +687,7 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
             username: newCoordinator.username,
             password: newCoordinator.password,
             departmentId: 'd5',
-            eventId: selectedEventId,
+            eventId: selectedEventId || currentUser?.eventId, // Robust Fallback
             contact: newCoordinator.contact,
             stationId: newCoordinator.stationId || undefined // Optional linkage
         };

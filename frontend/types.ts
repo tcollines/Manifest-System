@@ -98,6 +98,7 @@ export interface Member {
   checkInTime?: string;
   // Extended Fields
   gender?: 'Male' | 'Female';
+  createdAt?: string;
   residency?: string;
   email?: string;
   occupation?: string;
@@ -112,6 +113,7 @@ export interface Member {
 
 export interface Child {
   id: string;
+  legacyId?: string; // Migration Field
   name: string;
   parentName: string;
   parentContact: string;
@@ -190,6 +192,8 @@ export interface Vehicle {
 // Parking Module Vehicle
 export interface PersonalVehicle {
   id: string;
+  idUuid?: string; // Shadow UUID
+  legacyId?: string; // Shadow Legacy ID
   number_plate: string;
   driverName: string;
   driverContact: string;
@@ -396,11 +400,13 @@ export interface TrainingRequest {
 // Monthly Reporting System Types
 
 export interface Department {
-  id: string; // UUID
-  code: string; // 'd1', 'd2' etc.
+  id: string; // UUID (eventually) or 'd1' (currently)
+  code: string; // 'd1', 'd2' etc. (Legacy)
+  slug: string; // 'registration', 'transportation'
+  uuid: string; // Native UUID
   name: string;
   headId?: string;
-  dashboardRoute?: string; // e.g. /registration
+  dashboardRoute?: string;
   status?: 'Active' | 'Inactive';
   // Computed/Joined fields
   headName?: string;

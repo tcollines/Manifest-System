@@ -369,6 +369,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
 
 
   // Robust Role Check: Case-insensitive and includes Department ID 'd5' (Transportation/Logistics) - Fixes Data Entrant Guard
+  // TODO: Refactor to use Department Slug from Global Context/Store
   const isLogisticsRole = (currentUser.role && currentUser.role.trim().toLowerCase() === 'logistics') || currentUser.departmentId === 'd5';
 
   // Permission for Deletion: Head of Dept or Administration Department (d0) or Administrator
@@ -1609,6 +1610,15 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
 
       return false;
     });
+  }).sort((a, b) => {
+    if (a.createdAt && b.createdAt) {
+      return b.createdAt.localeCompare(a.createdAt);
+    }
+    // If one has createdAt (new) and other doesn't (old), new comes first
+    if (a.createdAt) return -1;
+    if (b.createdAt) return 1;
+    // Fallback: Name
+    return a.name.localeCompare(b.name);
   });
 
   // Bulk Selection Handlers

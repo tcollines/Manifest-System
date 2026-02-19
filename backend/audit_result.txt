@@ -1,0 +1,7 @@
+--- DATA AUDIT (Via Supabase API) ---
+USERS: Total=63, Valid=59 (93.7%)
+PV: Total=60, Valid=24 (40.0%)
+
+--- DEFAULT VALUE TEST ---
+USERS INSERT TEST: FAILED (null value in column "id" of relation "users" violates not-null constraint)
+PV INSERT TEST: FAILED (Could not find the 'capacity' column of 'personal_vehicles' in the schema cache)
