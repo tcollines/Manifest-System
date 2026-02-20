@@ -74,6 +74,7 @@ export interface User {
   id: string;
   name: string;
   role: string;
+  manifestId?: string;
   departmentId?: string; // Legacy Code (e.g. 'd1')
   departmentUid?: string; // New UUID
   // Credentials & Contact
@@ -235,6 +236,7 @@ export interface Passenger {
 
 export interface PickUpStation {
   id: string;
+  legacyId?: string; // Migration Field
   name: string;
   location: string;
   registeredAttendees: number;

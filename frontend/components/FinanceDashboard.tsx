@@ -103,16 +103,38 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, events
     useEffect(() => {
         refreshData();
 
-        // Realtime Subscriptions
-        const channel = supabase.channel('finance-dashboard-live')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'finance_transactions' }, () => {
-                refreshData();
+        const activeEventId = selectedEventId;
+        if (!activeEventId) return;
+
+        // Scoped Realtime Subscriptions
+        const channel = supabase.channel(`finance-dashboard-scoped-${activeEventId}`)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'finance_transactions', filter: `event_id=eq.${activeEventId}` }, (payload) => {
+                const { eventType, new: newRecord, old: oldRecord } = payload;
+                if (eventType === 'INSERT') setTransactions(prev => [newRecord as Transaction, ...prev]);
+                else if (eventType === 'UPDATE') setTransactions(prev => prev.map(t => t.id === newRecord.id ? (newRecord as Transaction) : t));
+                else if (eventType === 'DELETE') setTransactions(prev => prev.filter(t => t.id !== oldRecord.id));
             })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'department_requests' }, () => {
-                refreshData();
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'requisitions', filter: `event_id=eq.${activeEventId}` }, (payload) => {
+                const { eventType, new: newRecord, old: oldRecord } = payload;
+                if (eventType === 'INSERT') setRequisitions(prev => [newRecord as Requisition, ...prev]);
+                else if (eventType === 'UPDATE') setRequisitions(prev => prev.map(r => r.id === newRecord.id ? (newRecord as Requisition) : r));
+                else if (eventType === 'DELETE') setRequisitions(prev => prev.filter(r => r.id !== oldRecord.id));
             })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'vehicles' }, () => {
-                refreshData();
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'vehicles' }, (payload) => {
+                // Vehicles don't always have event_id directly in the filter-friendly way if they are linked via station
+                // But we can check the stationId or just use granular update without full refresh if it matches our local list
+                const { eventType, new: newRecord, old: oldRecord } = payload;
+                if (eventType === 'INSERT' || eventType === 'UPDATE') {
+                    setVehicles(prev => {
+                        const exists = prev.find(v => v.id === newRecord.id);
+                        if (exists) return prev.map(v => v.id === newRecord.id ? (newRecord as Vehicle) : v);
+                        // Only add if it belongs to our current stations? 
+                        // For simplicity in finance, we can just update if it's already in our list.
+                        return prev;
+                    });
+                } else if (eventType === 'DELETE') {
+                    setVehicles(prev => prev.filter(v => v.id !== oldRecord.id));
+                }
             })
             .subscribe();
 
@@ -215,7 +237,7 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, events
 
             showToast("Payment recorded successfully!", 'success');
             setPayModalOpen(false);
-            refreshData(); // Refresh list to update progress/status
+            // refreshData(); // Removed in favor of Realtime
 
             // Optionally auto-create an expense transaction?
             // Ignoring for now, but good for future.
@@ -263,7 +285,7 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, events
 
     const handleRequestAction = async (id: string, action: 'Approved' | 'Rejected') => {
         await FinanceStore.updateRequest(id, action);
-        setRequests(await FinanceStore.getRequests());
+        // setRequests(await FinanceStore.getRequests()); // Removed in favor of Realtime
     };
 
     const handleOpenEventFleet = (event: MinistryEvent) => {

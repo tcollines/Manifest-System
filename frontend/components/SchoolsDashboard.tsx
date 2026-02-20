@@ -50,9 +50,12 @@ export const SchoolsDashboard: React.FC<SchoolsDashboardProps> = ({
     useEffect(() => {
         loadReports();
 
-        const channel = supabase.channel('schools-live')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'school_outreach_reports' }, () => {
-                loadReports();
+        const channel = supabase.channel('schools-reports-live')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'school_outreach_reports' }, (payload) => {
+                const { eventType, new: newRecord, old: oldRecord } = payload;
+                if (eventType === 'INSERT') setReports(prev => [newRecord as SchoolOutreachReport, ...prev].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+                else if (eventType === 'UPDATE') setReports(prev => prev.map(r => r.id === newRecord.id ? (newRecord as SchoolOutreachReport) : r).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+                else if (eventType === 'DELETE') setReports(prev => prev.filter(r => r.id !== oldRecord.id));
             })
             .subscribe();
 

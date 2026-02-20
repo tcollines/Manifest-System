@@ -327,20 +327,26 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
       .on(
         'postgres_changes',
         {
-          event: '*', // Listen for INSERT and DELETE (and UPDATE if needed)
+          event: '*',
           schema: 'public',
           table: 'service_attendance',
-          filter: `service_id=eq.${selectedService.id}` // Server-side filtering
+          filter: `service_id=eq.${selectedService.id}`
         },
-        async (payload) => {
-          // Re-fetch stats when any change happens to this service's attendance
-          try {
-            const stats = await MemberStore.getServiceStats(selectedService.id, selectedService.date);
-            const childrenCount = selectedService.stats?.manualChildrenCount || 0;
-            setCheckInStats(prev => ({ ...prev, total: stats.total + childrenCount, firstTimers: stats.firstTimers }));
-            setCheckedInIds(new Set(stats.memberIds));
-          } catch (error) {
-            console.error("Realtime sync failed:", error);
+        (payload) => {
+          const { eventType, new: newRecord, old: oldRecord } = payload;
+
+          if (eventType === 'INSERT') {
+            setCheckedInIds(prev => new Set([...prev, (newRecord as any).member_id]));
+            setCheckInStats(prev => ({ ...prev, total: prev.total + 1 }));
+            // Note: firstTimers count might be slightly off without a fetch, 
+            // but we follow "No extra network GET" rule.
+          } else if (eventType === 'DELETE') {
+            setCheckedInIds(prev => {
+              const next = new Set(prev);
+              next.delete((oldRecord as any).member_id);
+              return next;
+            });
+            setCheckInStats(prev => ({ ...prev, total: Math.max(0, prev.total - 1) }));
           }
         }
       )
@@ -350,13 +356,16 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
       .channel(`service-souls-${selectedService.id}`)
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'souls', filter: `source_id=eq.${selectedService.id}` },
-        async () => {
-          try {
-            // Re-fetch souls count
-            const count = await SoulsStore.getServiceStats(selectedService.id);
-            setCheckInStats(prev => ({ ...prev, soulsWon: count }));
-          } catch (e) { console.error("Souls sync failed", e); }
+        { event: 'INSERT', schema: 'public', table: 'souls', filter: `source_id=eq.${selectedService.id}` },
+        () => {
+          setCheckInStats(prev => ({ ...prev, soulsWon: prev.soulsWon + 1 }));
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'souls', filter: `source_id=eq.${selectedService.id}` },
+        () => {
+          setCheckInStats(prev => ({ ...prev, soulsWon: Math.max(0, prev.soulsWon - 1) }));
         }
       )
       .subscribe();
@@ -545,8 +554,9 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
   refreshDataRef.current = refreshData;
 
   useEffect(() => {
-    // Skip fetch if length is 1 to avoid "heavy" defaults if not intended
-    if (searchQuery.length > 0 && searchQuery.length < 2) {
+    // Skip fetch if length is exactly 1 (wait for at least 2 chars to search)
+    // BUT we MUST fetch if length is 0 (cleared search)
+    if (debouncedSearchQuery.length === 1) {
       return;
     }
 
@@ -574,102 +584,100 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
 
   // Realtime Subscriptions with Granular Updates
   useEffect(() => {
-    const channel = supabase.channel('reg-dashboard-live')
-      // Members Table: Granular Updates
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'members' }, (payload) => {
-        const newMember = payload.new as any;
-        // 1. Update Members List (if needed for list view / search)
-        // Only append if it matches current search
-        const matchesSearch = !searchQuery ||
-          newMember.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          newMember.phone.includes(searchQuery);
+    const activeOperationId = selectedService?.id || selectedLogisticsEvent?.id;
+    if (!activeOperationId) return;
 
-        if (matchesSearch) {
-          setMembers(prev => {
-            // Avoid duplicates
-            if (prev.find(m => m.id === newMember.id)) return prev;
-            const mapped: Member = {
-              id: newMember.id,
-              name: newMember.name,
-              category: newMember.category,
-              phone: newMember.phone,
-              status: newMember.status,
-              checkInTime: newMember.check_in_time,
-              gender: newMember.gender,
-              residency: newMember.residency,
-              bornAgain: newMember.born_again,
-              joinedDate: newMember.joined_date,
-              attendedServiceIds: newMember.attended_service_ids || []
-            };
-            return [mapped, ...prev];
-          });
-          setTotalMembers(prev => prev + 1);
+    const channel = supabase.channel(`reg-dashboard-scoped-${activeOperationId}`);
+
+    // Helpers for granular updates
+    const handleStationChange = (payload: any) => {
+      const { eventType, new: newRecord, old: oldRecord } = payload;
+      if (eventType === 'INSERT') {
+        setStations(prev => {
+          if (prev.find(s => s.id === newRecord.id)) return prev;
+          const mapped: ExtendedStation = {
+            ...newRecord,
+            eventId: newRecord.event_id,
+            coordinatorName: newRecord.coordinator_name || '',
+            coordinatorContact: newRecord.coordinator_contact || '',
+            totalPassengers: 0,
+            vehicles: []
+          } as ExtendedStation;
+          return [mapped, ...prev];
+        });
+      } else if (eventType === 'UPDATE') {
+        const updated = newRecord as any;
+        setStations(prev => prev.map(s => s.id === updated.id ? {
+          ...s,
+          ...updated,
+          eventId: updated.event_id // Map snake_case to camelCase
+        } : s));
+      } else if (eventType === 'DELETE') {
+        setStations(prev => prev.filter(s => s.id !== oldRecord.id));
+      }
+    };
+
+    const handleVehicleChange = (payload: any) => {
+      const { eventType, new: newRecord, old: oldRecord } = payload;
+      if (eventType === 'INSERT') {
+        setVehicles(prev => {
+          if (prev.find(v => v.id === newRecord.id)) return prev;
+          return [newRecord as Vehicle, ...prev];
+        });
+      } else if (eventType === 'UPDATE') {
+        setVehicles(prev => prev.map(v => v.id === newRecord.id ? (newRecord as Vehicle) : v));
+        if (selectedVehicle?.id === newRecord.id) {
+          setSelectedVehicle(newRecord as Vehicle);
         }
+      } else if (eventType === 'DELETE') {
+        setVehicles(prev => prev.filter(v => v.id !== oldRecord.id));
+        if (selectedVehicle?.id === oldRecord.id) setSelectedVehicle(null);
+      }
+    };
+
+    const handlePassengerChange = (payload: any) => {
+      const { eventType, new: newRecord, old: oldRecord } = payload;
+      if (eventType === 'INSERT') {
+        setPassengers(prev => {
+          if (prev.find(p => p.id === newRecord.id)) return prev;
+          return [newRecord as Passenger, ...prev];
+        });
+      } else if (eventType === 'UPDATE') {
+        setPassengers(prev => prev.map(p => p.id === newRecord.id ? (newRecord as Passenger) : p));
+      } else if (eventType === 'DELETE') {
+        setPassengers(prev => prev.filter(p => p.id !== oldRecord.id));
+      }
+    };
+
+    const handleUserChange = (payload: any) => {
+      const { eventType, new: newRecord, old: oldRecord } = payload;
+      if (eventType === 'INSERT' || eventType === 'UPDATE') {
+        setCoordinators(prev => {
+          const exists = prev.find(u => u.id === newRecord.id);
+          if (exists) return prev.map(u => u.id === newRecord.id ? (newRecord as User) : u);
+          return [newRecord as User, ...prev];
+        });
+      } else if (eventType === 'DELETE') {
+        setCoordinators(prev => prev.filter(u => u.id !== oldRecord.id));
+      }
+    };
+    channel
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'pickup_stations', filter: `event_id=eq.${activeOperationId}` }, handleStationChange)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'vehicles', filter: `event_id=eq.${activeOperationId}` }, handleVehicleChange)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'passengers', filter: `event_id=eq.${activeOperationId}` }, handlePassengerChange)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'users', filter: `event_id=eq.${activeOperationId}` }, handleUserChange)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'personal_vehicles', filter: `current_service_id=eq.${activeOperationId}` }, (payload) => {
+        const { eventType, new: newRecord, old: oldRecord } = payload;
+        if (eventType === 'INSERT') setPersonalVehicles(prev => [newRecord as PersonalVehicle, ...prev]);
+        else if (eventType === 'UPDATE') setPersonalVehicles(prev => prev.map(v => v.id === newRecord.id ? (newRecord as PersonalVehicle) : v));
+        else if (eventType === 'DELETE') setPersonalVehicles(prev => prev.filter(v => v.id !== oldRecord.id));
       })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'members' }, async (payload) => {
-        const updated = payload.new as any;
-        const currentService = selectedServiceRef.current;
-
-        // 1. Resolve Category (Local or Fetch)
-        let category: string | undefined = updated.category;
-        const existingMember = membersRef.current.find(m => m.id === updated.id);
-
-        if (existingMember) {
-          category = category || existingMember.category;
-        } else if (!category) {
-          try {
-            const fetched = await MemberStore.getById(updated.id);
-            if (fetched) category = fetched.category;
-          } catch (err) {
-            console.error("Error fetching member for realtime update:", err);
-          }
-        }
-
-        // 1. Update Members List
-        setMembers(prev => prev.map(m => {
-          if (m.id === updated.id) {
-            return {
-              ...m,
-              name: updated.name,
-              category: updated.category,
-              phone: updated.phone,
-              status: updated.status,
-              checkInTime: updated.check_in_time,
-              gender: updated.gender,
-              bornAgain: updated.born_again,
-              attendedServiceIds: updated.attended_service_ids || []
-            };
-          }
-          return m;
-        }));
-
-      })
-      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'members' }, (payload) => {
-        const deletedId = payload.old.id;
-        const existingMember = membersRef.current.find(m => m.id === deletedId);
-        const category = existingMember?.category;
-
-        // 1. Remove from list
-        setMembers(prev => prev.filter(m => m.id !== deletedId));
-        setTotalMembers(prev => Math.max(0, prev - 1));
-
-        // 2. Refresh stats? No, rely on service_attendance channel as well or just remove.
-        // If we delete a member, service_attendance trigger should fire.
-      })
-
-      // Other Tables: Keep using refreshData for now or implement similar logic
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, () => { refreshDataRef.current(); forceUpdate(n => n + 1); })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'pickup_stations' }, () => { refreshDataRef.current(); forceUpdate(n => n + 1); })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'vehicles' }, () => { refreshDataRef.current(); forceUpdate(n => n + 1); })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'personal_vehicles' }, () => { refreshDataRef.current(); forceUpdate(n => n + 1); })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'ministry_events' }, () => { refreshDataRef.current(); }) // Less aggressive
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'passengers' }, () => { refreshDataRef.current(); forceUpdate(n => n + 1); })
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [selectedService?.id, selectedLogisticsEvent?.id]);
 
   // Clear selections when changing tabs or views
   useEffect(() => {

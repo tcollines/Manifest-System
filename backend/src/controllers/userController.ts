@@ -2,20 +2,21 @@ import { Request, Response } from 'express';
 import { supabase } from '../supabase';
 
 export const getAllUsers = async (req: Request, res: Response) => {
+    const manifestId = (req as any).manifestId;
+    if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
+
     const role = req.query.role as string;
     const eventId = req.query.eventId as string;
     const departmentId = req.query.departmentId as string;
     const validEventId = (eventId && eventId !== 'undefined' && eventId !== 'null') ? eventId : null;
 
     try {
-        // STRICT SCOPING RULE: Coordinators must be fetched by Event
-        // If searching for Coordinators globally, reject it.
         if (role === 'Coordinator' && !validEventId) {
             console.warn('[BACKEND] Blocked global coordinator fetch attempt. Missing eventId.');
             return res.json([]);
         }
 
-        let query = supabase.from('users').select('*');
+        let query = supabase.from('users').select('*').eq('manifest_id', manifestId); // Tenant Isolation
         if (role) query = query.eq('role', role);
         if (validEventId) query = query.eq('event_id', validEventId);
         if (departmentId) query = query.eq('department_id', departmentId);
@@ -28,53 +29,42 @@ export const getAllUsers = async (req: Request, res: Response) => {
     }
 };
 
-export const loginUser = async (req: Request, res: Response) => {
-    const { username, password } = req.body;
-    console.log(`[LOGIN ATTEMPT] Username: '${username}', Password: '${password}'`);
+export const getProfile = async (req: Request, res: Response) => {
+    const manifestId = (req as any).manifestId;
+    const user = (req as any).user;
 
-    if (!username || !password) {
-        return res.status(400).json({ error: 'Username and password are required' });
+    if (!manifestId || !user) {
+        return res.status(401).json({ error: 'Unauthorized' });
     }
 
     try {
-        // Trim inputs to match our sanitized DB
-        const cleanUsername = username.trim();
-        const cleanPassword = password.trim();
-
         const { data, error } = await supabase
             .from('users')
             .select('*')
-            .eq('username', cleanUsername)
-            .eq('password', cleanPassword) // In a real app, hash this!
-            .maybeSingle(); // Returns null if not found, error if multiple
+            .eq('id', user.id)
+            .eq('manifest_id', manifestId)
+            .single();
 
-        if (error) {
-            console.error('[LOGIN ERROR] DB Error:', error.message);
-            return res.status(500).json({ error: 'Database error checking credentials' });
-        }
-
-        if (!data) {
-            console.warn(`[LOGIN FAILED] No user found for '${cleanUsername}' with provided password.`);
-            return res.status(401).json({ error: 'Invalid username or password' });
-        }
-
-        console.log(`[LOGIN SUCCESS] User found: ${data.username} (${data.role})`);
+        if (error) throw error;
         res.json(data);
     } catch (error: any) {
-        console.error('[LOGIN EXCEPTION]', error);
         res.status(500).json({ error: error.message });
     }
 };
 
+
 export const createUser = async (req: Request, res: Response) => {
+    const manifestId = (req as any).manifestId;
+    if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
+
     try {
         const payload = {
             ...req.body,
+            manifest_id: manifestId, // INJECT TENANT ID
             department_id: req.body.departmentId || req.body.department_id,
             station_id: req.body.stationId || req.body.station_id,
             event_id: req.body.eventId || req.body.event_id,
         };
-        // Clean up camelCase keys
         delete payload.departmentId;
         delete payload.stationId;
         delete payload.eventId;
@@ -88,6 +78,9 @@ export const createUser = async (req: Request, res: Response) => {
 };
 
 export const updateUser = async (req: Request, res: Response) => {
+    const manifestId = (req as any).manifestId;
+    if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
+
     const { id } = req.params;
     try {
         const payload = {
@@ -100,7 +93,7 @@ export const updateUser = async (req: Request, res: Response) => {
         delete payload.stationId;
         delete payload.eventId;
 
-        const { error } = await supabase.from('users').update(payload).eq('id', id);
+        const { error } = await supabase.from('users').update(payload).eq('manifest_id', manifestId).eq('id', id);
         if (error) throw error;
         res.json({ message: 'User updated' });
     } catch (error: any) {
@@ -109,9 +102,12 @@ export const updateUser = async (req: Request, res: Response) => {
 };
 
 export const deleteUser = async (req: Request, res: Response) => {
+    const manifestId = (req as any).manifestId;
+    if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
+
     const { id } = req.params;
     try {
-        const { error } = await supabase.from('users').delete().eq('id', id);
+        const { error } = await supabase.from('users').delete().eq('manifest_id', manifestId).eq('id', id);
         if (error) throw error;
         res.json({ message: 'User deleted' });
     } catch (error: any) {

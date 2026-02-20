@@ -6,13 +6,15 @@ import * as path from 'path';
 
 // --- General Souls ---
 export const getSouls = async (req: Request, res: Response) => {
+    const manifestId = (req as any).manifestId;
+    if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
+
     const { sourceId } = req.query;
     try {
-        let query = supabase.from('souls').select('*').order('created_at', { ascending: false });
+        let query = supabase.from('souls').select('*').eq('manifest_id', manifestId).order('created_at', { ascending: false }); // Tenant Isolation
         if (sourceId) {
             const idUuid = toUUID(sourceId);
             if (idUuid) {
-                // event_id is now the promoted UUID column. source_id remains for legacy type-based metadata.
                 query = query.or(`event_id.eq.${idUuid},source_id.eq.${sourceId}`);
             } else {
                 query = query.eq('source_id', sourceId);
@@ -29,15 +31,18 @@ export const getSouls = async (req: Request, res: Response) => {
 
 
 export const addSoul = async (req: Request, res: Response) => {
+    const manifestId = (req as any).manifestId;
+    if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
+
     try {
         let eventUuid = toUUID(req.body.event_id || req.body.eventId);
 
-        // Fallback or Legacy Resolution:
         if (!eventUuid && (req.body.event_id || req.body.eventId)) {
             const inputId = req.body.event_id || req.body.eventId;
             const { data: eventData } = await supabase
                 .from('ministry_events')
                 .select('id')
+                .eq('manifest_id', manifestId) // Tenant Isolation
                 .eq('legacy_id', inputId)
                 .single();
 
@@ -53,11 +58,12 @@ export const addSoul = async (req: Request, res: Response) => {
         }
 
         const payload: any = {
+            manifest_id: manifestId, // INJECT TENANT ID
             first_name: req.body.first_name || req.body.firstName,
             last_name: req.body.last_name || req.body.lastName || '',
             phone: req.body.phone,
             email: req.body.email,
-            gender: req.body.gender || 'Male', // Default to avoid NOT NULL constraints
+            gender: req.body.gender || 'Male',
             residence: req.body.residence || req.body.residency || '',
             status: req.body.status || 'New',
             source_type: req.body.source_type || req.body.sourceType || 'Service',
@@ -67,11 +73,9 @@ export const addSoul = async (req: Request, res: Response) => {
             event_id: eventUuid,
             station_id: toUUID(req.body.station_id || req.body.stationId),
             vehicle_id: toUUID(req.body.vehicle_id || req.body.vehicleId),
-            // Legacy fallbacks
             legacy_event_id: req.body.event_id || req.body.eventId,
             legacy_station_id: req.body.station_id || req.body.stationId,
             legacy_vehicle_id: req.body.vehicle_id || req.body.vehicleId,
-            // Additional fields (Optional but good for completeness)
             student_status: req.body.student_status || req.body.studentStatus,
             age: req.body.age,
             occupation: req.body.occupation,
@@ -80,7 +84,6 @@ export const addSoul = async (req: Request, res: Response) => {
             ministry: req.body.ministry
         };
 
-        // ONLY include ID if it's a valid UUID
         const idToUse = toUUID(req.body.id);
         if (idToUse) {
             payload.id = idToUse;
@@ -99,6 +102,9 @@ export const addSoul = async (req: Request, res: Response) => {
 };
 
 export const updateSoul = async (req: Request, res: Response) => {
+    const manifestId = (req as any).manifestId;
+    if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
+
     const { id } = req.params;
     try {
         const payload = { ...req.body };
@@ -115,7 +121,7 @@ export const updateSoul = async (req: Request, res: Response) => {
             payload.legacy_vehicle_id = req.body.vehicle_id;
         }
 
-        const { error } = await supabase.from('souls').update(payload).eq('id', id);
+        const { error } = await supabase.from('souls').update(payload).eq('manifest_id', manifestId).eq('id', id);
         if (error) throw error;
         res.json({ message: 'Soul updated' });
     } catch (error: any) {
@@ -124,9 +130,12 @@ export const updateSoul = async (req: Request, res: Response) => {
 };
 
 export const deleteSoul = async (req: Request, res: Response) => {
+    const manifestId = (req as any).manifestId;
+    if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
+
     const { id } = req.params;
     try {
-        const { error } = await supabase.from('souls').delete().eq('id', id);
+        const { error } = await supabase.from('souls').delete().eq('manifest_id', manifestId).eq('id', id);
         if (error) throw error;
         res.json({ message: 'Soul deleted' });
     } catch (error: any) {
@@ -135,12 +144,16 @@ export const deleteSoul = async (req: Request, res: Response) => {
 };
 
 export const getSoulServiceStats = async (req: Request, res: Response) => {
+    const manifestId = (req as any).manifestId;
+    if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
+
     const { serviceId } = req.params;
     try {
         const idUuid = toUUID(serviceId);
         let query = supabase
             .from('souls')
             .select('*', { count: 'exact', head: true })
+            .eq('manifest_id', manifestId) // Tenant Isolation
             .eq('source_type', 'Service');
 
         if (idUuid) {
@@ -154,10 +167,10 @@ export const getSoulServiceStats = async (req: Request, res: Response) => {
 
         if (error) throw error;
 
-        // Count Next Gen Souls as well
         const { count: nextGenCount, error: ngError } = await supabase
             .from('next_gen_souls')
             .select('*', { count: 'exact', head: true })
+            .eq('manifest_id', manifestId) // Tenant Isolation
             .eq('service_id', serviceId);
 
         if (ngError) throw ngError;
@@ -171,9 +184,12 @@ export const getSoulServiceStats = async (req: Request, res: Response) => {
 
 // --- Next Gen Souls ---
 export const getNextGenSouls = async (req: Request, res: Response) => {
+    const manifestId = (req as any).manifestId;
+    if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
+
     const { serviceId } = req.query;
     try {
-        let query = supabase.from('next_gen_souls').select('*').order('created_at', { ascending: false });
+        let query = supabase.from('next_gen_souls').select('*').eq('manifest_id', manifestId).order('created_at', { ascending: false }); // Tenant Isolation
         if (serviceId) {
             query = query.eq('service_id', serviceId);
         }
@@ -186,8 +202,12 @@ export const getNextGenSouls = async (req: Request, res: Response) => {
 };
 
 export const addNextGenSoul = async (req: Request, res: Response) => {
+    const manifestId = (req as any).manifestId;
+    if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
+
     try {
-        const { error } = await supabase.from('next_gen_souls').insert([req.body]);
+        const payload = { ...req.body, manifest_id: manifestId };
+        const { error } = await supabase.from('next_gen_souls').insert([payload]);
         if (error) throw error;
         res.status(201).json({ message: 'NextGen Soul added' });
     } catch (error: any) {
@@ -196,9 +216,12 @@ export const addNextGenSoul = async (req: Request, res: Response) => {
 };
 
 export const deleteNextGenSoul = async (req: Request, res: Response) => {
+    const manifestId = (req as any).manifestId;
+    if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
+
     const { id } = req.params;
     try {
-        const { error } = await supabase.from('next_gen_souls').delete().eq('id', id);
+        const { error } = await supabase.from('next_gen_souls').delete().eq('manifest_id', manifestId).eq('id', id);
         if (error) throw error;
         res.json({ message: 'NextGen Soul deleted' });
     } catch (error: any) {
@@ -207,11 +230,15 @@ export const deleteNextGenSoul = async (req: Request, res: Response) => {
 };
 
 export const getNextGenSoulCount = async (req: Request, res: Response) => {
+    const manifestId = (req as any).manifestId;
+    if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
+
     const { serviceId } = req.params;
     try {
         const { count, error } = await supabase
             .from('next_gen_souls')
             .select('*', { count: 'exact', head: true })
+            .eq('manifest_id', manifestId) // Tenant Isolation
             .eq('service_id', serviceId);
         if (error) throw error;
         res.json({ count: count || 0 });

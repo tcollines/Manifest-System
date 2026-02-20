@@ -220,7 +220,7 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
                 // 1. Vehicles: Filter by Station
                 const allVehicles = vehicleRes.status === 'success' ? vehicleRes.data : [];
                 const myStationVehicles = allVehicles.filter(v =>
-                    v.stationId === myStationId || v.stationId === dbStations.find(s => s.id === myStationId)?.legacy_id
+                    v.stationId === myStationId || v.stationId === dbStations.find(s => s.id === myStationId)?.legacyId
                 );
 
                 // Tracked Vehicles Transformation
@@ -363,26 +363,27 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
 
         // INVARIANT 2: Reactive Realtime Channels
         const channel = supabase
-            .channel(`transport-dashboard-live-${selectedEventId}`)
-            .on(
-                'postgres_changes',
-                { event: '*', schema: 'public', table: 'vehicles' },
-                () => {
-                    // Success Criterion: Strict derivation from refreshData on ANY fleet change
-                    // This eliminates stale closure bugs and ensures cross-event leakage is impossible
-                    refreshDataRef.current(selectedEventId);
-                }
-            )
-            .on(
-                'postgres_changes',
-                { event: '*', schema: 'public', table: 'users' },
-                () => refreshDataRef.current(selectedEventId)
-            )
-            .on(
-                'postgres_changes',
-                { event: '*', schema: 'public', table: 'passengers' },
-                () => refreshDataRef.current(selectedEventId)
-            )
+            .channel(`transport-dashboard-scoped-${selectedEventId}`)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'vehicles', filter: `event_id=eq.${selectedEventId}` }, (payload) => {
+                const { eventType, new: newRecord, old: oldRecord } = payload;
+                if (eventType === 'INSERT') setVehicles(prev => [...prev, newRecord as TrackedVehicle]);
+                else if (eventType === 'UPDATE') {
+                    setVehicles(prev => prev.map(v => v.id === newRecord.id ? (newRecord as TrackedVehicle) : v));
+                    if (myVehicle?.id === newRecord.id) setMyVehicle(newRecord as Vehicle);
+                } else if (eventType === 'DELETE') setVehicles(prev => prev.filter(v => v.id !== oldRecord.id));
+            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, (payload) => {
+                const { eventType, new: newRecord, old: oldRecord } = payload;
+                if (eventType === 'INSERT') setCoordinators(prev => [...prev, newRecord as User]);
+                else if (eventType === 'UPDATE') setCoordinators(prev => prev.map(u => u.id === newRecord.id ? (newRecord as User) : u));
+                else if (eventType === 'DELETE') setCoordinators(prev => prev.filter(u => u.id !== oldRecord.id));
+            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'passengers', filter: `event_id=eq.${selectedEventId}` }, (payload) => {
+                const { eventType, new: newRecord, old: oldRecord } = payload;
+                if (eventType === 'INSERT') setPassengers(prev => [...prev, newRecord as Passenger]);
+                else if (eventType === 'UPDATE') setPassengers(prev => prev.map(p => p.id === newRecord.id ? (newRecord as Passenger) : p));
+                else if (eventType === 'DELETE') setPassengers(prev => prev.filter(p => p.id !== oldRecord.id));
+            })
             .subscribe();
 
         return () => {
@@ -662,7 +663,7 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
             VehicleStore.updateVehicle(updated);
             setVehicles(prev => prev.map(v => v.id === vehicleId ? updated : v));
             setIsAssigning(null);
-            refreshData();
+            // refreshData(); // Removed in favor of Realtime
         }
     };
 
@@ -709,7 +710,7 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
 
             setNewCoordinator({ name: '', username: '', password: '', contact: '', stationId: '' });
             setFormRoleType('vehicle');
-            refreshData(selectedEventId);
+            // refreshData(selectedEventId); // Removed in favor of Realtime
             showToast(`Coordinator ${newUser.name} created successfully.`, 'success');
         } catch (error: any) {
             showToast(error.message, 'error');
@@ -719,7 +720,7 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
     const handleDeleteCoordinator = async (id: string) => {
         if (await askConfirm("Delete Coordinator", 'Are you sure you want to delete this coordinator?')) {
             await UserStore.remove(id);
-            refreshData(selectedEventId);
+            // refreshData(selectedEventId); // Removed in favor of Realtime
         }
     };
 

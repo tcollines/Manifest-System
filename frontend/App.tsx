@@ -79,30 +79,26 @@ const App: React.FC = () => {
     }
   };
 
-  // Initialize Users and Events from Store and check for session
+  // 1. Initial Session Check (Standardize logic)
   useEffect(() => {
-    // Check for persisted session
-    const persistedUser = UserStore.getSession();
-    if (persistedUser) {
-      setCurrentUser(persistedUser);
-      // We rely on Router to handle the view based on URL. 
-      // If we are at root /, RoleRedirect will handle it.
-    }
-
-    // Check for errors in the URL hash (e.g. invalid/expired link)
-    const hash = window.location.hash;
-    if (hash && hash.includes('error=')) {
-      const params = new URLSearchParams(hash.substring(1)); // remove #
-      const errorDescription = params.get('error_description');
-      if (errorDescription) {
-        setLoginError(decodeURIComponent(errorDescription.replace(/\+/g, ' ')));
+    const init = async () => {
+      // Restore Session from Supabase natively
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session && session.user) {
+        // Fetch or sync user profile
+        const profile = await UserStore.getByEmail(session.user.email || '');
+        if (profile) {
+          setCurrentUser(profile);
+          refreshData(); // Only fetch data if we have a session
+        }
       }
-    }
+    };
+    init();
   }, []);
 
   // Auth & Realtime Data Listener
   useEffect(() => {
-    refreshData();
+    // Note: refreshData() removed from here, handled by init() and onAuthStateChange
 
     // Set up Realtime Subscription
     const subscription = supabase

@@ -4,8 +4,11 @@ import { v4 as uuidv4 } from 'uuid';
 import { toUUID } from '../utils/uuid';
 
 export const getPersonalVehicles = async (req: Request, res: Response) => {
+    const manifestId = (req as any).manifestId;
+    if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
+
     try {
-        const { data, error } = await supabase.from('personal_vehicles').select('*');
+        const { data, error } = await supabase.from('personal_vehicles').select('*').eq('manifest_id', manifestId); // Tenant Isolation
         if (error) throw error;
         res.json(data);
     } catch (error: any) {
@@ -14,18 +17,19 @@ export const getPersonalVehicles = async (req: Request, res: Response) => {
 };
 
 export const addPersonalVehicle = async (req: Request, res: Response) => {
+    const manifestId = (req as any).manifestId;
+    if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
+
     try {
         const inputId = req.body.id;
-        // Check if input is ALREADY a UUID (from previous system or manual entry)
         const isUuid = inputId && /^[0-9a-f-]{36}$/i.test(inputId);
         const uuidVal = isUuid ? inputId : uuidv4();
 
         const payload = {
             ...req.body,
-            // NEW SCHEMA: 'id' is UUID. 'legacy_id' is Text.
+            manifest_id: manifestId, // INJECT TENANT ID
             id: uuidVal,
             legacy_id: inputId || null
-            // Removed: id_uuid (Column renamed to id)
         };
         const { error } = await supabase.from('personal_vehicles').insert([payload]);
         if (error) throw error;
@@ -36,13 +40,15 @@ export const addPersonalVehicle = async (req: Request, res: Response) => {
 };
 
 export const updatePersonalVehicle = async (req: Request, res: Response) => {
+    const manifestId = (req as any).manifestId;
+    if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
+
     const { id } = req.params;
     try {
         const idUuid = toUUID(id);
         const { error } = await supabase.from('personal_vehicles')
             .update(req.body)
-            // QUERY: 'id' is now UUID. 'legacy_id' (renamed from id) is Text.
-            // We search against both to match the incoming ID param (which might be legacy).
+            .eq('manifest_id', manifestId) // Tenant Isolation
             .or(`id.eq.${idUuid || '00000000-0000-0000-0000-000000000000'},id_text_legacy_deprecated.eq.${id}`);
 
         if (error) throw error;
@@ -53,15 +59,18 @@ export const updatePersonalVehicle = async (req: Request, res: Response) => {
 };
 
 export const checkInPersonalVehicle = async (req: Request, res: Response) => {
+    const manifestId = (req as any).manifestId;
+    if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
+
     const { id } = req.params;
     const { serviceId } = req.body;
     try {
         const checkInTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         const idUuid = toUUID(id);
 
-        // 1. Fetch current vehicle (Dual Lookup)
         const { data: vehicle, error: fetchError } = await supabase.from('personal_vehicles')
             .select('id, attended_service_ids')
+            .eq('manifest_id', manifestId) // Tenant Isolation
             .or(`id.eq.${idUuid || '00000000-0000-0000-0000-000000000000'},id_text_legacy_deprecated.eq.${id}`)
             .single();
 
@@ -74,18 +83,18 @@ export const checkInPersonalVehicle = async (req: Request, res: Response) => {
 
         const { error: updateError } = await supabase.from('personal_vehicles').update({
             status: 'Checked In',
-            current_service_id: serviceId, // Legacy
-            current_service_id_uuid: serviceUuid, // UUID
+            current_service_id: serviceId,
+            current_service_id_uuid: serviceUuid,
             check_in_time: checkInTime,
             check_out_time: null,
             attended_service_ids: newHistory
-        }).eq('id', vehicle.id); // Use resolved UUID
+        }).eq('manifest_id', manifestId).eq('id', vehicle.id);
 
         if (updateError) throw updateError;
 
-        // 2. Log attendance (Native UUID FK)
         await supabase.from('vehicle_attendance').insert({
-            vehicle_id: vehicle.id, // Now UUID
+            manifest_id: manifestId, // INJECT TENANT ID
+            vehicle_id: vehicle.id,
             service_id: serviceId,
             check_in_time: new Date().toISOString()
         });
@@ -97,6 +106,9 @@ export const checkInPersonalVehicle = async (req: Request, res: Response) => {
 };
 
 export const checkOutPersonalVehicle = async (req: Request, res: Response) => {
+    const manifestId = (req as any).manifestId;
+    if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
+
     const { id } = req.params;
     try {
         const checkOutTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -104,6 +116,7 @@ export const checkOutPersonalVehicle = async (req: Request, res: Response) => {
 
         const { data: vehicle, error: fetchError } = await supabase.from('personal_vehicles')
             .select('id')
+            .eq('manifest_id', manifestId) // Tenant Isolation
             .or(`id.eq.${idUuid || '00000000-0000-0000-0000-000000000000'},id_text_legacy_deprecated.eq.${id}`)
             .single();
 
@@ -112,14 +125,15 @@ export const checkOutPersonalVehicle = async (req: Request, res: Response) => {
         const { error: updateError } = await supabase.from('personal_vehicles').update({
             status: 'Checked Out',
             check_out_time: checkOutTime
-        }).eq('id', vehicle.id);
+        }).eq('manifest_id', manifestId).eq('id', vehicle.id);
 
         if (updateError) throw updateError;
 
         await supabase
             .from('vehicle_attendance')
             .update({ check_out_time: new Date().toISOString() })
-            .eq('vehicle_id', vehicle.id) // Now UUID
+            .eq('manifest_id', manifestId) // Tenant Isolation
+            .eq('vehicle_id', vehicle.id)
             .is('check_out_time', null);
 
         res.json({ message: 'Vehicle checked out' });
@@ -129,21 +143,25 @@ export const checkOutPersonalVehicle = async (req: Request, res: Response) => {
 };
 
 export const getAttendanceCount = async (req: Request, res: Response) => {
+    const manifestId = (req as any).manifestId;
+    if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
+
     const { serviceId } = req.params;
     try {
         const { count, error } = await supabase
             .from('vehicle_attendance')
             .select('*', { count: 'exact', head: true })
+            .eq('manifest_id', manifestId) // Tenant Isolation
             .eq('service_id', serviceId);
 
         if (!error && count !== null) {
             return res.json({ count });
         }
 
-        // Fallback
         const { count: arrayCount } = await supabase
             .from('personal_vehicles')
             .select('*', { count: 'exact', head: true })
+            .eq('manifest_id', manifestId) // Tenant Isolation
             .contains('attended_service_ids', [serviceId]);
 
         res.json({ count: arrayCount || 0 });

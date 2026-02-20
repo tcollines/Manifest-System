@@ -1,0 +1,1191 @@
+[
+  {
+    "id_text_legacy_deprecated": "08bf1171-1212-42a2-9efd-dd58e571423f",
+    "number_plate": "UAS 318R",
+    "driver_name": "Timothy ",
+    "driver_contact": "+256773926693",
+    "status": "Checked Out",
+    "check_in_time": "06:31 PM",
+    "check_out_time": "06:31 PM",
+    "current_service_id": "52a9bb33-abce-4fdb-8c72-a02b30babf93",
+    "registered_date": "2026-02-05",
+    "created_at": "2026-02-05T15:46:21.031538+00:00",
+    "attended_service_ids": [
+      "45d9ddd2-3c36-40df-a0a6-1a61a6f30fbb",
+      "034b6944-df96-4948-a9bb-a498798d846e",
+      "52a9bb33-abce-4fdb-8c72-a02b30babf93"
+    ],
+    "current_service_id_uuid": "52a9bb33-abce-4fdb-8c72-a02b30babf93",
+    "id": "08bf1171-1212-42a2-9efd-dd58e571423f",
+    "legacy_id": "08bf1171-1212-42a2-9efd-dd58e571423f"
+  },
+  {
+    "id_text_legacy_deprecated": "pv-1769338762556",
+    "number_plate": "UBQ 475R",
+    "driver_name": "Joyce",
+    "driver_contact": "+256704392850",
+    "status": "Checked Out",
+    "check_in_time": "05:24 PM",
+    "check_out_time": "05:24 PM",
+    "current_service_id": "d451fdc7-26c6-403c-ae20-b5f9f8b393ce",
+    "registered_date": "2026-01-25",
+    "created_at": "2026-01-25T10:59:24.34069+00:00",
+    "attended_service_ids": [
+      "a1a110f7-c859-4b0c-92ba-7b2b1c12881c",
+      "45d9ddd2-3c36-40df-a0a6-1a61a6f30fbb",
+      "034b6944-df96-4948-a9bb-a498798d846e",
+      "52a9bb33-abce-4fdb-8c72-a02b30babf93",
+      "d451fdc7-26c6-403c-ae20-b5f9f8b393ce"
+    ],
+    "current_service_id_uuid": "d451fdc7-26c6-403c-ae20-b5f9f8b393ce",
+    "id": "1d99e118-5409-4057-9167-8f6e8af6c8f5",
+    "legacy_id": "pv-1769338762556"
+  },
+  {
+    "id_text_legacy_deprecated": "pv-1769340680308",
+    "number_plate": "UBR 116X",
+    "driver_name": "Elton jim",
+    "driver_contact": "+256705183608",
+    "status": "Checked In",
+    "check_in_time": "06:09 AM",
+    "check_out_time": null,
+    "current_service_id": "2d7139bb-3470-4222-b947-bf168a66a671",
+    "registered_date": "2026-01-25",
+    "created_at": "2026-01-25T11:31:22.230632+00:00",
+    "attended_service_ids": [
+      "a1a110f7-c859-4b0c-92ba-7b2b1c12881c",
+      "38975f9c-5f10-4a62-8917-3ecd94896a76",
+      "2d7139bb-3470-4222-b947-bf168a66a671"
+    ],
+    "current_service_id_uuid": "2d7139bb-3470-4222-b947-bf168a66a671",
+    "id": "278ccfd2-d6b4-43db-96ea-98889cadb101",
+    "legacy_id": "pv-1769340680308"
+  },
+  {
+    "id_text_legacy_deprecated": "3f78d724-47be-496c-86da-b84b726eb9d3",
+    "number_plate": "UAF 948K",
+    "driver_name": "Richard ",
+    "driver_contact": "+256774000653",
+    "status": "Checked Out",
+    "check_in_time": "06:35 AM",
+    "check_out_time": "08:32 AM",
+    "current_service_id": "2d7139bb-3470-4222-b947-bf168a66a671",
+    "registered_date": "2026-02-01",
+    "created_at": "2026-02-01T07:06:01.529858+00:00",
+    "attended_service_ids": [
+      "48ad2e52-088c-4065-bf8f-67ba70209629",
+      "2d7139bb-3470-4222-b947-bf168a66a671"
+    ],
+    "current_service_id_uuid": "2d7139bb-3470-4222-b947-bf168a66a671",
+    "id": "3f78d724-47be-496c-86da-b84b726eb9d3",
+    "legacy_id": "3f78d724-47be-496c-86da-b84b726eb9d3"
+  },
+  {
+    "id_text_legacy_deprecated": "pv-1769702129495",
+    "number_plate": "UMA 095EN",
+    "driver_name": "Francis Ssenfuma",
+    "driver_contact": "+256758884567",
+    "status": "Checked Out",
+    "check_in_time": "07:30 AM",
+    "check_out_time": "08:38 AM",
+    "current_service_id": "2d7139bb-3470-4222-b947-bf168a66a671",
+    "registered_date": "2026-01-29",
+    "created_at": "2026-01-29T15:55:31.82439+00:00",
+    "attended_service_ids": [
+      "78a1a915-8195-4490-a895-437c6e84e389",
+      "48ad2e52-088c-4065-bf8f-67ba70209629",
+      "45d9ddd2-3c36-40df-a0a6-1a61a6f30fbb",
+      "034b6944-df96-4948-a9bb-a498798d846e",
+      "52a9bb33-abce-4fdb-8c72-a02b30babf93",
+      "2d7139bb-3470-4222-b947-bf168a66a671"
+    ],
+    "current_service_id_uuid": "2d7139bb-3470-4222-b947-bf168a66a671",
+    "id": "a5fb9d30-5fa9-48d7-9afe-60934edccccd",
+    "legacy_id": "pv-1769702129495"
+  },
+  {
+    "id_text_legacy_deprecated": "e2d1f921-a2a5-441a-8e4e-feb58f7650b8",
+    "number_plate": "UBF 142J",
+    "driver_name": "Victor",
+    "driver_contact": "+256778066366",
+    "status": "Checked Out",
+    "check_in_time": "06:59 AM",
+    "check_out_time": "08:39 AM",
+    "current_service_id": "2d7139bb-3470-4222-b947-bf168a66a671",
+    "registered_date": "2026-02-01",
+    "created_at": "2026-02-01T07:02:37.898486+00:00",
+    "attended_service_ids": [
+      "48ad2e52-088c-4065-bf8f-67ba70209629",
+      "2d7139bb-3470-4222-b947-bf168a66a671"
+    ],
+    "current_service_id_uuid": "2d7139bb-3470-4222-b947-bf168a66a671",
+    "id": "e2d1f921-a2a5-441a-8e4e-feb58f7650b8",
+    "legacy_id": "e2d1f921-a2a5-441a-8e4e-feb58f7650b8"
+  },
+  {
+    "id_text_legacy_deprecated": "pv-1769340330024",
+    "number_plate": "UBG 096K",
+    "driver_name": "Abraham ",
+    "driver_contact": "+256773900400",
+    "status": "Checked Out",
+    "check_in_time": "06:10 AM",
+    "check_out_time": "08:48 AM",
+    "current_service_id": "2d7139bb-3470-4222-b947-bf168a66a671",
+    "registered_date": "2026-01-25",
+    "created_at": "2026-01-25T11:25:32.21379+00:00",
+    "attended_service_ids": [
+      "a1a110f7-c859-4b0c-92ba-7b2b1c12881c",
+      "78a1a915-8195-4490-a895-437c6e84e389",
+      "48ad2e52-088c-4065-bf8f-67ba70209629",
+      "38975f9c-5f10-4a62-8917-3ecd94896a76",
+      "2d7139bb-3470-4222-b947-bf168a66a671"
+    ],
+    "current_service_id_uuid": "2d7139bb-3470-4222-b947-bf168a66a671",
+    "id": "75ee0c30-a412-4b3a-8916-8d8d69b11d7d",
+    "legacy_id": "pv-1769340330024"
+  },
+  {
+    "id_text_legacy_deprecated": "pv-1769706374835",
+    "number_plate": "UBM 067H",
+    "driver_name": "Reagan ",
+    "driver_contact": "+256701402170",
+    "status": "Checked In",
+    "check_in_time": "09:37 AM",
+    "check_out_time": null,
+    "current_service_id": "2d7139bb-3470-4222-b947-bf168a66a671",
+    "registered_date": "2026-01-29",
+    "created_at": "2026-01-29T17:06:17.690161+00:00",
+    "attended_service_ids": [
+      "78a1a915-8195-4490-a895-437c6e84e389",
+      "48ad2e52-088c-4065-bf8f-67ba70209629",
+      "2d7139bb-3470-4222-b947-bf168a66a671"
+    ],
+    "current_service_id_uuid": "2d7139bb-3470-4222-b947-bf168a66a671",
+    "id": "7c074d7d-033b-4f66-a596-ee572bc0bd36",
+    "legacy_id": "pv-1769706374835"
+  },
+  {
+    "id_text_legacy_deprecated": "pv-1769701165197",
+    "number_plate": "UBF 874N",
+    "driver_name": "Kaka",
+    "driver_contact": "+256703632070",
+    "status": "Checked Out",
+    "check_in_time": "06:08 AM",
+    "check_out_time": "08:32 AM",
+    "current_service_id": "2d7139bb-3470-4222-b947-bf168a66a671",
+    "registered_date": "2026-01-29",
+    "created_at": "2026-01-29T15:39:26.473767+00:00",
+    "attended_service_ids": [
+      "78a1a915-8195-4490-a895-437c6e84e389",
+      "45d9ddd2-3c36-40df-a0a6-1a61a6f30fbb",
+      "38975f9c-5f10-4a62-8917-3ecd94896a76",
+      "2d7139bb-3470-4222-b947-bf168a66a671"
+    ],
+    "current_service_id_uuid": "2d7139bb-3470-4222-b947-bf168a66a671",
+    "id": "26f03456-5f61-4757-abac-d5e80d75c74c",
+    "legacy_id": "pv-1769701165197"
+  },
+  {
+    "id_text_legacy_deprecated": "61a82281-d060-4ef2-be56-60c6b974f954",
+    "number_plate": "UAF 841W",
+    "driver_name": "Christopher ",
+    "driver_contact": "+256761130945",
+    "status": "Checked Out",
+    "check_in_time": "07:19 AM",
+    "check_out_time": "08:36 AM",
+    "current_service_id": "2d7139bb-3470-4222-b947-bf168a66a671",
+    "registered_date": "2026-02-15",
+    "created_at": "2026-02-15T07:19:47.390768+00:00",
+    "attended_service_ids": [
+      "2d7139bb-3470-4222-b947-bf168a66a671"
+    ],
+    "current_service_id_uuid": "2d7139bb-3470-4222-b947-bf168a66a671",
+    "id": "61a82281-d060-4ef2-be56-60c6b974f954",
+    "legacy_id": "61a82281-d060-4ef2-be56-60c6b974f954"
+  },
+  {
+    "id_text_legacy_deprecated": "pv-1769784417879",
+    "number_plate": "UAW 825K",
+    "driver_name": "Francis kusasira",
+    "driver_contact": "+25676334236",
+    "status": "Checked In",
+    "check_in_time": "02:22 PM",
+    "check_out_time": null,
+    "current_service_id": "2563bdce-a95c-445c-9321-9cb506f32968",
+    "registered_date": "2026-01-30",
+    "created_at": "2026-01-30T14:47:00.121102+00:00",
+    "attended_service_ids": [
+      "2563bdce-a95c-445c-9321-9cb506f32968"
+    ],
+    "current_service_id_uuid": "2563bdce-a95c-445c-9321-9cb506f32968",
+    "id": "75fa4bd4-8420-44c5-af69-df2b4aceb374",
+    "legacy_id": "pv-1769784417879"
+  },
+  {
+    "id_text_legacy_deprecated": "b8dbb0c9-02ad-411e-9b20-c2f3c4b5001c",
+    "number_plate": "UAY 835A",
+    "driver_name": "Israel ",
+    "driver_contact": "+256772541502",
+    "status": "Checked Out",
+    "check_in_time": "06:01 AM",
+    "check_out_time": "08:36 AM",
+    "current_service_id": "38975f9c-5f10-4a62-8917-3ecd94896a76",
+    "registered_date": "2026-02-08",
+    "created_at": "2026-02-08T06:01:45.326012+00:00",
+    "attended_service_ids": [
+      "38975f9c-5f10-4a62-8917-3ecd94896a76"
+    ],
+    "current_service_id_uuid": "38975f9c-5f10-4a62-8917-3ecd94896a76",
+    "id": "b8dbb0c9-02ad-411e-9b20-c2f3c4b5001c",
+    "legacy_id": "b8dbb0c9-02ad-411e-9b20-c2f3c4b5001c"
+  },
+  {
+    "id_text_legacy_deprecated": "pv-1769704245128",
+    "number_plate": "UBN 856T",
+    "driver_name": "Collins ",
+    "driver_contact": "+256743756856",
+    "status": "Checked In",
+    "check_in_time": "04:20 PM",
+    "check_out_time": null,
+    "current_service_id": "2563bdce-a95c-445c-9321-9cb506f32968",
+    "registered_date": "2026-01-29",
+    "created_at": "2026-01-29T16:30:46.792584+00:00",
+    "attended_service_ids": [
+      "78a1a915-8195-4490-a895-437c6e84e389",
+      "45d9ddd2-3c36-40df-a0a6-1a61a6f30fbb",
+      "2563bdce-a95c-445c-9321-9cb506f32968"
+    ],
+    "current_service_id_uuid": "2563bdce-a95c-445c-9321-9cb506f32968",
+    "id": "d235e50f-d503-4cbc-9bb0-71c165c43de7",
+    "legacy_id": "pv-1769704245128"
+  },
+  {
+    "id_text_legacy_deprecated": "021c1a1c-a69a-451a-b0e0-fae7a63f9e6b",
+    "number_plate": "UAW 392L",
+    "driver_name": "Teo nampija",
+    "driver_contact": "+256704020673",
+    "status": "Checked Out",
+    "check_in_time": "03:24 PM",
+    "check_out_time": "05:25 PM",
+    "current_service_id": "d451fdc7-26c6-403c-ae20-b5f9f8b393ce",
+    "registered_date": "2026-02-12",
+    "created_at": "2026-02-12T18:23:51.643919+00:00",
+    "attended_service_ids": [
+      "52a9bb33-abce-4fdb-8c72-a02b30babf93",
+      "d451fdc7-26c6-403c-ae20-b5f9f8b393ce"
+    ],
+    "current_service_id_uuid": "d451fdc7-26c6-403c-ae20-b5f9f8b393ce",
+    "id": "021c1a1c-a69a-451a-b0e0-fae7a63f9e6b",
+    "legacy_id": "021c1a1c-a69a-451a-b0e0-fae7a63f9e6b"
+  },
+  {
+    "id_text_legacy_deprecated": "874481d7-f410-4abb-839b-0156e010ac73",
+    "number_plate": "UBN 052C",
+    "driver_name": "Damalie ndagire",
+    "driver_contact": "+256702516569",
+    "status": "Checked Out",
+    "check_in_time": "06:52 AM",
+    "check_out_time": "08:40 AM",
+    "current_service_id": "2d7139bb-3470-4222-b947-bf168a66a671",
+    "registered_date": "2026-02-08",
+    "created_at": "2026-02-08T07:15:31.81653+00:00",
+    "attended_service_ids": [
+      "38975f9c-5f10-4a62-8917-3ecd94896a76",
+      "2d7139bb-3470-4222-b947-bf168a66a671"
+    ],
+    "current_service_id_uuid": "2d7139bb-3470-4222-b947-bf168a66a671",
+    "id": "874481d7-f410-4abb-839b-0156e010ac73",
+    "legacy_id": "874481d7-f410-4abb-839b-0156e010ac73"
+  },
+  {
+    "id_text_legacy_deprecated": "pv-1769099332902",
+    "number_plate": "UBE 132Z",
+    "driver_name": "Apio Daizy",
+    "driver_contact": "256756753244",
+    "status": "Checked Out",
+    "check_in_time": "06:37 PM",
+    "check_out_time": "06:41 PM",
+    "current_service_id": "evt-1769683020472",
+    "registered_date": "2026-01-22",
+    "created_at": "2026-01-22T16:28:54.995214+00:00",
+    "attended_service_ids": [
+      "78a1a915-8195-4490-a895-437c6e84e389"
+    ],
+    "current_service_id_uuid": null,
+    "id": "2973eb0f-5f6c-48a3-b79d-717b793edd9d",
+    "legacy_id": "pv-1769099332902"
+  },
+  {
+    "id_text_legacy_deprecated": "pv-1769697162453",
+    "number_plate": "UBA 391A",
+    "driver_name": "Naiga Ruth ",
+    "driver_contact": "+256702520313",
+    "status": "Checked In",
+    "check_in_time": "09:09 AM",
+    "check_out_time": null,
+    "current_service_id": "2d7139bb-3470-4222-b947-bf168a66a671",
+    "registered_date": "2026-01-29",
+    "created_at": "2026-01-29T14:32:45.055367+00:00",
+    "attended_service_ids": [
+      "78a1a915-8195-4490-a895-437c6e84e389",
+      "48ad2e52-088c-4065-bf8f-67ba70209629",
+      "38975f9c-5f10-4a62-8917-3ecd94896a76",
+      "2d7139bb-3470-4222-b947-bf168a66a671"
+    ],
+    "current_service_id_uuid": "2d7139bb-3470-4222-b947-bf168a66a671",
+    "id": "96b2cbb0-f0f2-4dc0-89b5-063fdd87b553",
+    "legacy_id": "pv-1769697162453"
+  },
+  {
+    "id_text_legacy_deprecated": "pv-1769704883055",
+    "number_plate": "UA 886BK",
+    "driver_name": "Jenny",
+    "driver_contact": "+256758862794",
+    "status": "Checked Out",
+    "check_in_time": "04:41 PM",
+    "check_out_time": "06:30 PM",
+    "current_service_id": "evt-1769683020472",
+    "registered_date": "2026-01-29",
+    "created_at": "2026-01-29T16:41:25.93952+00:00",
+    "attended_service_ids": [
+      "78a1a915-8195-4490-a895-437c6e84e389"
+    ],
+    "current_service_id_uuid": null,
+    "id": "ebbde829-f5b3-40fe-9134-2e9b33718d6f",
+    "legacy_id": "pv-1769704883055"
+  },
+  {
+    "id_text_legacy_deprecated": "a52b7dec-1b84-4344-aabd-5cf15ee5e50c",
+    "number_plate": "UBG 843P",
+    "driver_name": "Emma ",
+    "driver_contact": "+256704763921",
+    "status": "Checked In",
+    "check_in_time": "06:28 PM",
+    "check_out_time": null,
+    "current_service_id": "52a9bb33-abce-4fdb-8c72-a02b30babf93",
+    "registered_date": "2026-02-12",
+    "created_at": "2026-02-12T18:28:44.171619+00:00",
+    "attended_service_ids": [
+      "52a9bb33-abce-4fdb-8c72-a02b30babf93"
+    ],
+    "current_service_id_uuid": "52a9bb33-abce-4fdb-8c72-a02b30babf93",
+    "id": "a52b7dec-1b84-4344-aabd-5cf15ee5e50c",
+    "legacy_id": "a52b7dec-1b84-4344-aabd-5cf15ee5e50c"
+  },
+  {
+    "id_text_legacy_deprecated": "pv-1769100223204",
+    "number_plate": "UAR 075Q",
+    "driver_name": "Marvin",
+    "driver_contact": "256788094291",
+    "status": "Checked Out",
+    "check_in_time": "06:26 AM",
+    "check_out_time": "08:34 AM",
+    "current_service_id": "38975f9c-5f10-4a62-8917-3ecd94896a76",
+    "registered_date": "2026-01-22",
+    "created_at": "2026-01-22T16:43:45.309884+00:00",
+    "attended_service_ids": [
+      "48ad2e52-088c-4065-bf8f-67ba70209629",
+      "38975f9c-5f10-4a62-8917-3ecd94896a76"
+    ],
+    "current_service_id_uuid": "38975f9c-5f10-4a62-8917-3ecd94896a76",
+    "id": "91cb0fd3-f94e-45e5-a182-5d45f6948d78",
+    "legacy_id": "pv-1769100223204"
+  },
+  {
+    "id_text_legacy_deprecated": "pv-1769792664986",
+    "number_plate": "UA 349BW",
+    "driver_name": "Miriam ",
+    "driver_contact": "+256704308127",
+    "status": "Checked In",
+    "check_in_time": "05:23 PM",
+    "check_out_time": null,
+    "current_service_id": "52a9bb33-abce-4fdb-8c72-a02b30babf93",
+    "registered_date": "2026-01-30",
+    "created_at": "2026-01-30T17:04:27.807576+00:00",
+    "attended_service_ids": [
+      "evt-1769782548237",
+      "034b6944-df96-4948-a9bb-a498798d846e",
+      "52a9bb33-abce-4fdb-8c72-a02b30babf93"
+    ],
+    "current_service_id_uuid": "52a9bb33-abce-4fdb-8c72-a02b30babf93",
+    "id": "7cde1bae-ce96-4aab-a7cd-22466d803b5a",
+    "legacy_id": "pv-1769792664986"
+  },
+  {
+    "id_text_legacy_deprecated": "67e798a5-c0fb-49b4-a201-f74e2af763f6",
+    "number_plate": "UBP 750T",
+    "driver_name": "Enid",
+    "driver_contact": "+256774870572",
+    "status": "Checked Out",
+    "check_in_time": "04:52 PM",
+    "check_out_time": "07:28 PM",
+    "current_service_id": "45d9ddd2-3c36-40df-a0a6-1a61a6f30fbb",
+    "registered_date": "2026-02-05",
+    "created_at": "2026-02-05T16:52:18.037264+00:00",
+    "attended_service_ids": [
+      "45d9ddd2-3c36-40df-a0a6-1a61a6f30fbb"
+    ],
+    "current_service_id_uuid": "45d9ddd2-3c36-40df-a0a6-1a61a6f30fbb",
+    "id": "67e798a5-c0fb-49b4-a201-f74e2af763f6",
+    "legacy_id": "67e798a5-c0fb-49b4-a201-f74e2af763f6"
+  },
+  {
+    "id_text_legacy_deprecated": "pv-1769098509326",
+    "number_plate": "UAM 043E",
+    "driver_name": "Muhwezi martin",
+    "driver_contact": "256742000365",
+    "status": "Checked Out",
+    "check_in_time": "07:15 PM",
+    "check_out_time": "08:24 PM",
+    "current_service_id": "evt-1769017157015",
+    "registered_date": "2026-01-22",
+    "created_at": "2026-01-22T16:15:11.740715+00:00",
+    "attended_service_ids": null,
+    "current_service_id_uuid": null,
+    "id": "04d83865-838b-40ac-9a37-fd5e956b4724",
+    "legacy_id": "pv-1769098509326"
+  },
+  {
+    "id_text_legacy_deprecated": "pv-1769793213470",
+    "number_plate": "UBR 333X",
+    "driver_name": "Connie",
+    "driver_contact": "+256706887312",
+    "status": "Checked Out",
+    "check_in_time": "03:42 PM",
+    "check_out_time": "07:28 PM",
+    "current_service_id": "45d9ddd2-3c36-40df-a0a6-1a61a6f30fbb",
+    "registered_date": "2026-01-30",
+    "created_at": "2026-01-30T17:13:35.953672+00:00",
+    "attended_service_ids": [
+      "evt-1769782548237",
+      "45d9ddd2-3c36-40df-a0a6-1a61a6f30fbb"
+    ],
+    "current_service_id_uuid": "45d9ddd2-3c36-40df-a0a6-1a61a6f30fbb",
+    "id": "d91e0be0-3960-4cdb-ac81-67bfc0d55a96",
+    "legacy_id": "pv-1769793213470"
+  },
+  {
+    "id_text_legacy_deprecated": "2f4e710b-a848-4295-a908-d03c2e7e2217",
+    "number_plate": "UMA 715FC",
+    "driver_name": "Rogers",
+    "driver_contact": "+256779164280",
+    "status": "Checked In",
+    "check_in_time": "05:51 PM",
+    "check_out_time": null,
+    "current_service_id": "52a9bb33-abce-4fdb-8c72-a02b30babf93",
+    "registered_date": "2026-02-05",
+    "created_at": "2026-02-05T18:23:34.49671+00:00",
+    "attended_service_ids": [
+      "45d9ddd2-3c36-40df-a0a6-1a61a6f30fbb",
+      "38975f9c-5f10-4a62-8917-3ecd94896a76",
+      "52a9bb33-abce-4fdb-8c72-a02b30babf93"
+    ],
+    "current_service_id_uuid": "52a9bb33-abce-4fdb-8c72-a02b30babf93",
+    "id": "2f4e710b-a848-4295-a908-d03c2e7e2217",
+    "legacy_id": "2f4e710b-a848-4295-a908-d03c2e7e2217"
+  },
+  {
+    "id_text_legacy_deprecated": "pv-1769099689051",
+    "number_plate": "UBP 620Z",
+    "driver_name": "Allan ssepuuya",
+    "driver_contact": "256773362308",
+    "status": "Checked Out",
+    "check_in_time": "06:30 PM",
+    "check_out_time": "06:30 PM",
+    "current_service_id": "52a9bb33-abce-4fdb-8c72-a02b30babf93",
+    "registered_date": "2026-01-22",
+    "created_at": "2026-01-22T16:34:51.046706+00:00",
+    "attended_service_ids": [
+      "52a9bb33-abce-4fdb-8c72-a02b30babf93"
+    ],
+    "current_service_id_uuid": "52a9bb33-abce-4fdb-8c72-a02b30babf93",
+    "id": "5dcc70ae-36df-4c89-9ba6-973a7afee4ba",
+    "legacy_id": "pv-1769099689051"
+  },
+  {
+    "id_text_legacy_deprecated": "f29a8b88-bfeb-42af-866e-26039ece7b20",
+    "number_plate": "UBN 141V",
+    "driver_name": "Barbara",
+    "driver_contact": "+256784066452",
+    "status": "Checked Out",
+    "check_in_time": "06:21 PM",
+    "check_out_time": "06:34 PM",
+    "current_service_id": "52a9bb33-abce-4fdb-8c72-a02b30babf93",
+    "registered_date": "2026-02-12",
+    "created_at": "2026-02-12T18:21:37.400171+00:00",
+    "attended_service_ids": [
+      "52a9bb33-abce-4fdb-8c72-a02b30babf93"
+    ],
+    "current_service_id_uuid": "52a9bb33-abce-4fdb-8c72-a02b30babf93",
+    "id": "f29a8b88-bfeb-42af-866e-26039ece7b20",
+    "legacy_id": "f29a8b88-bfeb-42af-866e-26039ece7b20"
+  },
+  {
+    "id_text_legacy_deprecated": "pv-1769787758860",
+    "number_plate": "UBE 734Y",
+    "driver_name": "Deo",
+    "driver_contact": "+256701954731",
+    "status": "Checked Out",
+    "check_in_time": "06:23 PM",
+    "check_out_time": "06:35 PM",
+    "current_service_id": "52a9bb33-abce-4fdb-8c72-a02b30babf93",
+    "registered_date": "2026-01-30",
+    "created_at": "2026-01-30T15:42:40.196293+00:00",
+    "attended_service_ids": [
+      "48ad2e52-088c-4065-bf8f-67ba70209629",
+      "45d9ddd2-3c36-40df-a0a6-1a61a6f30fbb",
+      "034b6944-df96-4948-a9bb-a498798d846e",
+      "52a9bb33-abce-4fdb-8c72-a02b30babf93"
+    ],
+    "current_service_id_uuid": "52a9bb33-abce-4fdb-8c72-a02b30babf93",
+    "id": "dcbf9b68-343f-4aea-8f7b-008150a2f528",
+    "legacy_id": "pv-1769787758860"
+  },
+  {
+    "id_text_legacy_deprecated": "b2bafd44-d34c-4561-a8e2-2a72d612bafb",
+    "number_plate": "UBA 528C",
+    "driver_name": "Denis semakula",
+    "driver_contact": "+256755882882",
+    "status": "Checked Out",
+    "check_in_time": "03:56 PM",
+    "check_out_time": "07:28 PM",
+    "current_service_id": "45d9ddd2-3c36-40df-a0a6-1a61a6f30fbb",
+    "registered_date": "2026-02-05",
+    "created_at": "2026-02-05T15:56:44.845763+00:00",
+    "attended_service_ids": [
+      "45d9ddd2-3c36-40df-a0a6-1a61a6f30fbb"
+    ],
+    "current_service_id_uuid": "45d9ddd2-3c36-40df-a0a6-1a61a6f30fbb",
+    "id": "b2bafd44-d34c-4561-a8e2-2a72d612bafb",
+    "legacy_id": "b2bafd44-d34c-4561-a8e2-2a72d612bafb"
+  },
+  {
+    "id_text_legacy_deprecated": "279cb665-4e9f-4968-a0d1-60047829affa",
+    "number_plate": "UBP 620X",
+    "driver_name": "Allan ",
+    "driver_contact": "+256773362308",
+    "status": "Checked Out",
+    "check_in_time": "03:57 PM",
+    "check_out_time": "05:35 PM",
+    "current_service_id": "034b6944-df96-4948-a9bb-a498798d846e",
+    "registered_date": "2026-02-06",
+    "created_at": "2026-02-06T15:57:02.060482+00:00",
+    "attended_service_ids": [
+      "034b6944-df96-4948-a9bb-a498798d846e"
+    ],
+    "current_service_id_uuid": "034b6944-df96-4948-a9bb-a498798d846e",
+    "id": "279cb665-4e9f-4968-a0d1-60047829affa",
+    "legacy_id": "279cb665-4e9f-4968-a0d1-60047829affa"
+  },
+  {
+    "id_text_legacy_deprecated": "pv-1769011399030",
+    "number_plate": "UBF 172T",
+    "driver_name": "Tullen Ben",
+    "driver_contact": "256788617074",
+    "status": "Checked In",
+    "check_in_time": "01:33 PM",
+    "check_out_time": null,
+    "current_service_id": "2563bdce-a95c-445c-9321-9cb506f32968",
+    "registered_date": "2026-01-21",
+    "created_at": "2026-01-21T16:03:20.066758+00:00",
+    "attended_service_ids": [
+      "a1a110f7-c859-4b0c-92ba-7b2b1c12881c",
+      "78a1a915-8195-4490-a895-437c6e84e389",
+      "48ad2e52-088c-4065-bf8f-67ba70209629",
+      "45d9ddd2-3c36-40df-a0a6-1a61a6f30fbb",
+      "034b6944-df96-4948-a9bb-a498798d846e",
+      "52a9bb33-abce-4fdb-8c72-a02b30babf93",
+      "2563bdce-a95c-445c-9321-9cb506f32968"
+    ],
+    "current_service_id_uuid": "2563bdce-a95c-445c-9321-9cb506f32968",
+    "id": "d5e2ce3f-a788-4d85-82ca-705328688c7a",
+    "legacy_id": "pv-1769011399030"
+  },
+  {
+    "id_text_legacy_deprecated": "pv-1769693849184",
+    "number_plate": "UER 886P",
+    "driver_name": "Julius muhumuza",
+    "driver_contact": "+256779089335",
+    "status": "Checked In",
+    "check_in_time": "01:45 PM",
+    "check_out_time": null,
+    "current_service_id": "2563bdce-a95c-445c-9321-9cb506f32968",
+    "registered_date": "2026-01-29",
+    "created_at": "2026-01-29T13:37:32.22427+00:00",
+    "attended_service_ids": [
+      "78a1a915-8195-4490-a895-437c6e84e389",
+      "45d9ddd2-3c36-40df-a0a6-1a61a6f30fbb",
+      "034b6944-df96-4948-a9bb-a498798d846e",
+      "38975f9c-5f10-4a62-8917-3ecd94896a76",
+      "52a9bb33-abce-4fdb-8c72-a02b30babf93",
+      "2d7139bb-3470-4222-b947-bf168a66a671",
+      "2563bdce-a95c-445c-9321-9cb506f32968"
+    ],
+    "current_service_id_uuid": "2563bdce-a95c-445c-9321-9cb506f32968",
+    "id": "81c80cd1-e104-49d1-9298-15a5aea80b5c",
+    "legacy_id": "pv-1769693849184"
+  },
+  {
+    "id_text_legacy_deprecated": "4b6ec386-e04c-48f3-8772-a5e7da321b13",
+    "number_plate": "UGC 441U",
+    "driver_name": "Kaleps",
+    "driver_contact": "+256756027972",
+    "status": "Checked Out",
+    "check_in_time": "06:30 AM",
+    "check_out_time": "09:11 AM",
+    "current_service_id": "38975f9c-5f10-4a62-8917-3ecd94896a76",
+    "registered_date": "2026-02-01",
+    "created_at": "2026-02-01T08:27:19.590474+00:00",
+    "attended_service_ids": [
+      "48ad2e52-088c-4065-bf8f-67ba70209629",
+      "38975f9c-5f10-4a62-8917-3ecd94896a76"
+    ],
+    "current_service_id_uuid": "38975f9c-5f10-4a62-8917-3ecd94896a76",
+    "id": "4b6ec386-e04c-48f3-8772-a5e7da321b13",
+    "legacy_id": "4b6ec386-e04c-48f3-8772-a5e7da321b13"
+  },
+  {
+    "id_text_legacy_deprecated": "pv-1769338863428",
+    "number_plate": "UBP 330D",
+    "driver_name": "Okongo joshua",
+    "driver_contact": "+256784276221",
+    "status": "Checked Out",
+    "check_in_time": "04:40 PM",
+    "check_out_time": "07:28 PM",
+    "current_service_id": "45d9ddd2-3c36-40df-a0a6-1a61a6f30fbb",
+    "registered_date": "2026-01-25",
+    "created_at": "2026-01-25T11:01:05.182569+00:00",
+    "attended_service_ids": [
+      "a1a110f7-c859-4b0c-92ba-7b2b1c12881c",
+      "48ad2e52-088c-4065-bf8f-67ba70209629",
+      "45d9ddd2-3c36-40df-a0a6-1a61a6f30fbb"
+    ],
+    "current_service_id_uuid": "45d9ddd2-3c36-40df-a0a6-1a61a6f30fbb",
+    "id": "c450790b-a7e8-492a-b8ea-65809ad1f2ae",
+    "legacy_id": "pv-1769338863428"
+  },
+  {
+    "id_text_legacy_deprecated": "pv-1769099783742",
+    "number_plate": "UAM 448E",
+    "driver_name": "Kazibwe ",
+    "driver_contact": "256701010564",
+    "status": "Checked Out",
+    "check_in_time": "06:37 PM",
+    "check_out_time": "06:37 PM",
+    "current_service_id": "52a9bb33-abce-4fdb-8c72-a02b30babf93",
+    "registered_date": "2026-01-22",
+    "created_at": "2026-01-22T16:36:25.798955+00:00",
+    "attended_service_ids": [
+      "78a1a915-8195-4490-a895-437c6e84e389",
+      "48ad2e52-088c-4065-bf8f-67ba70209629",
+      "45d9ddd2-3c36-40df-a0a6-1a61a6f30fbb",
+      "38975f9c-5f10-4a62-8917-3ecd94896a76",
+      "52a9bb33-abce-4fdb-8c72-a02b30babf93"
+    ],
+    "current_service_id_uuid": "52a9bb33-abce-4fdb-8c72-a02b30babf93",
+    "id": "9fc281cb-f6a9-4600-80b1-c7de25d301f2",
+    "legacy_id": "pv-1769099783742"
+  },
+  {
+    "id_text_legacy_deprecated": "pv-1769700904016",
+    "number_plate": "UBN 072B",
+    "driver_name": "Kizito Patrick ",
+    "driver_contact": "+256789154949",
+    "status": "Checked In",
+    "check_in_time": "04:21 PM",
+    "check_out_time": null,
+    "current_service_id": "2563bdce-a95c-445c-9321-9cb506f32968",
+    "registered_date": "2026-01-29",
+    "created_at": "2026-01-29T15:35:05.526364+00:00",
+    "attended_service_ids": [
+      "78a1a915-8195-4490-a895-437c6e84e389",
+      "45d9ddd2-3c36-40df-a0a6-1a61a6f30fbb",
+      "2563bdce-a95c-445c-9321-9cb506f32968"
+    ],
+    "current_service_id_uuid": "2563bdce-a95c-445c-9321-9cb506f32968",
+    "id": "c81f86ef-ebdd-40dd-972d-d7a22f7f5598",
+    "legacy_id": "pv-1769700904016"
+  },
+  {
+    "id_text_legacy_deprecated": "pv-1769339274318",
+    "number_plate": "UAQ 267L",
+    "driver_name": "Karunji annet",
+    "driver_contact": "+256706935388",
+    "status": "Checked Out",
+    "check_in_time": "07:02 AM",
+    "check_out_time": "08:32 AM",
+    "current_service_id": "2d7139bb-3470-4222-b947-bf168a66a671",
+    "registered_date": "2026-01-25",
+    "created_at": "2026-01-25T11:07:56.313136+00:00",
+    "attended_service_ids": [
+      "a1a110f7-c859-4b0c-92ba-7b2b1c12881c",
+      "38975f9c-5f10-4a62-8917-3ecd94896a76",
+      "d451fdc7-26c6-403c-ae20-b5f9f8b393ce",
+      "2d7139bb-3470-4222-b947-bf168a66a671"
+    ],
+    "current_service_id_uuid": "2d7139bb-3470-4222-b947-bf168a66a671",
+    "id": "29cfb7ae-3993-43a9-b49c-0cb89330fc51",
+    "legacy_id": "pv-1769339274318"
+  },
+  {
+    "id_text_legacy_deprecated": "pv-1769700509708",
+    "number_plate": "UAV 536Q",
+    "driver_name": "Oliver Baluka",
+    "driver_contact": "+256702218718",
+    "status": "Checked In",
+    "check_in_time": "04:21 PM",
+    "check_out_time": null,
+    "current_service_id": "2563bdce-a95c-445c-9321-9cb506f32968",
+    "registered_date": "2026-01-29",
+    "created_at": "2026-01-29T15:28:33.553683+00:00",
+    "attended_service_ids": [
+      "78a1a915-8195-4490-a895-437c6e84e389",
+      "45d9ddd2-3c36-40df-a0a6-1a61a6f30fbb",
+      "034b6944-df96-4948-a9bb-a498798d846e",
+      "52a9bb33-abce-4fdb-8c72-a02b30babf93",
+      "d451fdc7-26c6-403c-ae20-b5f9f8b393ce",
+      "2d7139bb-3470-4222-b947-bf168a66a671",
+      "2563bdce-a95c-445c-9321-9cb506f32968"
+    ],
+    "current_service_id_uuid": "2563bdce-a95c-445c-9321-9cb506f32968",
+    "id": "f3f89b51-25bc-4334-b9a3-b0efb921d6f3",
+    "legacy_id": "pv-1769700509708"
+  },
+  {
+    "id_text_legacy_deprecated": "pv-1769099611475",
+    "number_plate": "UBB 751M",
+    "driver_name": "Clare mwaka",
+    "driver_contact": "256785999900",
+    "status": "Checked Out",
+    "check_in_time": "06:29 AM",
+    "check_out_time": "08:48 AM",
+    "current_service_id": "2d7139bb-3470-4222-b947-bf168a66a671",
+    "registered_date": "2026-01-22",
+    "created_at": "2026-01-22T16:33:33.801783+00:00",
+    "attended_service_ids": [
+      "78a1a915-8195-4490-a895-437c6e84e389",
+      "48ad2e52-088c-4065-bf8f-67ba70209629",
+      "45d9ddd2-3c36-40df-a0a6-1a61a6f30fbb",
+      "38975f9c-5f10-4a62-8917-3ecd94896a76",
+      "52a9bb33-abce-4fdb-8c72-a02b30babf93",
+      "d451fdc7-26c6-403c-ae20-b5f9f8b393ce",
+      "2d7139bb-3470-4222-b947-bf168a66a671"
+    ],
+    "current_service_id_uuid": "2d7139bb-3470-4222-b947-bf168a66a671",
+    "id": "a42dd92e-8d45-4bcb-b054-9264d25dd49a",
+    "legacy_id": "pv-1769099611475"
+  },
+  {
+    "id_text_legacy_deprecated": "pv-1769103835322",
+    "number_plate": "UBM 043E",
+    "driver_name": "Teo",
+    "driver_contact": "256704020673",
+    "status": "Checked Out",
+    "check_in_time": "09:36 AM",
+    "check_out_time": "11:18 AM",
+    "current_service_id": "38975f9c-5f10-4a62-8917-3ecd94896a76",
+    "registered_date": "2026-01-22",
+    "created_at": "2026-01-22T17:43:57.675869+00:00",
+    "attended_service_ids": [
+      "78a1a915-8195-4490-a895-437c6e84e389",
+      "034b6944-df96-4948-a9bb-a498798d846e",
+      "38975f9c-5f10-4a62-8917-3ecd94896a76"
+    ],
+    "current_service_id_uuid": "38975f9c-5f10-4a62-8917-3ecd94896a76",
+    "id": "e046c2e8-f12f-4143-993f-862fa4083804",
+    "legacy_id": "pv-1769103835322"
+  },
+  {
+    "id_text_legacy_deprecated": "828f728e-aa45-452e-9861-2520511dd9fb",
+    "number_plate": "UA 599BU",
+    "driver_name": "Henry ",
+    "driver_contact": "+256774569180",
+    "status": "Checked Out",
+    "check_in_time": "09:26 AM",
+    "check_out_time": "11:21 AM",
+    "current_service_id": "38975f9c-5f10-4a62-8917-3ecd94896a76",
+    "registered_date": "2026-02-01",
+    "created_at": "2026-02-01T09:33:00.906196+00:00",
+    "attended_service_ids": [
+      "48ad2e52-088c-4065-bf8f-67ba70209629",
+      "38975f9c-5f10-4a62-8917-3ecd94896a76"
+    ],
+    "current_service_id_uuid": "38975f9c-5f10-4a62-8917-3ecd94896a76",
+    "id": "828f728e-aa45-452e-9861-2520511dd9fb",
+    "legacy_id": "828f728e-aa45-452e-9861-2520511dd9fb"
+  },
+  {
+    "id_text_legacy_deprecated": "pv-1769340355121",
+    "number_plate": "UAR 435E",
+    "driver_name": "Reagan",
+    "driver_contact": "+256701402170",
+    "status": "Checked Out",
+    "check_in_time": "02:25 PM",
+    "check_out_time": "02:38 PM",
+    "current_service_id": "evt-1769318422555",
+    "registered_date": "2026-01-25",
+    "created_at": "2026-01-25T11:25:56.762587+00:00",
+    "attended_service_ids": [
+      "a1a110f7-c859-4b0c-92ba-7b2b1c12881c"
+    ],
+    "current_service_id_uuid": null,
+    "id": "1356b3e5-71fa-4235-add7-6084a1688df8",
+    "legacy_id": "pv-1769340355121"
+  },
+  {
+    "id_text_legacy_deprecated": "pv-1769338994904",
+    "number_plate": "UBR 083S",
+    "driver_name": "Charles ",
+    "driver_contact": "+256783513006",
+    "status": "Checked Out",
+    "check_in_time": "02:38 PM",
+    "check_out_time": "02:39 PM",
+    "current_service_id": "evt-1769318422555",
+    "registered_date": "2026-01-25",
+    "created_at": "2026-01-25T11:03:16.53211+00:00",
+    "attended_service_ids": [
+      "a1a110f7-c859-4b0c-92ba-7b2b1c12881c"
+    ],
+    "current_service_id_uuid": null,
+    "id": "7fa4ab98-2903-4876-9a06-baac4639d40b",
+    "legacy_id": "pv-1769338994904"
+  },
+  {
+    "id_text_legacy_deprecated": "pv-1769336808798",
+    "number_plate": "UA 123AA",
+    "driver_name": "test driver",
+    "driver_contact": "+256700000000",
+    "status": "Checked In",
+    "check_in_time": "00:31",
+    "check_out_time": null,
+    "current_service_id": null,
+    "registered_date": "2026-01-25",
+    "created_at": "2026-01-25T10:26:48.626944+00:00",
+    "attended_service_ids": [
+      "a1a110f7-c859-4b0c-92ba-7b2b1c12881c"
+    ],
+    "current_service_id_uuid": null,
+    "id": "43147493-b953-49b4-992d-4fbc6d21447b",
+    "legacy_id": "pv-1769336808798"
+  },
+  {
+    "id_text_legacy_deprecated": "a899e869-26d3-4043-97da-2c5570043cee",
+    "number_plate": "UBA 123D",
+    "driver_name": "Test Driver",
+    "driver_contact": "+256124434343",
+    "status": "Checked Out",
+    "check_in_time": "01:15 AM",
+    "check_out_time": "01:15 AM",
+    "current_service_id": null,
+    "registered_date": "2026-02-01",
+    "created_at": "2026-02-01T01:15:31.036127+00:00",
+    "attended_service_ids": [],
+    "current_service_id_uuid": null,
+    "id": "a899e869-26d3-4043-97da-2c5570043cee",
+    "legacy_id": "a899e869-26d3-4043-97da-2c5570043cee"
+  },
+  {
+    "id_text_legacy_deprecated": "6217da57-f76c-4ed9-a296-9cd60933a2f5",
+    "number_plate": "UBM 746X",
+    "driver_name": "Joan",
+    "driver_contact": "+256759750004",
+    "status": "Checked In",
+    "check_in_time": "08:11 AM",
+    "check_out_time": null,
+    "current_service_id": "48ad2e52-088c-4065-bf8f-67ba70209629",
+    "registered_date": "2026-02-01",
+    "created_at": "2026-02-01T08:11:07.451+00:00",
+    "attended_service_ids": [
+      "48ad2e52-088c-4065-bf8f-67ba70209629"
+    ],
+    "current_service_id_uuid": "48ad2e52-088c-4065-bf8f-67ba70209629",
+    "id": "6217da57-f76c-4ed9-a296-9cd60933a2f5",
+    "legacy_id": "6217da57-f76c-4ed9-a296-9cd60933a2f5"
+  },
+  {
+    "id_text_legacy_deprecated": "eb586897-3954-4b93-a4c4-ef1ecc1da405",
+    "number_plate": "UAZ 145K",
+    "driver_name": "Ntare jose",
+    "driver_contact": "+256709394044",
+    "status": "Checked Out",
+    "check_in_time": "08:52 AM",
+    "check_out_time": "11:17 AM",
+    "current_service_id": "48ad2e52-088c-4065-bf8f-67ba70209629",
+    "registered_date": "2026-02-01",
+    "created_at": "2026-02-01T08:52:17.38975+00:00",
+    "attended_service_ids": [
+      "48ad2e52-088c-4065-bf8f-67ba70209629"
+    ],
+    "current_service_id_uuid": "48ad2e52-088c-4065-bf8f-67ba70209629",
+    "id": "eb586897-3954-4b93-a4c4-ef1ecc1da405",
+    "legacy_id": "eb586897-3954-4b93-a4c4-ef1ecc1da405"
+  },
+  {
+    "id_text_legacy_deprecated": "c242114e-66b7-462e-bc86-4f3ad47b0c5b",
+    "number_plate": "UBM 746X",
+    "driver_name": "Joan",
+    "driver_contact": "+256759750004",
+    "status": "Checked Out",
+    "check_in_time": "08:11 AM",
+    "check_out_time": "11:20 AM",
+    "current_service_id": "48ad2e52-088c-4065-bf8f-67ba70209629",
+    "registered_date": "2026-02-01",
+    "created_at": "2026-02-01T08:11:07.628264+00:00",
+    "attended_service_ids": [
+      "48ad2e52-088c-4065-bf8f-67ba70209629"
+    ],
+    "current_service_id_uuid": "48ad2e52-088c-4065-bf8f-67ba70209629",
+    "id": "c242114e-66b7-462e-bc86-4f3ad47b0c5b",
+    "legacy_id": "c242114e-66b7-462e-bc86-4f3ad47b0c5b"
+  },
+  {
+    "id_text_legacy_deprecated": "pv-1769706376188",
+    "number_plate": "UBM 067H",
+    "driver_name": "Reagan ",
+    "driver_contact": "+256701402170",
+    "status": "Checked Out",
+    "check_in_time": "11:44 AM",
+    "check_out_time": "11:44 AM",
+    "current_service_id": "48ad2e52-088c-4065-bf8f-67ba70209629",
+    "registered_date": "2026-01-29",
+    "created_at": "2026-01-29T17:06:17.990524+00:00",
+    "attended_service_ids": [
+      "78a1a915-8195-4490-a895-437c6e84e389",
+      "48ad2e52-088c-4065-bf8f-67ba70209629"
+    ],
+    "current_service_id_uuid": "48ad2e52-088c-4065-bf8f-67ba70209629",
+    "id": "ce8643cd-d904-447b-a37d-57daccd10733",
+    "legacy_id": "pv-1769706376188"
+  },
+  {
+    "id_text_legacy_deprecated": "6f0049ee-7817-4aa1-b226-950c5c30ba6b",
+    "number_plate": "UBM 259F",
+    "driver_name": "Joshua ",
+    "driver_contact": "+256784276221",
+    "status": "Checked Out",
+    "check_in_time": "03:05 PM",
+    "check_out_time": "05:31 PM",
+    "current_service_id": "034b6944-df96-4948-a9bb-a498798d846e",
+    "registered_date": "2026-02-06",
+    "created_at": "2026-02-06T15:05:01.514114+00:00",
+    "attended_service_ids": [
+      "034b6944-df96-4948-a9bb-a498798d846e"
+    ],
+    "current_service_id_uuid": "034b6944-df96-4948-a9bb-a498798d846e",
+    "id": "6f0049ee-7817-4aa1-b226-950c5c30ba6b",
+    "legacy_id": "6f0049ee-7817-4aa1-b226-950c5c30ba6b"
+  },
+  {
+    "id_text_legacy_deprecated": "874c2f0c-3953-4309-a76d-56878bab77e5",
+    "number_plate": "UBJ 382V",
+    "driver_name": "Oketcho petron",
+    "driver_contact": "+256772455575",
+    "status": "Checked Out",
+    "check_in_time": "01:32 PM",
+    "check_out_time": "01:32 PM",
+    "current_service_id": "2563bdce-a95c-445c-9321-9cb506f32968",
+    "registered_date": "2026-02-08",
+    "created_at": "2026-02-08T06:06:12.908783+00:00",
+    "attended_service_ids": [
+      "38975f9c-5f10-4a62-8917-3ecd94896a76",
+      "2563bdce-a95c-445c-9321-9cb506f32968"
+    ],
+    "current_service_id_uuid": "2563bdce-a95c-445c-9321-9cb506f32968",
+    "id": "874c2f0c-3953-4309-a76d-56878bab77e5",
+    "legacy_id": "874c2f0c-3953-4309-a76d-56878bab77e5"
+  },
+  {
+    "id_text_legacy_deprecated": "14aae030-af87-49a3-85ab-d64a18c0bf4b",
+    "number_plate": "UA 779DA",
+    "driver_name": "Isaac",
+    "driver_contact": "+256783231822",
+    "status": "Checked In",
+    "check_in_time": "02:08 PM",
+    "check_out_time": null,
+    "current_service_id": "2563bdce-a95c-445c-9321-9cb506f32968",
+    "registered_date": "2026-02-06",
+    "created_at": "2026-02-06T14:54:59.572702+00:00",
+    "attended_service_ids": [
+      "034b6944-df96-4948-a9bb-a498798d846e",
+      "2d7139bb-3470-4222-b947-bf168a66a671",
+      "2563bdce-a95c-445c-9321-9cb506f32968"
+    ],
+    "current_service_id_uuid": "2563bdce-a95c-445c-9321-9cb506f32968",
+    "id": "14aae030-af87-49a3-85ab-d64a18c0bf4b",
+    "legacy_id": "14aae030-af87-49a3-85ab-d64a18c0bf4b"
+  },
+  {
+    "id_text_legacy_deprecated": "10736b0c-87e9-428f-b666-28d87df9bef0",
+    "number_plate": "UGH 767H",
+    "driver_name": "Mukasa isaac",
+    "driver_contact": "+256788081442",
+    "status": "Checked Out",
+    "check_in_time": "01:45 PM",
+    "check_out_time": "02:08 PM",
+    "current_service_id": "2563bdce-a95c-445c-9321-9cb506f32968",
+    "registered_date": "2026-02-05",
+    "created_at": "2026-02-05T14:19:34.055016+00:00",
+    "attended_service_ids": [
+      "45d9ddd2-3c36-40df-a0a6-1a61a6f30fbb",
+      "034b6944-df96-4948-a9bb-a498798d846e",
+      "52a9bb33-abce-4fdb-8c72-a02b30babf93",
+      "2d7139bb-3470-4222-b947-bf168a66a671",
+      "2563bdce-a95c-445c-9321-9cb506f32968"
+    ],
+    "current_service_id_uuid": "2563bdce-a95c-445c-9321-9cb506f32968",
+    "id": "10736b0c-87e9-428f-b666-28d87df9bef0",
+    "legacy_id": "10736b0c-87e9-428f-b666-28d87df9bef0"
+  },
+  {
+    "id_text_legacy_deprecated": "pv-1769705894641",
+    "number_plate": "UMA 082DW",
+    "driver_name": "Kutosi Ben",
+    "driver_contact": "+256768124180",
+    "status": "Checked In",
+    "check_in_time": "05:20 PM",
+    "check_out_time": null,
+    "current_service_id": "52a9bb33-abce-4fdb-8c72-a02b30babf93",
+    "registered_date": "2026-01-29",
+    "created_at": "2026-01-29T16:58:17.87493+00:00",
+    "attended_service_ids": [
+      "78a1a915-8195-4490-a895-437c6e84e389",
+      "48ad2e52-088c-4065-bf8f-67ba70209629",
+      "45d9ddd2-3c36-40df-a0a6-1a61a6f30fbb",
+      "38975f9c-5f10-4a62-8917-3ecd94896a76",
+      "52a9bb33-abce-4fdb-8c72-a02b30babf93"
+    ],
+    "current_service_id_uuid": "52a9bb33-abce-4fdb-8c72-a02b30babf93",
+    "id": "6cb4f28b-51b3-4787-8bb8-55d5204a4a43",
+    "legacy_id": "pv-1769705894641"
+  },
+  {
+    "id_text_legacy_deprecated": "pv-1769699865426",
+    "number_plate": "UMA 705FN",
+    "driver_name": "Akampurira onesmus",
+    "driver_contact": "+256706096971",
+    "status": "Checked In",
+    "check_in_time": "05:51 PM",
+    "check_out_time": null,
+    "current_service_id": "52a9bb33-abce-4fdb-8c72-a02b30babf93",
+    "registered_date": "2026-01-29",
+    "created_at": "2026-01-29T15:17:48.247749+00:00",
+    "attended_service_ids": [
+      "78a1a915-8195-4490-a895-437c6e84e389",
+      "48ad2e52-088c-4065-bf8f-67ba70209629",
+      "45d9ddd2-3c36-40df-a0a6-1a61a6f30fbb",
+      "52a9bb33-abce-4fdb-8c72-a02b30babf93"
+    ],
+    "current_service_id_uuid": "52a9bb33-abce-4fdb-8c72-a02b30babf93",
+    "id": "27c3bbbc-97df-48a2-bcdb-a7d5d7b37321",
+    "legacy_id": "pv-1769699865426"
+  },
+  {
+    "id_text_legacy_deprecated": "pv-1769703824961",
+    "number_plate": "UFP 600F",
+    "driver_name": "Albert kasozi",
+    "driver_contact": "+256787529602",
+    "status": "Checked In",
+    "check_in_time": "03:09 PM",
+    "check_out_time": null,
+    "current_service_id": "d451fdc7-26c6-403c-ae20-b5f9f8b393ce",
+    "registered_date": "2026-01-29",
+    "created_at": "2026-01-29T16:23:47.353127+00:00",
+    "attended_service_ids": [
+      "78a1a915-8195-4490-a895-437c6e84e389",
+      "48ad2e52-088c-4065-bf8f-67ba70209629",
+      "45d9ddd2-3c36-40df-a0a6-1a61a6f30fbb",
+      "38975f9c-5f10-4a62-8917-3ecd94896a76",
+      "52a9bb33-abce-4fdb-8c72-a02b30babf93",
+      "d451fdc7-26c6-403c-ae20-b5f9f8b393ce"
+    ],
+    "current_service_id_uuid": "d451fdc7-26c6-403c-ae20-b5f9f8b393ce",
+    "id": "043d34cd-fa4b-4dc1-acc0-5848c1a44fe4",
+    "legacy_id": "pv-1769703824961"
+  },
+  {
+    "id_text_legacy_deprecated": "3a95e5a3-3e1d-4fcd-a046-4344e6f906fd",
+    "number_plate": "UBJ 591Q",
+    "driver_name": "Nelson",
+    "driver_contact": "+256789536301",
+    "status": "Checked In",
+    "check_in_time": "08:40 AM",
+    "check_out_time": null,
+    "current_service_id": "2d7139bb-3470-4222-b947-bf168a66a671",
+    "registered_date": "2026-02-12",
+    "created_at": "2026-02-12T18:22:57.045418+00:00",
+    "attended_service_ids": [
+      "52a9bb33-abce-4fdb-8c72-a02b30babf93",
+      "2d7139bb-3470-4222-b947-bf168a66a671"
+    ],
+    "current_service_id_uuid": "2d7139bb-3470-4222-b947-bf168a66a671",
+    "id": "3a95e5a3-3e1d-4fcd-a046-4344e6f906fd",
+    "legacy_id": "3a95e5a3-3e1d-4fcd-a046-4344e6f906fd"
+  },
+  {
+    "id_text_legacy_deprecated": "pv-1769792997422",
+    "number_plate": "UBK 622U",
+    "driver_name": "Hilder",
+    "driver_contact": "256781703048",
+    "status": "Checked In",
+    "check_in_time": "03:20 PM",
+    "check_out_time": null,
+    "current_service_id": "2563bdce-a95c-445c-9321-9cb506f32968",
+    "registered_date": "2026-01-30",
+    "created_at": "2026-01-30T17:10:00.985812+00:00",
+    "attended_service_ids": [
+      "48ad2e52-088c-4065-bf8f-67ba70209629",
+      "45d9ddd2-3c36-40df-a0a6-1a61a6f30fbb",
+      "034b6944-df96-4948-a9bb-a498798d846e",
+      "38975f9c-5f10-4a62-8917-3ecd94896a76",
+      "52a9bb33-abce-4fdb-8c72-a02b30babf93",
+      "2d7139bb-3470-4222-b947-bf168a66a671",
+      "2563bdce-a95c-445c-9321-9cb506f32968"
+    ],
+    "current_service_id_uuid": "2563bdce-a95c-445c-9321-9cb506f32968",
+    "id": "4952a734-daed-4d1e-8457-924388012d8b",
+    "legacy_id": "pv-1769792997422"
+  },
+  {
+    "id_text_legacy_deprecated": "pv-1769808718860",
+    "number_plate": "UBA 123A",
+    "driver_name": "Test driver",
+    "driver_contact": "+256700720160",
+    "status": "Checked In",
+    "check_in_time": "23:51",
+    "check_out_time": null,
+    "current_service_id": null,
+    "registered_date": "2026-01-30",
+    "created_at": "2026-01-30T21:31:59.251598+00:00",
+    "attended_service_ids": [],
+    "current_service_id_uuid": "855d9b69-aef2-4d87-9356-09d6668b541e",
+    "id": "424461db-73b2-4de6-aabe-f6fb58461d02",
+    "legacy_id": "pv-1769808718860"
+  },
+  {
+    "id_text_legacy_deprecated": "pv-1769100026727",
+    "number_plate": "UBJ 945M",
+    "driver_name": "Eunice Atunu",
+    "driver_contact": "256778779101",
+    "status": "Checked In",
+    "check_in_time": "01:32 PM",
+    "check_out_time": null,
+    "current_service_id": "2563bdce-a95c-445c-9321-9cb506f32968",
+    "registered_date": "2026-01-22",
+    "created_at": "2026-01-22T16:40:28.719836+00:00",
+    "attended_service_ids": [
+      "a1a110f7-c859-4b0c-92ba-7b2b1c12881c",
+      "78a1a915-8195-4490-a895-437c6e84e389",
+      "48ad2e52-088c-4065-bf8f-67ba70209629",
+      "45d9ddd2-3c36-40df-a0a6-1a61a6f30fbb",
+      "034b6944-df96-4948-a9bb-a498798d846e",
+      "38975f9c-5f10-4a62-8917-3ecd94896a76",
+      "52a9bb33-abce-4fdb-8c72-a02b30babf93",
+      "d451fdc7-26c6-403c-ae20-b5f9f8b393ce",
+      "2d7139bb-3470-4222-b947-bf168a66a671",
+      "2563bdce-a95c-445c-9321-9cb506f32968"
+    ],
+    "current_service_id_uuid": "2563bdce-a95c-445c-9321-9cb506f32968",
+    "id": "7ba12cac-93d0-48b2-9da5-89f13cb98519",
+    "legacy_id": "pv-1769100026727"
+  }
+]

@@ -1,19 +1,19 @@
-
 import { Request, Response } from 'express';
 import { supabase } from '../supabase';
 
 // --- Admin / Team Leader Endpoints ---
 
-// Get all report templates (Reports)
 export const getAllReports = async (req: Request, res: Response) => {
+    const manifestId = (req as any).manifestId;
+    if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
+
     try {
         const { data, error } = await supabase
             .from('monitoring_reports')
             .select('*, report_submissions(*)')
+            .eq('manifest_id', manifestId) // Tenant Isolation
             .order('created_at', { ascending: false });
 
-        // Normalize deadlines in response if needed, but client should handle ISO strings.
-        // We ensure that we don't accidentally send local times.
         if (error) throw error;
 
         res.json(data);
@@ -22,12 +22,13 @@ export const getAllReports = async (req: Request, res: Response) => {
     }
 };
 
-// Create a new report template
 export const createReport = async (req: Request, res: Response) => {
+    const manifestId = (req as any).manifestId;
+    if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
+
     try {
         const { title, month, deadline, fields, created_by } = req.body;
 
-        // Validation
         if (!title || !month || !deadline) {
             return res.status(400).json({ error: 'Missing required fields' });
         }
@@ -35,6 +36,7 @@ export const createReport = async (req: Request, res: Response) => {
         const { data, error } = await supabase
             .from('monitoring_reports')
             .insert([{
+                manifest_id: manifestId, // INJECT TENANT ID
                 title,
                 month,
                 deadline,
@@ -52,13 +54,16 @@ export const createReport = async (req: Request, res: Response) => {
     }
 };
 
-// Update Report (e.g. Publish, Extend Deadline)
 export const updateReport = async (req: Request, res: Response) => {
+    const manifestId = (req as any).manifestId;
+    if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
+
     const { id } = req.params;
     try {
         const { error } = await supabase
             .from('monitoring_reports')
             .update(req.body)
+            .eq('manifest_id', manifestId) // Tenant Isolation
             .eq('id', id);
 
         if (error) throw error;
@@ -70,8 +75,10 @@ export const updateReport = async (req: Request, res: Response) => {
 
 // --- HoD Endpoints ---
 
-// Get reports for a specific department (e.g., HoD's department)
 export const getMyReports = async (req: Request, res: Response) => {
+    const manifestId = (req as any).manifestId;
+    if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
+
     const { departmentId } = req.params;
 
     if (!departmentId) {
@@ -79,24 +86,23 @@ export const getMyReports = async (req: Request, res: Response) => {
     }
 
     try {
-        // 1. Get all published or expired reports
         const { data: reports, error: reportsError } = await supabase
             .from('monitoring_reports')
             .select('*')
+            .eq('manifest_id', manifestId) // Tenant Isolation
             .neq('status', 'Draft')
             .order('deadline', { ascending: false });
 
         if (reportsError) throw reportsError;
 
-        // 2. Get existing submissions for this department
         const { data: submissions, error: distinctError } = await supabase
             .from('report_submissions')
             .select('*')
+            .eq('manifest_id', manifestId) // Tenant Isolation
             .eq('department_id', departmentId);
 
         if (distinctError) throw distinctError;
 
-        // 3. Merge: Attach submission status to report
         const merged = reports.map(report => {
             const submission = submissions?.find(s => s.report_id === report.id);
             return {
@@ -112,9 +118,11 @@ export const getMyReports = async (req: Request, res: Response) => {
     }
 };
 
-// Submit a report (or save draft)
 export const submitReport = async (req: Request, res: Response) => {
-    const { id } = req.params; // Report ID
+    const manifestId = (req as any).manifestId;
+    if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
+
+    const { id } = req.params;
     const { departmentId, content, status, userId } = req.body;
 
     if (!departmentId || !content) {
@@ -122,14 +130,11 @@ export const submitReport = async (req: Request, res: Response) => {
     }
 
     try {
-        // Check if report is expired (unless just saving or updating by admin)
-        // For simplicity, we allow late submissions but flag them? 
-        // Requirement says: "After deadline expiry: HoDs cannot submit."
-
         if (status === 'Submitted') {
             const { data: report } = await supabase
                 .from('monitoring_reports')
                 .select('deadline, status')
+                .eq('manifest_id', manifestId) // Tenant Isolation
                 .eq('id', id)
                 .single();
 
@@ -138,7 +143,6 @@ export const submitReport = async (req: Request, res: Response) => {
                     return res.status(403).json({ error: 'Report is expired' });
                 }
 
-                // Standardized UTC Deadline Check
                 const now = new Date().getTime();
                 const deadline = new Date(report.deadline).getTime();
 
@@ -148,10 +152,10 @@ export const submitReport = async (req: Request, res: Response) => {
             }
         }
 
-        // Upsert submission
         const { data, error } = await supabase
             .from('report_submissions')
             .upsert({
+                manifest_id: manifestId, // INJECT TENANT ID
                 report_id: id,
                 department_id: departmentId,
                 content,
@@ -159,7 +163,7 @@ export const submitReport = async (req: Request, res: Response) => {
                 submitted_by: userId,
                 submitted_at: status === 'Submitted' ? new Date().toISOString() : null,
                 updated_at: new Date().toISOString()
-            }, { onConflict: 'report_id, department_id' })
+            }, { onConflict: 'report_id, department_id' }) // NOTE: If composite unique index includes manifest_id, this might need tuning. It does via RLS in phase 3.
             .select()
             .single();
 
@@ -170,13 +174,16 @@ export const submitReport = async (req: Request, res: Response) => {
     }
 };
 
-// Delete Report
 export const deleteReport = async (req: Request, res: Response) => {
+    const manifestId = (req as any).manifestId;
+    if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
+
     const { id } = req.params;
     try {
         const { error } = await supabase
             .from('monitoring_reports')
             .delete()
+            .eq('manifest_id', manifestId) // Tenant Isolation
             .eq('id', id);
 
         if (error) throw error;
