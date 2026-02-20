@@ -349,6 +349,14 @@ export const cleanupPastEvents = async () => {
             if (coordCount && coordCount > 0) console.log(`Cleaned up credentials for ${coordCount} coordinators for ${event.title}`);
         }
 
+        // Permanently delete the Auth identities for any Inactive/Null users
+        const { error: rpcError } = await supabase.rpc('delete_expired_event_auth_users');
+        if (rpcError) {
+            console.error("Failed to permanently delete auth users:", rpcError);
+        } else {
+            console.log("Successfully swept expired Auth identities from Supabase.");
+        }
+
     } catch (e) {
         console.error("Error in cleanupPastEvents:", e);
     }
