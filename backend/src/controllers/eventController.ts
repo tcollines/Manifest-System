@@ -345,7 +345,7 @@ export const cleanupPastEvents = async () => {
             const { count: coordCount } = await supabase.from('users')
                 .update({ username: null, password: null, status: 'Inactive' })
                 .eq('event_id', event.id)
-                .eq('role', 'Coordinator');
+                .in('role', ['Vehicle Coordinator', 'Stage Coordinator']);
             if (coordCount && coordCount > 0) console.log(`Cleaned up credentials for ${coordCount} coordinators for ${event.title}`);
         }
 
