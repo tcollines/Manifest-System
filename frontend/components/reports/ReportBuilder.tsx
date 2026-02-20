@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { ReportField } from '../../types';
 import { Plus, Trash, GripVertical, Save, X, ArrowUp, ArrowDown } from 'lucide-react';
 import { useNotification } from '../ui/NotificationSystem';
+import { apiFetch } from '../../services/api';
 
 interface ReportBuilderProps {
     onSuccess: () => void;
@@ -54,9 +55,8 @@ const ReportBuilder: React.FC<ReportBuilderProps> = ({ onSuccess, createdBy }) =
 
         setLoading(true);
         try {
-            const res = await fetch('http://localhost:5000/api/reports', {
+            await apiFetch('/reports', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     title,
                     month,
@@ -66,7 +66,6 @@ const ReportBuilder: React.FC<ReportBuilderProps> = ({ onSuccess, createdBy }) =
                 })
             });
 
-            if (!res.ok) throw new Error('Failed to create report');
             showToast('Report template published successfully', 'success');
             onSuccess();
         } catch (error) {

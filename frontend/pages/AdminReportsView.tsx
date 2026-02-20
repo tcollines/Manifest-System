@@ -5,6 +5,7 @@ import { Plus, Check, Eye, Trash, FileText } from 'lucide-react';
 import ReportBuilder from '../components/reports/ReportBuilder';
 import ReportMonitor from '../components/reports/ReportMonitor';
 import ConfirmationModal from '../components/ConfirmationModal';
+import { apiFetch } from '../services/api';
 
 interface AdminReportsViewProps {
     user: User;
@@ -27,8 +28,7 @@ const AdminReportsView: React.FC<AdminReportsViewProps> = ({ user }) => {
 
     const fetchReports = async () => {
         try {
-            const res = await fetch('http://localhost:5000/api/reports');
-            const data = await res.json();
+            const data = await apiFetch('/reports');
             setReports(data || []);
         } catch (error) {
             console.error('Failed to fetch reports', error);
@@ -43,12 +43,10 @@ const AdminReportsView: React.FC<AdminReportsViewProps> = ({ user }) => {
 
     const handlePublish = async (id: string) => {
         try {
-            const res = await fetch(`http://localhost:5000/api/reports/${id}`, {
+            await apiFetch(`/reports/${id}`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ status: 'Published' })
             });
-            if (!res.ok) throw new Error('Failed to publish');
             fetchReports();
         } catch (error) {
             console.error('Error publishing report', error);
@@ -60,10 +58,9 @@ const AdminReportsView: React.FC<AdminReportsViewProps> = ({ user }) => {
         if (!reportToDelete) return;
 
         try {
-            const res = await fetch(`http://localhost:5000/api/reports/${reportToDelete}`, {
+            await apiFetch(`/reports/${reportToDelete}`, {
                 method: 'DELETE',
             });
-            if (!res.ok) throw new Error('Failed to delete report');
             setReportToDelete(null); // Close modal
             fetchReports();
         } catch (error) {

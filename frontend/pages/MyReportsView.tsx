@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { User, MonitoringReport } from '../types';
 import ReportFiller from '../components/reports/ReportFiller'; // Will create effectively
 import { Check, ClipboardList, Clock } from 'lucide-react';
+import { apiFetch } from '../services/api';
 
 interface MyReportsViewProps {
     user: User;
@@ -19,8 +20,7 @@ const MyReportsView: React.FC<MyReportsViewProps> = ({ user }) => {
     const fetchReports = async () => {
         if (!user.departmentId) return;
         try {
-            const res = await fetch(`http://localhost:5000/api/reports/department/${user.departmentId}`);
-            const data = await res.json();
+            const data = await apiFetch(`/reports/department/${user.departmentId}`);
             setReports(data || []);
         } catch (error) {
             console.error('Failed to fetch reports', error);
@@ -50,14 +50,14 @@ const MyReportsView: React.FC<MyReportsViewProps> = ({ user }) => {
                             <div className="p-6">
                                 <div className="flex justify-between items-start mb-4">
                                     <div className={`p-2 rounded-lg ${(report as any).submissionStatus === 'Submitted'
-                                            ? 'bg-green-100 text-green-600'
-                                            : 'bg-orange-100 text-orange-600'
+                                        ? 'bg-green-100 text-green-600'
+                                        : 'bg-orange-100 text-orange-600'
                                         }`}>
                                         <ClipboardList className="w-6 h-6" />
                                     </div>
                                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${(report as any).submissionStatus === 'Submitted'
-                                            ? 'bg-green-100 text-green-700'
-                                            : 'bg-yellow-100 text-yellow-700'
+                                        ? 'bg-green-100 text-green-700'
+                                        : 'bg-yellow-100 text-yellow-700'
                                         }`}>
                                         {(report as any).submissionStatus || 'Pending'}
                                     </span>
