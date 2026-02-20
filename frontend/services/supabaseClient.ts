@@ -9,5 +9,12 @@ export const supabase = createClient(supabaseUrl, supabaseKey, {
         persistSession: true,
         autoRefreshToken: true,
         detectSessionInUrl: true,
+        // Bypass the buggy navigator.locks manager that causes 10-second hangs during HMR or login
+        // Use a rest-parameter search to find the acquire function regardless of the SDK's internal signature changes
+        lock: (...args: any[]) => {
+            const acquire = args.find(a => typeof a === 'function');
+            if (acquire) return acquire();
+            return Promise.resolve();
+        }
     }
 });

@@ -56,7 +56,13 @@ export const UserStore = {
       console.log(`[USERSTORE LOGIN START] Attempting login for: ${username}`);
 
       // Force clear any broken local storage states that might cause Supabase Auth to hang
-      localStorage.removeItem('supabase.auth.token');
+      // Supabase uses 'sb-<project-ref>-auth-token' by default. We clear all matching keys.
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('sb-') && key.endsWith('-auth-token')) {
+          localStorage.removeItem(key);
+        }
+      }
 
       const cleanUsername = username.trim().replace(/ /g, '').replace(/@/g, '_').toLowerCase();
       let email = `${cleanUsername}@manifest.local`;
