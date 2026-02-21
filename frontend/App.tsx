@@ -239,11 +239,22 @@ const App: React.FC = () => {
   };
 
   const handleLogout = async () => {
+    // Safety Force Logout if Supabase hangs
+    const forceLogout = setTimeout(() => {
+      console.warn("Sign out hanging? Forcing local state clear.");
+      setCurrentUser(null);
+      setLoginError(null);
+      setIsSidebarOpen(false);
+      navigate('/');
+    }, 2000);
+
     try {
       await supabase.auth.signOut({ scope: 'local' });
     } catch (err) {
       console.warn("Ignored local sign out warning:", err);
     }
+
+    clearTimeout(forceLogout);
     setCurrentUser(null);
     setLoginError(null);
     setIsSidebarOpen(false);

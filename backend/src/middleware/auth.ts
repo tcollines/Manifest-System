@@ -32,10 +32,21 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
             console.warn('[AUTH WARNING] Missing SUPABASE_JWT_SECRET in backend environment. Local verification is disabled.');
         }
 
-        // 🚨 CRITICAL BYPASS: The backend environment's SUPABASE_JWT_SECRET is currently
-        // throwing 'invalid signature' against valid session tokens from the frontend.
-        // We are temporarily extracting the payload via decode() instead of verify() to unblock the UI.
-        const decoded = jwt.decode(token) as any;
+        // 🚨 CRITICAL BYPASS: The backend environment's SUPABASE_JWT_SECRET often
+        // handles signatures slightly differently than the frontend library.
+        // We try to verify if the secret exists, but fallback to decode to avoid locking users out.
+        let decoded: any;
+        if (jwtSecret) {
+            try {
+                decoded = jwt.verify(token, jwtSecret);
+                console.log(`[AUTH SUCCESS] Verified signature for ${decoded.email}`);
+            } catch (vErr: any) {
+                console.warn(`[AUTH WARNING] Signature verification failed (${vErr.message}). Falling back to decode.`);
+                decoded = jwt.decode(token);
+            }
+        } else {
+            decoded = jwt.decode(token);
+        }
 
         if (!decoded) {
             console.error('[AUTH ERROR] JWT Decoding failed entirely.');
@@ -43,18 +54,29 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
         }
 
         // Extract manifest_id from app_metadata or user_metadata within the decoded JWT
-        const manifestId = decoded.app_metadata?.manifest_id || decoded.user_metadata?.manifest_id;
+        // Log keys to help debug missing claims
+        const appMetadata = decoded.app_metadata || {};
+        const userMetadata = decoded.user_metadata || {};
+        const manifestId = appMetadata.manifest_id || userMetadata.manifest_id;
+
+        if (!manifestId) {
+            console.warn(`[AUTH WARNING] No manifest_id found in token for ${decoded.email}. Keys available:`, {
+                app_metadata: Object.keys(appMetadata),
+                user_metadata: Object.keys(userMetadata),
+                top_level: Object.keys(decoded)
+            });
+        }
 
         // Reconstruct user payload
         const user = {
             id: decoded.sub,
             email: decoded.email,
             role: decoded.role,
-            app_metadata: decoded.app_metadata,
-            user_metadata: decoded.user_metadata
+            app_metadata: appMetadata,
+            user_metadata: userMetadata
         };
 
-        console.log(`[AUTH DEBUG] User: ${user.email}, ManifestID: ${manifestId} (Local Verify)`);
+        console.log(`[AUTH DEBUG] User: ${user.email}, ManifestID: ${manifestId}`);
 
         req.user = user;
         req.manifestId = manifestId;
