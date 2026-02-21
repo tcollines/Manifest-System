@@ -11,7 +11,7 @@ export const getMembers = async (req: Request, res: Response) => {
 
     const page = parseInt(req.query.page as string) || 1;
     const requestedSize = parseInt(req.query.pageSize as string) || 50;
-    const pageSize = Math.min(requestedSize, 50);
+    const pageSize = Math.min(requestedSize, 100); // 🚨 CRITICAL ENFORCEMENT: Hard limit of 100 rows per request.
     const searchQuery = req.query.search as string || '';
 
     try {
@@ -56,46 +56,8 @@ export const getMembers = async (req: Request, res: Response) => {
     }
 };
 
-export const getAllMembers = async (req: Request, res: Response) => {
-    const manifestId = (req as any).manifestId;
-    if (!manifestId) return res.status(401).json({ error: 'Unauthorized: Missing Manifest ID' });
-
-    try {
-        let allMembers: any[] = [];
-        let page = 0;
-        const pageSize = 1000;
-        let hasMore = true;
-
-        while (hasMore) {
-            const from = page * pageSize;
-            const to = from + pageSize - 1;
-
-            const { data, error } = await supabase
-                .from('members')
-                .select('id, name, category, phone, gender, residency, born_again, joined_date, status, check_in_time')
-                .eq('manifest_id', manifestId) // Tenant Isolation
-                .order('name', { ascending: true })
-                .range(from, to);
-
-            if (error) throw error;
-
-            if (data && data.length > 0) {
-                allMembers = allMembers.concat(data);
-                if (data.length < pageSize) {
-                    hasMore = false;
-                } else {
-                    page++;
-                }
-            } else {
-                hasMore = false;
-            }
-        }
-
-        res.json(allMembers);
-    } catch (error: any) {
-        res.status(500).json({ error: error.message });
-    }
-};
+// getAllMembers removed completely to prevent Node.js Out-Of-Memory crashes.
+// All consumers must use the paginated getMembers endpoint exclusively.
 
 export const addMember = async (req: Request, res: Response) => {
     const manifestId = (req as any).manifestId;

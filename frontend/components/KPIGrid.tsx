@@ -7,6 +7,7 @@ import { KPI } from '../types';
 import { FinanceStore } from '../database/financeStore';
 import { ManifestStore } from '../database/manifestStore';
 import * as Icons from 'lucide-react';
+import { supabase } from '../services/supabaseClient';
 
 interface KPIGridProps {
   eventId?: string;
@@ -30,24 +31,23 @@ const KPIGrid: React.FC<KPIGridProps> = ({ eventId }) => {
         setKpis(prev => prev.map(k => ({ ...k, value: '...' })));
         return;
       }
+
+      // Prevent fetching if session is ending/cleared
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
       // 1. Get Currency
       const manifest = await ManifestStore.get();
       const currency = manifest.currency || 'UGX';
 
-      // 2. Get Transactions (Filter by Event if provided)
-      let transactions = await FinanceStore.getTransactions();
-      if (eventId) {
-        transactions = transactions.filter(t => t.eventId === eventId);
-      }
+      // 2. Get Aggregated Summary (O(1) payload)
+      const summary = await FinanceStore.getEventSummary(eventId);
 
-      // 3. Calculate Totals
-      const totalIncome = transactions.filter(t => t.type === 'Income').reduce((sum, t) => sum + t.amount, 0);
-      const totalExpenses = transactions.filter(t => t.type === 'Expense').reduce((sum, t) => sum + t.amount, 0);
+      // We still need raw transactions for partnerships and PMI giving since they aren't in the generic Postgres summary yet
+      let transactions = await FinanceStore.getTransactions(eventId);
+
+      // 3. Calculate Extra Totals (Consider moving these to RPC later)
       const totalOfferings = transactions.filter(t => t.type === 'Income' && (t.category === 'Offerings' || t.category === 'Tithes')).reduce((sum, t) => sum + t.amount, 0);
-      const partnerships = transactions.filter(t => t.type === 'Income' && t.category === 'Partnership').reduce((sum, t) => sum + t.amount, 0); // Using Amount for value, or count? Mock used count. Let's use Amount for value consistency or Count.
-      // Mock used '142' for partnerships (count). Let's use count of transactions.
       const partnershipCount = transactions.filter(t => t.type === 'Income' && t.category === 'Partnership').length;
-
       const pmiGiving = transactions.filter(t => t.type === 'Income' && t.category === 'PMI Giving').reduce((sum, t) => sum + t.amount, 0);
 
       const formatMoney = (amount: number) => {
@@ -55,8 +55,8 @@ const KPIGrid: React.FC<KPIGridProps> = ({ eventId }) => {
       };
 
       setKpis([
-        { id: '1', label: 'Total Collections', value: formatMoney(totalIncome), change: '+12%', trend: 'up', icon: 'DollarSign' },
-        { id: '2', label: 'Monthly Expenses', value: formatMoney(totalExpenses), change: '-5%', trend: 'down', icon: 'Activity' },
+        { id: '1', label: 'Total Collections', value: formatMoney(summary.total_income), change: '+12%', trend: 'up', icon: 'DollarSign' },
+        { id: '2', label: 'Monthly Expenses', value: formatMoney(summary.total_expense), change: '-5%', trend: 'down', icon: 'Activity' },
         { id: '3', label: 'Total Offerings', value: formatMoney(totalOfferings), change: '+8%', trend: 'up', icon: 'Heart' },
         { id: '4', label: 'Partnerships (Count)', value: partnershipCount.toString(), change: '+24', trend: 'up', icon: 'Briefcase' },
         { id: '5', label: 'PMI Giving', value: formatMoney(pmiGiving), change: '+15%', trend: 'up', icon: 'TrendingUp' },

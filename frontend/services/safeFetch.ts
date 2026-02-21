@@ -74,7 +74,11 @@ export async function safeFetch<T, R = T>(
             // Silent return for cancellation
             return { status: 'error', message: 'Request cancelled', error: 'Aborted' };
         }
-        console.error(`[SafeFetch] Error: ${errorMessage}`, error);
+
+        const msg = error.message || '';
+        if (!msg.includes('Unauthorized') && !msg.includes('401') && !msg.includes('403')) {
+            console.error(`[SafeFetch] Error: ${errorMessage}`, error);
+        }
 
         // TODO: Add environment check here. 
         // If (DEV && MOCKS_ENABLED) -> return mock? 

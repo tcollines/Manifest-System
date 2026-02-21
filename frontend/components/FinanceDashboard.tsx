@@ -59,6 +59,7 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, events
     const [pickupStations, setPickupStations] = useState<PickUpStation[]>([]);
     const [currency, setCurrency] = useState('UGX');
     const [isRefreshing, setIsRefreshing] = useState(false);
+    const [financeSummary, setFinanceSummary] = useState({ total_income: 0, total_expense: 0, net_balance: 0, transaction_count: 0 });
     const [selectedEventId, setSelectedEventId] = useState<string>('');
 
     // Sync selectedEventId with events prop if not set
@@ -149,8 +150,8 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, events
             // FIRE ALL REQUESTS IN PARALLEL (Performance Optimization)
             const [
                 vehicleRes,
-                passengerRes,
                 transactionsRes,
+                financeSummaryRes,
                 requestsRes,
                 requisitionsRes,
                 stationRes,
@@ -158,9 +159,9 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, events
                 usersRes
             ] = await Promise.all([
                 VehicleStore.getVehicles({ eventId: selectedEventId }),
-                VehicleStore.getPassengers({ eventId: selectedEventId }),
-                FinanceStore.getTransactions(), // Transactions are manually filtered in render for now, or could be event-filtered here
-                FinanceStore.getRequests(),
+                FinanceStore.getTransactions(selectedEventId), // Keep for table view
+                FinanceStore.getEventSummary(selectedEventId), // New O(1) RPC aggregate
+                FinanceStore.getRequests(selectedEventId),
                 RequisitionStore.getAll(),
                 LogisticsStore.getStations(selectedEventId),
                 ManifestStore.get(),
@@ -169,8 +170,8 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, events
 
             // UPDATE STATE (Non-blocking batch updates)
             setVehicles(vehicleRes.status === 'success' ? vehicleRes.data : []);
-            setPassengers(passengerRes.status === 'success' ? passengerRes.data : []);
             setTransactions(transactionsRes);
+            setFinanceSummary(financeSummaryRes);
             setRequests(requestsRes);
             setRequisitions(requisitionsRes);
             setPickupStations(stationRes.status === 'success' ? stationRes.data : []);
@@ -708,7 +709,7 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, events
         if (!selectedFleetEvent) return [];
         const eventStationIds = pickupStations.filter(s => s.eventId === selectedFleetEvent.id).map(s => s.id);
 
-        const allVehicles = vehicles.filter(v => eventStationIds.includes(v.stationId));
+        const allVehicles = vehicles.filter(v => v.eventId === selectedFleetEvent.id || eventStationIds.includes(v.stationId));
 
         if (fleetJourneyTab === 'All') {
             return allVehicles;
@@ -987,8 +988,8 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, events
                                     </div>
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                    {events.filter(e => e.type === 'Event' || e.type === 'Service').map(event => {
-                                        const isLocked = event.type === 'Service' ? isServiceClosed(event.date) : isEventLocked(event.date);
+                                    {events.filter(e => e.type === 'Event').map(event => {
+                                        const isLocked = isEventLocked(event.date);
                                         return (
                                             <div
                                                 key={event.id}
@@ -1090,9 +1091,9 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, events
                                     <div className="col-span-3 text-center py-12 text-gray-400">No vehicles requiring finance attention.</div>
                                 ) : (
                                     <div className="col-span-full space-y-8">
-                                        {Array.from(new Set(eventVehicles.map(v => v.stationId))).sort().map(stationId => {
-                                            const stationVehicles = eventVehicles.filter(v => v.stationId === stationId);
-                                            const stationName = pickupStations.find(s => s.id === stationId)?.name || 'Unknown Station';
+                                        {Array.from(new Set(eventVehicles.map(v => v.stationId || 'direct'))).sort().map(stationId => {
+                                            const stationVehicles = eventVehicles.filter(v => (v.stationId || 'direct') === stationId);
+                                            const stationName = stationId === 'direct' ? 'Direct Event Vehicles' : pickupStations.find(s => s.id === stationId)?.name || 'Unknown Station';
 
                                             return (
                                                 <div key={stationId} className="bg-gray-50 border border-gray-200 rounded-2xl overflow-hidden shadow-sm">

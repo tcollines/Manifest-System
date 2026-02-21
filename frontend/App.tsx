@@ -160,7 +160,6 @@ const App: React.FC = () => {
         }
       } else if (event === 'SIGNED_OUT') {
         setCurrentUser(null);
-        UserStore.clearSession();
         navigate('/');
       }
     });
@@ -240,8 +239,11 @@ const App: React.FC = () => {
   };
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    UserStore.clearSession();
+    try {
+      await supabase.auth.signOut({ scope: 'local' });
+    } catch (err) {
+      console.warn("Ignored local sign out warning:", err);
+    }
     setCurrentUser(null);
     setLoginError(null);
     setIsSidebarOpen(false);
@@ -443,7 +445,7 @@ const App: React.FC = () => {
 
             {/* Registration (d1) */}
             <Route element={<ProtectedRoute currentUser={currentUser} allowedDepartments={['d1']} bypassRoles={['Logistics']} />}>
-              <Route path="registration" element={<RegistrationDashboard events={events} currentUser={currentUser} onOpenModal={setModalType} />} />
+              <Route path="registration" element={<RegistrationDashboard events={events} currentUser={currentUser} onOpenModal={setModalType} refreshParentData={refreshData} />} />
             </Route>
 
             {/* Next Gen (d2) */}

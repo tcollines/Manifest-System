@@ -27,7 +27,12 @@ export const apiFetch = async (endpoint: string, options: RequestInit = {}) => {
         } catch {
             // Response was not JSON
         }
+        if (res.status !== 401 && res.status !== 403) {
+            console.error(`[API FETCH ERROR] ${res.status} to ${endpoint}:`, text);
+        }
         throw new Error(errorBody?.error || `API Error (${res.status}): ${text || res.statusText}`);
     }
-    return res.json();
+    const json = await res.json();
+    console.log(`[API FETCH SUCCESS] payload size: ${JSON.stringify(json).length}`);
+    return json;
 };

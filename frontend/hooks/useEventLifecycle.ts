@@ -5,9 +5,14 @@ import { VehicleStore } from '../database/vehicleStore';
 import { LogisticsStore } from '../database/logisticsStore';
 import { isEventLocked } from '../utils';
 
+import { supabase } from '../services/supabaseClient';
+
 export const useEventLifecycle = () => {
     useEffect(() => {
         const cleanupExpiredCredentials = async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) return; // Prevent unauthorized calls during logout
+
             const eventResponse = await EventStore.getAll();
             const allEvents = eventResponse.status === 'success' ? eventResponse.data : [];
             const lockedEventIds = allEvents
@@ -87,6 +92,8 @@ export const useEventLifecycle = () => {
             }
         };
 
-        cleanupExpiredCredentials();
+        cleanupExpiredCredentials().catch(err => {
+            console.warn("Ignored background cleanup error during unmount or transition:", err.message || err);
+        });
     }, []);
 };

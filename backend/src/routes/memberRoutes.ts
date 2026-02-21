@@ -1,7 +1,6 @@
 import { Router } from 'express';
 import {
     getMembers,
-    getAllMembers,
     addMember,
     updateMember,
     deleteMember,
@@ -14,8 +13,6 @@ import {
 } from '../controllers/memberController';
 
 const router = Router();
-
-router.get('/all', getAllMembers);
 router.get('/', getMembers);
 router.post('/batch', getMembersByIds); // New batch retrieval endpoint
 router.post('/', addMember);

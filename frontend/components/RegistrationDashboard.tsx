@@ -70,6 +70,7 @@ interface RegistrationDashboardProps {
   events: MinistryEvent[];
   currentUser: User;
   onOpenModal?: (type: ModalType) => void;
+  refreshParentData?: () => void;
 }
 
 type Tab = 'checkin' | 'events' | 'database';
@@ -78,7 +79,7 @@ type ViewMode = 'list' | 'service-active' | 'service-review' | 'Vehicle-view' | 
 // Helper for sanitizing empty strings to undefined
 const sanitize = (val: string | undefined): string | undefined => (!val || val.trim() === '') ? undefined : val;
 
-const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, currentUser, onOpenModal }) => {
+const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, currentUser, onOpenModal, refreshParentData }) => {
   const { showToast, confirm: askConfirm } = useNotification();
   /* Persistence Logic */
   const [activeTab, setActiveTab] = useState<Tab>(() => {
@@ -1573,7 +1574,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
       };
 
       await EventStore.add(newEvent);
-      refreshData(); // Refresh parent data
+      if (refreshParentData) refreshParentData(); // Refresh parent data
       setIsAddEventOpen(false);
       setEventForm({ title: '', date: new Date().toISOString().split('T')[0], time: '17:00', location: 'Phaneroo Grounds', description: '' });
       showToast(`${eventFormType} created successfully.`, 'success');
@@ -2243,9 +2244,8 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
   /* --- EXPORT MEMBERS --- */
   const handleExportMembers = async () => {
     try {
-      showToast("Preparing members export...", 'info');
-      const result = await MemberStore.getAll();
-
+      // Export is now safely bounded to the currently searched dataset up to 100 rows to prevent Node.js OOM crashes.
+      const result = await MemberStore.getMembers(1, 100, debouncedSearchQuery);
       if (result.status === 'error') {
         showToast(`Export failed: ${result.message}`, 'error');
         return;

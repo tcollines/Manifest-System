@@ -319,20 +319,11 @@ export const getPassengers = async (req: Request, res: Response) => {
             }
         }
         if (validEventId) {
-            const { data: stations } = await supabase.from('pickup_stations').select('id')
-                .eq('manifest_id', manifestId).eq('event_id', validEventId);
-            const stationIds = (stations || []).map(s => s.id);
-            if (stationIds.length > 0) {
-                const { data: vehicles } = await supabase.from('vehicles').select('id')
-                    .eq('manifest_id', manifestId).in('station_id', stationIds);
-                const vehicleIds = (vehicles || []).map(v => v.id);
-                if (vehicleIds.length > 0) {
-                    query = query.in('vehicle_id', vehicleIds);
-                } else {
-                    return res.json([]);
-                }
+            const uuid = toUUID(validEventId);
+            if (uuid) {
+                query = query.or(`event_id.eq.${uuid},legacy_event_id.eq.${validEventId}`);
             } else {
-                return res.json([]);
+                query = query.eq('legacy_event_id', validEventId);
             }
         }
         const { data, error } = await query.order('created_at', { ascending: true });

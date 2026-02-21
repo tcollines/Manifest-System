@@ -240,13 +240,19 @@ export const getEventHighlights = async (req: Request, res: Response) => {
             { data: attendanceData },
             { data: soulsData },
             { data: nextGenData },
-            { data: financeData }
+            { data: financeData },
+            { count: childrenFirstTimersCount }
         ] = await Promise.all([
             eventQuery,
             attendanceQuery,
             soulsQuery,
             nextGenSoulsQuery,
-            financeQuery
+            financeQuery,
+            supabase.from('children')
+                .select('*', { count: 'exact', head: true })
+                .eq('manifest_id', manifestId)
+                .eq('category', 'First Timer')
+                .contains('attended_service_ids', [eventUuid])
         ]);
 
         let fleetCount = 0;
@@ -257,6 +263,21 @@ export const getEventHighlights = async (req: Request, res: Response) => {
         let pInstitutions = 0;
         let pSouls = 0;
         let fleetExpenditure = 0;
+
+        // 🚨 CRITICAL FIX: Fetch all passengers directly by event to avoid dropping them 
+        // if the event has manual passengers but 0 logistics stations!
+        const { data: passengers } = await supabase.from('passengers')
+            .select('id, is_first_time, category, soul_won')
+            .eq('manifest_id', manifestId)
+            .eq('event_id', eventUuid);
+
+        if (passengers && passengers.length > 0) {
+            pCount = passengers.length;
+            pFirstTimers = passengers.filter(p => p.is_first_time === 'Yes').length;
+            pStudents = passengers.filter(p => p.category === 'Student').length;
+            pInstitutions = passengers.filter(p => p.category === 'Institution').length;
+            pSouls = passengers.filter(p => p.soul_won === true).length;
+        }
 
         const { data: stations } = await supabase.from('pickup_stations').select('id').eq('manifest_id', manifestId).eq('event_id', eventUuid);
         if (stations && stations.length > 0) {
@@ -270,20 +291,6 @@ export const getEventHighlights = async (req: Request, res: Response) => {
                     const dispatch = v.finance_details?.ongoingDispatch;
                     return acc + (dispatch ? parseFloat(dispatch) || 0 : 0);
                 }, 0);
-
-                const vehicleIds = vehicles.map(v => v.id);
-                const { data: passengers } = await supabase.from('passengers')
-                    .select('id, is_first_time, category, soul_won')
-                    .eq('manifest_id', manifestId)
-                    .in('vehicle_id', vehicleIds);
-
-                if (passengers) {
-                    pCount = passengers.length;
-                    pFirstTimers = passengers.filter(p => p.is_first_time === 'Yes').length;
-                    pStudents = passengers.filter(p => p.category === 'Student').length;
-                    pInstitutions = passengers.filter(p => p.category === 'Institution').length;
-                    pSouls = passengers.filter(p => p.soul_won === true).length;
-                }
             }
         }
 
@@ -304,7 +311,7 @@ export const getEventHighlights = async (req: Request, res: Response) => {
             students: pStudents || snapshot.students || 0,
             institutions: pInstitutions || snapshot.institutions || 0,
             attendees: finalAttendees || snapshot.attendees || 0,
-            firstTimers: pFirstTimers || snapshot.firstTimers || 0,
+            firstTimers: (pFirstTimers + (childrenFirstTimersCount || 0)) || snapshot.firstTimers || 0,
             soulsWon: soulsTotal || snapshot.soulsWon || 0,
             children: logisticsChildren || snapshot.children || 0,
             expenditure: (fleetExpenditure + financeExpenditure) || (snapshot.expenditure ? parseFloat(snapshot.expenditure.replace(/,/g, '')) : 0) || 0

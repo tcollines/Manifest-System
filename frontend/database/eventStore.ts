@@ -5,6 +5,7 @@ import { safeFetch } from '../services/safeFetch';
 
 const mapEventFromDB = (e: any): MinistryEvent => ({
   id: e.id,
+  legacyId: e.legacy_id,
   title: e.title,
   type: e.type,
   date: e.date,
@@ -68,7 +69,9 @@ export const EventStore = {
         body: JSON.stringify(mapEventToDB(event))
       });
     } catch (error: any) {
-      console.error('Error updating event:', error);
+      if (!error.message?.includes('Unauthorized')) {
+        console.error('Error updating event:', error);
+      }
       throw error;
     }
   },

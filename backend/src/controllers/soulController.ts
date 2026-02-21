@@ -171,7 +171,7 @@ export const getSoulServiceStats = async (req: Request, res: Response) => {
             .from('next_gen_souls')
             .select('*', { count: 'exact', head: true })
             .eq('manifest_id', manifestId) // Tenant Isolation
-            .eq('service_id', serviceId);
+            .eq('service_id', idUuid || serviceId);
 
         if (ngError) throw ngError;
 
@@ -191,7 +191,12 @@ export const getNextGenSouls = async (req: Request, res: Response) => {
     try {
         let query = supabase.from('next_gen_souls').select('*').eq('manifest_id', manifestId).order('created_at', { ascending: false }); // Tenant Isolation
         if (serviceId) {
-            query = query.eq('service_id', serviceId);
+            const uuid = toUUID(serviceId as string);
+            if (uuid) {
+                query = query.eq('service_id', uuid);
+            } else {
+                query = query.eq('service_id', serviceId); // Let it fail cleanly or match if we ever roll back
+            }
         }
         const { data, error } = await query;
         if (error) throw error;
@@ -235,11 +240,12 @@ export const getNextGenSoulCount = async (req: Request, res: Response) => {
 
     const { serviceId } = req.params;
     try {
+        const uuid = toUUID(serviceId as string);
         const { count, error } = await supabase
             .from('next_gen_souls')
             .select('*', { count: 'exact', head: true })
             .eq('manifest_id', manifestId) // Tenant Isolation
-            .eq('service_id', serviceId);
+            .eq('service_id', uuid || serviceId);
         if (error) throw error;
         res.json({ count: count || 0 });
     } catch (error: any) {

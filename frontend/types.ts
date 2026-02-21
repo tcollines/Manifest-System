@@ -59,6 +59,7 @@ export interface EventStats {
 
 export interface MinistryEvent {
   id: string;
+  legacyId?: string;
   title: string;
   type: 'Service' | 'Event';
   date: string;

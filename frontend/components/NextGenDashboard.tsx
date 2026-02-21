@@ -191,7 +191,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                 ]);
 
                 // Update Count if Service Matches
-                if (selectedServiceRef.current && newSoul.service_id === selectedServiceRef.current.id) {
+                if (selectedServiceRef.current && (newSoul.service_id === selectedServiceRef.current.id || !!(selectedServiceRef.current.legacyId && newSoul.service_id === selectedServiceRef.current.legacyId))) {
                     setSoulsWonCount(prev => prev + 1);
                 }
             })
@@ -282,7 +282,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
 
         // If in checkout mode (Active Service View)
         if (viewMode === 'service-active' && selectedService) {
-            const isAttended = c.attendedServiceIds.includes(selectedService.id);
+            const isAttended = (c.attendedServiceIds.includes(selectedService.id) || !!(selectedService.legacyId && c.attendedServiceIds.includes(selectedService.legacyId)));
 
             // Filter by active stat card
             if (activeStatsFilter === 'CheckIn') {
@@ -1162,7 +1162,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                                     <div className="bg-ministry-text border-l-4 border-ministry-neon p-6 rounded-xl shadow-sm text-center">
                                         <h4 className="text-white font-bold uppercase text-xs mb-2">Total Check-Ins</h4>
                                         <p className="text-4xl font-black text-white">
-                                            {children.filter(c => c.attendedServiceIds.includes(selectedService.id)).length}
+                                            {children.filter(c => (c.attendedServiceIds.includes(selectedService.id) || !!(selectedService.legacyId && c.attendedServiceIds.includes(selectedService.legacyId)))).length}
                                         </p>
                                     </div>
 
@@ -1170,7 +1170,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                                     <div className="bg-white border-2 border-ministry-orange p-6 rounded-xl shadow-sm text-center">
                                         <h4 className="text-ministry-text font-bold uppercase text-xs mb-2">First Timers</h4>
                                         <p className="text-4xl font-black text-gray-800">
-                                            {children.filter(c => c.attendedServiceIds.includes(selectedService.id) && c.joinedDate === selectedService.date).length}
+                                            {children.filter(c => (c.attendedServiceIds.includes(selectedService.id) || !!(selectedService.legacyId && c.attendedServiceIds.includes(selectedService.legacyId))) && (c.category === 'First Timer' || (c.joinedDate && c.joinedDate.startsWith(selectedService.date)))).length}
                                         </p>
                                     </div>
 
@@ -1181,7 +1181,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                                         </div>
                                         <h4 className="text-ministry-orange font-bold uppercase text-xs mb-2">Souls Won</h4>
                                         <p className="text-4xl font-black text-ministry-orange">
-                                            {nextGenSouls.filter(s => s.serviceId === selectedService.id).length}
+                                            {nextGenSouls.filter(s => (s.serviceId === selectedService.id || !!(selectedService.legacyId && s.serviceId === selectedService.legacyId))).length}
                                         </p>
                                     </div>
 
@@ -1189,7 +1189,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                                     <div className="bg-white border border-gray-300 p-6 rounded-xl shadow-sm text-center">
                                         <h4 className="text-gray-500 font-bold uppercase text-xs mb-2">Checked Out</h4>
                                         <p className="text-4xl font-black text-gray-700">
-                                            {children.filter(c => c.attendedServiceIds.includes(selectedService.id) && c.status === 'Checked Out').length}
+                                            {children.filter(c => (c.attendedServiceIds.includes(selectedService.id) || !!(selectedService.legacyId && c.attendedServiceIds.includes(selectedService.legacyId))) && c.status === 'Checked Out').length}
                                         </p>
                                     </div>
                                 </div>
@@ -1237,7 +1237,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                                     >
                                         <h4 className="text-white font-bold uppercase text-xs mb-2">Total Check-Ins</h4>
                                         <p className="text-4xl font-black text-white">
-                                            {children.filter(c => c.attendedServiceIds.includes(selectedService.id)).length}
+                                            {children.filter(c => (c.attendedServiceIds.includes(selectedService.id) || !!(selectedService.legacyId && c.attendedServiceIds.includes(selectedService.legacyId)))).length}
                                         </p>
                                     </button>
 
@@ -1248,7 +1248,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                                     >
                                         <h4 className="text-gray-500 font-bold uppercase text-xs mb-2">Checked Out</h4>
                                         <p className="text-4xl font-black text-gray-700">
-                                            {children.filter(c => c.attendedServiceIds.includes(selectedService.id) && c.status === 'Checked Out').length}
+                                            {children.filter(c => (c.attendedServiceIds.includes(selectedService.id) || !!(selectedService.legacyId && c.attendedServiceIds.includes(selectedService.legacyId))) && c.status === 'Checked Out').length}
                                         </p>
                                     </button>
 
@@ -1259,7 +1259,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                                     >
                                         <h4 className="text-ministry-text font-bold uppercase text-xs mb-2">First Timers</h4>
                                         <p className="text-4xl font-black text-gray-800">
-                                            {children.filter(c => c.attendedServiceIds.includes(selectedService.id) && (c.category === 'First Timer' || c.joinedDate === selectedService.date)).length}
+                                            {children.filter(c => (c.attendedServiceIds.includes(selectedService.id) || !!(selectedService.legacyId && c.attendedServiceIds.includes(selectedService.legacyId))) && (c.category === 'First Timer' || (c.joinedDate && c.joinedDate.startsWith(selectedService.date)))).length}
                                         </p>
                                     </button>
 
@@ -1273,7 +1273,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                                         </div>
                                         <h4 className="text-ministry-orange font-bold uppercase text-xs mb-2">Souls Won</h4>
                                         <p className="text-4xl font-black text-ministry-orange">
-                                            {nextGenSouls.filter(s => s.serviceId === selectedService.id).length}
+                                            {nextGenSouls.filter(s => (s.serviceId === selectedService.id || !!(selectedService.legacyId && s.serviceId === selectedService.legacyId))).length}
                                         </p>
                                     </button>
                                 </div>
@@ -1281,16 +1281,16 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                                 {/* --- Demographics & Safety Section --- */}
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                     {/* Safety Flag */}
-                                    <div className={`p-6 rounded-xl border-l-4 shadow-sm ${(children.filter(c => c.attendedServiceIds.includes(selectedService.id) && c.status === 'Checked In').length) > 0
+                                    <div className={`p-6 rounded-xl border-l-4 shadow-sm ${(children.filter(c => (c.attendedServiceIds.includes(selectedService.id) || !!(selectedService.legacyId && c.attendedServiceIds.includes(selectedService.legacyId))) && c.status === 'Checked In').length) > 0
                                         ? 'bg-yellow-50 border-yellow-500 text-yellow-800' // Warning if kids still checked in
                                         : 'bg-green-50 border-green-500 text-green-800' // All clear
                                         }`}>
                                         <div className="flex items-center justify-between mb-2">
                                             <h4 className="font-bold uppercase text-xs opacity-70">Safety Flag</h4>
-                                            {(children.filter(c => c.attendedServiceIds.includes(selectedService.id) && c.status === 'Checked In').length) > 0 ? <AlertCircle className="w-5 h-5" /> : <ShieldCheck className="w-5 h-5" />}
+                                            {(children.filter(c => (c.attendedServiceIds.includes(selectedService.id) || !!(selectedService.legacyId && c.attendedServiceIds.includes(selectedService.legacyId))) && c.status === 'Checked In').length) > 0 ? <AlertCircle className="w-5 h-5" /> : <ShieldCheck className="w-5 h-5" />}
                                         </div>
                                         <p className="text-3xl font-black">
-                                            {children.filter(c => c.attendedServiceIds.includes(selectedService.id) && c.status === 'Checked In').length}
+                                            {children.filter(c => (c.attendedServiceIds.includes(selectedService.id) || !!(selectedService.legacyId && c.attendedServiceIds.includes(selectedService.legacyId))) && c.status === 'Checked In').length}
                                         </p>
                                         <p className="text-xs font-bold mt-1">Children currently checked in</p>
                                     </div>
@@ -1303,10 +1303,10 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                                         </h4>
                                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                             {[
-                                                { label: 'General (>12)', count: children.filter(c => c.attendedServiceIds.includes(selectedService.id) && c.age > 12).length, color: 'bg-purple-100 text-purple-700' },
-                                                { label: 'Captain (10-12)', count: children.filter(c => c.attendedServiceIds.includes(selectedService.id) && c.age > 9 && c.age <= 12).length, color: 'bg-blue-100 text-blue-700' },
-                                                { label: 'Lieutenant (7-9)', count: children.filter(c => c.attendedServiceIds.includes(selectedService.id) && c.age > 6 && c.age <= 9).length, color: 'bg-green-100 text-green-700' },
-                                                { label: 'Sergeant (2-6)', count: children.filter(c => c.attendedServiceIds.includes(selectedService.id) && c.age >= 2 && c.age <= 6).length, color: 'bg-orange-100 text-orange-700' }
+                                                { label: 'General (>12)', count: children.filter(c => (c.attendedServiceIds.includes(selectedService.id) || !!(selectedService.legacyId && c.attendedServiceIds.includes(selectedService.legacyId))) && c.age > 12).length, color: 'bg-purple-100 text-purple-700' },
+                                                { label: 'Captain (10-12)', count: children.filter(c => (c.attendedServiceIds.includes(selectedService.id) || !!(selectedService.legacyId && c.attendedServiceIds.includes(selectedService.legacyId))) && c.age > 9 && c.age <= 12).length, color: 'bg-blue-100 text-blue-700' },
+                                                { label: 'Lieutenant (7-9)', count: children.filter(c => (c.attendedServiceIds.includes(selectedService.id) || !!(selectedService.legacyId && c.attendedServiceIds.includes(selectedService.legacyId))) && c.age > 6 && c.age <= 9).length, color: 'bg-green-100 text-green-700' },
+                                                { label: 'Sergeant (2-6)', count: children.filter(c => (c.attendedServiceIds.includes(selectedService.id) || !!(selectedService.legacyId && c.attendedServiceIds.includes(selectedService.legacyId))) && c.age >= 2 && c.age <= 6).length, color: 'bg-orange-100 text-orange-700' }
                                             ].map(rank => (
                                                 <div key={rank.label} className={`${rank.color} p-3 rounded-lg text-center`}>
                                                     <div className="text-2xl font-black">{rank.count}</div>
@@ -1321,9 +1321,9 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                                     <div className="space-y-4 animate-in fade-in">
                                         <div className="bg-white border border-gray-200 rounded-xl shadow-lg divide-y divide-gray-100 max-h-96 overflow-y-auto">
                                             <div className="p-3 bg-gray-50 border-b border-gray-100 text-xs font-bold text-gray-500 uppercase">
-                                                Showing {nextGenSouls.filter(s => s.serviceId === selectedService.id).length} Souls Won
+                                                Showing {nextGenSouls.filter(s => (s.serviceId === selectedService.id || !!(selectedService.legacyId && s.serviceId === selectedService.legacyId))).length} Souls Won
                                             </div>
-                                            {nextGenSouls.filter(s => s.serviceId === selectedService.id).map(soul => (
+                                            {nextGenSouls.filter(s => (s.serviceId === selectedService.id || !!(selectedService.legacyId && s.serviceId === selectedService.legacyId))).map(soul => (
                                                 <div key={soul.id} className="p-4 flex justify-between items-center hover:bg-gray-50 transition-colors">
                                                     <div className="flex-1 min-w-0 mr-4">
                                                         <div className="flex items-center gap-2">
@@ -1336,7 +1336,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                                                     </div>
                                                 </div>
                                             ))}
-                                            {nextGenSouls.filter(s => s.serviceId === selectedService.id).length === 0 && (
+                                            {nextGenSouls.filter(s => (s.serviceId === selectedService.id || !!(selectedService.legacyId && s.serviceId === selectedService.legacyId))).length === 0 && (
                                                 <div className="p-4 text-center text-gray-500">
                                                     No souls recorded for this service yet.
                                                 </div>
@@ -1364,7 +1364,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                                                     <div className="flex-1 min-w-0 mr-4">
                                                         <div className="flex items-center gap-2">
                                                             <p className="font-bold text-gray-900 truncate">{c.name}</p>
-                                                            {(c.status === 'Checked In' || (selectedService && c.attendedServiceIds.includes(selectedService.id))) && (
+                                                            {(c.status === 'Checked In' || (selectedService && (c.attendedServiceIds.includes(selectedService.id) || !!(selectedService.legacyId && c.attendedServiceIds.includes(selectedService.legacyId))))) && (
                                                                 <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${c.status === 'Checked Out' ? 'bg-gray-100 text-gray-500' : 'bg-green-100 text-green-700'}`}>
                                                                     {c.status === 'Checked Out' ? 'Checked Out' : 'Checked In'}
                                                                 </span>
@@ -1373,7 +1373,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                                                         <p className="text-xs text-gray-500 truncate">{c.age} yrs • Parent: {c.parentName} ({c.parentContact})</p>
                                                     </div>
                                                     <div>
-                                                        {(c.status === 'Checked In' || (selectedService && c.attendedServiceIds.includes(selectedService.id) && c.status !== 'Checked Out')) ? (
+                                                        {(c.status === 'Checked In' || (selectedService && (c.attendedServiceIds.includes(selectedService.id) || !!(selectedService.legacyId && c.attendedServiceIds.includes(selectedService.legacyId))) && c.status !== 'Checked Out')) ? (
                                                             <div className="flex items-center space-x-3">
                                                                 <button
                                                                     onClick={() => handleCheckOut(c.id)}

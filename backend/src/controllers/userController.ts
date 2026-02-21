@@ -61,9 +61,9 @@ export const createUser = async (req: Request, res: Response) => {
         const payload = {
             ...req.body,
             manifest_id: manifestId, // INJECT TENANT ID
-            department_id: req.body.departmentId || req.body.department_id,
-            station_id: req.body.stationId || req.body.station_id,
-            event_id: req.body.eventId || req.body.event_id,
+            department_id: req.body.departmentId || req.body.department_id || null,
+            station_id: req.body.stationId || req.body.station_id || null,
+            event_id: req.body.eventId || req.body.event_id || null,
         };
         delete payload.departmentId;
         delete payload.stationId;
@@ -85,9 +85,9 @@ export const updateUser = async (req: Request, res: Response) => {
     try {
         const payload = {
             ...req.body,
-            department_id: req.body.departmentId || req.body.department_id,
-            station_id: req.body.stationId || req.body.station_id,
-            event_id: req.body.eventId || req.body.event_id,
+            department_id: req.body.departmentId || req.body.department_id || null,
+            station_id: req.body.stationId || req.body.station_id || null,
+            event_id: req.body.eventId || req.body.event_id || null,
         };
         delete payload.departmentId;
         delete payload.stationId;
