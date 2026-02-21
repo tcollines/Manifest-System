@@ -20,6 +20,7 @@ const mapMemberFromDB = (m: any): Member => ({
   bornAgain: m.born_again,
   joinedDate: m.joined_date,
   attendedServiceIds: m.attended_service_ids || [],
+  firstTimerServiceId: m.first_timer_service_id,
   createdAt: m.created_at
 });
 
@@ -34,7 +35,8 @@ const mapMemberToDB = (m: Member) => ({
   residency: m.residency,
   born_again: m.bornAgain,
   joined_date: m.joinedDate,
-  attended_service_ids: m.attendedServiceIds
+  attended_service_ids: m.attendedServiceIds,
+  currentServiceId: m.currentServiceId
 });
 
 const MEMBER_CACHE = new Map<string, { timestamp: number, data: ServiceResponse<Member[]> }>();

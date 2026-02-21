@@ -111,6 +111,8 @@ export interface Member {
   // Analytics
   joinedDate?: string;
   attendedServiceIds?: string[];
+  currentServiceId?: string;
+  firstTimerServiceId?: string;
 }
 
 export interface Child {

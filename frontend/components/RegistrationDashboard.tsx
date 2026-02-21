@@ -1112,6 +1112,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
       email: formData.email,
       occupation: formData.occupation,
       placeOfWork: formData.placeOfWork,
+      currentServiceId: serviceIdToUse,
       isPhanerooMember: formData.isPhanerooMember as any,
       referralSource: formData.referralSource
     };
