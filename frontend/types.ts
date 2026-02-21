@@ -131,6 +131,7 @@ export interface Child {
   checkOutTime?: string;
   joinedDate: string;
   attendedServiceIds: string[];
+  currentServiceId?: string;
   // New Fields for Follow Up & Care
   followUpStatus?: 'Pending' | 'Called' | 'Message Sent' | 'Visited';
   assignedTo?: string; // Volunteer ID/Name

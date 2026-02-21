@@ -48,7 +48,8 @@ const mapChildToDB = (c: Child) => ({
   salvation_date: c.salvationDate,
   care_notes: c.careNotes,
   absence_reason: c.absenceReason,
-  how_heard: c.howHeard
+  how_heard: c.howHeard,
+  currentServiceId: c.currentServiceId
 });
 
 export const ChildStore = {

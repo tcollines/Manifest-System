@@ -497,6 +497,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
             checkInTime: isServiceActive ? new Date().toISOString() : undefined,
             joinedDate: new Date().toISOString().split('T')[0],
             attendedServiceIds: isServiceActive && selectedService ? [selectedService.id] : [],
+            currentServiceId: isServiceActive && selectedService ? selectedService.id : undefined,
             howHeard: (formData as any).howHeard
         };
 
