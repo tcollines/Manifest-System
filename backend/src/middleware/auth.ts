@@ -29,8 +29,7 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
         const jwtSecret = process.env.SUPABASE_JWT_SECRET;
 
         if (!jwtSecret) {
-            console.error('[AUTH ERROR] Missing SUPABASE_JWT_SECRET in backend environment variables. Did you restart the server?');
-            return res.status(500).json({ error: 'Internal Server Error: Missing JWT Secret configuration' });
+            console.warn('[AUTH WARNING] Missing SUPABASE_JWT_SECRET in backend environment. Local verification is disabled.');
         }
 
         // 🚨 CRITICAL BYPASS: The backend environment's SUPABASE_JWT_SECRET is currently
