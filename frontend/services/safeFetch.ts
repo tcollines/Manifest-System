@@ -86,7 +86,7 @@ export async function safeFetch<T, R = T>(
 
         return {
             status: 'error',
-            message: errorMessage,
+            message: `${errorMessage} (${error.message || 'Unknown'})`,
             error
         };
     }
