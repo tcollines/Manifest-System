@@ -357,7 +357,8 @@ const ParkingDashboard: React.FC<ParkingDashboardProps> = ({ events = [], onOpen
             driverName: formData.driverName,
             driverContact: formData.driverContact,
             status: 'Absent',
-            registeredDate: new Date().toISOString().split('T')[0]
+            registeredDate: new Date().toISOString().split('T')[0],
+            attendedServiceIds: []
         };
 
         await ParkingStore.add(newVehicle);
@@ -388,7 +389,8 @@ const ParkingDashboard: React.FC<ParkingDashboardProps> = ({ events = [], onOpen
                         driverName: name,
                         driverContact: contact,
                         status: 'Absent',
-                        registeredDate: new Date().toISOString().split('T')[0]
+                        registeredDate: new Date().toISOString().split('T')[0],
+                        attendedServiceIds: []
                     });
                     count++;
                 }

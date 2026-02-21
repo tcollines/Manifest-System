@@ -22,17 +22,29 @@ export const addPersonalVehicle = async (req: Request, res: Response) => {
 
     try {
         const inputId = req.body.id;
-        const isUuid = inputId && /^[0-9a-f-]{36}$/i.test(inputId);
-        const uuidVal = isUuid ? inputId : uuidv4();
+        const uuidVal = inputId || uuidv4();
 
         const payload = {
-            ...req.body,
-            manifest_id: manifestId, // INJECT TENANT ID
+            manifest_id: manifestId,
             id: uuidVal,
-            legacy_id: inputId || null
+            number_plate: req.body.number_plate,
+            driver_name: req.body.driverName || req.body.driver_name,
+            driver_contact: req.body.driverContact || req.body.driver_contact || '',
+            status: req.body.status || 'Absent',
+            check_in_time: req.body.checkInTime || req.body.check_in_time || null,
+            check_out_time: req.body.checkOutTime || req.body.check_out_time || null,
+            current_service_id: req.body.currentServiceId || req.body.current_service_id || null,
+            registered_date: req.body.registeredDate || req.body.registered_date || new Date().toISOString(),
+            attended_service_ids: req.body.attended_service_ids || req.body.attendedServiceIds || [],
+            legacy_id: inputId || null,
+            id_text_legacy_deprecated: uuidVal // Satisfy NOT NULL for migration column
         };
+
         const { error } = await supabase.from('personal_vehicles').insert([payload]);
-        if (error) throw error;
+        if (error) {
+            console.error("DEBUG: Minimal Insert Error:", JSON.stringify(error, null, 2));
+            throw error;
+        }
         res.status(201).json({ message: 'Personal vehicle added' });
     } catch (error: any) {
         res.status(500).json({ error: error.message });
@@ -65,7 +77,7 @@ export const checkInPersonalVehicle = async (req: Request, res: Response) => {
     const { id } = req.params;
     const { serviceId } = req.body;
     try {
-        const checkInTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const checkInTime = new Date().toISOString();
         const idUuid = toUUID(id);
 
         const { data: vehicle, error: fetchError } = await supabase.from('personal_vehicles')
@@ -111,7 +123,7 @@ export const checkOutPersonalVehicle = async (req: Request, res: Response) => {
 
     const { id } = req.params;
     try {
-        const checkOutTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const checkOutTime = new Date().toISOString();
         const idUuid = toUUID(id);
 
         const { data: vehicle, error: fetchError } = await supabase.from('personal_vehicles')
