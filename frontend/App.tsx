@@ -198,8 +198,21 @@ const App: React.FC = () => {
     }
   };
 
-  const handleGoogleLogin = async (email: string) => {
+  const handleGoogleLogin = async (email: string, token: string) => {
     try {
+      console.log(`[AUTH] Setting up Supabase session with Google Identity Token for ${email}`);
+      const { data: authData, error: authError } = await supabase.auth.signInWithIdToken({
+        provider: 'google',
+        token: token,
+      });
+
+      if (authError || !authData.session) {
+        console.error("Supabase ID Token Auth Failed:", authError);
+        setLoginError('Authentication failed. Please try again.');
+        return;
+      }
+
+      console.log(`[AUTH] Session established. Fetching Manifest profile for ${email}`);
       const user = await UserStore.getByEmail(email);
 
       if (user) {

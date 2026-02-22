@@ -95,7 +95,8 @@ const SignIn: React.FC<SignInProps> = ({ onLogin, onGoogleLogin, error }) => {
               if (response.credential) {
                 const payload = decodeJwt(response.credential);
                 if (payload && payload.email) {
-                  onGoogleLogin(payload.email);
+                  // Pass BOTH the email and the raw Google JWT
+                  onGoogleLogin(payload.email, response.credential);
                 }
               }
             },
