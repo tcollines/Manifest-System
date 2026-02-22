@@ -62,21 +62,20 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
         if (!manifestId) {
             console.warn(`[AUTH WARNING] No manifest_id found in token for ${decoded.email}. Fetching from database...`);
 
-            // Fallback: Fetch manifest_id from public.users table if missing in JWT
             const { data: userData, error: userError } = await supabase
                 .from('users')
                 .select('manifest_id')
                 .eq('id', decoded.sub)
-                .single();
+                .maybeSingle();
 
             if (userData && userData.manifest_id) {
                 manifestId = userData.manifest_id;
                 console.log(`[AUTH FALLBACK SUCCESS] manifest_id ${manifestId} found for ${decoded.email} (sub: ${decoded.sub})`);
             } else {
-                const dbError = userError?.message || 'Row missing';
+                const dbError = userError?.message || (userData ? 'manifest_id missing in row' : 'Row not found');
                 console.error(`[AUTH FALLBACK ERROR] No manifest_id found for ${decoded.email} (sub: ${decoded.sub}). DB Error:`, dbError);
                 // Attach error to request so getProfile can see it
-                (req as any).authError = dbError;
+                (req as any).authError = `${dbError} | sub: ${decoded.sub}`;
             }
         }
 
