@@ -73,7 +73,10 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
                 manifestId = userData.manifest_id;
                 console.log(`[AUTH FALLBACK SUCCESS] manifest_id ${manifestId} found for ${decoded.email} (sub: ${decoded.sub})`);
             } else {
-                console.error(`[AUTH FALLBACK ERROR] No manifest_id found for ${decoded.email} (sub: ${decoded.sub}). DB Error:`, userError?.message || 'Row missing');
+                const dbError = userError?.message || 'Row missing';
+                console.error(`[AUTH FALLBACK ERROR] No manifest_id found for ${decoded.email} (sub: ${decoded.sub}). DB Error:`, dbError);
+                // Attach error to request so getProfile can see it
+                (req as any).authError = dbError;
             }
         }
 

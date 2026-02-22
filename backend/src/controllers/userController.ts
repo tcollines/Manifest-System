@@ -34,9 +34,10 @@ export const getProfile = async (req: Request, res: Response) => {
     const user = (req as any).user;
 
     if (!manifestId || !user) {
+        const authError = (req as any).authError;
         return res.status(401).json({
             error: 'Unauthorized',
-            details: `Missing ${!user ? 'user context' : 'manifest association'}.`
+            details: `Missing ${!user ? 'user context' : 'manifest association'}${authError ? ` (${authError})` : ''}.`
         });
     }
 
