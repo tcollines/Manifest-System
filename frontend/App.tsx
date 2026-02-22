@@ -219,14 +219,15 @@ const App: React.FC = () => {
 
       console.log(`[AUTH] Session established. Fetching Manifest profile for ${email}`);
 
-      // Attempt to fetch profile. We add a small delay to ensure session is propagating if needed
-      // or we can just try multiple times.
+      // Small delay to ensure session propagation if needed
+      await new Promise(resolve => setTimeout(resolve, 500));
+
       let user = null;
       let lastErr = null;
       try {
         user = await UserStore.getByEmail(email);
       } catch (e: any) {
-        lastErr = e.message;
+        lastErr = e.message || 'Unknown profile error';
       }
 
       if (user && user.name) {
@@ -258,13 +259,15 @@ const App: React.FC = () => {
         setLoginError(null);
       } else if (user && !user.name) {
         // User was auto-created by the DB trigger but was never explicitly invited by an Admin.
+        await supabase.auth.signOut();
+        setLoginError('Your Google email is not registered in Manifest. Please ask an Administrator to add you.');
       } else {
-        console.error("[AUTH ERROR] Profile fetch returned null for", email, "Error:", lastErr);
-        setLoginError(`Account profile not found (${email}). Please ensure you are added by an administrator.`);
+        console.error("[AUTH ERROR] Profile fetch failed for", email, "Error:", lastErr);
+        setLoginError(`Account profile not found for ${email}. Error: ${lastErr || 'No profile row'}`);
       }
-    } catch (e) {
-      console.error("Google Login Error", e);
-      setLoginError('Google login failed. Please try again.');
+    } catch (e: any) {
+      console.error("Google Login Catch Error:", e);
+      setLoginError(`Google login failed: ${e.message || 'Unknown error'}`);
     }
   };
 
