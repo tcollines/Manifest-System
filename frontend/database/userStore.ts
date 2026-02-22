@@ -55,8 +55,7 @@ export const UserStore = {
     try {
       console.log(`[USERSTORE LOGIN START] Attempting login for: ${username}`);
 
-      // Force clear any broken local storage states that might cause Supabase Auth to hang
-      // Supabase uses 'sb-<project-ref>-auth-token' by default. We clear all matching keys.
+      // Force clear broken local storage states
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
         if (key && key.startsWith('sb-') && key.endsWith('-auth-token')) {
@@ -64,12 +63,10 @@ export const UserStore = {
         }
       }
 
-      const cleanUsername = username.trim().replace(/ /g, '').replace(/@/g, '_').toLowerCase();
-      let email = `${cleanUsername}@manifest.local`;
+      const input = username.trim();
+      const isEmailInput = input.includes('@');
 
-      console.log(`[USERSTORE] Attempt 1 (Standard): ${email}`);
-
-      // Helper function to wrap signIn calls natively to prevent silent client timeout bugs
+      // Helper to wrap signIn calls natively to prevent silent client timeout bugs
       const attemptSignInAction = (signInEmail: string, pass: string): Promise<any> => {
         return new Promise(async (resolve, reject) => {
           let timeoutId = setTimeout(() => {
@@ -88,50 +85,69 @@ export const UserStore = {
       };
 
       let authResult;
-      try {
-        authResult = await attemptSignInAction(email, password);
-      } catch (err: any) {
-        console.error(`[USERSTORE] Network/Timeout error on Attempt 1`, err);
-        authResult = { error: err };
-      }
 
-      // Fallback 1 & 2: Legacy UUID mapping via Secure RPC if initial mapped email fails
-      if (authResult.error && (authResult.error.message?.includes('Invalid login credentials') || authResult.error.message?.includes('timed out'))) {
-        console.log(`[USERSTORE] Attempt 1 Failed. Fetching DB user ID via RPC for fallbacks...`);
-        // Use secure RPC to bypass RLS and get the user's UUID for email resolution
-        const { data: dbUserId, error: rpcError } = await supabase.rpc('get_user_uuid_for_login', {
-          p_username: username.trim()
-        });
-
-        if (!rpcError && dbUserId) {
-          console.log(`[USERSTORE] Fallback ID acquired. Attempting Short UUID logic.`)
-          const shortId = dbUserId.substring(0, 8);
-          email = `${cleanUsername}_${shortId}@manifest.local`;
-
-          try {
-            authResult = await attemptSignInAction(email, password);
-          } catch (err: any) {
-            authResult = { error: err };
-          }
-
-          // Fallback 2: Full UUID
-          if (authResult.error) {
-            console.log(`[USERSTORE] Short UUID failed. Attempting Full UUID logic.`)
-            const fullId = dbUserId.replace(/-/g, "");
-            email = `${cleanUsername}_${fullId}@manifest.local`;
-
-            try {
-              authResult = await attemptSignInAction(email, password);
-            } catch (err: any) {
-              authResult = { error: err };
-            }
-          }
-        } else {
-          console.log(`[USERSTORE] Could not resolve RPC fallback ID for username.`, rpcError);
+      // 1. Try treating input literally as an email if it looks like one
+      if (isEmailInput) {
+        console.log(`[USERSTORE] Attempt 1 (Direct Email): ${input}`);
+        try {
+          authResult = await attemptSignInAction(input, password);
+        } catch (err: any) {
+          authResult = { error: err };
         }
       }
 
-      if (authResult.error) {
+      // 2. If it wasn't an email, or the email login failed, fall back to Username resolving
+      if (!isEmailInput || (authResult?.error && authResult.error.message?.includes('Invalid login credentials'))) {
+
+        const cleanUsername = input.replace(/ /g, '').replace(/@/g, '_').toLowerCase();
+        let fallbackEmail = `${cleanUsername}@manifest.local`;
+
+        console.log(`[USERSTORE] Attempting fallback mapped username email: ${fallbackEmail}`);
+
+        try {
+          authResult = await attemptSignInAction(fallbackEmail, password);
+        } catch (err: any) {
+          authResult = { error: err };
+        }
+
+        // 3. Fallback to Legacy UUID mapping via Secure RPC if initial mapped email fails
+        if (authResult?.error && (authResult.error.message?.includes('Invalid login credentials') || authResult.error.message?.includes('timed out'))) {
+          console.log(`[USERSTORE] Fallback 1 Failed. Fetching DB user ID via legacy RPC...`);
+
+          const { data: dbUserId, error: rpcError } = await supabase.rpc('get_user_uuid_for_login', {
+            p_username: input
+          });
+
+          if (!rpcError && dbUserId) {
+            console.log(`[USERSTORE] Fallback ID acquired. Attempting Short UUID logic.`)
+            const shortId = dbUserId.substring(0, 8);
+            fallbackEmail = `${cleanUsername}_${shortId}@manifest.local`;
+
+            try {
+              authResult = await attemptSignInAction(fallbackEmail, password);
+            } catch (err: any) {
+              authResult = { error: err };
+            }
+
+            // 4. Fallback to Full UUID
+            if (authResult?.error) {
+              console.log(`[USERSTORE] Short UUID failed. Attempting Full UUID logic.`)
+              const fullId = dbUserId.replace(/-/g, "");
+              fallbackEmail = `${cleanUsername}_${fullId}@manifest.local`;
+
+              try {
+                authResult = await attemptSignInAction(fallbackEmail, password);
+              } catch (err: any) {
+                authResult = { error: err };
+              }
+            }
+          } else {
+            console.log(`[USERSTORE] Could not resolve RPC fallback ID for username.`, rpcError);
+          }
+        }
+      }
+
+      if (authResult?.error) {
         console.error(`[USERSTORE] All auth attempts failed:`, authResult.error.message);
         return { status: 'error', message: 'Invalid credentials or Auth failure', error: authResult.error };
       }

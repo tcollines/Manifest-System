@@ -57,14 +57,24 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
         // Log keys to help debug missing claims
         const appMetadata = decoded.app_metadata || {};
         const userMetadata = decoded.user_metadata || {};
-        const manifestId = appMetadata.manifest_id || userMetadata.manifest_id;
+        let manifestId = appMetadata.manifest_id || userMetadata.manifest_id;
 
         if (!manifestId) {
-            console.warn(`[AUTH WARNING] No manifest_id found in token for ${decoded.email}. Keys available:`, {
-                app_metadata: Object.keys(appMetadata),
-                user_metadata: Object.keys(userMetadata),
-                top_level: Object.keys(decoded)
-            });
+            console.warn(`[AUTH WARNING] No manifest_id found in token for ${decoded.email}. Fetching from database...`);
+
+            // Fallback: Fetch manifest_id from public.users table if missing in JWT
+            const { data: userData, error: userError } = await supabase
+                .from('users')
+                .select('manifest_id')
+                .eq('id', decoded.sub)
+                .single();
+
+            if (userData && userData.manifest_id) {
+                manifestId = userData.manifest_id;
+                console.log(`[AUTH FALLBACK] Successfully retrieved manifest_id ${manifestId} from database for user ${decoded.email}`);
+            } else {
+                console.error(`[AUTH ERROR] Could not retrieve manifest_id from database for user ${decoded.email}`);
+            }
         }
 
         // Reconstruct user payload

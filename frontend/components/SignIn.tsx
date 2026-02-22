@@ -302,14 +302,14 @@ const SignIn: React.FC<SignInProps> = ({ onLogin, onGoogleLogin, error }) => {
                     </div>
 
                     <div className="space-y-2">
-                      <label className="text-xs font-bold text-white/60 uppercase ml-1 tracking-wider">User Name</label>
+                      <label className="text-xs font-bold text-white/60 uppercase ml-1 tracking-wider">Username or Email</label>
                       <div className="relative group">
                         <input
                           type="text"
                           value={username}
                           onChange={(e) => setUsername(e.target.value)}
                           className="block w-full px-5 py-4 bg-white/5 border border-white/10 rounded-2xl text-white placeholder-white/20 focus:outline-none focus:bg-white/10 focus:border-ministry-orange transition-all font-medium"
-                          placeholder="Enter username"
+                          placeholder="Enter username or email"
                           required
                         />
                       </div>
