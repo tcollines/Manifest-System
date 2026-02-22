@@ -42,7 +42,7 @@ export const apiFetch = async (endpoint: string, options: RequestInit & { token?
             if (res.status !== 401 && res.status !== 403) {
                 console.error(`[API FETCH ERROR] ${res.status} to ${endpoint}:`, text);
             }
-            throw new Error(errorBody?.error || `API Error (${res.status}): ${text || res.statusText}`);
+            throw new Error(errorBody?.details || errorBody?.error || `API Error (${res.status}): ${text || res.statusText}`);
         }
         const json = await res.json();
         console.log(`[API FETCH SUCCESS] payload size: ${JSON.stringify(json).length}`);
