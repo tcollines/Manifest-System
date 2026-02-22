@@ -232,23 +232,8 @@ const App: React.FC = () => {
         UserStore.saveSession(user);
 
         if (!user.username) {
-          const generatedUsername = user.email ? user.email.split('@')[0] : `user_${crypto.randomUUID()}`;
-          const updatedUser: User = { ...user, username: generatedUsername, status: 'Active' };
-
-          try {
-            await UserStore.update(updatedUser);
-            setCurrentUser(updatedUser);
-            UserStore.saveSession(updatedUser);
-
-            const targetTab = getDashboardForUser(updatedUser);
-            navigate(targetTab);
-            setLoginError(null);
-            return;
-          } catch (err) {
-            console.error("Failed to auto-update username", err);
-            navigate('/setup-account');
-            return;
-          }
+          navigate('/setup-account');
+          return;
         }
 
         const targetTab = getDashboardForUser(user);
