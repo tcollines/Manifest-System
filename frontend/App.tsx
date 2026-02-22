@@ -122,48 +122,47 @@ const App: React.FC = () => {
 
     // Supabase Auth Listener
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN' && session?.user?.email) {
-        // Fetch specific user profile to ensure we get it even if RLS restricts 'getAll'
-        const matchingUser = await UserStore.getByEmail(session.user.email);
+      try {
+        if (event === 'SIGNED_IN' && session?.user?.email) {
+          console.log(`[AUTH] SIGNED_IN detected for ${session.user.email}. Fetching profile...`);
+          // Fetch specific user profile to ensure we get it even if RLS restricts 'getAll'
+          const matchingUser = await UserStore.getByEmail(session.user.email, session.access_token);
 
-        if (matchingUser && matchingUser.name) {
-          setCurrentUser(matchingUser);
-          UserStore.saveSession(matchingUser);
+          if (matchingUser && matchingUser.name) {
+            setCurrentUser(matchingUser);
+            UserStore.saveSession(matchingUser);
 
-          // Check if new user needs to setup account
-          if (!matchingUser.username) {
-            navigate('/setup-account');
+            // Check if new user needs to setup account
+            if (!matchingUser.username) {
+              navigate('/setup-account');
+            } else {
+              // If we are strictly at / or /login, redirect. Else stay.
+              if (location.pathname === '/' || location.pathname === '/login') {
+                const target = getDashboardForUser(matchingUser);
+                navigate(target);
+              }
+            }
+            setLoginError(null);
+          } else if (matchingUser && !matchingUser.name) {
+            console.warn("User auto-created but not pre-invited:", session.user.email);
+            await supabase.auth.signOut();
+            setLoginError('Your Google email is not registered. Please ask an Administrator to add you.');
+            navigate('/');
           } else {
-            // If we are strictly at / or /login, redirect. Else stay.
-            if (location.pathname === '/' || location.pathname === '/login') {
-              const target = getDashboardForUser(matchingUser);
-              navigate(target);
+            console.warn("User authenticated but no profile found for:", session.user.email);
+            if (location.pathname === '/setup-account') {
+              // Handle setup flow
             }
           }
-          setLoginError(null);
-        } else if (matchingUser && !matchingUser.name) {
-          console.warn("User auto-created but not pre-invited:", session.user.email);
-          await supabase.auth.signOut();
-          setLoginError('Your Google email is not registered. Please ask an Administrator to add you.');
-          navigate('/');
-        } else {
-          console.warn("User authenticated but no profile found for:", session.user.email);
-          if (location.pathname === '/setup-account') {
-            // Handle setup flow
-            const tempUser: User = { /* ... placeholder ... */
-              id: session.user.id,
-              email: session.user.email || '',
-              username: '',
-              name: 'New User',
-              role: 'Member',
-              departmentId: '',
-              contact: '',
-              password: ''
-            };
-            setCurrentUser(tempUser);
-          }
         }
-      } else if (event === 'SIGNED_OUT') {
+      } catch (e: any) {
+        console.error("[AUTH] Error in onAuthStateChange profile fetch:", e);
+        // Do not block the app, but maybe set an error state if on the login page
+        if (location.pathname === '/' || location.pathname === '/login') {
+          setLoginError(`Profile error: ${e.message || 'Unauthorized'}`);
+        }
+      }
+      if (event === 'SIGNED_OUT') {
         setCurrentUser(null);
         navigate('/');
       }
@@ -219,13 +218,11 @@ const App: React.FC = () => {
 
       console.log(`[AUTH] Session established. Fetching Manifest profile for ${email}`);
 
-      // Small delay to ensure session propagation if needed
-      await new Promise(resolve => setTimeout(resolve, 500));
-
       let user = null;
       let lastErr = null;
       try {
-        user = await UserStore.getByEmail(email);
+        // Use recursive explicit token to bypass local session lookup races
+        user = await UserStore.getByEmail(email, authData.session.access_token);
       } catch (e: any) {
         lastErr = e.message || 'Unknown profile error';
       }

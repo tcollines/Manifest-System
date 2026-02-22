@@ -2,16 +2,21 @@ import { supabase } from './supabaseClient';
 
 export const API_URL = import.meta.env.VITE_API_URL || 'https://manifest-system-esft.onrender.com/api';
 
-export const apiFetch = async (endpoint: string, options: RequestInit = {}) => {
-    // Dynamically retrieve the latest session token
-    const { data: { session } } = await supabase.auth.getSession();
+export const apiFetch = async (endpoint: string, options: RequestInit & { token?: string } = {}) => {
+    // Dynamically retrieve the latest session token if not explicitly provided
+    let token = options.token;
+    if (!token) {
+        const { data: { session } } = await supabase.auth.getSession();
+        token = session?.access_token;
+    }
+
     const headers: Record<string, string> = {
         'Content-Type': 'application/json',
         ...((options.headers as Record<string, string>) || {}),
     };
 
-    if (session?.access_token) {
-        headers['Authorization'] = `Bearer ${session.access_token}`;
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
     }
 
     const controller = new AbortController();

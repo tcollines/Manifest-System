@@ -182,9 +182,9 @@ export const UserStore = {
     );
   },
 
-  getByEmail: async (email: string): Promise<User | null> => {
+  getByEmail: async (email: string, token?: string): Promise<User | null> => {
     try {
-      const response = await apiFetch('/users/profile');
+      const response = await apiFetch('/users/profile', { token });
       if (response && response.id) {
         return mapUserFromDB(response);
       }
