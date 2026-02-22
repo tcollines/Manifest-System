@@ -41,16 +41,35 @@ export const getProfile = async (req: Request, res: Response) => {
     }
 
     try {
-        const { data, error } = await supabase
+        let { data, error } = await supabase
             .from('users')
             .select('*')
             .eq('id', user.id)
             .eq('manifest_id', manifestId)
-            .single();
+            .maybeSingle();
+
+        // Fallback by email if ID lookup fails
+        if (!data && !error && user.email) {
+            console.warn(`[PROFILE FALLBACK] Row not found by ID (${user.id}). Trying email: ${user.email}`);
+            const { data: emailData, error: emailError } = await supabase
+                .from('users')
+                .select('*')
+                .eq('email', user.email)
+                .eq('manifest_id', manifestId)
+                .maybeSingle();
+
+            if (emailData) {
+                data = emailData;
+                console.log(`[PROFILE SUCCESS] Found via email fallback for ${user.email}`);
+            }
+        }
 
         if (error) throw error;
+        if (!data) return res.status(404).json({ error: 'User profile not found in database' });
+
         res.json(data);
     } catch (error: any) {
+        console.error('[PROFILE ERROR]', error);
         res.status(500).json({ error: error.message });
     }
 };
