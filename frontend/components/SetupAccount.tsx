@@ -15,7 +15,9 @@ const SetupAccount: React.FC<SetupAccountProps> = ({ currentUser, onComplete, on
     const [formData, setFormData] = useState({
         username: '',
         password: '',
-        confirmPassword: ''
+        confirmPassword: '',
+        role: '',
+        departmentId: ''
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -45,6 +47,16 @@ const SetupAccount: React.FC<SetupAccountProps> = ({ currentUser, onComplete, on
             return;
         }
 
+        if (!formData.role) {
+            setError("Please select a role.");
+            return;
+        }
+
+        if (!formData.departmentId && formData.role !== 'Administrator') {
+            setError("Please select a department.");
+            return;
+        }
+
         setIsSubmitting(true);
         try {
             // 1. Update Supabase Auth Password
@@ -58,7 +70,9 @@ const SetupAccount: React.FC<SetupAccountProps> = ({ currentUser, onComplete, on
             const updatedUser: User = {
                 ...currentUser,
                 username: formData.username,
-                password: formData.password // Keeping legacy field for now as per system design
+                password: formData.password, // Keeping legacy field for now as per system design
+                role: formData.role as User['role'],
+                departmentId: formData.departmentId || null
             };
 
             await UserStore.update(updatedUser);
@@ -108,28 +122,55 @@ const SetupAccount: React.FC<SetupAccountProps> = ({ currentUser, onComplete, on
                         <div className="bg-white/5 p-5 rounded-xl border border-white/10 space-y-3">
                             <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Account Details</h3>
                             <div className="grid grid-cols-2 gap-y-4 gap-x-2">
-                                <div>
+                                <div className="col-span-2">
                                     <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Full Name</label>
                                     <p className="text-sm font-semibold text-white truncate">{currentUser.name || 'N/A'}</p>
                                 </div>
-                                <div>
+                                <div className="col-span-2">
                                     <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Email</label>
                                     <p className="text-sm font-semibold text-white truncate" title={currentUser.email}>{currentUser.email || 'N/A'}</p>
                                 </div>
-                                <div>
-                                    <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Role</label>
-                                    <span className="inline-flex items-center px-2 py-1 rounded bg-ministry-orange/20 text-ministry-orange text-[10px] font-bold uppercase tracking-wide border border-ministry-orange/20">
-                                        {currentUser.role}
-                                    </span>
-                                </div>
-                                {currentUser.departmentId && (
-                                    <div>
-                                        <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Department</label>
-                                        <p className="text-sm font-semibold text-white">
-                                            {DEPARTMENTS.find(d => d.id === currentUser.departmentId)?.name || currentUser.departmentId}
-                                        </p>
-                                    </div>
-                                )}
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <label className="text-xs font-bold text-gray-400 uppercase tracking-wide ml-1">Role</label>
+                                <select
+                                    name="role"
+                                    value={formData.role}
+                                    onChange={handleInputChange}
+                                    className="w-full px-4 py-3.5 bg-black/20 border border-white/10 rounded-xl text-white focus:outline-none focus:bg-black/40 focus:border-ministry-orange/50 focus:ring-1 focus:ring-ministry-orange/50 transition-all appearance-none"
+                                    required
+                                >
+                                    <option value="" disabled className="bg-zinc-900 text-gray-500">Select Role</option>
+                                    <option value="Administrator" className="bg-zinc-900">Administrator</option>
+                                    <option value="Dept Admin" className="bg-zinc-900">Dept Admin</option>
+                                    <option value="Leader" className="bg-zinc-900">Leader</option>
+                                    <option value="Member" className="bg-zinc-900">Member</option>
+                                    <option value="Team Leader" className="bg-zinc-900">Team Leader</option>
+                                </select>
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="text-xs font-bold text-gray-400 uppercase tracking-wide ml-1">Department</label>
+                                <select
+                                    name="departmentId"
+                                    value={formData.departmentId}
+                                    onChange={handleInputChange}
+                                    className="w-full px-4 py-3.5 bg-black/20 border border-white/10 rounded-xl text-white focus:outline-none focus:bg-black/40 focus:border-ministry-orange/50 focus:ring-1 focus:ring-ministry-orange/50 transition-all appearance-none"
+                                    required={formData.role !== 'Administrator'}
+                                    disabled={formData.role === 'Administrator'}
+                                >
+                                    <option value="" disabled className="bg-zinc-900 text-gray-500">
+                                        {formData.role === 'Administrator' ? 'N/A (All Depts)' : 'Select Department'}
+                                    </option>
+                                    {DEPARTMENTS.map(dept => (
+                                        <option key={dept.id} value={dept.id} className="bg-zinc-900">
+                                            {dept.name}
+                                        </option>
+                                    ))}
+                                </select>
                             </div>
                         </div>
 
