@@ -189,9 +189,10 @@ export const UserStore = {
         return mapUserFromDB(response);
       }
       return null;
-    } catch (e) {
+    } catch (e: any) {
       console.error("[UserStore] getByEmail/profile failed:", e);
-      return null;
+      // Re-throw so handleGoogleLogin can catch the specific error (401, 500, etc.)
+      throw e;
     }
   },
 

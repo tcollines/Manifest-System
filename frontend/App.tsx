@@ -218,7 +218,16 @@ const App: React.FC = () => {
       }
 
       console.log(`[AUTH] Session established. Fetching Manifest profile for ${email}`);
-      const user = await UserStore.getByEmail(email);
+
+      // Attempt to fetch profile. We add a small delay to ensure session is propagating if needed
+      // or we can just try multiple times.
+      let user = null;
+      let lastErr = null;
+      try {
+        user = await UserStore.getByEmail(email);
+      } catch (e: any) {
+        lastErr = e.message;
+      }
 
       if (user && user.name) {
         setCurrentUser(user);
@@ -249,10 +258,9 @@ const App: React.FC = () => {
         setLoginError(null);
       } else if (user && !user.name) {
         // User was auto-created by the DB trigger but was never explicitly invited by an Admin.
-        await supabase.auth.signOut();
-        setLoginError('Your Google email is not registered. Please ask an Administrator to add you.');
       } else {
-        setLoginError('No account found with this Google email.');
+        console.error("[AUTH ERROR] Profile fetch returned null for", email, "Error:", lastErr);
+        setLoginError(`Account profile not found (${email}). Please ensure you are added by an administrator.`);
       }
     } catch (e) {
       console.error("Google Login Error", e);

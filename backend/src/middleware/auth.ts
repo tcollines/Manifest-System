@@ -71,9 +71,9 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
 
             if (userData && userData.manifest_id) {
                 manifestId = userData.manifest_id;
-                console.log(`[AUTH FALLBACK] Successfully retrieved manifest_id ${manifestId} from database for user ${decoded.email}`);
+                console.log(`[AUTH FALLBACK SUCCESS] manifest_id ${manifestId} found for ${decoded.email} (sub: ${decoded.sub})`);
             } else {
-                console.error(`[AUTH ERROR] Could not retrieve manifest_id from database for user ${decoded.email}`);
+                console.error(`[AUTH FALLBACK ERROR] No manifest_id found for ${decoded.email} (sub: ${decoded.sub}). DB Error:`, userError?.message || 'Row missing');
             }
         }
 
