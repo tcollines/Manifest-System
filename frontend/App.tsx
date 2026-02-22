@@ -116,13 +116,34 @@ const App: React.FC = () => {
         }
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'ministry_events' }, (payload) => {
-        refreshData();
+        const { eventType, new: newRecord, old: oldRecord } = payload;
+        setEvents(prev => {
+          let next;
+          if (eventType === 'INSERT') {
+            if (prev.some(e => e.id === newRecord.id)) return prev;
+            next = [newRecord as MinistryEvent, ...prev];
+          } else if (eventType === 'UPDATE') {
+            next = prev.map(e => e.id === newRecord.id ? (newRecord as MinistryEvent) : e);
+          } else if (eventType === 'DELETE') {
+            next = prev.filter(e => e.id !== oldRecord.id);
+          } else {
+            return prev;
+          }
+          // Maintain date-descending sort order
+          return next.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        });
       })
       .subscribe();
 
     // Supabase Auth Listener
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       try {
+        if (session?.access_token) {
+          // 🚨 CRITICAL FIX: Authenticate the Realtime WebSocket connection with the backend JWT
+          // This allows Postgres RLS to read the 'manifest_id' claim and broadcast cross-device updates.
+          await supabase.realtime.setAuth(session.access_token);
+        }
+
         if (event === 'SIGNED_IN' && session?.user?.email) {
           console.log(`[AUTH] SIGNED_IN detected for ${session.user.email}. Fetching profile...`);
           // Fetch specific user profile to ensure we get it even if RLS restricts 'getAll'

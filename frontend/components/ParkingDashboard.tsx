@@ -101,10 +101,7 @@ const ParkingDashboard: React.FC<ParkingDashboardProps> = ({ events = [], onOpen
                 setVehicles(prev => prev.filter(v => v.id !== deletedId));
             })
 
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'ministry_events' }, () => {
-                // Ideally handle event updates granularly or ignore if handled by parent
-                refreshData();
-            })
+
             .subscribe();
 
         return () => {

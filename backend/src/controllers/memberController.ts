@@ -71,7 +71,6 @@ export const addMember = async (req: Request, res: Response) => {
         const { data, error } = await supabase.rpc('submit_member_entry', {
             _manifest_id: manifestId, // INJECT TENANT ID
             _id: m.id ? toUUID(m.id) : uuidv4(),
-            _legacy_id: m.id || null,
             _name: m.name || null,
             _category: m.category || null,
             _phone: m.phone || null,
@@ -79,11 +78,10 @@ export const addMember = async (req: Request, res: Response) => {
             _check_in_time: m.check_in_time || m.checkInTime || null,
             _gender: m.gender || null,
             _residency: m.residency || null,
-            _born_again: m.born_again || null,
+            _born_again: typeof m.born_again === 'boolean' ? m.born_again : (m.born_again === 'Yes'),
             _joined_date: m.joined_date || m.joinedDate || new Date().toISOString(),
             _attended_service_ids: safeServiceIds || [],
-            _current_service_id: m.currentServiceId ? toUUID(m.currentServiceId) : null,
-            _legacy_current_service_id: m.currentServiceId || null
+            _current_service_id: m.currentServiceId ? toUUID(m.currentServiceId) : null
         });
 
         if (error) {
@@ -129,14 +127,13 @@ export const updateMember = async (req: Request, res: Response) => {
     if (m.attendedServiceIds !== undefined) updates.attended_service_ids = m.attendedServiceIds;
     if (m.firstTimerServiceId !== undefined) {
         updates.first_timer_service_id = m.firstTimerServiceId ? toUUID(m.firstTimerServiceId) : null;
-        updates.legacy_first_timer_service_id = m.firstTimerServiceId || null;
     }
 
     try {
         const { error } = await supabase.from('members')
             .update(updates)
             .eq('manifest_id', manifestId) // Tenant Isolation
-            .or(`id.eq.${toUUID(id)},legacy_id.eq.${id}`);
+            .eq('id', toUUID(id));
         if (error) throw error;
         res.json({ message: 'Member updated', updates });
     } catch (error: any) {
@@ -152,20 +149,16 @@ export const deleteMember = async (req: Request, res: Response) => {
     const { ids } = req.body;
     try {
         const uuidIds = ids.map((id: string) => toUUID(id)).filter(Boolean);
-        const legacyIds = ids.filter((id: string) => !toUUID(id));
 
-        let query = supabase.from('members').delete().eq('manifest_id', manifestId); // Tenant Isolation
-        if (uuidIds.length > 0 && legacyIds.length > 0) {
-            query = query.or(`id.in.(${uuidIds.join(',')}),legacy_id.in.(${legacyIds.join(',')})`);
-        } else if (uuidIds.length > 0) {
-            query = query.in('id', uuidIds);
-        } else if (legacyIds.length > 0) {
-            query = query.in('legacy_id', legacyIds);
-        } else {
-            return res.status(400).json({ error: 'No valid IDs provided for deletion.' });
+        if (uuidIds.length === 0) {
+            return res.status(400).json({ error: 'No valid UUIDs provided for deletion.' });
         }
 
-        const { error } = await query;
+        const { error } = await supabase.from('members')
+            .delete()
+            .eq('manifest_id', manifestId)
+            .in('id', uuidIds);
+
         if (error) throw error;
         res.json({ message: 'Members deleted' });
     } catch (error: any) {
@@ -197,26 +190,29 @@ export const checkInMember = async (req: Request, res: Response) => {
         };
 
         if (validIds.length > 0) {
+            const uuidMemberId = toUUID(memberId);
+            if (!uuidMemberId) throw new Error("Invalid Member UUID");
+
+            const uuidServiceIds = validIds.map(toUUID).filter((id): id is string => !!id);
+
             const { data: existing } = await supabase
                 .from('service_attendance')
                 .select('service_id')
                 .eq('manifest_id', manifestId) // Tenant Isolation
-                .or(`member_id.eq.${toUUID(memberId)},legacy_member_id.eq.${memberId}`)
-                .or(`service_id.in.(${validIds.map(toUUID).filter(Boolean).join(',')}),legacy_service_id.in.(${validIds.join(',')})`);
+                .eq('member_id', uuidMemberId)
+                .in('service_id', uuidServiceIds);
 
             const existingSet = new Set(existing?.map(e => e.service_id));
-            const toInsert = validIds.filter((id: string) => !existingSet.has(id));
+            const toInsert = uuidServiceIds.filter(id => !existingSet.has(id));
 
             results.alreadyCheckedIn = Array.from(existingSet) as string[];
 
             if (toInsert.length > 0) {
-                const rows = toInsert.map((sid: string) => {
+                const rows = toInsert.map((sid) => {
                     return {
                         manifest_id: manifestId, // INJECT TENANT ID
-                        member_id: toUUID(memberId),
-                        legacy_member_id: memberId,
-                        service_id: toUUID(sid),
-                        legacy_service_id: sid,
+                        member_id: uuidMemberId,
+                        service_id: sid,
                         check_in_time: new Date().toISOString()
                     };
                 });
@@ -229,7 +225,7 @@ export const checkInMember = async (req: Request, res: Response) => {
             const { data: member } = await supabase.from('members')
                 .select('attended_service_ids, category, first_timer_service_id, joined_date')
                 .eq('manifest_id', manifestId) // Tenant Isolation
-                .or(`id.eq.${toUUID(memberId)},legacy_id.eq.${memberId}`)
+                .eq('id', uuidMemberId)
                 .single();
 
             const currentIds = member?.attended_service_ids || [];
@@ -254,7 +250,7 @@ export const checkInMember = async (req: Request, res: Response) => {
             await supabase.from('members')
                 .update(updatePayload)
                 .eq('manifest_id', manifestId) // Tenant Isolation
-                .or(`id.eq.${toUUID(memberId)},legacy_id.eq.${memberId}`);
+                .eq('id', uuidMemberId);
         }
 
         res.json({
@@ -280,7 +276,7 @@ export const getServiceStats = async (req: Request, res: Response) => {
             .from('service_attendance')
             .select('member_id, check_in_time')
             .eq('manifest_id', manifestId) // Tenant Isolation
-            .or(`service_id.eq.${toUUID(serviceId)},legacy_service_id.eq.${serviceId}`);
+            .eq('service_id', toUUID(serviceId));
 
         if (attError) throw attError;
 
@@ -301,9 +297,9 @@ export const getServiceStats = async (req: Request, res: Response) => {
         let members: any[] = [];
         const { data: fetchedMembers, error: membersError } = await supabase
             .from('members')
-            .select('id, legacy_id, joined_date, category, first_timer_service_id')
+            .select('id, joined_date, category, first_timer_service_id')
             .eq('manifest_id', manifestId) // Tenant Isolation
-            .or(`id.in.(${uuidIds.join(',')}),legacy_id.in.(${legacyIds.join(',')})`);
+            .in('id', uuidIds);
 
         if (membersError) throw membersError;
         members = fetchedMembers || [];
@@ -337,7 +333,7 @@ export const getMemberDetails = async (req: Request, res: Response) => {
             .from('members')
             .select('*')
             .eq('manifest_id', manifestId) // Tenant Isolation
-            .or(`id.eq.${toUUID(id)},legacy_id.eq.${id}`)
+            .eq('id', toUUID(id))
             .single();
 
         if (memError || !member) throw new Error("Member not found");
@@ -346,7 +342,7 @@ export const getMemberDetails = async (req: Request, res: Response) => {
             .from('service_attendance')
             .select('service_id, check_in_time')
             .eq('manifest_id', manifestId) // Tenant Isolation
-            .or(`member_id.eq.${toUUID(id)},legacy_member_id.eq.${id}`)
+            .eq('member_id', toUUID(id))
             .order('check_in_time', { ascending: false });
 
         if (attError) throw attError;
@@ -428,8 +424,8 @@ export const searchMembersWithStatus = async (req: Request, res: Response) => {
             .from('service_attendance')
             .select('member_id')
             .eq('manifest_id', manifestId) // Tenant Isolation
-            .or(`service_id.eq.${toUUID(serviceId)},legacy_service_id.eq.${serviceId}`)
-            .or(`member_id.in.(${memberIds.filter(Boolean).join(',')}),legacy_member_id.in.(${members.map(m => m.legacy_id).filter(Boolean).join(',')})`);
+            .eq('service_id', toUUID(serviceId))
+            .in('member_id', memberIds.filter(Boolean));
 
         if (attError) throw attError;
 
@@ -456,95 +452,33 @@ export const getEventAttendees = async (req: Request, res: Response) => {
     try {
         const idUuid = toUUID(id);
 
-        let attQuery = supabase.from('service_attendance').select('member_id, check_in_time').eq('manifest_id', manifestId); // Tenant Isolation
+        // --- STEP 3: O(N*M) ELIMINATION & POSTGRESQL JOIN PERFORMANCE ---
+        // Instead of fetching all passengers and all direct attendees into Node.js 
+        // to manually match strings (`O(N * M)`), we delegate this entirely to the DB.
 
-        if (idUuid) {
-            attQuery = attQuery.or(`service_id.eq.${idUuid},legacy_service_id.eq.${id}`);
-        } else {
-            attQuery = attQuery.eq('legacy_service_id', id);
-        }
+        let targetEventId = idUuid;
 
-        const { data: attendance, error: attError } = await attQuery;
-
-        if (attError) throw attError;
-
-        let directAttendees: any[] = [];
-        const memberIds = attendance?.map(a => a.member_id) || [];
-
-        if (memberIds.length > 0) {
-            const { data: members, error: memError } = await supabase
-                .from('members')
-                .select('*')
-                .eq('manifest_id', manifestId) // Tenant Isolation
-                .in('id', memberIds)
-                .order('name');
-
-            if (memError) throw memError;
-
-            directAttendees = members?.map(m => {
-                const att = attendance?.find(a => a.member_id === m.id);
-                return {
-                    ...m,
-                    checkInTime: att?.check_in_time
-                };
-            }) || [];
-        }
-
-        let stationQuery = supabase.from('pickup_stations').select('id').eq('manifest_id', manifestId); // Tenant Isolation
-        if (idUuid) {
-            stationQuery = stationQuery.or(`event_id.eq.${idUuid},legacy_event_id.eq.${id}`);
-        } else {
-            stationQuery = stationQuery.eq('legacy_event_id', id);
-        }
-
-        const { data: stations } = await stationQuery;
-
-        let passengerAttendees: any[] = [];
-        if (stations && stations.length > 0) {
-            const stationIds = stations.map(s => s.id);
-
-            let vQuery = supabase.from('vehicles').select('id').eq('manifest_id', manifestId); // Tenant Isolation
-            vQuery = vQuery.or(`station_id.in.(${stationIds.filter(s => toUUID(s)).join(',')}),legacy_station_id.in.(${stationIds.join(',')})`);
-
-            const { data: vehicles } = await vQuery;
-
-            if (vehicles && vehicles.length > 0) {
-                const vehicleIds = vehicles.map(v => v.id);
-
-                let pQuery = supabase.from('passengers').select('*').eq('manifest_id', manifestId); // Tenant Isolation
-                pQuery = pQuery.or(`vehicle_id.in.(${vehicleIds.filter(v => toUUID(v)).join(',')}),legacy_vehicle_id.in.(${vehicleIds.join(',')})`);
-
-                const { data: passengers, error: passError } = await pQuery.limit(5000);
-
-                if (passError) throw passError;
-
-                if (passengers) {
-                    passengerAttendees = passengers.map(p => ({
-                        id: p.id,
-                        name: p.name,
-                        phone: p.contact,
-                        category: p.category,
-                        status: 'Checked In',
-                        check_in_time: null,
-                        gender: p.gender,
-                        residency: p.residence,
-                        source: 'Logistics'
-                    }));
-                }
+        // If it's a legacy ID, we need to map it to UUID first to use the optimized RPC
+        if (!idUuid) {
+            const { data: ev } = await supabase.from('ministry_events').select('id').eq('legacy_id', id).single();
+            if (ev && ev.id) {
+                targetEventId = ev.id;
+            } else {
+                return res.json([]); // Event not found
             }
         }
 
-        const allAttendees = [...directAttendees];
-
-        passengerAttendees.forEach(p => {
-            const isAlreadyCheckedIn = directAttendees.some(d =>
-                d.phone === p.phone && d.name.toLowerCase() === p.name.toLowerCase()
-            );
-
-            if (!isAlreadyCheckedIn) {
-                allAttendees.push(p);
-            }
+        const { data: unifiedAttendees, error: rpcError } = await supabase.rpc('get_event_attendees_unified', {
+            target_event_id: targetEventId,
+            target_manifest_id: manifestId
         });
+
+        if (rpcError) {
+            console.error("[RPC ERROR] Target get_event_attendees_unified failed:", rpcError);
+            throw rpcError;
+        }
+
+        const allAttendees = unifiedAttendees || [];
 
         res.json(allAttendees);
 
@@ -586,9 +520,9 @@ export const getMemberById = async (req: Request, res: Response) => {
         let query = supabase.from('members').select('*').eq('manifest_id', manifestId); // Tenant Isolation
 
         if (idUuid) {
-            query = query.or(`id.eq.${idUuid},legacy_id.eq.${id}`);
+            query = query.eq('id', idUuid);
         } else {
-            query = query.eq('legacy_id', id);
+            return res.status(400).json({ error: 'Invalid UUID' });
         }
 
         const { data, error } = await query.single();

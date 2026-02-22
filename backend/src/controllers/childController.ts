@@ -81,7 +81,6 @@ export const addChild = async (req: Request, res: Response) => {
             const insertData: any = {
                 manifest_id: manifestId,
                 id: targetId,
-                id_legacy_deprecated: targetId,
                 name: c.name,
                 parent_name: c.parentName || c.parent_name,
                 parent_contact: c.parentContact || c.parent_contact,
@@ -165,29 +164,26 @@ export const updateChild = async (req: Request, res: Response) => {
         const updates = req.body;
         delete updates.id;
         delete updates._meta;
-
         delete updates.id_uuid;
         delete updates.legacy_id;
         delete updates.id_legacy_deprecated;
 
-        if (updates.status === 'Checked In' || updates.check_in_time || updates.checkInTime) {
-            const { data: current } = await supabase
-                .from('children')
-                .select('category')
-                .eq('manifest_id', manifestId) // Tenant Isolation
-                .or(`id.eq.${id},legacy_id.eq.${id}`)
-                .single();
+        const { data: current } = await supabase
+            .from('children')
+            .select('category')
+            .eq('manifest_id', manifestId) // Tenant Isolation
+            .eq('id', id)
+            .single();
 
-            if (current && current.category === 'First Timer') {
-                updates.category = 'Member';
-            }
+        if (current && current.category === 'First Timer') {
+            updates.category = 'Member';
         }
 
         const { error } = await supabase
             .from('children')
             .update(updates)
             .eq('manifest_id', manifestId) // Tenant Isolation
-            .or(`id.eq.${id},legacy_id.eq.${id}`);
+            .eq('id', id);
 
         if (error) throw error;
         res.json({ message: 'Child updated' });
@@ -206,7 +202,7 @@ export const deleteChild = async (req: Request, res: Response) => {
             .from('children')
             .delete()
             .eq('manifest_id', manifestId) // Tenant Isolation
-            .or(`id.eq.${id},legacy_id.eq.${id}`);
+            .eq('id', id);
 
         if (error) throw error;
         res.json({ message: 'Child deleted' });

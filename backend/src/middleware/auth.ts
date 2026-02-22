@@ -1,10 +1,13 @@
 import { Request, Response, NextFunction } from 'express';
-import { supabase } from '../supabase';
-import jwt from 'jsonwebtoken';
+import jwt, { JwtHeader, SigningKeyCallback } from 'jsonwebtoken';
 import dotenv from 'dotenv';
+import crypto from 'crypto';
+
 dotenv.config();
 
-// Extend Express Request interface to include user and manifest_id
+// ------------------------------------------------------------------------
+// Extend Express Request interface
+// ------------------------------------------------------------------------
 declare global {
     namespace Express {
         interface Request {
@@ -14,107 +17,193 @@ declare global {
     }
 }
 
-export const authenticate = async (req: Request, res: Response, next: NextFunction) => {
+// ------------------------------------------------------------------------
+// ES256 JWKS KEY MANAGEMENT
+// ------------------------------------------------------------------------
+interface JwksCache {
+    keys: Record<string, string>;
+    expiresAt: number;
+}
+
+let jwksCache: JwksCache | null = null;
+const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+
+// ------------------------------------------------------------------------
+// Fetch Supabase JWKS (.well-known endpoint)
+// ------------------------------------------------------------------------
+async function fetchJWKS(): Promise<Record<string, string>> {
+    const now = Date.now();
+
+    // Serve from cache if valid
+    if (jwksCache && now < jwksCache.expiresAt) {
+        return jwksCache.keys;
+    }
+
+    const supabaseUrl = process.env.SUPABASE_URL;
+
+    if (!supabaseUrl) {
+        throw new Error('SUPABASE_URL is missing in environment variables.');
+    }
+
+    // ✅ CORRECT SUPABASE JWKS ENDPOINT
+    const jwksUrl = `${supabaseUrl}/auth/v1/.well-known/jwks.json`;
+
+    try {
+        const response = await fetch(jwksUrl);
+
+        if (!response.ok) {
+            console.error(`[AUTH ERROR] JWKS fetch failed with status code: ${response.status}`);
+            throw new Error(`JWKS endpoint returned ${response.status}`);
+        }
+
+        const data = await response.json();
+        const keys: Record<string, string> = {};
+
+        if (data && Array.isArray(data.keys)) {
+            for (const key of data.keys) {
+                if (key.kid && key.kty === 'EC' && key.crv === 'P-256') {
+                    const pem = crypto
+                        .createPublicKey({ key, format: 'jwk' })
+                        .export({ type: 'spki', format: 'pem' });
+
+                    keys[key.kid] = pem as string;
+                }
+            }
+        }
+
+        if (Object.keys(keys).length === 0) {
+            throw new Error("No valid ES256 keys found in JWKS response.");
+        }
+
+        jwksCache = {
+            keys,
+            expiresAt: now + CACHE_TTL_MS
+        };
+
+        console.log("[AUTH] JWKS successfully refreshed.");
+        return keys;
+
+    } catch (error) {
+        console.error('[AUTH ERROR] Failed to fetch JWKS from Supabase:', error);
+        throw error;
+    }
+}
+
+// ------------------------------------------------------------------------
+// Key Resolver
+// ------------------------------------------------------------------------
+function getKey(header: JwtHeader, callback: SigningKeyCallback) {
+    if (header.alg !== 'ES256') {
+        return callback(new Error(`Invalid token algorithm: Expected ES256, but received ${header.alg}`));
+    }
+
+    if (!header.kid) {
+        return callback(new Error('Missing kid in token header'));
+    }
+
+    fetchJWKS()
+        .then((keys) => {
+            const signingKey = keys[header.kid as string];
+
+            if (!signingKey) {
+                return callback(new Error(`No matching public key found for kid: ${header.kid}`));
+            }
+
+            callback(null, signingKey);
+        })
+        .catch((error) => {
+            callback(error);
+        });
+}
+
+// ------------------------------------------------------------------------
+// STARTUP VALIDATION
+// ------------------------------------------------------------------------
+(async () => {
+    const supabaseUrl = process.env.SUPABASE_URL;
+
+    if (!supabaseUrl) {
+        console.error(`[AUTH STARTUP FATAL] ❌ SUPABASE_URL is missing.`);
+        process.exit(1);
+    }
+
+    try {
+        await fetchJWKS();
+        console.log(`[AUTH STARTUP] ✅ JWKS cached. ES256 verification ready.`);
+    } catch (error: any) {
+        console.error(`[AUTH STARTUP ERROR] ❌ Failed to fetch JWKS.`);
+        console.error(`Message: ${error.message}`);
+    }
+})();
+
+// ------------------------------------------------------------------------
+// PURE ES256 STATELESS MIDDLEWARE
+// ------------------------------------------------------------------------
+export const authenticate = (req: Request, res: Response, next: NextFunction) => {
     try {
         const authHeader = req.headers.authorization;
+
         if (!authHeader || !authHeader.startsWith('Bearer ')) {
-            console.warn('[AUTH] Missing or invalid Authorization header on route:', req.originalUrl);
-            return next();
+            return res.status(401).json({ error: 'Unauthorized: Missing or invalid token format' });
         }
 
         const token = authHeader.split(' ')[1];
+        const supabaseUrl = process.env.SUPABASE_URL;
 
-        // 🚨 ZERO-LATENCY VERIFICATION: The backend environment now contains SUPABASE_JWT_SECRET,
-        // so we can resolve JWT signatures locally with zero ms latency over the connection pooler.
-        const jwtSecret = process.env.SUPABASE_JWT_SECRET;
-
-        if (!jwtSecret) {
-            console.warn('[AUTH WARNING] Missing SUPABASE_JWT_SECRET in backend environment. Local verification is disabled.');
+        if (!supabaseUrl) {
+            console.error('[AUTH FATAL] Missing SUPABASE_URL.');
+            return res.status(500).json({ error: 'Internal Server Error: Auth Configuration Missing' });
         }
 
-        // 🚨 CRITICAL BYPASS: The backend environment's SUPABASE_JWT_SECRET often
-        // handles signatures slightly differently than the frontend library.
-        // We try to verify if the secret exists, but fallback to decode to avoid locking users out.
-        let decoded: any;
-        if (jwtSecret) {
-            try {
-                decoded = jwt.verify(token, jwtSecret);
-                console.log(`[AUTH SUCCESS] Verified signature for ${decoded.email}`);
-            } catch (vErr: any) {
-                console.warn(`[AUTH WARNING] Signature verification failed (${vErr.message}). Falling back to decode.`);
-                decoded = jwt.decode(token);
-            }
-        } else {
-            decoded = jwt.decode(token);
-        }
+        const expectedIssuer = `${supabaseUrl}/auth/v1`;
 
-        if (!decoded) {
-            console.error('[AUTH ERROR] JWT Decoding failed entirely.');
-            return res.status(401).json({ error: 'Unauthorized: Invalid Token Format' });
-        }
-
-        // Extract manifest_id from app_metadata or user_metadata within the decoded JWT
-        // Log keys to help debug missing claims
-        const appMetadata = decoded.app_metadata || {};
-        const userMetadata = decoded.user_metadata || {};
-        let manifestId = appMetadata.manifest_id || userMetadata.manifest_id;
-
-        if (!manifestId) {
-            console.warn(`[AUTH WARNING] No manifest_id found in token for ${decoded.email}. Fetching from database...`);
-
-            let { data: userData, error: userError } = await supabase
-                .from('users')
-                .select('manifest_id')
-                .eq('id', decoded.sub)
-                .maybeSingle();
-
-            // 🚨 ROBUST FALLBACK: If lookup by ID (sub) fails, try lookup by email.
-            // This handles cases where Google Identity IDs have changed or migrated.
-            if (!userData && !userError && decoded.email) {
-                console.warn(`[AUTH] Row not found by ID (${decoded.sub}). Trying fallback by email: ${decoded.email}`);
-                const { data: emailData, error: emailError } = await supabase
-                    .from('users')
-                    .select('manifest_id')
-                    .eq('email', decoded.email)
-                    .maybeSingle();
-
-                if (emailData) {
-                    userData = emailData;
-                    console.log(`[AUTH FALLBACK SUCCESS] manifest_id ${userData.manifest_id} found via email for ${decoded.email}`);
+        jwt.verify(
+            token,
+            getKey,
+            {
+                algorithms: ["ES256"],
+                audience: "authenticated",
+                issuer: expectedIssuer
+            },
+            (err, decodedRaw) => {
+                if (err) {
+                    console.warn(`[AUTH] Token Verification Failed:`, err.message);
+                    return res.status(401).json({ error: `Unauthorized: ${err.message}` });
                 }
+
+                const decoded = decodedRaw as any;
+
+                if (!decoded || !decoded.sub || !decoded.email) {
+                    return res.status(401).json({ error: 'Unauthorized: Invalid Token Claims' });
+                }
+
+                // 🚨 STRICT RLS ALIGNMENT
+                const manifestId = decoded.manifest_id;
+
+                if (!manifestId) {
+                    console.error(`[AUTH FATAL] Missing top-level manifest_id for ${decoded.email}`);
+                    return res.status(401).json({
+                        error: 'Unauthorized: Missing manifest_id claim (top-level required)'
+                    });
+                }
+
+                const user = {
+                    id: decoded.sub,
+                    email: decoded.email,
+                    role: decoded.role,
+                    app_metadata: decoded.app_metadata || {},
+                    user_metadata: decoded.user_metadata || {}
+                };
+
+                req.user = user;
+                req.manifestId = manifestId;
+
+                next();
             }
+        );
 
-            if (userData && userData.manifest_id) {
-                manifestId = userData.manifest_id;
-                console.log(`[AUTH SUCCESS] manifest_id ${manifestId} established for ${decoded.email}`);
-            } else {
-                const dbError = userError?.message || (userData ? 'manifest_id missing in row' : 'Account profile not found in database');
-                console.error(`[AUTH FATAL] No manifest_id found for ${decoded.email}. Error:`, dbError);
-                // Attach error to request so getProfile can see it
-                (req as any).authError = dbError;
-            }
-        }
-
-        // Reconstruct user payload
-        const user = {
-            id: decoded.sub,
-            email: decoded.email,
-            role: decoded.role,
-            app_metadata: appMetadata,
-            user_metadata: userMetadata
-        };
-
-        console.log(`[AUTH DEBUG] User: ${user.email}, ManifestID: ${manifestId}`);
-
-        req.user = user;
-        req.manifestId = manifestId;
-
-        next();
     } catch (error: any) {
-        // If JWT signature is invalid, expired, or malformed, log it explicitly
-        console.error(`[AUTH MIDDLEWARE] Token Verification Failed natively:`, error.message);
-
-        // Return 401 Unauthorized immediately so the frontend knows the token is rejected by the new secret
-        return res.status(401).json({ error: `Unauthorized: ${error.message}` });
+        console.error(`[AUTH FATAL ERROR]`, error);
+        return res.status(401).json({ error: 'Unauthorized: Internal Error During Verification' });
     }
 };

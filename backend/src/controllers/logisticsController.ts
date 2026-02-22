@@ -13,10 +13,7 @@ export const getStations = async (req: Request, res: Response) => {
         if (eventId) {
             const idUuid = toUUID(eventId);
             if (idUuid) {
-                query = query.or(`event_id.eq.${idUuid},legacy_event_id.eq.${eventId}`);
-            } else {
-                query = query.eq('legacy_event_id', eventId);
-                logLegacyFallback('pickup_stations', eventId, 'getStations_Event');
+                query = query.eq('event_id', idUuid);
             }
         }
         const { data: stations, error } = await query;
@@ -32,7 +29,7 @@ export const getStations = async (req: Request, res: Response) => {
         if (userError) console.error("Error fetching entrants:", userError);
 
         const enrichedStations = (stations || []).map(station => {
-            const entrant = entrants?.find(u => u.station_id === station.id || u.station_id === station.legacy_id);
+            const entrant = entrants?.find(u => u.station_id === station.id);
             return {
                 ...station,
                 data_entrant_id: entrant?.id || null,
@@ -55,9 +52,7 @@ export const addStation = async (req: Request, res: Response) => {
         const payload = {
             ...req.body,
             id: req.body.id ? toUUID(req.body.id) : uuidv4(),
-            legacy_id: req.body.id || null,
             event_id: toUUID(req.body.event_id),
-            legacy_event_id: req.body.event_id,
             manifest_id: manifestId // INJECT TENANT ID
         };
         const { error } = await supabase.from('pickup_stations').insert([payload]);
@@ -78,17 +73,15 @@ export const updateStation = async (req: Request, res: Response) => {
         const idUuid = toUUID(id);
         if (idUuid) {
             payload.id = idUuid;
-            payload.legacy_id = id;
         }
         if (payload.event_id) {
-            payload.legacy_event_id = payload.event_id;
             payload.event_id = toUUID(payload.event_id);
         }
 
         const { error } = await supabase.from('pickup_stations')
             .update(payload)
             .eq('manifest_id', manifestId) // Tenant Isolation
-            .or(`id.eq.${idUuid},legacy_id.eq.${id}`);
+            .eq('id', idUuid);
         if (error) throw error;
         res.json({ message: 'Station updated' });
     } catch (error: any) {
@@ -123,7 +116,7 @@ export const deleteStation = async (req: Request, res: Response) => {
 
         const { error } = await supabase.from('pickup_stations').delete()
             .eq('manifest_id', manifestId) // Tenant Isolation
-            .or(`id.eq.${toUUID(id)},legacy_id.eq.${id}`);
+            .eq('id', toUUID(id));
         if (error) throw error;
 
         res.json({ message: 'Station and related data deleted' });

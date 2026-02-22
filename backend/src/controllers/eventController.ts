@@ -49,16 +49,10 @@ export const createEvent = async (req: Request, res: Response) => {
     if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
 
     try {
-        const { id: inputId, ...eventData } = req.body;
-        const payload = (inputId && String(inputId).startsWith('evt-')) ? eventData : req.body;
-        const oldId = (inputId && String(inputId).startsWith('evt-')) ? String(inputId) : null;
+        const payload = { ...req.body };
 
-        if (!payload.id || String(payload.id).startsWith('evt-')) {
+        if (!payload.id) {
             payload.id = uuidv4();
-        }
-
-        if (oldId) {
-            payload.legacy_id = oldId;
         }
 
         if (payload.service_number === undefined || payload.service_number === null) {
@@ -75,17 +69,7 @@ export const createEvent = async (req: Request, res: Response) => {
 
         if (error) throw error;
 
-        if (oldId) {
-            console.log(`[EventCreate] Migrating data from ${oldId} to ${data.id}`);
-            const { error: rpcError } = await supabase.rpc('resolve_event_id', {
-                old_id: oldId,
-                new_id: data.id
-            });
-
-            if (rpcError) {
-                console.warn(`[EventCreate] Migration warning:`, rpcError);
-            }
-        }
+        if (error) throw error;
 
         res.status(201).json(data);
     } catch (error: any) {
@@ -101,16 +85,10 @@ export const updateEvent = async (req: Request, res: Response) => {
     try {
         const payload = { ...req.body };
         const idUuid = toUUID(id);
-
-        if (idUuid) {
-            payload.id = idUuid;
-            payload.legacy_id = id;
-        }
-
         const { error } = await supabase.from('ministry_events')
             .update(payload)
             .eq('manifest_id', manifestId) // Tenant Isolation
-            .or(`id.eq.${idUuid},legacy_id.eq.${id}`);
+            .eq('id', idUuid);
         if (error) throw error;
         res.json({ message: 'Event updated' });
     } catch (error: any) {
@@ -127,9 +105,9 @@ export const deleteEvent = async (req: Request, res: Response) => {
         const eventUuid = toUUID(id);
         const { data: event } = await supabase
             .from('ministry_events')
-            .select('id, legacy_id')
+            .select('id')
             .eq('manifest_id', manifestId) // Tenant Isolation
-            .or(`id.eq.${eventUuid || '00000000-0000-0000-0000-000000000000'},legacy_id.eq.${id}`)
+            .eq('id', eventUuid)
             .single();
 
         if (!event) {
@@ -139,7 +117,7 @@ export const deleteEvent = async (req: Request, res: Response) => {
         const targetId = event.id;
 
         const { data: stations } = await supabase.from('pickup_stations').select('id')
-            .eq('manifest_id', manifestId).or(`event_id.eq.${targetId},event_id.eq.${id}`);
+            .eq('manifest_id', manifestId).eq('event_id', targetId);
 
         if (stations && stations.length > 0) {
             const stationIds = stations.map(s => s.id);
@@ -161,38 +139,38 @@ export const deleteEvent = async (req: Request, res: Response) => {
 
         const { data: members } = await supabase.from('members').select('id, attended_service_ids')
             .eq('manifest_id', manifestId)
-            .or(`attended_service_ids.cs.{${targetId}},attended_service_ids.cs.{${id}}`);
+            .contains('attended_service_ids', [targetId]);
         if (members && members.length > 0) {
             for (const m of members) {
-                const newIds = (m.attended_service_ids || []).filter((i: string) => i !== targetId && i !== id);
+                const newIds = (m.attended_service_ids || []).filter((i: string) => i !== targetId);
                 await supabase.from('members').update({ attended_service_ids: newIds }).eq('manifest_id', manifestId).eq('id', m.id);
             }
         }
 
         const { data: children } = await supabase.from('children').select('id, attended_service_ids')
             .eq('manifest_id', manifestId)
-            .or(`attended_service_ids.cs.{${targetId}},attended_service_ids.cs.{${id}}`);
+            .contains('attended_service_ids', [targetId]);
         if (children && children.length > 0) {
             for (const c of children) {
-                const newIds = (c.attended_service_ids || []).filter((i: string) => i !== targetId && i !== id);
+                const newIds = (c.attended_service_ids || []).filter((i: string) => i !== targetId);
                 await supabase.from('children').update({ attended_service_ids: newIds }).eq('manifest_id', manifestId).eq('id', c.id);
             }
         }
 
         const { data: pCars } = await supabase.from('personal_vehicles').select('id, attended_service_ids')
             .eq('manifest_id', manifestId)
-            .or(`attended_service_ids.cs.{${targetId}},attended_service_ids.cs.{${id}}`);
+            .contains('attended_service_ids', [targetId]);
         if (pCars && pCars.length > 0) {
             for (const c of pCars) {
-                const newIds = (c.attended_service_ids || []).filter((i: string) => i !== targetId && i !== id);
+                const newIds = (c.attended_service_ids || []).filter((i: string) => i !== targetId);
                 await supabase.from('personal_vehicles').update({ attended_service_ids: newIds }).eq('manifest_id', manifestId).eq('id', c.id);
             }
         }
 
         await supabase.from('incidents').delete().eq('manifest_id', manifestId).eq('service_id', targetId);
-        await supabase.from('souls').delete().eq('manifest_id', manifestId).or(`event_id.eq.${targetId},source_id.eq.${targetId},source_id.eq.${id}`);
+        await supabase.from('souls').delete().eq('manifest_id', manifestId).eq('event_id', targetId);
         await supabase.from('volunteer_attendance').delete().eq('manifest_id', manifestId).eq('service_id', targetId);
-        await supabase.from('personal_vehicles').update({ current_service_id: null }).eq('manifest_id', manifestId).or(`current_service_id.eq.${targetId},current_service_id.eq.${id}`);
+        await supabase.from('personal_vehicles').update({ current_service_id: null }).eq('manifest_id', manifestId).eq('current_service_id', targetId);
         await supabase.from('transactions').delete().eq('manifest_id', manifestId).eq('event_id', targetId);
         await supabase.from('next_gen_souls').delete().eq('manifest_id', manifestId).eq('service_id', targetId);
 
@@ -211,19 +189,7 @@ export const getEventHighlights = async (req: Request, res: Response) => {
 
     const { id } = req.params;
     try {
-        let eventUuid = toUUID(id);
-
-        if (!eventUuid) {
-            const { data: event } = await supabase
-                .from('ministry_events')
-                .select('id')
-                .eq('manifest_id', manifestId) // Tenant Isolation
-                .eq('legacy_id', id)
-                .single();
-
-            eventUuid = event?.id;
-            logLegacyFallback('ministry_events', id, 'getEventHighlights');
-        }
+        const eventUuid = toUUID(id);
 
         if (!eventUuid) {
             return res.status(400).json({ error: "Event not found or missing UUID mapping" });
@@ -231,7 +197,7 @@ export const getEventHighlights = async (req: Request, res: Response) => {
 
         const eventQuery = supabase.from('ministry_events').select('*').eq('manifest_id', manifestId).eq('id', eventUuid).single();
         const attendanceQuery = supabase.from('service_attendance').select('member_id').eq('manifest_id', manifestId).eq('service_id', eventUuid);
-        const soulsQuery = supabase.from('souls').select('id').eq('manifest_id', manifestId).or(`event_id.eq.${eventUuid},source_id.eq.${eventUuid}`);
+        const soulsQuery = supabase.from('souls').select('id').eq('manifest_id', manifestId).eq('event_id', eventUuid);
         const nextGenSoulsQuery = supabase.from('next_gen_souls').select('id').eq('manifest_id', manifestId).eq('service_id', eventUuid);
         const financeQuery = supabase.from('transactions').select('amount').eq('manifest_id', manifestId).eq('event_id', eventUuid).eq('type', 'Expense');
 
@@ -297,7 +263,7 @@ export const getEventHighlights = async (req: Request, res: Response) => {
         const { count: pcCount } = await supabase.from('personal_vehicles')
             .select('*', { count: 'exact', head: true })
             .eq('manifest_id', manifestId)
-            .or(`current_service_id.eq.${eventUuid},current_service_id_uuid.eq.${eventUuid},attended_service_ids.cs.{"${eventUuid}"}`);
+            .contains('attended_service_ids', [eventUuid]);
 
         const serviceAttendanceCount = attendanceData?.length || 0;
         const soulsTotal = (soulsData?.length || 0) + (nextGenData?.length || 0) || pSouls;

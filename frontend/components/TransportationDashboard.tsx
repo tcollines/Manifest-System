@@ -366,7 +366,12 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
             .channel(`transport-dashboard-scoped-${selectedEventId}`)
             .on('postgres_changes', { event: '*', schema: 'public', table: 'vehicles', filter: `event_id=eq.${selectedEventId}` }, (payload) => {
                 const { eventType, new: newRecord, old: oldRecord } = payload;
-                if (eventType === 'INSERT') setVehicles(prev => [...prev, newRecord as TrackedVehicle]);
+                if (eventType === 'INSERT') {
+                    setVehicles(prev => {
+                        if (prev.some(v => v.id === newRecord.id)) return prev;
+                        return [...prev, newRecord as TrackedVehicle];
+                    });
+                }
                 else if (eventType === 'UPDATE') {
                     setVehicles(prev => prev.map(v => v.id === newRecord.id ? (newRecord as TrackedVehicle) : v));
                     if (myVehicle?.id === newRecord.id) setMyVehicle(newRecord as Vehicle);
@@ -374,13 +379,23 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
             })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, (payload) => {
                 const { eventType, new: newRecord, old: oldRecord } = payload;
-                if (eventType === 'INSERT') setCoordinators(prev => [...prev, newRecord as User]);
+                if (eventType === 'INSERT') {
+                    setCoordinators(prev => {
+                        if (prev.some(u => u.id === newRecord.id)) return prev;
+                        return [...prev, newRecord as User];
+                    });
+                }
                 else if (eventType === 'UPDATE') setCoordinators(prev => prev.map(u => u.id === newRecord.id ? (newRecord as User) : u));
                 else if (eventType === 'DELETE') setCoordinators(prev => prev.filter(u => u.id !== oldRecord.id));
             })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'passengers', filter: `event_id=eq.${selectedEventId}` }, (payload) => {
                 const { eventType, new: newRecord, old: oldRecord } = payload;
-                if (eventType === 'INSERT') setPassengers(prev => [...prev, newRecord as Passenger]);
+                if (eventType === 'INSERT') {
+                    setPassengers(prev => {
+                        if (prev.some(p => p.id === newRecord.id)) return prev;
+                        return [...prev, newRecord as Passenger];
+                    });
+                }
                 else if (eventType === 'UPDATE') setPassengers(prev => prev.map(p => p.id === newRecord.id ? (newRecord as Passenger) : p));
                 else if (eventType === 'DELETE') setPassengers(prev => prev.filter(p => p.id !== oldRecord.id));
             })

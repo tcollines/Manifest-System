@@ -1,0 +1,186 @@
+[
+  {
+    "id": "0f3526c4-f8b0-460a-b649-c435434f2ea4",
+    "name": "Aine Francis",
+    "email": "aine@entebbemanifest.com",
+    "username": "aine",
+    "password_type": "SET",
+    "is_auto_username": true
+  },
+  {
+    "id": "f4ee2c43-1c5d-4255-9900-512281075633",
+    "name": "Kazibwe collins",
+    "email": "kazibwecollins1@gmail.com",
+    "username": "kazibwecollins1",
+    "password_type": "PENDING_TOKEN",
+    "is_auto_username": true
+  },
+  {
+    "id": "77019cb1-8521-4316-8760-dd341ae47d34",
+    "name": "Mellisa Salomy Nakate",
+    "email": "mellisanakate5@gmail.com",
+    "username": "mellisanakate5",
+    "password_type": "PENDING_TOKEN",
+    "is_auto_username": true
+  },
+  {
+    "id": "2bcd422d-3eef-4ad0-a380-a594f2c40f7b",
+    "name": "Shakirah Ninsiima",
+    "email": "kimoteseed17@gmail.com",
+    "username": null,
+    "password_type": "PENDING_TOKEN",
+    "is_auto_username": null
+  },
+  {
+    "id": "e5eda31e-e99d-41e1-ad7d-0b0d5a506db4",
+    "name": "System Administrator",
+    "email": "admin@manifest.com",
+    "username": "admin",
+    "password_type": "SET",
+    "is_auto_username": true
+  },
+  {
+    "id": "0361aa00-797e-40f6-916a-5355425b3579",
+    "name": "Mulamba joshua",
+    "email": "joshuamulamba7@g.mail.com",
+    "username": null,
+    "password_type": "PENDING_TOKEN",
+    "is_auto_username": null
+  },
+  {
+    "id": "c98b24b4-c675-4827-8875-b9bee52d308a",
+    "name": "Wilberforce Kalule",
+    "email": "kalulewilberforce7@gmail.com",
+    "username": "kalulewilberforce7",
+    "password_type": "PENDING_TOKEN",
+    "is_auto_username": true
+  },
+  {
+    "id": "40f52a96-4e3d-43fa-8b35-c70953ae9eaf",
+    "name": "Sanya Caleb",
+    "email": "calebsanya.2016@gmail.com",
+    "username": "calebsanya.2016",
+    "password_type": "PENDING_TOKEN",
+    "is_auto_username": true
+  },
+  {
+    "id": "1e4a5b3a-bac4-43e4-9cd6-32c3f33ba098",
+    "name": "Ntaate Catherine Nanfuka",
+    "email": "ntaatecathie076@gmail.com",
+    "username": "ntaatecathie076",
+    "password_type": "PENDING_TOKEN",
+    "is_auto_username": true
+  },
+  {
+    "id": "2035e477-184b-465f-bd53-65d1426b01e5",
+    "name": "karungi Annet",
+    "email": "karungiann@yahoo.com",
+    "username": null,
+    "password_type": "PENDING_TOKEN",
+    "is_auto_username": null
+  },
+  {
+    "id": "931ceb1f-c4e8-4d94-97a3-e0867080c265",
+    "name": "Shelagh Natukunda",
+    "email": "shelaghnatukunda@gmail.com",
+    "username": "shelaghnatukunda",
+    "password_type": "PENDING_TOKEN",
+    "is_auto_username": true
+  },
+  {
+    "id": "ce8c5b5b-caf2-41c8-b22f-511cb9199802",
+    "name": "NAMBAFU SHEILLAH KALENDA",
+    "email": "sheillahnambafu877@gmail.com",
+    "username": null,
+    "password_type": "PENDING_TOKEN",
+    "is_auto_username": null
+  },
+  {
+    "id": "7cddda42-4754-43d6-8db3-443064d9fade",
+    "name": "Test user 2",
+    "email": "abratumwe.subs@gmail.com",
+    "username": "abratumwe.subs",
+    "password_type": "PENDING_TOKEN",
+    "is_auto_username": true
+  },
+  {
+    "id": "1b174d2b-fd52-48e1-942d-1b8245f9f05e",
+    "name": "Liz Abuo",
+    "email": "elizabethabuo23@gmail.com",
+    "username": "elizabethabuo23",
+    "password_type": "PENDING_TOKEN",
+    "is_auto_username": true
+  },
+  {
+    "id": "25d7b949-15d2-44c0-b062-5c253716424e",
+    "name": "ninsiima sharon",
+    "email": "ninsiimasharon25@gmail.com",
+    "username": "ninsiimasharon25",
+    "password_type": "PENDING_TOKEN",
+    "is_auto_username": true
+  },
+  {
+    "id": "010be285-e167-446a-935f-6131ec5c5ac1",
+    "name": "Jjemba peter",
+    "email": "zyram693@gmail.com",
+    "username": "zyram693",
+    "password_type": "PENDING_TOKEN",
+    "is_auto_username": true
+  },
+  {
+    "id": "aa85027c-3a36-44b3-8a4f-4cc67589bc65",
+    "name": "Suzan Mwogere",
+    "email": "mwogeresk@gmail.com",
+    "username": "mwogeresk",
+    "password_type": "PENDING_TOKEN",
+    "is_auto_username": true
+  },
+  {
+    "id": "f1b701e4-3ae0-4ef2-957d-c6e48d4fbe3c",
+    "name": "Ojema Paul",
+    "email": "ojemapaul19@gmail.com",
+    "username": "ojemapaul19",
+    "password_type": "PENDING_TOKEN",
+    "is_auto_username": true
+  },
+  {
+    "id": "9f3d02cf-dad2-4fb2-b308-d2bf3c282865",
+    "name": "Ebu Derrick",
+    "email": "derricktemboebu@gmail.com",
+    "username": null,
+    "password_type": "PENDING_TOKEN",
+    "is_auto_username": null
+  },
+  {
+    "id": "9c93156a-5c3a-4e5f-95f8-193b027a9707",
+    "name": "NABUUMA LINDA",
+    "email": "lindanabuuma2@gmail.com",
+    "username": null,
+    "password_type": "PENDING_TOKEN",
+    "is_auto_username": null
+  },
+  {
+    "id": "f93fbd21-d00e-436f-b257-ec8f386926de",
+    "name": "Test Setup User 2",
+    "email": "setup_test2@manifest.com",
+    "username": null,
+    "password_type": "PENDING_TOKEN",
+    "is_auto_username": null
+  },
+  {
+    "id": "67b59a2d-34ef-4f42-825f-4d29e4beb0dd",
+    "name": "Abraham",
+    "email": "abratumwe@gmail.com",
+    "username": "abratumwe",
+    "password_type": "SET",
+    "is_auto_username": true
+  },
+  {
+    "id": "22542e1f-24f8-46f0-a279-4f75e1088301",
+    "name": "Aine Francis",
+    "email": "ebbmanifestaine2@gmail.com",
+    "username": null,
+    "password_type": "PENDING_TOKEN",
+    "is_auto_username": null
+  }
+]

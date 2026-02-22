@@ -127,15 +127,31 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
         const channel = supabase.channel('nextgen-live')
             // Children: Granular Updates
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'children' }, (payload) => {
-                const newChild = payload.new as any;
+                const newRecord = payload.new as any;
                 setChildren(prev => {
-                    if (prev.find(c => c.id === newChild.id)) return prev;
-                    // ... (mapping logic omitted for brevity, assuming existing map function or full reload)
-                    // For safety, and since we don't have mapChildFromDB here, we might just refresh
-                    // But to avoid flicker, let's append what we can or wait for refreshData
-                    return prev; // Rely on refreshData for now or implement full mapping if critical
+                    if (prev.find(c => c.id === newRecord.id)) return prev;
+                    const mapped: Child = {
+                        id: newRecord.id,
+                        name: newRecord.name,
+                        parentName: newRecord.parent_name,
+                        parentContact: newRecord.parent_contact,
+                        age: newRecord.age,
+                        gender: newRecord.gender,
+                        category: newRecord.category,
+                        residence: newRecord.residence,
+                        allergies: newRecord.allergies,
+                        status: newRecord.status,
+                        checkInTime: newRecord.check_in_time,
+                        checkOutTime: newRecord.check_out_time,
+                        attendedServiceIds: newRecord.attended_service_ids || [],
+                        followUpStatus: newRecord.follow_up_status,
+                        assignedTo: newRecord.assigned_to,
+                        salvationDate: newRecord.salvation_date,
+                        careNotes: newRecord.care_notes || [],
+                        joinedDate: newRecord.created_at?.split('T')[0] || new Date().toISOString().split('T')[0]
+                    };
+                    return [mapped, ...prev];
                 });
-                refreshData();
             })
             .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'children' }, (payload) => {
                 const updated = payload.new as any;
@@ -171,38 +187,55 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
             // Souls: Granular Updates
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'next_gen_souls' }, (payload) => {
                 const newSoul = payload.new as any;
-                // Add to list
-                setNextGenSouls(prev => [
-                    {
-                        id: newSoul.id,
-                        firstName: newSoul.first_name,
-                        lastName: newSoul.last_name,
-                        phone: newSoul.phone,
-                        age: newSoul.age,
-                        gender: newSoul.gender,
-                        residence: newSoul.residence,
-                        serviceId: newSoul.service_id,
-                        status: newSoul.status,
-                        capturedBy: newSoul.captured_by,
-                        notes: newSoul.notes,
-                        createdAt: newSoul.created_at
-                    },
-                    ...prev
-                ]);
+                // Add to list with idempotency guard
+                setNextGenSouls(prev => {
+                    if (prev.some(s => s.id === newSoul.id)) return prev;
+                    return [
+                        {
+                            id: newSoul.id,
+                            firstName: newSoul.first_name,
+                            lastName: newSoul.last_name,
+                            phone: newSoul.phone,
+                            age: newSoul.age,
+                            gender: newSoul.gender,
+                            residence: newSoul.residence,
+                            serviceId: newSoul.service_id,
+                            status: newSoul.status,
+                            capturedBy: newSoul.captured_by,
+                            notes: newSoul.notes,
+                            createdAt: newSoul.created_at
+                        },
+                        ...prev
+                    ];
+                });
 
-                // Update Count if Service Matches
-                if (selectedServiceRef.current && (newSoul.service_id === selectedServiceRef.current.id || !!(selectedServiceRef.current.legacyId && newSoul.service_id === selectedServiceRef.current.legacyId))) {
-                    setSoulsWonCount(prev => prev + 1);
-                }
+                // Update Count if Service Matches AND it wasn't already counted
+                // (Using a functional update logic to ensure we don't double count is harder here as state is separate, 
+                // but checking the list before adding is the primary guard)
+                setNextGenSouls(prev => {
+                    const alreadyExisted = prev.some(s => s.id === newSoul.id);
+                    if (!alreadyExisted && selectedServiceRef.current && (newSoul.service_id === selectedServiceRef.current.id || !!(selectedServiceRef.current.legacyId && newSoul.service_id === selectedServiceRef.current.legacyId))) {
+                        setSoulsWonCount(c => c + 1);
+                    }
+                    return prev;
+                });
             })
             .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'next_gen_souls' }, (payload) => {
-                setNextGenSouls(prev => prev.filter(s => s.id !== payload.old.id));
-                // Re-fetch count safely
-                if (selectedServiceRef.current) {
-                    NextGenSoulsStore.getCountByService(selectedServiceRef.current.id).then(count => {
-                        if (isMountedRef.current) setSoulsWonCount(count);
-                    });
-                }
+                const deletedId = payload.old.id;
+                setNextGenSouls(prev => {
+                    const soulToDelete = prev.find(s => s.id === deletedId);
+                    if (soulToDelete) {
+                        // Check if it belongs to current service
+                        const matchesService = selectedServiceRef.current &&
+                            (soulToDelete.serviceId === selectedServiceRef.current.id ||
+                                (selectedServiceRef.current.legacyId && soulToDelete.serviceId === selectedServiceRef.current.legacyId));
+
+                        if (matchesService && isMountedRef.current) {
+                            setSoulsWonCount(c => Math.max(0, c - 1));
+                        }
+                    }
+                    return prev.filter(s => s.id !== deletedId);
+                });
             })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'ministry_events' }, () => {
                 // Avoiding full page reload.

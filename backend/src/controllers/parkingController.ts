@@ -35,9 +35,7 @@ export const addPersonalVehicle = async (req: Request, res: Response) => {
             check_out_time: req.body.checkOutTime || req.body.check_out_time || null,
             current_service_id: req.body.currentServiceId || req.body.current_service_id || null,
             registered_date: req.body.registeredDate || req.body.registered_date || new Date().toISOString(),
-            attended_service_ids: req.body.attended_service_ids || req.body.attendedServiceIds || [],
-            legacy_id: inputId || null,
-            id_text_legacy_deprecated: uuidVal // Satisfy NOT NULL for migration column
+            attended_service_ids: req.body.attended_service_ids || req.body.attendedServiceIds || []
         };
 
         const { error } = await supabase.from('personal_vehicles').insert([payload]);
@@ -61,7 +59,7 @@ export const updatePersonalVehicle = async (req: Request, res: Response) => {
         const { error } = await supabase.from('personal_vehicles')
             .update(req.body)
             .eq('manifest_id', manifestId) // Tenant Isolation
-            .or(`id.eq.${idUuid || '00000000-0000-0000-0000-000000000000'},id_text_legacy_deprecated.eq.${id}`);
+            .eq('id', toUUID(id));
 
         if (error) throw error;
         res.json({ message: 'Personal vehicle updated' });
@@ -83,7 +81,7 @@ export const checkInPersonalVehicle = async (req: Request, res: Response) => {
         const { data: vehicle, error: fetchError } = await supabase.from('personal_vehicles')
             .select('id, attended_service_ids')
             .eq('manifest_id', manifestId) // Tenant Isolation
-            .or(`id.eq.${idUuid || '00000000-0000-0000-0000-000000000000'},id_text_legacy_deprecated.eq.${id}`)
+            .eq('id', idUuid)
             .single();
 
         if (fetchError) throw fetchError;
@@ -96,7 +94,6 @@ export const checkInPersonalVehicle = async (req: Request, res: Response) => {
         const { error: updateError } = await supabase.from('personal_vehicles').update({
             status: 'Checked In',
             current_service_id: serviceId,
-            current_service_id_uuid: serviceUuid,
             check_in_time: checkInTime,
             check_out_time: null,
             attended_service_ids: newHistory
@@ -129,7 +126,7 @@ export const checkOutPersonalVehicle = async (req: Request, res: Response) => {
         const { data: vehicle, error: fetchError } = await supabase.from('personal_vehicles')
             .select('id')
             .eq('manifest_id', manifestId) // Tenant Isolation
-            .or(`id.eq.${idUuid || '00000000-0000-0000-0000-000000000000'},id_text_legacy_deprecated.eq.${id}`)
+            .eq('id', idUuid)
             .single();
 
         if (fetchError) throw fetchError;

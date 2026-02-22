@@ -9,6 +9,7 @@ import {
     getMemberDetails,
     searchMembersWithStatus,
     getEventAttendees,
+    getMemberById,
     getMembersByIds
 } from '../controllers/memberController';
 
@@ -23,5 +24,6 @@ router.get('/stats/:serviceId', getServiceStats);
 router.get('/:id/details', getMemberDetails);
 router.get('/search-status/:serviceId', searchMembersWithStatus);
 router.get('/attendees/:id', getEventAttendees);
+router.get('/:id', getMemberById);
 
 export default router;

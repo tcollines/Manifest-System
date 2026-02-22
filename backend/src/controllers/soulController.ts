@@ -13,12 +13,9 @@ export const getSouls = async (req: Request, res: Response) => {
     try {
         let query = supabase.from('souls').select('*').eq('manifest_id', manifestId).order('created_at', { ascending: false }); // Tenant Isolation
         if (sourceId) {
-            const idUuid = toUUID(sourceId);
+            const idUuid = toUUID(sourceId as string);
             if (idUuid) {
-                query = query.or(`event_id.eq.${idUuid},source_id.eq.${sourceId}`);
-            } else {
-                query = query.eq('source_id', sourceId);
-                logLegacyFallback('souls', String(sourceId), 'getSouls_Source');
+                query = query.eq('event_id', idUuid);
             }
         }
         const { data, error } = await query;
@@ -35,23 +32,7 @@ export const addSoul = async (req: Request, res: Response) => {
     if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
 
     try {
-        let eventUuid = toUUID(req.body.event_id || req.body.eventId);
-
-        if (!eventUuid && (req.body.event_id || req.body.eventId)) {
-            const inputId = req.body.event_id || req.body.eventId;
-            const { data: eventData } = await supabase
-                .from('ministry_events')
-                .select('id')
-                .eq('manifest_id', manifestId) // Tenant Isolation
-                .eq('legacy_id', inputId)
-                .single();
-
-            if (eventData) {
-                eventUuid = eventData.id;
-            } else if (inputId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
-                eventUuid = inputId;
-            }
-        }
+        let eventUuid = toUUID(req.body.event_id);
 
         if (!eventUuid) {
             return res.status(400).json({ error: "Invalid Event ID. Soul must be linked to a valid event." });
@@ -73,9 +54,6 @@ export const addSoul = async (req: Request, res: Response) => {
             event_id: eventUuid,
             station_id: toUUID(req.body.station_id || req.body.stationId),
             vehicle_id: toUUID(req.body.vehicle_id || req.body.vehicleId),
-            legacy_event_id: req.body.event_id || req.body.eventId,
-            legacy_station_id: req.body.station_id || req.body.stationId,
-            legacy_vehicle_id: req.body.vehicle_id || req.body.vehicleId,
             student_status: req.body.student_status || req.body.studentStatus,
             age: req.body.age,
             occupation: req.body.occupation,
@@ -110,15 +88,12 @@ export const updateSoul = async (req: Request, res: Response) => {
         const payload = { ...req.body };
         if (req.body.event_id) {
             payload.event_id = toUUID(req.body.event_id);
-            payload.legacy_event_id = req.body.event_id;
         }
         if (req.body.station_id) {
             payload.station_id = toUUID(req.body.station_id);
-            payload.legacy_station_id = req.body.station_id;
         }
         if (req.body.vehicle_id) {
             payload.vehicle_id = toUUID(req.body.vehicle_id);
-            payload.legacy_vehicle_id = req.body.vehicle_id;
         }
 
         const { error } = await supabase.from('souls').update(payload).eq('manifest_id', manifestId).eq('id', id);
@@ -157,10 +132,7 @@ export const getSoulServiceStats = async (req: Request, res: Response) => {
             .eq('source_type', 'Service');
 
         if (idUuid) {
-            query = query.or(`event_id.eq.${idUuid},source_id.eq.${serviceId}`);
-        } else {
-            query = query.eq('source_id', serviceId);
-            logLegacyFallback('souls', serviceId, 'getSoulServiceStats');
+            query = query.eq('event_id', idUuid);
         }
 
         const { count: mainCount, error } = await query;
@@ -171,7 +143,7 @@ export const getSoulServiceStats = async (req: Request, res: Response) => {
             .from('next_gen_souls')
             .select('*', { count: 'exact', head: true })
             .eq('manifest_id', manifestId) // Tenant Isolation
-            .eq('service_id', idUuid || serviceId);
+            .eq('service_id', idUuid);
 
         if (ngError) throw ngError;
 
@@ -245,7 +217,7 @@ export const getNextGenSoulCount = async (req: Request, res: Response) => {
             .from('next_gen_souls')
             .select('*', { count: 'exact', head: true })
             .eq('manifest_id', manifestId) // Tenant Isolation
-            .eq('service_id', uuid || serviceId);
+            .eq('service_id', uuid);
         if (error) throw error;
         res.json({ count: count || 0 });
     } catch (error: any) {

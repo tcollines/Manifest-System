@@ -5,9 +5,7 @@ import { MOCK_CHILDREN } from '../constants';
 import { safeFetch } from '../services/safeFetch';
 
 const mapChildFromDB = (c: any): Child => ({
-  // READ PATH MIGRATION: Prefer UUID, fallback to Legacy ID
-  id: c.id_uuid || c.id,
-  legacyId: c.legacy_id || (c.id_uuid ? c.id : undefined),
+  id: c.id,
 
   name: c.name,
   parentName: c.parent_name,

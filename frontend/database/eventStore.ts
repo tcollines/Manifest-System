@@ -5,7 +5,6 @@ import { safeFetch } from '../services/safeFetch';
 
 const mapEventFromDB = (e: any): MinistryEvent => ({
   id: e.id,
-  legacyId: e.legacy_id,
   title: e.title,
   type: e.type,
   date: e.date,

@@ -80,14 +80,9 @@ export const MemberStore = {
   },
 
   getAll: async (): Promise<ServiceResponse<Member[]>> => {
-    try {
-      const data = await apiFetch('/members/all');
-      return { status: 'success', data: data ? data.map(mapMemberFromDB) : [] };
-    } catch (e) {
-      console.warn("Retrying getAll with pagination fallback", e);
-      // Fallback
-      return MemberStore.getMembers(1, 10000);
-    }
+    // Force pagination as /all is removed for stability. 
+    // Consumers needing "all" should fetch specific pages or use search.
+    return MemberStore.getMembers(1, 100);
   },
 
 
@@ -111,9 +106,9 @@ export const MemberStore = {
 
   getById: async (id: string): Promise<Member | null> => {
     try {
-      const data = await apiFetch(`/members?id=eq.${id}&select=*`);
-      if (data && data.length > 0) {
-        return mapMemberFromDB(data[0]);
+      const data = await apiFetch(`/members/${id}`);
+      if (data) {
+        return mapMemberFromDB(data);
       }
       return null;
     } catch (e) {

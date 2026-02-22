@@ -111,13 +111,23 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, events
         const channel = supabase.channel(`finance-dashboard-scoped-${activeEventId}`)
             .on('postgres_changes', { event: '*', schema: 'public', table: 'finance_transactions', filter: `event_id=eq.${activeEventId}` }, (payload) => {
                 const { eventType, new: newRecord, old: oldRecord } = payload;
-                if (eventType === 'INSERT') setTransactions(prev => [newRecord as Transaction, ...prev]);
+                if (eventType === 'INSERT') {
+                    setTransactions(prev => {
+                        if (prev.some(t => t.id === newRecord.id)) return prev;
+                        return [newRecord as Transaction, ...prev];
+                    });
+                }
                 else if (eventType === 'UPDATE') setTransactions(prev => prev.map(t => t.id === newRecord.id ? (newRecord as Transaction) : t));
                 else if (eventType === 'DELETE') setTransactions(prev => prev.filter(t => t.id !== oldRecord.id));
             })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'requisitions', filter: `event_id=eq.${activeEventId}` }, (payload) => {
                 const { eventType, new: newRecord, old: oldRecord } = payload;
-                if (eventType === 'INSERT') setRequisitions(prev => [newRecord as Requisition, ...prev]);
+                if (eventType === 'INSERT') {
+                    setRequisitions(prev => {
+                        if (prev.some(r => r.id === newRecord.id)) return prev;
+                        return [newRecord as Requisition, ...prev];
+                    });
+                }
                 else if (eventType === 'UPDATE') setRequisitions(prev => prev.map(r => r.id === newRecord.id ? (newRecord as Requisition) : r));
                 else if (eventType === 'DELETE') setRequisitions(prev => prev.filter(r => r.id !== oldRecord.id));
             })

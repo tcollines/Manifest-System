@@ -4,8 +4,6 @@ import { apiFetch } from '../services/api';
 
 const mapPVFromDB = (v: any): PersonalVehicle => ({
   id: v.id,
-  idUuid: v.id_uuid || undefined,
-  legacyId: v.legacy_id || undefined,
   number_plate: v.number_plate,
   driverName: v.driver_name,
   driverContact: v.driver_contact,

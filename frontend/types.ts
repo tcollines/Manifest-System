@@ -59,7 +59,6 @@ export interface EventStats {
 
 export interface MinistryEvent {
   id: string;
-  legacyId?: string;
   title: string;
   type: 'Service' | 'Event';
   date: string;
@@ -117,7 +116,6 @@ export interface Member {
 
 export interface Child {
   id: string;
-  legacyId?: string; // Migration Field
   name: string;
   parentName: string;
   parentContact: string;
@@ -197,8 +195,6 @@ export interface Vehicle {
 // Parking Module Vehicle
 export interface PersonalVehicle {
   id: string;
-  idUuid?: string; // Shadow UUID
-  legacyId?: string; // Shadow Legacy ID
   number_plate: string;
   driverName: string;
   driverContact: string;
@@ -240,7 +236,6 @@ export interface Passenger {
 
 export interface PickUpStation {
   id: string;
-  legacyId?: string; // Migration Field
   name: string;
   location: string;
   registeredAttendees: number;

@@ -27,9 +27,7 @@ export const getVehicles = async (req: Request, res: Response) => {
 
         let query = supabase.from('vehicles').select('*').eq('manifest_id', manifestId); // Tenant Isolation
 
-        if (coordinatorUid && coordinator) {
-            query = query.or(`coordinator_uid.eq.${coordinatorUid},coordinator.eq.${coordinator}`);
-        } else if (coordinatorUid) {
+        if (coordinatorUid) {
             query = query.eq('coordinator_uid', coordinatorUid);
         } else if (coordinator) {
             query = query.eq('coordinator', coordinator);
@@ -38,20 +36,14 @@ export const getVehicles = async (req: Request, res: Response) => {
         if (validEventId) {
             const idUuid = toUUID(validEventId);
             if (idUuid) {
-                query = query.or(`event_id.eq.${idUuid},legacy_event_id.eq.${validEventId}`);
-            } else {
-                query = query.eq('legacy_event_id', validEventId);
-                logLegacyFallback('vehicles', validEventId, 'getVehicles_Event');
+                query = query.eq('event_id', idUuid);
             }
         }
 
         if (stationId) {
             const idUuid = toUUID(stationId);
             if (idUuid) {
-                query = query.or(`station_id.eq.${idUuid},legacy_station_id.eq.${stationId}`);
-            } else {
-                query = query.eq('legacy_station_id', stationId);
-                logLegacyFallback('vehicles', stationId, 'getVehicles_Station');
+                query = query.eq('station_id', idUuid);
             }
         }
 
@@ -123,11 +115,8 @@ export const addVehicle = async (req: Request, res: Response) => {
             manifest_id: manifestId, // INJECT TENANT ID
             coordinator_uid,
             id: req.body.id ? toUUID(req.body.id) : uuidv4(),
-            legacy_id: req.body.id || null,
             station_id: toUUID(station_id),
-            legacy_station_id: station_id,
-            event_id: toUUID(event_id),
-            legacy_event_id: event_id
+            event_id: toUUID(event_id)
         };
 
         const { error } = await supabase.from('vehicles').insert([payload]);
@@ -202,21 +191,18 @@ export const updateVehicle = async (req: Request, res: Response) => {
         const idUuid = toUUID(id);
         if (idUuid) {
             payload.id = idUuid;
-            payload.legacy_id = id;
         }
         if (payload.station_id) {
-            payload.legacy_station_id = payload.station_id;
             payload.station_id = toUUID(payload.station_id);
         }
         if (targetEventId) {
-            payload.legacy_event_id = targetEventId;
             payload.event_id = toUUID(targetEventId);
         }
 
         const { error } = await supabase.from('vehicles')
             .update(payload)
             .eq('manifest_id', manifestId) // Tenant Isolation
-            .or(`id.eq.${idUuid},legacy_id.eq.${id}`);
+            .eq('id', idUuid);
         if (error) throw error;
         res.json({ message: 'Vehicle updated' });
     } catch (error: any) {
@@ -312,18 +298,13 @@ export const getPassengers = async (req: Request, res: Response) => {
         if (vehicleId) {
             const idUuid = toUUID(vehicleId);
             if (idUuid) {
-                query = query.or(`vehicle_id.eq.${idUuid},legacy_vehicle_id.eq.${vehicleId}`);
-            } else {
-                query = query.eq('legacy_vehicle_id', vehicleId);
-                logLegacyFallback('passengers', vehicleId, 'getPassengers_Vehicle');
+                query = query.eq('vehicle_id', idUuid);
             }
         }
         if (validEventId) {
             const uuid = toUUID(validEventId);
             if (uuid) {
-                query = query.or(`event_id.eq.${uuid},legacy_event_id.eq.${validEventId}`);
-            } else {
-                query = query.eq('legacy_event_id', validEventId);
+                query = query.eq('event_id', uuid);
             }
         }
         const { data, error } = await query.order('created_at', { ascending: true });
@@ -343,15 +324,11 @@ export const addPassenger = async (req: Request, res: Response) => {
             ...req.body,
             manifest_id: manifestId, // INJECT TENANT ID
             id: req.body.id ? toUUID(req.body.id) : uuidv4(),
-            legacy_id: req.body.id || null,
             vehicle_id: toUUID(req.body.vehicle_id),
-            legacy_vehicle_id: req.body.vehicle_id,
             event_id: toUUID(req.body.event_id),
-            legacy_event_id: req.body.event_id,
             gender: req.body.gender || 'Male',
             is_first_time: req.body.is_first_time || req.body.isFirstTime || 'No',
-            station_id: toUUID(req.body.station_id),
-            legacy_station_id: req.body.station_id
+            station_id: toUUID(req.body.station_id)
         };
         const { error } = await supabase.from('passengers').insert([payload]);
         if (error) throw error;
@@ -371,21 +348,18 @@ export const updatePassenger = async (req: Request, res: Response) => {
         const idUuid = toUUID(id);
         if (idUuid) {
             payload.id = idUuid;
-            payload.legacy_id = id;
         }
         if (payload.vehicle_id) {
-            payload.legacy_vehicle_id = payload.vehicle_id;
             payload.vehicle_id = toUUID(payload.vehicle_id);
         }
         if (payload.event_id) {
-            payload.legacy_event_id = payload.event_id;
             payload.event_id = toUUID(payload.event_id);
         }
 
         const { error } = await supabase.from('passengers')
             .update(payload)
             .eq('manifest_id', manifestId) // Tenant Isolation
-            .or(`id.eq.${idUuid},legacy_id.eq.${id}`);
+            .eq('id', idUuid);
         if (error) throw error;
         res.json({ message: 'Passenger updated' });
     } catch (error: any) {
@@ -434,8 +408,7 @@ export const addPersonalVehicle = async (req: Request, res: Response) => {
             ...req.body,
             manifest_id: manifestId, // INJECT TENANT ID
             registered_date: new Date().toISOString(),
-            id: req.body.id ? toUUID(req.body.id) : uuidv4(),
-            legacy_id: req.body.id || null
+            id: req.body.id ? toUUID(req.body.id) : uuidv4()
         };
         const { error } = await supabase.from('personal_vehicles').insert([payload]);
         if (error) throw error;
@@ -458,14 +431,13 @@ export const updatePersonalVehicleStatus = async (req: Request, res: Response) =
         if (status === 'Checked In') {
             payload.check_in_time = now;
             payload.current_service_id = toUUID(serviceId);
-            payload.legacy_current_service_id = serviceId;
         } else {
             payload.check_out_time = now;
         }
 
         const { error } = await supabase.from('personal_vehicles')
             .update(payload)
-            .eq('manifest_id', manifestId).eq('id', id);
+            .eq('manifest_id', manifestId).eq('id', toUUID(id));
         if (error) throw error;
         res.json({ message: 'Status updated' });
     } catch (error: any) {

@@ -12,7 +12,6 @@ export interface ExtendedStation extends PickUpStation {
 
 const mapStationFromDB = (s: any): ExtendedStation => ({
   id: s.id,
-  legacyId: s.legacy_id,
   name: s.name,
   location: s.location,
   registeredAttendees: s.registered_attendees,

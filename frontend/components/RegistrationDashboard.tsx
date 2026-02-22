@@ -305,6 +305,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
   // Check-in Stats State
   const [checkInStats, setCheckInStats] = useState({ total: 0, firstTimers: 0, soulsWon: 0 });
   const [checkedInIds, setCheckedInIds] = useState<Set<string>>(new Set());
+  const [checkedSoulIds, setCheckedSoulIds] = useState<Set<string>>(new Set());
 
   // Member Details View State
   const [selectedMemberDetails, setSelectedMemberDetails] = useState<{ member: Member, attendedCount: number, totalServices: number, history: any[] } | null>(null);
@@ -331,23 +332,34 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
           event: '*',
           schema: 'public',
           table: 'service_attendance',
-          filter: `service_id=eq.${selectedService.id}`
+          // Enforce strict tenant isolation alongside service scope
+          filter: `manifest_id=eq.${currentUser.manifestId || currentUser.manifest_id}`
         },
         (payload) => {
           const { eventType, new: newRecord, old: oldRecord } = payload;
 
+          // Double verification just to be safe
+          if (newRecord && (newRecord as any).service_id !== selectedService.id) return;
+          if (oldRecord && (oldRecord as any).service_id !== selectedService.id) return;
+
           if (eventType === 'INSERT') {
-            setCheckedInIds(prev => new Set([...prev, (newRecord as any).member_id]));
-            setCheckInStats(prev => ({ ...prev, total: prev.total + 1 }));
-            // Note: firstTimers count might be slightly off without a fetch, 
-            // but we follow "No extra network GET" rule.
-          } else if (eventType === 'DELETE') {
+            const memberId = (newRecord as any).member_id;
             setCheckedInIds(prev => {
+              if (prev.has(memberId)) return prev;
               const next = new Set(prev);
-              next.delete((oldRecord as any).member_id);
+              next.add(memberId);
+              setCheckInStats(stats => ({ ...stats, total: stats.total + 1 }));
               return next;
             });
-            setCheckInStats(prev => ({ ...prev, total: Math.max(0, prev.total - 1) }));
+          } else if (eventType === 'DELETE') {
+            const memberId = (oldRecord as any).member_id;
+            setCheckedInIds(prev => {
+              if (!prev.has(memberId)) return prev;
+              const next = new Set(prev);
+              next.delete(memberId);
+              setCheckInStats(stats => ({ ...stats, total: Math.max(0, stats.total - 1) }));
+              return next;
+            });
           }
         }
       )
@@ -358,15 +370,29 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'souls', filter: `source_id=eq.${selectedService.id}` },
-        () => {
-          setCheckInStats(prev => ({ ...prev, soulsWon: prev.soulsWon + 1 }));
+        (payload) => {
+          const soulId = (payload.new as any).id;
+          setCheckedSoulIds(prev => {
+            if (prev.has(soulId)) return prev;
+            const next = new Set(prev);
+            next.add(soulId);
+            setCheckInStats(stats => ({ ...stats, soulsWon: stats.soulsWon + 1 }));
+            return next;
+          });
         }
       )
       .on(
         'postgres_changes',
         { event: 'DELETE', schema: 'public', table: 'souls', filter: `source_id=eq.${selectedService.id}` },
-        () => {
-          setCheckInStats(prev => ({ ...prev, soulsWon: Math.max(0, prev.soulsWon - 1) }));
+        (payload) => {
+          const soulId = (payload.old as any).id;
+          setCheckedSoulIds(prev => {
+            if (!prev.has(soulId)) return prev;
+            const next = new Set(prev);
+            next.delete(soulId);
+            setCheckInStats(stats => ({ ...stats, soulsWon: Math.max(0, stats.soulsWon - 1) }));
+            return next;
+          });
         }
       )
       .subscribe();
@@ -669,7 +695,12 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
       .on('postgres_changes', { event: '*', schema: 'public', table: 'users', filter: `event_id=eq.${activeOperationId}` }, handleUserChange)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'personal_vehicles', filter: `current_service_id=eq.${activeOperationId}` }, (payload) => {
         const { eventType, new: newRecord, old: oldRecord } = payload;
-        if (eventType === 'INSERT') setPersonalVehicles(prev => [newRecord as PersonalVehicle, ...prev]);
+        if (eventType === 'INSERT') {
+          setPersonalVehicles(prev => {
+            if (prev.some(v => v.id === newRecord.id)) return prev;
+            return [newRecord as PersonalVehicle, ...prev];
+          });
+        }
         else if (eventType === 'UPDATE') setPersonalVehicles(prev => prev.map(v => v.id === newRecord.id ? (newRecord as PersonalVehicle) : v));
         else if (eventType === 'DELETE') setPersonalVehicles(prev => prev.filter(v => v.id !== oldRecord.id));
       })
@@ -1195,14 +1226,8 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
       try {
         showToast("Saving new event before check-in...", "info");
         const realEvent = await EventStore.add(selectedService);
-
-        // Update Local State with Real ID
-        // const updatedServices = services.map(s => s.id === selectedService.id ? realEvent : s);
-        // setServices(updatedServices); // Removed
         setSelectedService(realEvent);
         serviceToUse = realEvent;
-
-        // Also need to update cache/parent if possible, but local state update handles current session
       } catch (e) {
         console.error("Auto-save failed", e);
         showToast("Failed to save temporary event. Check-in aborted.", "error");
@@ -1211,7 +1236,31 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
     }
 
     try {
-      // Use new Relational Check-in with REAL ID
+      // 1. Optimistic UI Updates - INSTANT FEEDBACK
+      // Add member to local checked-in set to immediately hide the button
+      setCheckedInIds(prev => {
+        const next = new Set(prev);
+        next.add(memberId);
+        return next;
+      });
+
+      // Optimistically increment check-in totals
+      setCheckInStats(prev => ({
+        ...prev,
+        total: prev.total + 1
+      }));
+
+      // Update the local member object for UI badges/lists
+      setMembers(prev => prev.map(m => m.id === memberId ? {
+        ...m,
+        status: 'Checked In',
+        checkInTime: new Date().toLocaleTimeString()
+      } : m));
+
+      // Clear the search query to allow immediate next search
+      setSearchQuery('');
+
+      // 2. Perform Backend Request
       const res = await MemberStore.checkIn(memberId, serviceToUse.id);
 
       // Warning for ignored temp IDs (Should not happen now if auto-save worked, but valid safeguard)
@@ -1221,18 +1270,26 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
         showToast("Member Checked In Successfully", "success");
       }
 
-      // Update local state for immediate UI feedback (Badge)
-      setMembers(prev => prev.map(m => m.id === memberId ? { ...m, status: 'Checked In', checkInTime: new Date().toLocaleTimeString() } : m));
-
-      // Refresh Stats
-      const stats = await MemberStore.getServiceStats(serviceToUse.id, serviceToUse.date);
-      const childrenCount = serviceToUse.stats?.manualChildrenCount || 0;
-      setCheckInStats({ total: stats.total + childrenCount, firstTimers: stats.firstTimers });
-      setCheckedInIds(new Set(stats.memberIds));
-
+      // Note: Stats are updated automatically via idempotent Realtime listeners for parallel devices
     } catch (error: any) {
       console.error("Check-in Error:", error);
-      // Handle strict block for pure temp events
+
+      // Rollback Optimistic UI on failure
+      setCheckedInIds(prev => {
+        const next = new Set(prev);
+        next.delete(memberId);
+        return next;
+      });
+      setCheckInStats(prev => ({
+        ...prev,
+        total: Math.max(0, prev.total - 1)
+      }));
+      setMembers(prev => prev.map(m => m.id === memberId ? {
+        ...m,
+        status: 'Member', // Assuming default is 'Member', might need exact prior state in edge cases
+        checkInTime: undefined
+      } : m));
+
       const msg = error.message || "Check-in failed";
       if (msg.includes('Please save the event')) {
         showToast(msg, 'warning');
@@ -1378,8 +1435,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
           coordinator: '',
           id: ''
         });
-        // We don't strictly need refreshData if we did optimistic update, but keeping it for safety
-        refreshData();
+        // refreshData(); // Removed in favor of local state update and Realtime sync
       } catch (error: any) {
         console.error("Update failed", error);
         showToast(`Failed to update vehicle: ${error.message || 'Unknown error'}`, 'error');
@@ -1388,19 +1444,25 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
     }
 
     try {
-      const res = await VehicleStore.addVehicle({
+      const newVehicleId = uuidv4();
+      const newVeh: Vehicle = {
         ...vehicleForm,
-        id: uuidv4(),
-        number_plate: formatted, // Use formatted plate
+        id: newVehicleId,
+        number_plate: formatted,
         stationId: selectedStation.id,
         eventId: selectedStation.eventId,
         coordinator: vehicleForm.coordinator || currentUser.name,
-      });
+        approvals: { registration: 'Pending', finance: 'Pending' } as any,
+        currentStage: 'Registration' as any
+      };
+
+      const res = await VehicleStore.addVehicle(newVeh);
 
       if (res.status === 'error') {
         throw new Error(res.message || "Failed to add vehicle");
       }
 
+      setVehicles(prev => [...prev, newVeh]);
       showToast("Vehicle Added Successfully", 'success');
       setIsAddVehicleOpen(false);
       setVehicleForm({
@@ -1412,7 +1474,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
         coordinator: '',
         id: ''
       });
-      refreshData();
+      // refreshData(); // Removed in favor of local state update and Realtime sync
     } catch (e) {
       console.error(e);
       showToast("Failed to add vehicle", 'error');
@@ -1923,7 +1985,8 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
         soulWon: 'No',
         id: '' // Reset ID
       });
-      refreshData();
+      showToast(passengerForm.id ? "Passenger updated successfully" : "Passenger added successfully", 'success');
+      // refreshData(); // Removed in favor of local state update and Realtime sync
     } catch (error: any) {
       console.error("Failed to save passenger:", error);
       showToast(passengerForm.id ? "Failed to update passenger" : "Failed to add passenger", 'error');
@@ -2010,7 +2073,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
       setIsAddChildrenOpen(false);
 
       showToast("Children count updated.", 'success');
-      refreshData();
+      // refreshData(); // Removed in favor of local state update and Realtime sync
     } catch (err) {
       console.error("Error updating children count", err);
       showToast("Failed to update children count.", 'error');

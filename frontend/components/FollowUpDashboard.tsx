@@ -120,7 +120,10 @@ const FollowUpDashboard: React.FC<FollowUpDashboardProps> = ({ onOpenModal, curr
             }, (payload) => {
                 const { eventType, new: newRecord, old: oldRecord } = payload;
                 if (eventType === 'INSERT') {
-                    setSouls(prev => [newRecord as Soul, ...prev]);
+                    setSouls(prev => {
+                        if (prev.some(s => s.id === newRecord.id)) return prev;
+                        return [newRecord as Soul, ...prev];
+                    });
                 } else if (eventType === 'UPDATE') {
                     setSouls(prev => prev.map(s => s.id === newRecord.id ? (newRecord as Soul) : s));
                 } else if (eventType === 'DELETE') {
@@ -617,7 +620,7 @@ const FollowUpDashboard: React.FC<FollowUpDashboardProps> = ({ onOpenModal, curr
                                                 try {
                                                     await SoulsStore.delete(soul.id || '');
                                                     showToast('Soul deleted successfully', 'success');
-                                                    loadData();
+                                                    // loadData(); // Removed in favor of Realtime granular update
                                                 } catch (e) {
                                                     showToast('Failed to delete soul', 'error');
                                                 }
