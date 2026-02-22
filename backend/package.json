@@ -4,9 +4,7 @@
     "description": "Backend API for Manifest System",
     "main": "dist/server.js",
     "scripts": {
-        "prestart": "npx kill-port 5000",
         "start": "node dist/server.js",
-        "predev": "npx kill-port 5000",
         "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
         "build": "tsc"
     },
