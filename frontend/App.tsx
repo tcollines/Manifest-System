@@ -126,7 +126,7 @@ const App: React.FC = () => {
         // Fetch specific user profile to ensure we get it even if RLS restricts 'getAll'
         const matchingUser = await UserStore.getByEmail(session.user.email);
 
-        if (matchingUser) {
+        if (matchingUser && matchingUser.name) {
           setCurrentUser(matchingUser);
           UserStore.saveSession(matchingUser);
 
@@ -141,6 +141,11 @@ const App: React.FC = () => {
             }
           }
           setLoginError(null);
+        } else if (matchingUser && !matchingUser.name) {
+          console.warn("User auto-created but not pre-invited:", session.user.email);
+          await supabase.auth.signOut();
+          setLoginError('Your Google email is not registered. Please ask an Administrator to add you.');
+          navigate('/');
         } else {
           console.warn("User authenticated but no profile found for:", session.user.email);
           if (location.pathname === '/setup-account') {
@@ -215,7 +220,7 @@ const App: React.FC = () => {
       console.log(`[AUTH] Session established. Fetching Manifest profile for ${email}`);
       const user = await UserStore.getByEmail(email);
 
-      if (user) {
+      if (user && user.name) {
         setCurrentUser(user);
         UserStore.saveSession(user);
 
@@ -242,6 +247,10 @@ const App: React.FC = () => {
         const targetTab = getDashboardForUser(user);
         navigate(targetTab);
         setLoginError(null);
+      } else if (user && !user.name) {
+        // User was auto-created by the DB trigger but was never explicitly invited by an Admin.
+        await supabase.auth.signOut();
+        setLoginError('Your Google email is not registered. Please ask an Administrator to add you.');
       } else {
         setLoginError('No account found with this Google email.');
       }
