@@ -321,7 +321,8 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
 
   // --- REALTIME SYNC: Service Check-Ins ---
   useEffect(() => {
-    if (!selectedService || viewMode !== 'service-active') return;
+    const manifestId = currentUser.manifestId || currentUser.manifest_id;
+    if (!selectedService || viewMode !== 'service-active' || !manifestId) return;
 
     const channelName = `service-checkins-${selectedService.id}`;
     const channel = supabase
@@ -333,7 +334,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
           schema: 'public',
           table: 'service_attendance',
           // Enforce strict tenant isolation alongside service scope
-          filter: `manifest_id=eq.${currentUser.manifestId || currentUser.manifest_id}`
+          filter: `manifest_id=eq.${manifestId}`
         },
         (payload) => {
           const { eventType, new: newRecord, old: oldRecord } = payload;
@@ -369,7 +370,12 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
       .channel(`service-souls-${selectedService.id}`)
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'souls', filter: `source_id=eq.${selectedService.id}` },
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'souls',
+          filter: `source_id=eq.${selectedService.id}`
+        },
         (payload) => {
           const soulId = (payload.new as any).id;
           setCheckedSoulIds(prev => {
@@ -383,7 +389,12 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
       )
       .on(
         'postgres_changes',
-        { event: 'DELETE', schema: 'public', table: 'souls', filter: `source_id=eq.${selectedService.id}` },
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'souls',
+          filter: `source_id=eq.${selectedService.id}`
+        },
         (payload) => {
           const soulId = (payload.old as any).id;
           setCheckedSoulIds(prev => {
@@ -397,11 +408,12 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
       )
       .subscribe();
 
+
     return () => {
       supabase.removeChannel(channel);
       supabase.removeChannel(channel_souls);
     };
-  }, [selectedService?.id, viewMode]);
+  }, [selectedService?.id, viewMode, currentUser.manifestId, currentUser.manifest_id]);
 
 
   // Robust Role Check: Case-insensitive and includes Department ID 'd5' (Transportation/Logistics) - Fixes Data Entrant Guard
