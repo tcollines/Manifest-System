@@ -73,12 +73,13 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
                 console.log(`[AUTH FALLBACK SUCCESS] manifest_id ${manifestId} found for ${decoded.email} (sub: ${decoded.sub})`);
             } else {
                 const dbError = userError?.message || (userData ? 'manifest_id missing in row' : 'Row not found');
-                const urlHint = process.env.SUPABASE_URL ? process.env.SUPABASE_URL.substring(0, 15) : 'MISSING_URL';
+                const urlHint = process.env.SUPABASE_URL || 'MISSING_URL';
                 const keyHint = process.env.SUPABASE_SERVICE_ROLE_KEY ? `...${process.env.SUPABASE_SERVICE_ROLE_KEY.slice(-5)}` : 'MISSING_KEY';
+                const nodeEnv = process.env.NODE_ENV || 'unknown';
 
                 console.error(`[AUTH FALLBACK ERROR] No manifest_id found for ${decoded.email} (sub: ${decoded.sub}). DB Error:`, dbError);
                 // Attach error and environment hints to request so getProfile can see it
-                (req as any).authError = `${dbError} | sub: ${decoded.sub} | env: ${urlHint}${keyHint}`;
+                (req as any).authError = `${dbError} | sub: ${decoded.sub} | env: ${urlHint} (mode: ${nodeEnv}) | key: ${keyHint}`;
             }
         }
 
