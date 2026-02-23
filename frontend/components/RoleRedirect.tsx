@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Navigate } from 'react-router-dom';
 import { User } from '../types';
 
 interface RoleRedirectProps {
@@ -12,6 +12,15 @@ const RoleRedirect: React.FC<RoleRedirectProps> = ({ user }) => {
 
     useEffect(() => {
         if (!user) return;
+
+        console.log(`[ROLE REDIRECT] Checking user: ${user.email} | Username: '${user.username}' | Length: ${user.username?.length}`);
+
+        // Force Setup Account if username is missing
+        if (!user.username || user.username.trim() === '') {
+            console.warn(`[ROLE REDIRECT] No username detected for ${user.email}. Restricting to /setup-account.`);
+            navigate('/setup-account', { replace: true });
+            return;
+        }
 
         // Load Departments for 'Head of Dept'
         if (user.role === 'Head of Dept') {
@@ -52,6 +61,11 @@ const RoleRedirect: React.FC<RoleRedirectProps> = ({ user }) => {
         navigate('/dashboard');
 
     }, [user, navigate]);
+
+    // Double check at render time
+    if (!user.username || user.username.trim() === '') {
+        return <Navigate to="/setup-account" replace />;
+    }
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-gray-50">

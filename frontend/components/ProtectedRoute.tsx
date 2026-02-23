@@ -23,6 +23,11 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
         return <Navigate to={redirectPath} replace />;
     }
 
+    // Force Setup Account if username is missing
+    if (!currentUser.username || currentUser.username.trim() === '') {
+        return <Navigate to="/setup-account" replace />;
+    }
+
     // 1. Super Admin / Administrator / TeamLeader bypass
     if (currentUser.role === 'Super Admin' || currentUser.role === 'Administrator' || currentUser.role === 'TeamLeader') {
         return <Outlet />;

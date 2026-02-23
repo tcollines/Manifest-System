@@ -155,12 +155,15 @@ const App: React.FC = () => {
 
             // Check if new user needs to setup account
             if (!matchingUser.username || matchingUser.username.trim() === '') {
-              navigate('/setup-account');
+              // FORCE setup account
+              if (location.pathname !== '/setup-account') {
+                navigate('/setup-account', { replace: true });
+              }
             } else {
               // If we are strictly at / or /login, redirect. Else stay.
               if (location.pathname === '/' || location.pathname === '/login') {
                 const target = getDashboardForUser(matchingUser);
-                navigate(target);
+                navigate(target, { replace: true });
               }
             }
             setLoginError(null);
@@ -205,7 +208,7 @@ const App: React.FC = () => {
         UserStore.saveSession(user);
 
         if (!user.username || user.username.trim() === '') {
-          navigate('/setup-account');
+          navigate('/setup-account', { replace: true });
           return;
         }
 
@@ -253,7 +256,7 @@ const App: React.FC = () => {
         UserStore.saveSession(user);
 
         if (!user.username || user.username.trim() === '') {
-          navigate('/setup-account');
+          navigate('/setup-account', { replace: true });
           return;
         }
 
