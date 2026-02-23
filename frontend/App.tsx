@@ -154,7 +154,7 @@ const App: React.FC = () => {
             UserStore.saveSession(matchingUser);
 
             // Check if new user needs to setup account
-            if (!matchingUser.username) {
+            if (!matchingUser.username || matchingUser.username.trim() === '') {
               navigate('/setup-account');
             } else {
               // If we are strictly at / or /login, redirect. Else stay.
@@ -204,7 +204,7 @@ const App: React.FC = () => {
         setCurrentUser(user);
         UserStore.saveSession(user);
 
-        if (!user.username) {
+        if (!user.username || user.username.trim() === '') {
           navigate('/setup-account');
           return;
         }
@@ -252,7 +252,7 @@ const App: React.FC = () => {
         setCurrentUser(user);
         UserStore.saveSession(user);
 
-        if (!user.username) {
+        if (!user.username || user.username.trim() === '') {
           navigate('/setup-account');
           return;
         }
@@ -386,7 +386,7 @@ const App: React.FC = () => {
     return <SignIn onLogin={handleLogin} onGoogleLogin={handleGoogleLogin} error={loginError} />;
   }
 
-  if (location.pathname === '/setup-account' || !currentUser.username) {
+  if (location.pathname === '/setup-account' || !currentUser.username || currentUser.username.trim() === '') {
     return <SetupAccount currentUser={currentUser} onComplete={handleSetupComplete} onLogout={handleLogout} />;
   }
 

@@ -63,15 +63,27 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, onLogout, isOpen, onClos
     const targetDeptId = getDeptId(slugOrCode);
     if (!targetDeptId) return false;
 
-    // Check against user's assigned department (UUID or Legacy ID)
-    return currentUser.departmentUid === targetDeptId ||
+    // 1. Direct matches
+    if (
+      currentUser.departmentUid === targetDeptId ||
       currentUser.departmentId === slugOrCode ||
-      currentUser.departmentId === targetDeptId;
+      currentUser.departmentId === targetDeptId
+    ) {
+      return true;
+    }
+
+    // 2. Legacy Code match (e.g. user.departmentId === 'd2' vs dept.code === 'd2')
+    const resolvedDept = departments.find(d => d.id === targetDeptId);
+    if (resolvedDept && resolvedDept.code && currentUser.departmentId === resolvedDept.code) {
+      return true;
+    }
+
+    return false;
   };
 
   // Custom Menus based on Department Leads
   const isRegistrationHead = (currentUser.role === 'Head of Dept' || currentUser.role === 'Dept Admin') && checkDept('registration');
-  const isNextGenHead = (currentUser.role === 'Head of Dept' || currentUser.role === 'Dept Admin' || currentUser.role === 'Staff' || currentUser.role === 'Member') && checkDept('next-gen');
+  const isNextGenHead = (currentUser.role === 'Head of Dept' || currentUser.role === 'Dept Admin' || currentUser.role === 'Staff' || currentUser.role === 'Member' || currentUser.role === 'Volunteer') && checkDept('next-gen');
   const isParkingHead = (currentUser.role === 'Head of Dept' || currentUser.role === 'Dept Admin') && checkDept('parking');
   const isFinanceHead = (currentUser.role === 'Head of Dept' || currentUser.role === 'Dept Admin') && checkDept('finance');
   const isTransportationHead = (currentUser.role === 'Head of Dept' || currentUser.role === 'Dept Admin') && checkDept('transportation');
@@ -121,8 +133,8 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, onLogout, isOpen, onClos
     if (currentUser.role === 'Staff') {
       menuItems = menuItems.filter(i => !['reports', 'next-gen-reports', 'settings', 'requisitions', 'assets'].includes(i.id));
     }
-    // Next Gen Member should only see Dashboard and Follow Up
-    if (currentUser.role === 'Member') {
+    // Next Gen Member or Volunteer should only see Dashboard and Follow Up
+    if (currentUser.role === 'Member' || currentUser.role === 'Volunteer') {
       menuItems = menuItems.filter(i => ['next-gen', 'next-gen-follow-up'].includes(i.id));
     }
 

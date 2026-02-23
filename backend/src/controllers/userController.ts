@@ -16,7 +16,7 @@ export const getAllUsers = async (req: Request, res: Response) => {
             return res.json([]);
         }
 
-        let query = supabase.from('users').select('*').eq('manifest_id', manifestId); // Tenant Isolation
+        let query = supabase.from('users').select('*').eq('manifest_id', manifestId).neq('status', 'Deleted'); // Tenant Isolation + Filter Deleted
         if (role) query = query.eq('role', role);
         if (validEventId) query = query.eq('event_id', validEventId);
         if (departmentId) query = query.eq('department_id', departmentId);
@@ -56,6 +56,8 @@ export const getProfile = async (req: Request, res: Response) => {
                 .select('*')
                 .eq('email', user.email)
                 .eq('manifest_id', manifestId)
+                .order('name', { ascending: false, nullsFirst: false }) // Prioritize profiles with a name
+                .limit(1)
                 .maybeSingle();
 
             if (emailData) {
@@ -129,7 +131,15 @@ export const deleteUser = async (req: Request, res: Response) => {
 
     const { id } = req.params;
     try {
-        const { error } = await supabase.from('users').delete().eq('manifest_id', manifestId).eq('id', id);
+        // Soft delete the user by updating status and scrambling the email/username to free it up
+        const { error } = await supabase.from('users')
+            .update({
+                status: 'Deleted',
+                email: `deleted_${id}_${Date.now()}@manifest.local`,
+                username: `deleted_${id}_${Date.now()}`
+            })
+            .eq('manifest_id', manifestId)
+            .eq('id', id);
         if (error) throw error;
         res.json({ message: 'User deleted' });
     } catch (error: any) {
