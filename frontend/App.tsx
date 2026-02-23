@@ -152,6 +152,7 @@ const App: React.FC = () => {
           if (matchingUser && matchingUser.name) {
             setCurrentUser(matchingUser);
             UserStore.saveSession(matchingUser);
+            refreshData(); // Fetch events now that we are authenticated
 
             // Check if new user needs to setup account
             if (!matchingUser.username || matchingUser.username.trim() === '') {
@@ -206,6 +207,7 @@ const App: React.FC = () => {
         const user = response.data;
         setCurrentUser(user);
         UserStore.saveSession(user);
+        refreshData(); // Fetch events now that we are authenticated
 
         if (!user.username || user.username.trim() === '') {
           navigate('/setup-account', { replace: true });
@@ -254,6 +256,7 @@ const App: React.FC = () => {
       if (user && user.name) {
         setCurrentUser(user);
         UserStore.saveSession(user);
+        refreshData(); // Fetch events now that we are authenticated
 
         if (!user.username || user.username.trim() === '') {
           navigate('/setup-account', { replace: true });
