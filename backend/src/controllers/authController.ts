@@ -47,11 +47,14 @@ export const login = async (req: Request, res: Response) => {
                 username,
                 emailFound,
                 targetEmail,
+                supabaseUrl: process.env.SUPABASE_URL,
                 supabaseError: authError?.message || 'Empty session returned'
             });
+            console.log('[SUPABASE AUTH ERROR]', authError);
             return res.status(401).json({ error: 'Invalid login credentials' });
         }
 
+        console.log('[LOGIN SUCCESS]', { username, targetEmail });
         res.json({ session: authData.session });
     } catch (error: any) {
         console.error('[AUTH LOGIN ERROR]', error);

@@ -4,6 +4,12 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+// Environment Audit Logs (Temporary)
+console.log('[ENV CHECK]');
+console.log('SUPABASE_URL:', process.env.SUPABASE_URL);
+console.log('SUPABASE_KEY (anon exists?):', !!process.env.SUPABASE_KEY);
+console.log('SERVICE_ROLE exists?:', !!process.env.SUPABASE_SERVICE_ROLE_KEY);
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 
