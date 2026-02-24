@@ -207,6 +207,43 @@ export const updateUser = async (req: Request, res: Response) => {
             throw new Error('User update failed: 0 rows affected. Possible UUID mismatch or RLS block.');
         }
 
+        // ==========================================
+        // GoTrue Identity Synchronization (Setup Fix)
+        // If updating a password, seamlessly provision or sync the auth identity
+        // ==========================================
+        if (payload.password && !payload.password.startsWith('PENDING_')) {
+            const userEmail = payload.email || data[0].email;
+            if (userEmail) {
+                try {
+                    // Check if Auth User exists
+                    const { data: authCheck } = await supabase.auth.admin.getUserById(id);
+                    if (authCheck?.user) {
+                        // Update existing Identity
+                        await supabase.auth.admin.updateUserById(id, {
+                            password: payload.password,
+                            email: userEmail,
+                            email_confirm: true
+                        });
+                    } else {
+                        // Dynamically create the missing Identity mimicking the DB UUID
+                        const { error: createErr } = await supabase.auth.admin.createUser({
+                            id: id,
+                            email: userEmail,
+                            password: payload.password,
+                            email_confirm: true
+                        });
+
+                        // Handle race conditions where email is taken by a ghost account
+                        if (createErr && createErr.message.includes('already registered')) {
+                            console.warn(`[SYNC] Auth email collision mapping ${userEmail}`);
+                        }
+                    }
+                } catch (syncErr) {
+                    console.error('[SYNC WARNING] Failed to mirror password to Auth:', syncErr);
+                }
+            }
+        }
+
         // D) Log Successful Role Mutation
         if (payload.role && oldRole !== payload.role) {
             await supabase.from('role_change_log').insert([{
