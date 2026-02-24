@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { supabase } from '../supabase';
+import { supabase, supabaseAnon } from '../supabase';
 
 export const login = async (req: Request, res: Response) => {
     const { username, password } = req.body;
@@ -10,7 +10,9 @@ export const login = async (req: Request, res: Response) => {
 
     try {
         // Step 1: Lookup real email by username if it doesn't look like an email
+        // We use the regular `supabase` (service role) to query `public.users` safely
         let targetEmail = username.trim();
+        let emailFound = true;
 
         if (!targetEmail.includes('@')) {
             const { data, error } = await supabase
@@ -20,6 +22,12 @@ export const login = async (req: Request, res: Response) => {
                 .maybeSingle();
 
             if (error || !data || !data.email) {
+                emailFound = false;
+                console.log('[LOGIN DEBUG]', {
+                    username,
+                    emailFound,
+                    supabaseError: error?.message || 'Username not found in public.users'
+                });
                 // Delay artificially to mitigate timing attacks identifying valid vs invalid usernames
                 await new Promise(resolve => setTimeout(resolve, 1000));
                 return res.status(401).json({ error: 'Invalid login credentials' });
@@ -28,12 +36,19 @@ export const login = async (req: Request, res: Response) => {
         }
 
         // Step 2: Authenticate securely with the real email
-        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        // MUST use Anon Client, Service Role cannot generate sessions.
+        const { data: authData, error: authError } = await supabaseAnon.auth.signInWithPassword({
             email: targetEmail,
             password
         });
 
         if (authError || !authData || !authData.session) {
+            console.log('[LOGIN DEBUG]', {
+                username,
+                emailFound,
+                targetEmail,
+                supabaseError: authError?.message || 'Empty session returned'
+            });
             return res.status(401).json({ error: 'Invalid login credentials' });
         }
 
