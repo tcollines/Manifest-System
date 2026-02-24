@@ -8,9 +8,9 @@ const SESSION_KEY = 'ministry_user_session';
 
 // Helper to map DB snake_case to App camelCase
 const mapUserFromDB = (u: any): User => ({
-  id: u.id,
-  name: u.name,
-  role: u.role,
+  id: String(u.id),
+  name: String(u.name || ''),
+  role: String(u.role || 'Member') as any, // FORCE strictly derived scalar role
   manifestId: u.manifest_id,
   departmentId: u.department_id,
   departmentUid: u.department_uid,
@@ -227,6 +227,7 @@ export const UserStore = {
 
   // Session Persistence
   saveSession: (user: User) => {
+    console.log("[USERSTORE] Persisting Session to localStorage. Role:", user.role);
     localStorage.setItem(SESSION_KEY, JSON.stringify(user));
   },
 
@@ -234,7 +235,9 @@ export const UserStore = {
     const json = localStorage.getItem(SESSION_KEY);
     if (json) {
       try {
-        return JSON.parse(json);
+        const parsed = JSON.parse(json);
+        console.log("[USERSTORE] Hydrating Session from localStorage. Role:", parsed.role);
+        return parsed;
       } catch (e) {
         console.error("Failed to parse session", e);
         return null;
@@ -244,6 +247,7 @@ export const UserStore = {
   },
 
   clearSession: () => {
+    console.log("[USERSTORE] Purging all LocalStorage User Data.");
     localStorage.removeItem(SESSION_KEY);
   }
 };

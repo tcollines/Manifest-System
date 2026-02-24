@@ -1,0 +1,61 @@
+--- LOG OUTPUT ---\nPUBLIC USER: {
+  "id": "0f3526c4-f8b0-460a-b649-c435434f2ea4",
+  "name": "Aine Francis",
+  "role": "Administrator",
+  "department_id": "0b685c69-edb6-44b9-8f21-1a11878b6d7b",
+  "username": "aine",
+  "password": "123",
+  "contact": "+256754332211",
+  "email": "aine@entebbemanifest.com",
+  "station_id": null,
+  "event_id": null,
+  "created_at": "2025-12-27T09:43:13.810466+00:00",
+  "invitation_token": null,
+  "status": "Active",
+  "created_by": null,
+  "department_uid": null,
+  "manifest_id": "593fbdbb-8211-44ca-b3e2-8d999c88680c"
+}\nAUTH DATA: {
+  "user": {
+    "id": "0f3526c4-f8b0-460a-b649-c435434f2ea4",
+    "aud": "authenticated",
+    "role": "authenticated",
+    "email": "aine@manifest.local",
+    "email_confirmed_at": "2026-02-20T12:15:03.781947Z",
+    "phone": "",
+    "confirmed_at": "2026-02-20T12:15:03.781947Z",
+    "last_sign_in_at": "2026-02-24T13:57:32.974138Z",
+    "app_metadata": {
+      "manifest_id": "593fbdbb-8211-44ca-b3e2-8d999c88680c",
+      "provider": "email",
+      "providers": [
+        "email"
+      ],
+      "role": "Administrator"
+    },
+    "user_metadata": {
+      "email_verified": true
+    },
+    "identities": [
+      {
+        "identity_id": "1bf37e6c-d12a-47a5-90b5-1aca3b13c133",
+        "id": "0f3526c4-f8b0-460a-b649-c435434f2ea4",
+        "user_id": "0f3526c4-f8b0-460a-b649-c435434f2ea4",
+        "identity_data": {
+          "email": "aine@manifest.local",
+          "email_verified": false,
+          "phone_verified": false,
+          "sub": "0f3526c4-f8b0-460a-b649-c435434f2ea4"
+        },
+        "provider": "email",
+        "last_sign_in_at": "2026-02-20T12:15:03.778763Z",
+        "created_at": "2026-02-20T12:15:03.778824Z",
+        "updated_at": "2026-02-20T12:15:03.778824Z",
+        "email": "aine@manifest.local"
+      }
+    ],
+    "created_at": "2026-02-20T12:15:03.777585Z",
+    "updated_at": "2026-02-24T13:57:32.977891Z",
+    "is_anonymous": false
+  }
+}\nAUTH ERROR: null\n

@@ -231,6 +231,15 @@ const App: React.FC = () => {
   const handleGoogleLogin = async (email: string, token: string) => {
     try {
       console.log(`[AUTH] Setting up Supabase session with Google Identity Token for ${email}`);
+
+      // FORCE clear all persistent state from any previous login attempts or debugging
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.startsWith('sb-') || key.includes('ministry_user_session'))) {
+          localStorage.removeItem(key);
+        }
+      }
+
       const { data: authData, error: authError } = await supabase.auth.signInWithIdToken({
         provider: 'google',
         token: token,
@@ -248,6 +257,7 @@ const App: React.FC = () => {
       let lastErr = null;
       try {
         // Use recursive explicit token to bypass local session lookup races
+
         user = await UserStore.getByEmail(email, authData.session.access_token);
       } catch (e: any) {
         lastErr = e.message || 'Unknown profile error';
