@@ -1193,6 +1193,12 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
         const sid = serviceIdToUse || selectedService.id;
         const sdate = autoSavedEvent?.date || selectedService.date;
 
+        // CRITICAL FIX: Explicitly guarantee check-in through the dedicated Express endpoint
+        // The RPC 'submit_member_entry' JSONB regex parser has a known bug silently failing attendance inserts.
+        if (sid) {
+          await MemberStore.checkIn(realMember.id, sid);
+        }
+
         // Fetch fresh stats
         try {
           // Delay slightly to ensure DB consistency if needed, but usually immediate is fine
