@@ -1,31 +1,25 @@
 const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
 
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+const supabase = createClient(
+    process.env.SUPABASE_URL || 'https://poazorjmzswectxvakzl.supabase.co',
+    process.env.SUPABASE_SERVICE_ROLE_KEY
+);
 
 async function checkPolicies() {
-    console.log("--- Checking RLS Policies for 'users' ---");
-    const query = `
-        SELECT
-            schemaname,
-            tablename,
-            policyname,
-            permissive,
-            roles,
-            cmd,
-            qual,
-            with_check
-        FROM pg_policies
-        WHERE tablename = 'users';
-    `;
-
-    const { data, error } = await supabase.rpc('exec_sql', { sql_query: query });
+    const { data, error } = await supabase.rpc('run_sql', { sql: "SELECT tablename, policyname, qual, with_check FROM pg_policies WHERE schemaname = 'public';" });
     if (error) {
-        console.error("Error checking policies (RPC exec_sql might be missing):", error.message);
-        // Fallback: search for a way to run SQL or assume common policies
+        console.error("Failed to fetch policies:", error);
     } else {
-        console.log("Policies:", JSON.stringify(data, null, 2));
+        const offendingPolicies = data.filter(p => {
+            const lowerQual = (p.qual || '').toLowerCase();
+            const lowerCheck = (p.with_check || '').toLowerCase();
+            return lowerQual.includes('jwt') || lowerCheck.includes('jwt') || lowerQual.includes('raw_user_meta_data') || lowerCheck.includes('raw_user_meta_data');
+        });
+
+        console.log("Total policies:", data.length);
+        console.log("Offending policies (depending on JWT):", offendingPolicies.length);
+        console.log(JSON.stringify(offendingPolicies, null, 2));
     }
 }
-
 checkPolicies();

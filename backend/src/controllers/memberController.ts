@@ -458,14 +458,8 @@ export const getEventAttendees = async (req: Request, res: Response) => {
 
         let targetEventId = idUuid;
 
-        // If it's a legacy ID, we need to map it to UUID first to use the optimized RPC
-        if (!idUuid) {
-            const { data: ev } = await supabase.from('ministry_events').select('id').eq('legacy_id', id).single();
-            if (ev && ev.id) {
-                targetEventId = ev.id;
-            } else {
-                return res.json([]); // Event not found
-            }
+        if (!targetEventId) {
+            return res.status(400).json({ error: 'Invalid UUID for event/service' });
         }
 
         const { data: unifiedAttendees, error: rpcError } = await supabase.rpc('get_event_attendees_unified', {

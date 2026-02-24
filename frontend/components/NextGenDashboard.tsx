@@ -214,7 +214,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                 // but checking the list before adding is the primary guard)
                 setNextGenSouls(prev => {
                     const alreadyExisted = prev.some(s => s.id === newSoul.id);
-                    if (!alreadyExisted && selectedServiceRef.current && (newSoul.service_id === selectedServiceRef.current.id || !!(selectedServiceRef.current.legacyId && newSoul.service_id === selectedServiceRef.current.legacyId))) {
+                    if (!alreadyExisted && selectedServiceRef.current && newSoul.service_id === selectedServiceRef.current.id) {
                         setSoulsWonCount(c => c + 1);
                     }
                     return prev;
@@ -226,9 +226,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                     const soulToDelete = prev.find(s => s.id === deletedId);
                     if (soulToDelete) {
                         // Check if it belongs to current service
-                        const matchesService = selectedServiceRef.current &&
-                            (soulToDelete.serviceId === selectedServiceRef.current.id ||
-                                (selectedServiceRef.current.legacyId && soulToDelete.serviceId === selectedServiceRef.current.legacyId));
+                        const matchesService = selectedServiceRef.current && soulToDelete.serviceId === selectedServiceRef.current.id;
 
                         if (matchesService && isMountedRef.current) {
                             setSoulsWonCount(c => Math.max(0, c - 1));
@@ -315,7 +313,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
 
         // If in checkout mode (Active Service View)
         if (viewMode === 'service-active' && selectedService) {
-            const isAttended = (c.attendedServiceIds.includes(selectedService.id) || !!(selectedService.legacyId && c.attendedServiceIds.includes(selectedService.legacyId)));
+            const isAttended = c.attendedServiceIds.includes(selectedService.id);
 
             // Filter by active stat card
             if (activeStatsFilter === 'CheckIn') {

@@ -7,12 +7,20 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Required for rate-limiting to work dynamically behind Nginx/ALB
+app.set('trust proxy', 1);
+
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 import { authenticate } from './middleware/auth';
+import authRoutes from './routes/authRoutes';
 
+// Public endpoints
+app.use('/api/auth', authRoutes);
+
+// Protected endpoints
 app.use(authenticate);
 
 import userRoutes from './routes/userRoutes';

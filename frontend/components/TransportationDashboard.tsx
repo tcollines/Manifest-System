@@ -220,7 +220,7 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
                 // 1. Vehicles: Filter by Station
                 const allVehicles = vehicleRes.status === 'success' ? vehicleRes.data : [];
                 const myStationVehicles = allVehicles.filter(v =>
-                    v.stationId === myStationId || v.stationId === dbStations.find(s => s.id === myStationId)?.legacyId
+                    v.stationId === myStationId
                 );
 
                 // Tracked Vehicles Transformation

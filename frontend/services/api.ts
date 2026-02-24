@@ -23,11 +23,18 @@ export const apiFetch = async (endpoint: string, options: RequestInit & { token?
     const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
 
     try {
-        const res = await fetch(`${API_URL}${endpoint}`, {
+        const fetchOptions: RequestInit = {
             ...options,
             headers,
             signal: controller.signal
-        });
+        };
+
+        // Aggressively prevent caching, especially critical for fetching fresh role profiles
+        if (options.method === 'GET' || !options.method) {
+            fetchOptions.cache = 'no-store';
+        }
+
+        const res = await fetch(`${API_URL}${endpoint}`, fetchOptions);
 
         clearTimeout(timeoutId);
 

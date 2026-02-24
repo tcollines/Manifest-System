@@ -41,6 +41,11 @@ export const getProfile = async (req: Request, res: Response) => {
     }
 
     try {
+        // Prevent stale browser caching on profile authentications
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+
         let { data, error } = await supabase
             .from('users')
             .select('*')
@@ -101,11 +106,22 @@ export const createUser = async (req: Request, res: Response) => {
     }
 };
 
+const ROLE_RANK: Record<string, number> = {
+    'Member': 1,
+    'Logistics': 2,
+    'Coordinator': 3,
+    'TeamLeader': 4,
+    'Administrator': 5,
+    'Super Admin': 6
+};
+
 export const updateUser = async (req: Request, res: Response) => {
     const manifestId = (req as any).manifestId;
-    if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
+    const authUser = (req as any).user;
+    if (!manifestId || !authUser) return res.status(401).json({ error: 'Unauthorized' });
 
     const { id } = req.params;
+
     try {
         const payload = {
             ...req.body,
@@ -117,10 +133,93 @@ export const updateUser = async (req: Request, res: Response) => {
         delete payload.stationId;
         delete payload.eventId;
 
-        const { error } = await supabase.from('users').update(payload).eq('manifest_id', manifestId).eq('id', id);
+        // Role Escalation & Invariant Protection
+        let oldRole = null;
+        if (payload.role) {
+            // 1. Fetch current target state to determine original role
+            const { data: targetUser } = await supabase.from('users').select('role').eq('id', id).maybeSingle();
+            oldRole = targetUser?.role;
+            const targetRole = payload.role;
+
+            if (oldRole !== targetRole) {
+                // Determine Actor Role (Supabase JS middleware sets `authUser.role` out of metadata, 
+                // but we should natively fetch actor role to remain purely DB-backed as part of Phase 3)
+                const { data: actor } = await supabase.from('users').select('role').eq('id', authUser.id).maybeSingle();
+                const actorRole = actor?.role;
+
+                if (!actorRole) throw new Error('Unauthorized role escalation. Actor role unresolved.');
+
+                if (process.env.ENFORCE_ROLE_GUARDS === 'true') {
+                    // A) Prevent Self-Escalation
+                    if (authUser.id === id) {
+                        console.warn('[SECURITY] Blocked role mutation attempt', {
+                            actor: authUser.id,
+                            target: id,
+                            attemptedRole: targetRole,
+                            reason: 'Self-Escalation'
+                        });
+                        throw new Error('Unauthorized: You cannot alter your own role.');
+                    }
+
+                    // B) Prevent Escalation Beyond Authority
+                    if ((ROLE_RANK[targetRole] || 0) >= (ROLE_RANK[actorRole] || 0) && actorRole !== 'Super Admin') {
+                        console.warn('[SECURITY] Blocked role mutation attempt', {
+                            actor: authUser.id,
+                            target: id,
+                            attemptedRole: targetRole,
+                            reason: 'Escalation Beyond Authority'
+                        });
+                        throw new Error('Unauthorized role escalation attempt. Target role exceeds your rank.');
+                    }
+
+                    // C) Protect Against "Last Super Admin" Deletion/Demotion
+                    if (oldRole === 'Super Admin' && targetRole !== 'Super Admin') {
+                        const { count: saCount } = await supabase
+                            .from('users')
+                            .select('*', { count: 'exact', head: true })
+                            .eq('role', 'Super Admin')
+                            .eq('manifest_id', manifestId);
+
+                        if (saCount && saCount <= 1) {
+                            console.warn('[SECURITY] Blocked role mutation attempt', {
+                                actor: authUser.id,
+                                target: id,
+                                attemptedRole: targetRole,
+                                reason: 'Last Super Admin Demotion'
+                            });
+                            throw new Error('Invariant Violation: Cannot demote the last Super Admin.');
+                        }
+                    }
+                }
+            }
+        }
+
+        // Execute Update
+        const { data, error } = await supabase.from('users')
+            .update(payload)
+            .eq('manifest_id', manifestId)
+            .eq('id', id)
+            .select();
+
         if (error) throw error;
+        if (!data || data.length === 0) {
+            console.error('[CRITICAL] User update failed: 0 rows affected', { payloadId: id, authUser: authUser.id });
+            throw new Error('User update failed: 0 rows affected. Possible UUID mismatch or RLS block.');
+        }
+
+        // D) Log Successful Role Mutation
+        if (payload.role && oldRole !== payload.role) {
+            await supabase.from('role_change_log').insert([{
+                user_id: id,
+                old_role: oldRole,
+                new_role: payload.role,
+                changed_by: authUser.id
+            }]);
+        }
+
         res.json({ message: 'User updated' });
     } catch (error: any) {
+        console.error('[USER UPDATE BLOCKED]', error.message);
         res.status(500).json({ error: error.message });
     }
 };
@@ -131,6 +230,27 @@ export const deleteUser = async (req: Request, res: Response) => {
 
     const { id } = req.params;
     try {
+        // C) Protect Against "Last Super Admin" Deletion
+        if (process.env.ENFORCE_ROLE_GUARDS === 'true') {
+            const { data: targetUser } = await supabase.from('users').select('role').eq('id', id).maybeSingle();
+            if (targetUser?.role === 'Super Admin') {
+                const { count: saCount } = await supabase
+                    .from('users')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('role', 'Super Admin')
+                    .eq('manifest_id', manifestId);
+
+                if (saCount && saCount <= 1) {
+                    console.warn('[SECURITY] Blocked role mutation attempt', {
+                        actor: (req as any).user?.id,
+                        target: id,
+                        reason: 'Last Super Admin Deletion'
+                    });
+                    throw new Error('Invariant Violation: Cannot delete the last Super Admin.');
+                }
+            }
+        }
+
         // Soft delete the user by updating status and scrambling the email/username to free it up
         const { error } = await supabase.from('users')
             .update({

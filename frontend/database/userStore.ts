@@ -64,109 +64,61 @@ export const UserStore = {
       }
 
       const input = username.trim();
-      const isEmailInput = input.includes('@');
 
-      // Helper to wrap signIn calls natively to prevent silent client timeout bugs
-      const attemptSignInAction = (signInEmail: string, pass: string): Promise<any> => {
-        return new Promise(async (resolve, reject) => {
-          let timeoutId = setTimeout(() => {
-            reject(new Error('Supabase Auth request timed out. Check network or CORS.'));
-          }, 10000);
-
-          try {
-            const res = await supabase.auth.signInWithPassword({ email: signInEmail, password: pass });
-            clearTimeout(timeoutId);
-            resolve(res);
-          } catch (err) {
-            clearTimeout(timeoutId);
-            reject(err);
-          }
-        });
-      };
-
+      // Secure Backend Login Proxy
       let authResult;
+      try {
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+        const response = await fetch(`${apiUrl}/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: input, password })
+        });
 
-      // 1. Try treating input literally as an email if it looks like one
-      if (isEmailInput) {
-        console.log(`[USERSTORE] Attempt 1 (Direct Email): ${input}`);
-        try {
-          authResult = await attemptSignInAction(input, password);
-        } catch (err: any) {
-          authResult = { error: err };
-        }
-      }
-
-      // 2. If it wasn't an email, or the email login failed, fall back to Username resolving
-      if (!isEmailInput || (authResult?.error && authResult.error.message?.includes('Invalid login credentials'))) {
-
-        const cleanUsername = input.replace(/ /g, '').replace(/@/g, '_').toLowerCase();
-        let fallbackEmail = `${cleanUsername}@manifest.local`;
-
-        console.log(`[USERSTORE] Attempting fallback mapped username email: ${fallbackEmail}`);
-
-        try {
-          authResult = await attemptSignInAction(fallbackEmail, password);
-        } catch (err: any) {
-          authResult = { error: err };
-        }
-
-        // 3. Fallback to Legacy UUID mapping via Secure RPC if initial mapped email fails
-        if (authResult?.error && (authResult.error.message?.includes('Invalid login credentials') || authResult.error.message?.includes('timed out'))) {
-          console.log(`[USERSTORE] Fallback 1 Failed. Fetching DB user ID via legacy RPC...`);
-
-          const { data: dbUserId, error: rpcError } = await supabase.rpc('get_user_uuid_for_login', {
-            p_username: input
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}));
+          authResult = { error: { message: errData.error || 'Login failed' } };
+        } else {
+          const { session } = await response.json();
+          // Store session into the local Supabase client instance so realtime & api fetch works
+          const { data: setSessionData, error: setSessionError } = await supabase.auth.setSession({
+            access_token: session.access_token,
+            refresh_token: session.refresh_token,
           });
 
-          if (!rpcError && dbUserId) {
-            console.log(`[USERSTORE] Fallback ID acquired. Attempting Short UUID logic.`)
-            const shortId = dbUserId.substring(0, 8);
-            fallbackEmail = `${cleanUsername}_${shortId}@manifest.local`;
-
-            try {
-              authResult = await attemptSignInAction(fallbackEmail, password);
-            } catch (err: any) {
-              authResult = { error: err };
-            }
-
-            // 4. Fallback to Full UUID
-            if (authResult?.error) {
-              console.log(`[USERSTORE] Short UUID failed. Attempting Full UUID logic.`)
-              const fullId = dbUserId.replace(/-/g, "");
-              fallbackEmail = `${cleanUsername}_${fullId}@manifest.local`;
-
-              try {
-                authResult = await attemptSignInAction(fallbackEmail, password);
-              } catch (err: any) {
-                authResult = { error: err };
-              }
-            }
+          if (setSessionError) {
+            authResult = { error: setSessionError };
           } else {
-            console.log(`[USERSTORE] Could not resolve RPC fallback ID for username.`, rpcError);
+            authResult = { data: { session } };
           }
         }
+      } catch (err: any) {
+        authResult = { error: err };
       }
 
       if (authResult?.error) {
-        console.error(`[USERSTORE] All auth attempts failed:`, authResult.error.message);
+        console.error(`[USERSTORE] Auth attempts failed:`, authResult.error.message);
         return { status: 'error', message: 'Invalid credentials or Auth failure', error: authResult.error };
       }
 
-      console.log(`[USERSTORE] Auth Success. JWT acquired. Fetching core profile via RLS...`);
+      console.log(`[USERSTORE] Auth Success. JWT acquired. Fetching core profile via /users/profile endpoints...`);
       // Fetch full user profile from database now that we have a JWT
-      const { data: userData, error: dbError } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', authResult.data.user.id)
-        .single();
+      // We must use the API getProfile, because it securely handles Legacy ID vs Auth ID duplication 
+      // by falling back to the email with the most complete profile data.
+      let profileData = null;
+      try {
+        profileData = await apiFetch('/users/profile', { token: authResult.data.session.access_token });
+      } catch (e) {
+        console.error(`[USERSTORE] API Profile Fetch Failed:`, e);
+      }
 
-      if (dbError || !userData) {
-        console.error(`[USERSTORE] RLS Core Profile Fetch Failed:`, dbError);
-        return { status: 'error', message: 'User profile not found in database', error: dbError };
+      if (!profileData) {
+        console.error(`[USERSTORE] User profile not found in database via API fallback`);
+        return { status: 'error', message: 'User profile not found in database' };
       }
 
       console.log(`[USERSTORE] Core Profile Fetched. Login Complete.`);
-      return { status: 'success', data: mapUserFromDB(userData) };
+      return { status: 'success', data: mapUserFromDB(profileData) };
 
     } catch (error: any) {
       console.error(`[USERSTORE LOGIN CATCH]`, error);
