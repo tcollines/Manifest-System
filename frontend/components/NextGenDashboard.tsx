@@ -1402,6 +1402,11 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                                                                 </span>
                                                             )}
                                                         </div>
+                                                        <div className="flex items-center gap-2 mt-1 mb-1">
+                                                            <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-blue-50 text-blue-700 border border-blue-200">
+                                                                Cat: {c.category || 'Missing'}
+                                                            </span>
+                                                        </div>
                                                         <p className="text-xs text-gray-500 truncate">{c.age} yrs • Parent: {c.parentName} ({c.parentContact})</p>
                                                     </div>
                                                     <div>
