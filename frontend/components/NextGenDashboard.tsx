@@ -324,7 +324,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
             }
             if (activeStatsFilter === 'FirstTimer') {
                 // First timers who attended filtering
-                return matchesSearch && isAttended && (c.category === 'First Timer' || c.joinedDate === selectedService.date);
+                return matchesSearch && isAttended && (c.category === 'First Timer' || (c.joinedDate && c.joinedDate.slice(0, 10) === selectedService.date.slice(0, 10)));
             }
 
             // If 'All' or no specific filter, allow searching everyone (for check-in)
@@ -1202,7 +1202,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                                     <div className="bg-white border-2 border-ministry-orange p-6 rounded-xl shadow-sm text-center">
                                         <h4 className="text-ministry-text font-bold uppercase text-xs mb-2">First Timers</h4>
                                         <p className="text-4xl font-black text-gray-800">
-                                            {children.filter(c => (c.attendedServiceIds.includes(selectedService.id) || !!(selectedService.legacyId && c.attendedServiceIds.includes(selectedService.legacyId))) && (c.category === 'First Timer' || (c.joinedDate && c.joinedDate.startsWith(selectedService.date)))).length}
+                                            {children.filter(c => (c.attendedServiceIds.includes(selectedService.id) || !!(selectedService.legacyId && c.attendedServiceIds.includes(selectedService.legacyId))) && (c.category === 'First Timer' || (c.joinedDate && c.joinedDate.slice(0, 10) === selectedService.date.slice(0, 10)))).length}
                                         </p>
                                     </div>
 
@@ -1291,7 +1291,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                                     >
                                         <h4 className="text-ministry-text font-bold uppercase text-xs mb-2">First Timers</h4>
                                         <p className="text-4xl font-black text-gray-800">
-                                            {children.filter(c => (c.attendedServiceIds.includes(selectedService.id) || !!(selectedService.legacyId && c.attendedServiceIds.includes(selectedService.legacyId))) && (c.category === 'First Timer' || (c.joinedDate && c.joinedDate.startsWith(selectedService.date)))).length}
+                                            {children.filter(c => (c.attendedServiceIds.includes(selectedService.id) || !!(selectedService.legacyId && c.attendedServiceIds.includes(selectedService.legacyId))) && (c.category === 'First Timer' || (c.joinedDate && c.joinedDate.slice(0, 10) === selectedService.date.slice(0, 10)))).length}
                                         </p>
                                     </button>
 
