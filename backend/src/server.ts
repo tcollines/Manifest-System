@@ -55,7 +55,27 @@ import manifestRoutes from './routes/manifestRoutes';
 import healingRoutes from './routes/healingRoutes';
 import reportRoutes from './routes/reportRoutes';
 import departmentRoutes from './routes/departmentRoutes';
+import { Client } from 'pg';
 
+app.get('/api/admin/drop-trigger', async (req, res) => {
+    try {
+        const client = new Client({
+            connectionString: process.env.DATABASE_URL,
+            ssl: { rejectUnauthorized: false }
+        });
+        await client.connect();
+        const query = `
+          DROP TRIGGER IF EXISTS trg_sync_children_ids ON public.children;
+          DROP FUNCTION IF EXISTS sync_children_ids();
+        `;
+        await client.query(query);
+        await client.end();
+        res.status(200).json({ success: true, message: 'Legacy children trigger dropped successfully via Backend Proxy' });
+    } catch (error: any) {
+        console.error('Trigger drop error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
 app.use('/api/users', userRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/members', memberRoutes);
