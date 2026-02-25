@@ -19,6 +19,7 @@ export interface VolunteerAttendance {
   status: 'Present' | 'Late' | 'Absent';
   notes?: string;
   timestamp?: string;
+  manifestId?: string;
 }
 
 export interface ChartData {

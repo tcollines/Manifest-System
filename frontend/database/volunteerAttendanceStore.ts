@@ -9,7 +9,8 @@ const mapFromDB = (record: any): VolunteerAttendance => ({
     role: record.role,
     status: record.status,
     notes: record.notes,
-    timestamp: record.timestamp
+    timestamp: record.timestamp,
+    manifestId: record.manifest_id
 });
 
 const mapToDB = (attendance: VolunteerAttendance) => ({
@@ -20,7 +21,8 @@ const mapToDB = (attendance: VolunteerAttendance) => ({
     role: attendance.role,
     status: attendance.status,
     notes: attendance.notes,
-    timestamp: attendance.timestamp
+    timestamp: attendance.timestamp,
+    ...(attendance.manifestId && { manifest_id: attendance.manifestId })
 });
 
 export const VolunteerAttendanceStore = {

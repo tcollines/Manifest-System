@@ -335,7 +335,8 @@ const NextGenTeam: React.FC<NextGenTeamProps> = ({ currentUser }) => {
                     date: selectedEvent.date,
                     role: volunteers.find(v => v.id === userId)?.role || 'Volunteer',
                     status: newStatus,
-                    timestamp: new Date().toISOString()
+                    timestamp: new Date().toISOString(),
+                    manifestId: currentUser?.manifestId || '' // Failsafe, though required in DB
                 };
                 await VolunteerAttendanceStore.save(record);
             }
