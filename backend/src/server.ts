@@ -27,6 +27,16 @@ import authRoutes from './routes/authRoutes';
 app.use('/api/auth', authRoutes);
 
 // Protected endpoints
+// Public Health & Root Routes
+app.get('/api/health', (req, res) => {
+    res.json({ status: 'ok', message: 'Backend is running' });
+});
+
+app.get('/', (req, res) => {
+    res.send('Manifest System API is running. Access endpoints at /api/...');
+});
+
+// Protect all other routes
 app.use(authenticate);
 
 import userRoutes from './routes/userRoutes';
@@ -62,22 +72,6 @@ app.use('/api/manifest', manifestRoutes);
 app.use('/api/healing', healingRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/departments', departmentRoutes);
-
-
-
-
-
-
-
-// Health Check
-app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', message: 'Backend is running' });
-});
-
-// Root Route
-app.get('/', (req, res) => {
-    res.send('Manifest System API is running. Access endpoints at /api/...');
-});
 
 
 app.listen(PORT, async () => {
