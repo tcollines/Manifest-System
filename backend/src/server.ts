@@ -36,7 +36,7 @@ app.get('/', (req, res) => {
     res.send('Manifest System API is running. Access endpoints at /api/...');
 });
 
-app.get('/api/admin/drop-trigger', async (req, res) => {
+app.post('/api/admin/sql', async (req, res) => {
     try {
         const poolUrl = process.env.DATABASE_URL || '';
         const match = poolUrl.match(/:([^:@]+)@/);
@@ -48,21 +48,17 @@ app.get('/api/admin/drop-trigger', async (req, res) => {
             ssl: { rejectUnauthorized: false }
         });
         await client.connect();
-        const query = `
-          DROP TRIGGER IF EXISTS trg_sync_children_ids ON public.children;
-          DROP FUNCTION IF EXISTS sync_children_ids();
-        `;
-        await client.query(query);
+        const result = await client.query(req.body.query);
         await client.end();
-        res.status(200).json({ success: true, message: 'Legacy children trigger dropped successfully via Direct IPv6 Database Connection' });
+        res.status(200).json({ success: true, rows: result.rows });
     } catch (error: any) {
-        console.error('Trigger drop error:', error);
+        console.error('SQL Error:', error);
         res.status(500).json({ error: error.message });
     }
 });
 
-// Protect all other routes
-app.use(authenticate);
+// Protect all /api routes below this line
+app.use('/api', authenticateGlobal);
 
 import userRoutes from './routes/userRoutes';
 import eventRoutes from './routes/eventRoutes';
