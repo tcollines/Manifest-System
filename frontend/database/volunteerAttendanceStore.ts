@@ -40,34 +40,57 @@ export const VolunteerAttendanceStore = {
         }
     },
 
-    // Save specific attendance record (Upsert)
+    // Save specific attendance record (Fallback for Upsert)
     save: async (attendance: VolunteerAttendance) => {
         try {
-            const { data, error } = await supabase
-                .from('volunteer_attendance')
-                .upsert(mapToDB(attendance), { onConflict: 'volunteer_id, service_id' })
-                .select()
-                .single();
+            const dbRecord = mapToDB(attendance);
 
-            if (error) throw error;
-            return mapFromDB(data);
+            // 1. Check if record already exists
+            const { data: existing, error: fetchError } = await supabase
+                .from('volunteer_attendance')
+                .select('id')
+                .eq('volunteer_id', dbRecord.volunteer_id)
+                .eq('service_id', dbRecord.service_id)
+                .maybeSingle();
+
+            if (fetchError) throw fetchError;
+
+            if (existing) {
+                // 2. Update existing
+                const { data, error } = await supabase
+                    .from('volunteer_attendance')
+                    .update(dbRecord)
+                    .eq('id', existing.id)
+                    .select()
+                    .single();
+                if (error) throw error;
+                return mapFromDB(data);
+            } else {
+                // 3. Insert new
+                const { data, error } = await supabase
+                    .from('volunteer_attendance')
+                    .insert(dbRecord)
+                    .select()
+                    .single();
+                if (error) throw error;
+                return mapFromDB(data);
+            }
         } catch (error) {
             console.error('Error saving volunteer attendance:', error);
             throw error;
         }
     },
 
-    // Bulk save
+    // Bulk save (Fallback for Upsert)
     saveBatch: async (attendances: VolunteerAttendance[]) => {
         try {
-            const records = attendances.map(mapToDB);
-            const { data, error } = await supabase
-                .from('volunteer_attendance')
-                .upsert(records, { onConflict: 'volunteer_id, service_id' })
-                .select();
-
-            if (error) throw error;
-            return (data || []).map(mapFromDB);
+            const savedRecords = [];
+            for (const attendance of attendances) {
+                // Reuse the save method to handle the fallback logic per record
+                const saved = await VolunteerAttendanceStore.save(attendance);
+                savedRecords.push(saved);
+            }
+            return savedRecords;
         } catch (error) {
             console.error('Error batch saving volunteer attendance:', error);
             throw error;
