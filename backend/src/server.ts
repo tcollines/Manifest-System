@@ -58,7 +58,7 @@ app.post('/api/admin/sql', async (req, res) => {
 });
 
 // Protect all /api routes below this line
-app.use('/api', authenticateGlobal);
+app.use('/api', authenticate);
 
 import userRoutes from './routes/userRoutes';
 import eventRoutes from './routes/eventRoutes';
