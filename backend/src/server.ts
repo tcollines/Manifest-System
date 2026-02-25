@@ -38,8 +38,13 @@ app.get('/', (req, res) => {
 
 app.get('/api/admin/drop-trigger', async (req, res) => {
     try {
+        const poolUrl = process.env.DATABASE_URL || '';
+        const match = poolUrl.match(/:([^:@]+)@/);
+        const password = match ? match[1] : '';
+        const directUrl = `postgres://postgres:${password}@db.poazorjmzswectxvakzl.supabase.co:5432/postgres`;
+
         const client = new Client({
-            connectionString: process.env.DATABASE_URL,
+            connectionString: directUrl,
             ssl: { rejectUnauthorized: false }
         });
         await client.connect();
@@ -49,7 +54,7 @@ app.get('/api/admin/drop-trigger', async (req, res) => {
         `;
         await client.query(query);
         await client.end();
-        res.status(200).json({ success: true, message: 'Legacy children trigger dropped successfully via Backend Proxy' });
+        res.status(200).json({ success: true, message: 'Legacy children trigger dropped successfully via Direct IPv6 Database Connection' });
     } catch (error: any) {
         console.error('Trigger drop error:', error);
         res.status(500).json({ error: error.message });
