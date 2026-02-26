@@ -101,10 +101,7 @@ const ParkingDashboard: React.FC<ParkingDashboardProps> = ({ events = [], onOpen
                 setVehicles(prev => prev.filter(v => v.id !== deletedId));
             })
 
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'ministry_events' }, () => {
-                // Ideally handle event updates granularly or ignore if handled by parent
-                refreshData();
-            })
+
             .subscribe();
 
         return () => {
@@ -236,8 +233,11 @@ const ParkingDashboard: React.FC<ParkingDashboardProps> = ({ events = [], onOpen
         if (!selectedService) return;
         const vehicle = vehicles.find(v => v.id === vehicleId);
         if (vehicle) {
+            // Prefer UUID if available
+            const targetId = vehicle.id; // Controller handles lookup by either ID
+
             // Check In via Store (updates DB + Attendance Log)
-            await ParkingStore.checkIn(vehicleId, selectedService.id);
+            await ParkingStore.checkIn(targetId, selectedService.id);
 
             // Optimistic Update UI
             const history = vehicle.attendedServiceIds || [];
@@ -259,7 +259,10 @@ const ParkingDashboard: React.FC<ParkingDashboardProps> = ({ events = [], onOpen
     const handleCheckOut = async (vehicleId: string) => {
         const vehicle = vehicles.find(v => v.id === vehicleId);
         if (vehicle) {
-            await ParkingStore.checkOut(vehicleId);
+            // Prefer UUID if available
+            const targetId = vehicle.id; // Controller handles lookup by either ID
+
+            await ParkingStore.checkOut(targetId);
 
             // Optimistic Update UI
             const updated: PersonalVehicle = {
@@ -351,7 +354,8 @@ const ParkingDashboard: React.FC<ParkingDashboardProps> = ({ events = [], onOpen
             driverName: formData.driverName,
             driverContact: formData.driverContact,
             status: 'Absent',
-            registeredDate: new Date().toISOString().split('T')[0]
+            registeredDate: new Date().toISOString().split('T')[0],
+            attendedServiceIds: []
         };
 
         await ParkingStore.add(newVehicle);
@@ -382,7 +386,8 @@ const ParkingDashboard: React.FC<ParkingDashboardProps> = ({ events = [], onOpen
                         driverName: name,
                         driverContact: contact,
                         status: 'Absent',
-                        registeredDate: new Date().toISOString().split('T')[0]
+                        registeredDate: new Date().toISOString().split('T')[0],
+                        attendedServiceIds: []
                     });
                     count++;
                 }

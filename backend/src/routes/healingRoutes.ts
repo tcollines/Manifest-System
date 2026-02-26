@@ -7,6 +7,9 @@ const router = Router();
 // POST /healing/reports
 router.post('/reports', async (req, res) => {
     try {
+        const manifestId = (req as any).manifestId;
+        if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
+
         const { date, hospital_name, labourers_count, souls_count, people_reached, notes, captured_by, testimonies, souls } = req.body;
         console.log('Received Healing Report Payload:', JSON.stringify(req.body, null, 2));
 
@@ -14,6 +17,7 @@ router.post('/reports', async (req, res) => {
         const { data: report, error: reportError } = await supabase
             .from('healing_reports')
             .insert([{
+                manifest_id: manifestId, // INJECT TENANT ID
                 date,
                 hospital_name,
                 labourers_count,
@@ -32,6 +36,7 @@ router.post('/reports', async (req, res) => {
         // B. Insert Testimonies (if any)
         if (testimonies && testimonies.length > 0) {
             const testimoniesToInsert = testimonies.map((t: any) => ({
+                manifest_id: manifestId, // INJECT TENANT ID
                 report_id: reportId,
                 content: t.content,
                 testifier_name: t.testifier_name,
@@ -48,6 +53,7 @@ router.post('/reports', async (req, res) => {
         // C. Insert Souls (if any)
         if (souls && souls.length > 0) {
             const soulsToInsert = souls.map((s: any) => ({
+                manifest_id: manifestId, // INJECT TENANT ID
                 first_name: s.firstName,
                 last_name: s.lastName,
                 phone: s.phone,
@@ -80,12 +86,16 @@ router.post('/reports', async (req, res) => {
 // GET /healing/reports
 router.get('/reports', async (req, res) => {
     try {
+        const manifestId = (req as any).manifestId;
+        if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
+
         const { data, error } = await supabase
             .from('healing_reports')
             .select(`
                 *,
                 healing_testimonies (*)
             `)
+            .eq('manifest_id', manifestId) // Tenant Isolation
             .order('date', { ascending: false });
 
         if (error) throw error;
@@ -99,12 +109,16 @@ router.get('/reports', async (req, res) => {
 // PUT /healing/reports/:id
 router.put('/reports/:id', async (req, res) => {
     try {
+        const manifestId = (req as any).manifestId;
+        if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
+
         const { id } = req.params;
         const { date, hospital_name, labourers_count, souls_count, notes, people_reached } = req.body;
 
         const { data, error } = await supabase
             .from('healing_reports')
             .update({ date, hospital_name, labourers_count, souls_count, notes, people_reached })
+            .eq('manifest_id', manifestId) // Tenant Isolation
             .eq('id', id)
             .select()
             .single();
@@ -120,11 +134,15 @@ router.put('/reports/:id', async (req, res) => {
 // DELETE /healing/reports/:id
 router.delete('/reports/:id', async (req, res) => {
     try {
+        const manifestId = (req as any).manifestId;
+        if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
+
         const { id } = req.params;
 
         const { error } = await supabase
             .from('healing_reports')
             .delete()
+            .eq('manifest_id', manifestId) // Tenant Isolation
             .eq('id', id);
 
         if (error) throw error;
@@ -138,19 +156,13 @@ router.delete('/reports/:id', async (req, res) => {
 // GET /healing/souls
 router.get('/souls', async (req, res) => {
     try {
-        // Fetch souls linked to healing reports via source_id
-        // We use a join or subquery logic. 
-        // Supabase simpler approach: Select souls where source_type is 'Outreach' and source_id is in the list of healing report IDs.
-        // OR better: Filter by metadata if possible.
-        // Let's rely on source_type="Outreach" for now, or fetch all and filter client side if volume is low? 
-        // No, let's do server side.
-
-        // Option A: Join not easy on generic souls table without explicit FK setup sometimes.
-        // Option B: Query all souls with source_type = 'Outreach' (Assuming only Healing uses this for now or filtering by notes)
+        const manifestId = (req as any).manifestId;
+        if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
 
         const { data, error } = await supabase
             .from('souls')
             .select('*')
+            .eq('manifest_id', manifestId) // Tenant Isolation
             .eq('source_type', 'Healing Dept')
             // .ilike('notes', '%Healing%') // No longer needed as source_type is explicit
             .order('created_at', { ascending: false });
@@ -166,12 +178,16 @@ router.get('/souls', async (req, res) => {
 // GET /healing/testimonies
 router.get('/testimonies', async (req, res) => {
     try {
+        const manifestId = (req as any).manifestId;
+        if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
+
         const { data, error } = await supabase
             .from('healing_testimonies')
             .select(`
                 *,
                 healing_reports (hospital_name, date)
             `)
+            .eq('manifest_id', manifestId) // Tenant Isolation
             .order('created_at', { ascending: false });
 
         if (error) throw error;
@@ -184,12 +200,16 @@ router.get('/testimonies', async (req, res) => {
 // PUT /healing/testimonies/:id
 router.put('/testimonies/:id', async (req, res) => {
     try {
+        const manifestId = (req as any).manifestId;
+        if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
+
         const { id } = req.params;
         const { content, testifier_name, testifier_contact } = req.body;
 
         const { data, error } = await supabase
             .from('healing_testimonies')
             .update({ content, testifier_name, testifier_contact })
+            .eq('manifest_id', manifestId) // Tenant Isolation
             .eq('id', id)
             .select()
             .single();
@@ -205,11 +225,15 @@ router.put('/testimonies/:id', async (req, res) => {
 // DELETE /healing/testimonies/:id
 router.delete('/testimonies/:id', async (req, res) => {
     try {
+        const manifestId = (req as any).manifestId;
+        if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
+
         const { id } = req.params;
 
         const { error } = await supabase
             .from('healing_testimonies')
             .delete()
+            .eq('manifest_id', manifestId) // Tenant Isolation
             .eq('id', id);
 
         if (error) throw error;
@@ -222,25 +246,26 @@ router.delete('/testimonies/:id', async (req, res) => {
 // GET /healing/stats
 router.get('/stats', async (req, res) => {
     try {
-        // Example: Get total souls won via Healing Dept, etc.
-        // For now, simpler to just aggregate on frontend or do a quick query.
+        const manifestId = (req as any).manifestId;
+        if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
 
         // Total Reports
         const { count: reportCount, error: err1 } = await supabase
             .from('healing_reports')
-            .select('*', { count: 'exact', head: true });
+            .select('*', { count: 'exact', head: true })
+            .eq('manifest_id', manifestId); // Tenant Isolation
 
         // Total Testimonies
         const { count: testimonyCount, error: err2 } = await supabase
             .from('healing_testimonies')
-            .select('*', { count: 'exact', head: true });
+            .select('*', { count: 'exact', head: true })
+            .eq('manifest_id', manifestId); // Tenant Isolation
 
         // Total Souls (Sum of souls_count column)
-        // Note: 'sum' is not directly supported via postgrest js client easily without .rpc() or client-side reduction.
-        // We can do a quick select of the column.
         const { data: soulsData, error: err3 } = await supabase
             .from('healing_reports')
-            .select('souls_count');
+            .select('souls_count')
+            .eq('manifest_id', manifestId); // Tenant Isolation
 
         const totalSouls = soulsData ? soulsData.reduce((acc, curr) => acc + (curr.souls_count || 0), 0) : 0;
 

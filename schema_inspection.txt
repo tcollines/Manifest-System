@@ -1,0 +1,5 @@
+Members Columns:
+attended_service_ids, born_again, category, check_in_time, created_at, email, first_timer_date, first_timer_service_id, gender, id, is_first_timer, is_phaneroo_member, joined_date, legacy_id, location_coordinates, name, name_norm, occupation, phone, phone_last9, place_id, place_of_work, referral_source, residency, residency_norm, status
+
+Children Columns:
+absence_reason, age, allergies, assigned_to, attended_service_ids, care_notes, category, check_in_time, check_out_time, created_at, first_timer_date, first_timer_service_id, follow_up_status, gender, how_heard, id, id_legacy_deprecated, is_first_timer, joined_date, legacy_id, location_coordinates, name, parent_contact, parent_name, place_id, residence, salvation_date, status

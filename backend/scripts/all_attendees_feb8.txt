@@ -1,0 +1,374 @@
+Attendance Report - Feb 8th, 2026
+Total Unique: 369
+--------------------------------------------------------------------------------
+Name | Category | Phone | Check-in Time(s)
+--------------------------------------------------------------------------------
+ABBO ANNA                      | Member          | 256788500514    | 12:09:59
+Aber Diana                     | First Timer     | 256764678652    | 18:20:00, 18:20:00
+ABER RACHAEL                   | Member          | 256771369612    | 09:22:45, 09:22:45, 09:22:45, 09:22:45
+Aboagye Gilbert Jace           | Member          | +256740352428   | 13:53:44
+ABRAHAM KIGGUNDU               | Member          | 256707253977    | 19:37:01
+ACHAM JULIANA                  | First Timer     | +256789622914   | 12:52:14
+ACHIDRI JIMMY                  | Member          | 256756260408    | 10:00:32
+ACHOLA PRISCA                  | Member          | 256704391223    | 11:04:25, 11:04:25, 11:04:25
+ADAM TURYAHABWE                | Member          | 256707199429    | 09:13:48, 09:13:48, 09:13:48, 09:13:48
+ADERO FRIDAH                   | Member          |                 | 11:58:37, 11:58:37
+ADONGO MILDRED JANE            | Member          | 256704354859    | 08:15:28, 08:15:28
+ADYERI KABAGWERI               | First Timer     | 256             | 16:25:58, 16:25:58
+AGABA EDITH                    | Member          | 256742786641    | 16:14:38
+AGAPE PROMISILAR PHIONA        | Member          | 256741197026    | 09:21:14, 09:21:14, 09:21:14, 09:21:14
+AGUTI ELIZABETH                | First Timer     | +256781938772   | 12:47:25
+AIDAH PATIENCE                 | First Timer     | +256749931222   | 12:52:27
+AINE FRANCIS                   | Member          | 256700405936    | 09:02:45, 09:02:45, 09:02:45, 09:02:45
+AINOMUGISHA ISAAC              | Member          | 256755084882    | 12:42:16, 12:42:16, 12:42:16
+AJAMBO JUSTINE                 | Member          | 256708975043    | 09:56:57, 09:56:57
+AKANGWANAHO IVAN ZION          | Member          | 256703662096    | 08:54:48, 08:54:48, 08:54:48
+AKATURINDA PATIENCE            | Member          | 256788281691    | 09:42:27
+AKELLO CHRISTINE               | Member          | 256786626091    | 10:46:18
+AKELLO SHARON                  | Member          | 256774016456    | 09:13:14, 09:13:14
+AKITE ISABELLA                 | Member          | 256772370867    | 11:58:22, 11:58:22
+AKITE RITAH                    | Member          | +256753059447   | 12:08:34, 12:08:34, 12:08:34
+AKOL PRILLAR                   | Member          | 256759824553    | 11:55:18
+AKWII MERCY                    | First Timer     | +256768610602   | 15:29:58, 15:29:58
+ALEXANDER KYOOGA               | Member          | 256706368313    | 15:53:40
+ALIBO MARTHA                   | Member          | 256767286772    | 08:22:40, 08:22:40, 08:22:40
+ALITUSABIRA PATRICIA           | Member          | 256773334986    | 10:06:20, 10:06:20, 10:06:20
+ALLYSON CATHY                  | First Timer     | +256709816607   | 16:27:30, 16:27:30
+ALOYSIUS ALIU                  | Member          | 256787449508    | 11:06:00, 11:06:00
+AMONG BEST LYNN                | Member          | 256773631214    | 08:16:05, 08:16:05, 08:16:05, 08:16:05
+AMONG PRISCILLA HANNAH         | Member          | 256774120460    | 14:51:25
+AMONGIN CAROLINE               | Member          | 256784891418    | 12:16:08, 12:16:08, 12:16:08
+ANDREW KENNY                   | Member          | 256703545972    | 08:12:45, 08:12:45, 08:12:45
+Andyaye Lydia                  | Member          | 256761356674    | 11:52:52, 11:52:52, 11:52:52, 11:52:52
+ANGOL RAYMOND                  | Member          | +256702230427   | 11:57:51, 11:57:51, 11:57:51
+Anita Seera                    | Member          | 256758054989    | 09:13:34, 09:13:34, 09:13:34, 09:13:34, 09:13:34
+ANOK BONN                      | First Timer     | 256788589472    | 18:55:00, 18:55:00
+Anok Bonna                     | Member          | 256788589472    | 19:15:00, 19:15:00
+APIO ELIZABETH                 | Member          | 256783378020    | 10:14:04
+ARIHO DERRICK                  | Member          | 256706994323    | 17:14:10
+ARINITWE ELIJAH                | Member          | 256756529124    | 12:05:48, 12:05:48
+ASIIMWE PAUL ISRAEL            | First Timer     | +256705623780   | 16:41:03, 16:41:03
+ATIM MERCY BARBARA             | Member          | 256776335807    | 16:42:20
+ATIM PAMELLA                   | Member          | 256778209149    | 08:15:17, 08:15:17, 08:15:17
+ATIM SARAH                     | Member          | 256772014155    | 09:21:50, 09:21:50, 09:21:50
+ATUHAIRE CALEB                 | Member          | +256761287090   | 13:11:09
+ATUHAIRE CAROLYNE              | Member          | 256753039738    | 11:55:09, 11:55:09, 11:55:09
+ATYANG SHEILA GRACE            | Member          | 256786347990    | 11:08:00, 11:08:00, 11:08:00, 11:08:00
+AYERO DIANA                    | Member          | 256774632963    | 12:39:09
+AYESIGA DAISY                  | Member          | 256785174215    | 12:16:40, 12:16:40, 12:16:40, 12:16:40
+AYIKORU LILIAN                 | Member          | 256786764376    | 09:53:22
+BABUZA ERICK                   | Member          | 256775099311    | 11:51:25, 11:51:25, 11:51:25
+BAINOMUGISHA DANIEL            | Member          | 256773365299    | 16:15:25
+BALIDAWA FREDRICK              | Member          | 256756260408    | 10:01:09, 10:01:09
+BALUKA CATHERINE               | Member          | 256704513073    | 16:56:46
+BARAKA SHALOM ASIANJU          | Member          | 256777109066    | 11:32:28, 11:32:28
+BAYO MERCY                     | Member          | 256706052465    | 11:22:53, 11:22:53, 11:22:53, 11:22:53
+BBOSA ERIC                     | Member          | 256705898315    | 10:13:07
+BBUYE ABDU MIIRO               | Member          | +256703862689   | 09:50:16
+BERNADETTE ATIMAKU             | Member          | 256774447270    | 16:06:23
+BESIGA IAN RUTAMWEBA           | Member          | 256701926648    | 08:14:14, 08:14:14, 08:14:14, 08:14:14
+BETH KABAHANDA                 | Member          | 256779876138    | 11:52:52, 11:52:52, 11:52:52
+BETTY ALAL                     | Member          | 256781289240    | 12:26:47
+BIIRA JOYCE                    | First Timer     | +256769323379   | 15:20:32, 15:20:32
+BIRUNGI MONICAH                | Member          | 256704301868    | 08:12:56, 08:12:56, 08:12:56, 08:12:56
+BIRUNGI MONICAH_MIGRATION_m-bu | Member          | 256704301868    | 08:12:56, 08:12:56, 08:12:56, 08:12:56
+BIRUNGI OLIVA                  | Member          | 256786220810    | 11:32:59
+BIYONZA ELEANOR                | First Timer     | +256701939213   | 10:42:00, 10:42:00
+BONABANA SHARON                | Member          | 256703050553    | 12:27:11, 12:27:11
+BRIAN IVAN                     | Member          | 2567858557084   | 10:54:17, 10:54:17
+BUSINGE CYNTHIA                | Member          | 256742881464    | 17:20:26
+BUSUULWA TIMOTHY TENDO         | Member          | +256750387937   | 11:29:10, 11:29:10, 11:29:10
+CALEB SANYA                    | Member          | 256756027972    | 08:15:46, 08:15:46
+CAROLINE KIWANUKA              | First Timer     | +25673328765    | 15:22:58, 15:22:58
+CHARITY NYADOI                 | Member          | 256759768097    | 12:54:29
+CHELANGAI MARTHA               | Member          | 256775055073    | 09:27:13
+CHEMUTAI WINNIE                | Member          | 256760502486    | 09:50:41
+COLLINS KAZIBWE                | Member          | 256701010564    | 10:39:42, 10:39:42, 10:39:42
+DANIEL OLUKA                   | Member          | 256705670428    | 08:17:14, 08:17:14, 08:17:14, 08:17:14
+DDEMBE DANIEL                  | Member          | 256709620362    | 08:12:32, 08:12:32, 08:12:32, 08:12:32
+DDEMBE LYDIA                   | Member          | 256703778435    | 08:12:06, 08:12:06, 08:12:06, 08:12:06
+DEO OPULE                      | Member          | 256741702565    | 15:42:57
+DERRICK ANDREW MWASE           | Member          | 256704460220    | 15:50:48
+DESIRE JONATHAN                | Member          | 256700145862    | 08:15:05, 08:15:05, 08:15:05, 08:15:05
+DESTINY MULUNGI                | Member          | 256774303330    | 08:48:58, 08:48:58, 08:48:58
+DUSHIME FERESTANCE             | Member          | 256765275100    | 11:46:54, 11:46:54
+EBU DERRICK                    | Member          | 256700893745    | 09:12:06, 09:12:06, 09:12:06, 09:12:06
+EJANG FATIA                    | Member          | 256779535231    | 15:58:55
+EJOGA SHARIF                   | Member          | 256757433879    | 09:33:18, 09:33:18, 09:33:18, 09:33:18
+ELIEBU CALEB                   | Member          | 256787060045    | 16:09:55
+EMMA ALINAITWE                 | Member          | +256782135581   | 13:20:15
+EMORIMOR SAMUEL                | Member          | 256781083134    | 09:38:08, 09:38:08
+ENYAKU EDWARD                  | Member          | +256703103813   | 08:45:27, 08:45:27
+Eria Kalule                    | Member          | 256771280771    | 17:15:50, 17:15:50
+ESTHER MATA                    | Member          | 256744233216    | 12:00:03, 12:00:03, 12:00:03
+EUNICE ANYANGO                 | Member          | 256762137281    | 11:42:41, 11:42:41
+EUNICE ASESO                   | First Timer     | 256758442249    | 18:43:00, 18:43:00
+EVELYNE LWEGABA                | Member          | 256782465359    | 17:31:21
+EYALU DAVID                    | First Timer     | +256782761743   | 11:23:44
+FIONA MONICAH                  | First Timer     | +256766522442   | 09:36:59
+FLAVIA EBU                     | Member          | 256774823932    | 11:34:11, 11:34:11, 11:34:11
+FREBASA JOEL                   | Member          | +256744797062   | 13:20:30
+GANDA PEACE                    | Member          | 256771387516    | 11:53:33, 11:53:33, 11:53:33, 11:53:33
+GERALD MURUNGI                 | Member          | +256776906793   | 08:55:00, 08:55:00
+GIMBO LILIAN                   | Member          | 256702911716    | 09:49:23, 09:49:23, 09:49:23, 09:49:23
+GRACE DORAH                    | Member          | 256754526539    | 11:37:24, 11:37:24, 11:37:24, 11:37:24
+GRACE KAITESI                  | Member          | 256786445463    | 11:56:37
+HASAHYA LAWRENCE               | Member          | 256771031259    | 17:20:49
+HELLEN MUHANGUZI               | Member          | 256740834746    | 09:01:06, 09:01:06
+ISAAC RWAKIJUNGU               | Member          | 256781209508    | 16:58:42
+ISALE MARY                     | Member          | 256777774527    | 15:19:53
+ISRAEL MALABA                  | Member          | 256777788351    | 11:53:54, 11:53:54, 11:53:54, 11:53:54
+JALI JULIUS                    | First Timer     | +256787471930   | 12:44:25
+JANEPHER NAMUGERWA             | Member          | 256761303616    | 11:16:44
+JAVAN ABRAHAM                  | Member          | 256789367897    | 11:46:42, 11:46:42
+JOEL ATUHEIRWE                 | First Timer     | +256783422125   | 14:50:50, 14:50:50
+JOEL SSEGUJJA                  | Member          | 256781602328    | 09:53:00
+JOVIA KALULE                   | Member          | 256763977627    | 17:15:50, 17:15:50
+JULIET KUTEGEKA                | Member          | 256701161125    | 16:11:48
+KABIITO ERNEST                 | Member          | 256709630753    | 11:21:07, 11:21:07, 11:21:07, 11:21:07
+KAJOBA JORYNE TESTIMONY        | Member          | 256708102751    | 09:15:00, 09:15:00
+KALULE WILBERFORCE             | Member          | 256752209162    | 08:50:22, 08:50:22, 08:50:22, 08:50:22
+KAMUGISHA DOLLARZ ISAAC        | Member          | 256708592254    | 10:22:47, 10:22:47, 10:22:47, 10:22:47
+KANAABI RICHARD                | Member          | 256774000653    | 09:01:55, 09:01:55
+KARONGO LIVING                 | Member          | 256700712125    | 11:28:53, 11:28:53, 11:28:53
+KARUNGI ANNET                  | Member          | 256772535388    | 09:34:06
+KARUNGI NAHIYA BATA            | Member          | 256756740108    | 10:38:38, 10:38:38, 10:38:38, 10:38:38
+KARURU JOSEPH                  | Member          | 256776563723    | 09:43:18, 09:43:18, 09:43:18
+KASASA HENRY                   | Member          | 256773334986    | 10:06:25, 10:06:25, 10:06:25
+KASOZI ALBERT                  | Member          | 256787529602    | 12:12:48, 12:12:48, 12:12:48
+KASOZI ALBERT_MIGRATION_m-bu   | Member          | 256787529602    | 12:12:48, 12:12:48, 12:12:48
+KASUJJA WINNIE                 | Member          |                 | 16:58:16
+KATASI PATRICIA BRENDA_MIGRATION_m-bu | Member          | 256774659843    | 12:20:49, 12:20:49
+KATHERINE AKULLU               | Member          | 256779535231    | 08:20:52
+KATISI EVERLYNE                | Member          | 256777892758    | 10:01:10
+KATWESIGYE ANNA                | Member          | 256786375048    | 12:28:32
+KEMIGISA SHARITAH              | Member          | 256774777585    | 08:27:44, 08:27:44, 08:27:44
+KETRIN MARY                    | Member          | 256766238234    | 12:16:52, 12:16:52
+KHAINZA PEACE                  | Member          | 256786193629    | 09:57:14
+KIBIRIGE DAGLOUS               | Member          | 256758375886    | 12:09:56, 12:09:56, 12:09:56
+KiBUUKA ROBERT                 | First Timer     | +256778656968   | 16:51:44, 16:51:44
+KIIDHE BEN BENARD              | Member          | 256706076413    | 09:50:39, 09:50:39, 09:50:39
+KIMONO JOLLY GLORIA            | First Timer     | +256741264396   | 14:59:33
+KIMULI ISMA                    | First Timer     | +256709636431   | 16:51:24, 16:51:24
+KIRANDA MUBIRU EDDY            | Member          | 256703661718    | 16:38:12
+KIRUMIRA DEIS                  | Member          | 256765195287    | 10:00:43
+KISAKYE DANIEL                 | Member          | 256771932702    | 17:01:46
+KISEKKA CHRISTIAN              | Member          | +256708423197   | 11:19:34, 11:19:34, 11:19:34, 11:19:34
+KISEKKA FRED                   | Member          | 256752830386    | 13:04:04
+KITALE GODFREY                 | Member          | 256704438148    | 08:28:18, 08:28:18, 08:28:18
+KITONE MARVIN                  | Member          | 256788094291    | 09:30:00, 09:30:00
+KOBUSINGYE  LISA MABLE         | Member          | 256701685454    | 16:47:23
+KOBUSSOBOZI HARRIET LISA       | Member          | 256703291118    | 10:17:14, 10:17:14, 10:17:14, 10:17:14
+KOJO SUZAN                     | Member          | 256750851843    | 10:16:44, 10:16:44
+KROSS NICHOLAS                 | Member          | +256750710084   | 11:29:40
+KUSASIRA FRANK                 | Member          | 256789412410    | 14:46:34
+KUTEESA SARAH                  | First Timer     | 256             | 09:43:08
+KUTOSI BEN                     | Member          | 256768124180    | 11:54:53, 11:54:53, 11:54:53
+KWAGALA BENITAH                | Member          | 256701027917    | 11:47:16
+KWAGALA ISAAC                  | Member          | 256787391761    | 16:09:20
+KWENSERI RODGERS               | Member          | 256779164280    | 10:55:28
+KYAKWAHULIIRE ESTHER           | Member          | 256705951819    | 11:02:47, 11:02:47
+KYALO SOLOMON                  | Member          | 256788135448    | 08:16:48, 08:16:48, 08:16:48, 08:16:48
+KYALUZI PEACE                  | Member          | 256708020994    | 10:40:13
+KYATEREKERA REHEMA             | Member          | 256787196748    | 09:39:03
+KYENTITABA ENID                | Member          | 256752876687    | 11:38:22, 11:38:22, 11:38:22
+KYESWA EDRINE                  | Member          | 256770562763    | 11:25:35, 11:25:35
+KYOBE JERRY                    | Member          | 256703608829    | 08:17:29, 08:17:29, 08:17:29, 08:17:29
+KYOBUGIRA BETTY                | Member          | 256754840586    | 12:00:32, 12:00:32
+KYOMUHANGI PROSSY              | Member          | 256788292192    | 16:45:42
+KYOOGA KEZIA                   | Member          | 256741656565    | 14:54:59
+Latif mubiru                   | Member          | +256709786968   | 10:50:10
+LAZARO OGUTI                   | Member          | 256777225310    | 09:25:31, 09:25:31, 09:25:31
+LOLEM FIRICILA MOIRA           | Member          | 256707156149    | 11:07:20, 11:07:20, 11:07:20, 11:07:20
+LOLEM KEVIN                    | Member          | 256781072643    | 15:00:42
+LOY MAWANDA                    | Member          | 256700959987    | 11:17:29, 11:17:29, 11:17:29, 11:17:29
+LUBEGA MARVIN                  | Member          | 256768852977    | 09:24:56
+LUKODDA JOSEPH                 | Member          | 256751424629    | 10:13:32, 10:13:32, 10:13:32
+LUTTA BONNY                    | Member          | 256773653595    | 08:14:48, 08:14:48, 08:14:48
+LUYIMBA SOLOMON                | Member          | 256742412977    | 09:41:53, 09:41:53, 09:41:53, 09:41:53
+MAKANGA STANLEY                | First Timer     | +256701313390   | 11:10:03
+MALIZA PRAISE                  | Member          | 256776766632    | 10:20:35, 10:20:35, 10:20:35
+MAPOCHO EDGAR                  | Member          | 256701726461    | 16:45:51
+MARIA MAKULA                   | Member          | 256741604800    | 15:58:58
+MAROCHO DAVID EDGAR            | Member          | 256783155633    | 13:45:59
+MARVIN TALEMWA                 | Member          | +25667137559    | 11:32:11, 11:32:11, 11:32:11, 11:32:11
+MASIKA ANITA                   | First Timer     | +25676923379    | 15:22:26, 15:22:26
+MATA PIUS                      | Member          | 256780770057    | 12:00:01, 12:00:01
+MATEO ISAAC                    | Member          | 256784054420    | 16:44:56
+MAURYN DOXAZO                  | Member          | 256788001428    | 15:48:03
+MAWANDA GERALD                 | Member          | 256752277725    | 09:07:49, 09:07:49, 09:07:49, 09:07:49, 09:07:49
+MAWANDA JASON                  | Member          | 256708730293    | 09:07:31, 09:07:31
+MAWEJJE TIMOTHY                | Member          | 256744056650    | 09:03:10, 09:03:10
+MAYEGA FRANCIS                 | Member          | 256703682180    | 11:26:39, 11:26:39, 11:26:39, 11:26:39
+MELANIE NAGUMYA                | First Timer     | +25681331013    | 15:19:11, 15:19:11
+MERCY ALIMOGUM                 | Member          | 256785999900    | 09:36:52, 09:36:52
+MIREMBE  VIVIAN  LEAH          | Member          | 256755186913    | 09:06:53, 09:06:53, 09:06:53, 09:06:53
+MIREMBE FLAVIA                 | Member          | 256785648088    | 16:43:24
+MPAKIBI FLAVIA                 | Member          | 256703705698    | 09:44:22, 09:44:22, 09:44:22
+MPONYE LOISE TETE              | Member          | +256744501388   | 11:29:57
+MPOYENDA BRIDGET               | Member          | 256701256879    | 10:37:31
+MRS BBOSA LUCY                 | Member          | 256781237578    | 10:13:06
+MUGASHA ISAAC                  | Member          | 256788081442    | 11:32:29, 11:32:29, 11:32:29, 11:32:29
+MUGOYA EDGAR                   | Member          | 256701402180    | 13:46:05
+MUGUME JEREMIAH                | Member          | 256772493915    | 12:18:32, 12:18:32
+MUGUME MARY                    | Member          | 256788562599    | 12:18:25, 12:18:25
+MUGUME NELSON                  | Member          | 256789536301    | 09:27:01, 09:27:01, 09:27:01
+MUGUME PHILIP                  | Member          | 256772493915    | 12:18:38, 12:18:38
+MUHANGUZI BENJAMIN             | Member          | 256705445787    | 08:57:31, 08:57:31, 08:57:31
+MUHUMUZA JULIUS                | Member          | 256779089335    | 08:31:52, 08:31:52, 08:31:52
+MUHWEZI IAN MARTIN             | Member          | 256742000365    | 11:52:20
+MUKHAYE LYDIA SCRIPTURE        | Member          | 256780790585    | 08:12:18, 08:12:18, 08:12:18, 08:12:18
+MUKISA CATHERINE               | Member          | 256752380576    | 09:11:52, 09:11:52, 09:11:52
+MUKISA HENRY                   | Member          | 256708470452    | 13:12:31, 13:12:31
+MUKISA ISREAL                  | First Timer     | +256781403703   | 09:31:43
+MUKISA RAYMOND                 | Member          | 256740350798    | 11:28:07, 11:28:07
+MULAMBA JOSHUA                 | Member          | 256752270502    | 11:31:48, 11:31:48, 11:31:48
+MULINDWA MATHEW                | Member          | 256781062543    | 11:46:37, 11:46:37, 11:46:37, 11:46:37
+MUSIIME DERRICK                | Member          | 256785457680    | 14:23:17
+Mutesi Suzan                   | Member          | 256745415767    | 16:46:41, 16:46:41
+MUTYABA REGAN                  | Member          | 256700203433    | 16:55:52
+MUWANGUZI GIDEON               | Member          | 256703406836    | 11:44:08, 11:44:08, 11:44:08, 11:44:08
+MWAKA CLAIRE                   | Member          | 256785999900    | 09:35:37, 09:35:37, 09:35:37
+MWAKA ISAAC                    | Member          | 256784711840    | 09:35:26, 09:35:26
+MWEBESA ELTON JIM              | Member          | 256705183608    | 10:02:50
+MWEBESA ELTON JIM_MIGRATION_m-bu | Member          | 256705183608    | 10:02:50
+MWESIGWA JONATHAN              | Member          | 256709640203    | 16:33:43
+MWOGERE SUSAN                  | Member          | 256704621130    | 09:25:50, 09:25:50, 09:25:50
+MWONDHA ARTHUR                 | First Timer     | +256789924412   | 11:14:00
+NABBOSA BECKY                  | Member          | 256701795832    | 12:12:28, 12:12:28, 12:12:28
+NABULIME VERONICA              | Member          | 256761824335    | 12:44:34, 12:44:34
+NABWIRE BETTY GIFT             | Member          | +256777916363   | 15:55:26, 15:55:26
+NAGUDI  HALIMA                 | Member          | 256784774990    | 08:20:27
+NAGUJJA SHARON                 | Member          | 256701517284    | 16:21:00
+NAIGA JULIET                   | First Timer     | +256703357829   | 10:02:13
+NAKAGOLO FAVOR                 | Member          |                 | 11:33:37
+NAKAGOLO SANDRA                | Member          | 256759190583    | 11:33:37, 11:33:37
+NAKAKANDE SHAMIM               | First Timer     | +256750181933   | 13:42:40, 13:42:40
+NAKALEMA HANNA                 | First Timer     | +256708046068   | 12:10:00, 12:10:00
+Nakalungi Shakirah             | Member          | 256750181933    | 18:49:00, 18:49:00
+NAKAMPI SHARON                 | Member          | 256754356917    | 11:46:57
+NAKANDI VIOLET                 | Member          | 256741905472    | 10:16:33, 10:16:33
+NAKANWAGI RITAH                | Member          | 256705787594    | 10:03:48, 10:03:48
+NAKAWOOZA ADRINE               | Member          | 256753228455    | 09:39:40, 09:39:40, 09:39:40
+NAKAYIMA VERONICA              | First Timer     | +256702210696   | 12:41:59
+NAKAZIBWE DOREEN               | First Timer     | +256703654457   | 12:54:44
+NAKAZIBWE JULIET RUTH          | Member          | 256752190332    | 08:21:16, 08:21:16, 08:21:16, 08:21:16
+NAKIVUMBI TEDDY                | Member          | 256708064874    | 14:08:40
+NAKUNDA IRENE                  | Member          | 256790229261    | 11:02:27, 11:02:27, 11:02:27
+NAKYANZI SYLIVIA               | Member          | 256703517240    | 09:50:03, 09:50:03
+NALUBEGA LINNET                | Member          | 256708244505    | 09:12:24, 09:12:24, 09:12:24
+NALULE JOSEPHINE               | Member          | 256756361642    | 12:21:10, 12:21:10
+NALUNGA DORAH                  | Member          | 256778702437    | 10:03:03, 10:03:03, 10:03:03
+NALUYIMA FAVOUR                | Member          | 256789882460    | 11:33:19, 11:33:19
+NAMAKANDA DEBORAH PHIONA       | Member          | 256765444171    | 11:54:25, 11:54:25, 11:54:25
+NAMATOVU GLORIA                | Member          | 256758472965    | 09:03:12, 09:03:12
+NAMBAFU SHEILLAH KALENDA       | Member          | 256752621434    | 11:54:08, 11:54:08, 11:54:08
+NAMBALIRWA JOAN                | Member          | 256778286980    | 09:53:49, 09:53:49, 09:53:49
+NAMBILWA CISSY                 | Member          | 256783082126    | 11:56:13
+NAMBOZO MARY                   | Member          | 256766079422    | 09:46:00, 09:46:00, 09:46:00
+NAMIREMBE OLIVIA               | First Timer     | +256751432527   | 11:07:10
+NAMIRIMU PHIONAH               | First Timer     | +256705929257   | 11:04:43
+NAMPIJJA HARRIET               | First Timer     | +256754429216   | 12:46:13
+NAMPIJJA TEO                   | Member          | 256704020673    | 12:38:14, 12:38:14
+NAMUGENYI ANITAH BLESSING      | Member          | 256709984077    | 12:16:57, 12:16:57
+NAMULINDWA BEATRICE            | Member          | 256752069875    | 08:13:13, 08:13:13, 08:13:13, 08:13:13
+NAMULINDWA PATIENCE            | First Timer     | +256748351878   | 12:56:45
+NAMULONDO BEATRICE             | Member          | 256744215692    | 09:24:40, 09:24:40
+NAMUNDU JOAN                   | First Timer     | +256759492484   | 10:46:00, 10:46:00
+NAMUSANA GETRUDE               | First Timer     | +256753337051   | 14:06:24, 14:06:24
+NAMUWENGE HOPE MARTHA          | Member          | 256705526512    | 08:16:32
+NAMUYABA JALIA                 | Member          | 256701203214    | 08:14:25, 08:14:25, 08:14:25
+NAMUYABA JALIA_MIGRATION_m-bu  | Member          | 256701203214    | 08:14:25, 08:14:25
+NAMUYIGA RUKIA                 | Member          | 256772370867    | 11:56:47, 11:56:47
+NAMWANGE ANNET                 | Member          | +25600000000    | 13:19:44
+NAMWEBE HILDA                  | Member          | 256702660904    | 09:23:44, 09:23:44, 09:23:44, 09:23:44
+NANGOSHA SHEILA S              | Member          | 256708849697    | 12:20:36
+NANKUNDO IRENE                 | Member          | 256790229261    | 16:51:24
+NANKYA JULIET                  | Member          | 256705519122    | 09:57:33, 09:57:33
+Nansamba Adrine                | Member          | 256740583336    | 19:10:00, 19:10:00
+NANSEREKO DENISE               | First Timer     | +256703152821   | 15:21:10, 15:21:10
+NANTEZA CHRISTINE              | First Timer     | +256742898257   | 12:59:52
+NASASIRA BENJAMIN              | Member          | 256753692709    | 11:46:53, 11:46:53
+NATASHA MARIA KLIEN            | Member          | +256778212797   | 17:05:08
+NAYIGA RUTH                    | Member          | 256702520313    | 11:56:39, 11:56:39
+NDAGIRE  NOAH                  | First Timer     | +256782452524   | 10:04:09
+NDAGIRE DAMALIE                | Member          | 256702516569    | 10:16:58
+NEIMA ESTHER                   | Member          | 256777109066    | 11:33:57, 11:33:57
+NHKAYENZE STELLA VICKY         | First Timer     | +256755778930   | 11:17:28
+NIMURUNGI JUSTICE              | First Timer     | +256700155383   | 13:42:28, 13:42:28
+NINSIIMA SHAKILLAH             | Member          | 256785217148    | 09:24:25, 09:24:25, 09:24:25, 09:24:25
+NINSIIMA SHARON                | Member          | 256753786846    | 11:44:48, 11:44:48, 11:44:48
+NISSI EUNICE                   | Member          | 256785916117    | 16:46:20
+NYADOI ESTHER                  | Member          | 256708102900    | 12:56:39
+NYADOI GRACE NAOMI             | Member          | 256752244736    | 12:56:57
+NYADOI MARY                    | Member          | 256703128066    | 13:03:43
+NYAKATO CHERRY                 | Member          | 256756416498    | 10:41:13, 10:41:13, 10:41:13, 10:41:13
+OBOTH YOKONIA                  | Member          | 256787857486    | 10:06:46, 10:06:46
+OCHENG GRACE PAUL              | Member          | 256700212384    | 12:24:54, 12:24:54
+ODERO DENIS                    | Member          | 256772832355    | 09:37:12
+ODIPIO FRED                    | Member          | 256778184407    | 08:14:36, 08:14:36, 08:14:36, 08:14:36
+OJEMA PAUL                     | Member          | 256775183070    | 08:56:05, 08:56:05, 08:56:05, 08:56:05
+OKEE SAMUEL                    | Member          | 256757769990    | 10:18:44, 10:18:44, 10:18:44
+OKELLO DENIS                   | First Timer     | +256781035459   | 10:58:20
+OKETCHO PETRONILLA OBBO        | Member          | 256772455575    | 08:37:40, 08:37:40
+OKIROR LAZARUS                 | Member          | 256790212962    | 15:59:17
+OKWAKOL MICHAEL                | Member          | 256756905013    | 20:30:00, 20:30:00
+OMALLA JONATHAN                | Member          | 256771405356    | 09:27:21, 09:27:21, 09:27:21
+OMARA JOSEPH                   | Member          | 256790844260    | 10:06:41, 10:06:41
+Ongiera Donald                 | Member          | 256763219897    | 11:40:55, 11:40:55, 11:40:55, 11:40:55
+ONYUM CHARLES                  | Member          | 256783513006    | 12:16:22
+OPIO JONATHAN                  | Member          | 256773438456    | 10:56:00, 10:56:00
+OPORI HENRY                    | Member          | 256774569180    | 12:27:01, 12:27:01
+OTAFIRE BRIAN  KING            | Member          | 256780109876    | 10:32:55
+OTAI ABRAHAM                   | Member          | 256773900400    | 12:09:10, 12:09:10, 12:09:10
+OTAI CHARIS                    | Member          | 256789203029    | 12:09:46, 12:09:46, 12:09:46
+OUMA PHILIP                    | Member          | 256778562116    | 16:34:03
+PETYON KALENDA                 | Member          | 256789514384    | 11:54:46, 11:54:46
+RACHEAL MUSIMENTA              | First Timer     | +256793274859   | 12:49:02
+RICHARD SSENYONGA              | Member          | 256785792710    | 15:03:21
+Robert Owen Ogage              | First Timer     | +256787749161   | 13:04:10, 13:04:10
+SAMEN NABUTUNZI                | First Timer     | +256703496376   | 12:54:12
+SANYU JERUSIYA                 | Member          | 256706090701    | 11:44:29, 11:44:29
+SEBA WULLY                     | Member          | 256706211234    | 15:59:23
+SEMAKULA CHRISTOPHER           | Member          | 256705355933    | 11:39:49, 11:39:49
+SEMANDA EMMANUEL               | Member          | 256705660072    | 09:59:38
+SENDA BRIAN ROGERS             | Member          | 256755678871    | 16:44:14
+Shalom Gift                    | First Timer     | +256709397176   | 09:30:00, 09:30:00
+SINYO DERRICK                  | First Timer     | +256757592186   | 16:47:37, 16:47:37
+SSAWA ENID                     | Member          | +256786617317   | 13:20:43
+SSEBALIJA YASIN                | First Timer     | +25600000000    | 13:30:59
+SSEBULIBA RODNEY               | Member          | 256782421994    | 12:18:35, 12:18:35
+SSEKYANZI CHRISTOPHER          | Member          | 256773127412    | 09:40:22, 09:40:22, 09:40:22
+SSEMBAJWE ISRAEL               | Member          | 256772541502    | 09:02:57
+SSEMBATYA MARVIN               | Member          | 256702071819    | 12:32:40, 12:32:40
+SSEMWANGA CYRUS                | Member          | 256759259802    | 11:24:51, 11:24:51
+SSENYONGA REMIGIOUS REMMY      | Member          | 256704156342    | 12:20:09, 12:20:09
+SSENYONJO JORDAN               | First Timer     | +256700234962   | 12:48:23
+SSONKO MICHAEL                 | Member          | 256758594871    | 10:53:37, 10:53:37, 10:53:37
+SSOZI MATHAIAS                 | Member          | +256777023321   | 11:31:11
+SUNDAY PORTIA MARJORIE         | Member          | 256783300123    | 09:26:16, 09:26:16, 09:26:16, 09:26:16
+TAAKA DOROTHY                  | Member          | 256703632070    | 09:28:20, 09:28:20
+TENDO ALLEN NAAVA              | Member          | +256751851162   | 09:59:17
+TENDO SANDRA                   | Member          | 256757012263    | 09:39:33, 09:39:33
+Test User                      | Member          |                 | 15:06:01, 15:06:01
+TONNY MULUNGI                  | Member          | 256776368650    | 11:20:52
+Tricia Twinomugisha            | First Timer     | +25600000000    | 13:07:18
+TUKEI ANITA                    | Member          | 256771868313    | 11:20:11
+TUMUGUMYE EMMANUEL             | Member          | 256789184529    | 17:09:00
+TUMWEBAZE JOHN                 | Member          | 256754792347    | 09:44:44, 09:44:44, 09:44:44
+TUMWESIGYE ABRAHAM             | Member          | 256700720160    | 10:46:30, 10:46:30, 10:46:30, 10:46:30, 10:46:30, 10:46:30
+TUMWESIGYE HARRIET             | Member          | 256760323788    | 09:55:14
+TUMWESIGYE ISAAC               | Member          | 256703656019    | 09:51:16, 09:51:16
+TUMWESIGYE ROBERT              | Member          | 256740362970    | 18:23:58
+TUMWINE COLLINES               | Member          | 256743586850    | 11:05:02, 11:05:02, 11:05:02, 11:05:02, 11:05:02
+TUMWINE ELIJAH                 | Member          | 256745175859    | 15:58:28, 15:58:28
+TUSEMERIRWE RODGERS            | First Timer     | 256             | 16:53:05, 16:53:05
+TUSIIME RODNEY                 | Member          | +256757390708   | 11:30:38
+TWINOMUJUNI ROMEO              | Member          | 256703496376    | 11:27:45
+TWONGIRIWE RASHIN              | Member          | 256783334153    | 11:59:38, 11:59:38
+TY FIRSCHING                   | Member          | 256771298566    | 09:55:51, 09:55:51, 09:55:51
+WANDUYI CHARLES                | Member          | 256742565015    | 10:23:31
+WANYAMA ISRAEL LEACH           | Member          | 256789929191    | 11:46:43
+YESHO VICTORIA                 | Member          | 256776372843    | 15:19:47
+ZAWEDDE ANNET                  | Member          | 256770943176    | 12:31:43, 12:31:43
+ZAWEDDE KULLHUM                | Member          | 256745520516    | 09:57:21, 09:57:21

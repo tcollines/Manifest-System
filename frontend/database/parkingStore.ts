@@ -25,7 +25,7 @@ const mapPVToDB = (v: PersonalVehicle) => ({
   check_out_time: v.checkOutTime,
   current_service_id: v.currentServiceId || null,
   registered_date: v.registeredDate,
-  attended_service_ids: v.attendedServiceIds
+  attended_service_ids: v.attendedServiceIds || []
 });
 
 export const ParkingStore = {
@@ -47,6 +47,7 @@ export const ParkingStore = {
       });
     } catch (e: any) {
       console.error('Unexpected error adding personal vehicle:', e.message || e);
+      throw e;
     }
   },
 
@@ -58,6 +59,7 @@ export const ParkingStore = {
       });
     } catch (e: any) {
       console.error('Unexpected error updating personal vehicle:', e.message || e);
+      throw e;
     }
   },
 
@@ -79,6 +81,7 @@ export const ParkingStore = {
       });
     } catch (e: any) {
       console.error('Error checking in vehicle:', e.message || e);
+      throw e;
     }
   },
 
@@ -87,6 +90,7 @@ export const ParkingStore = {
       await apiFetch(`/parking/${vehicleId}/check-out`, { method: 'POST' });
     } catch (e: any) {
       console.error('Error checking out vehicle:', e.message || e);
+      throw e;
     }
   },
 

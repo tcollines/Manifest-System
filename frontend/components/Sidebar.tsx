@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -24,7 +24,7 @@ import {
   UserPlus,
   Heart
 } from 'lucide-react';
-import { ModalType, User } from '../types';
+import { ModalType, User, Department } from '../types';
 
 interface SidebarProps {
   currentUser: User;
@@ -34,23 +34,69 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ currentUser, onLogout, isOpen, onClose }) => {
+  const [departments, setDepartments] = useState<Department[]>([]);
+
+  useEffect(() => {
+    const fetchDepts = async () => {
+      try {
+        const { apiFetch } = await import('../services/api');
+        const data = await apiFetch('/departments');
+        if (Array.isArray(data)) setDepartments(data);
+      } catch (e) {
+        console.error("Failed to load departments in sidebar", e);
+      }
+    };
+    fetchDepts();
+  }, []);
+
+  // Refactored to use SLUGS instead of ID strings
+  const getDeptId = (identifier: string) => {
+    // 1. Try to find by slug (Preferred)
+    const bySlug = departments.find(d => d.slug === identifier);
+    if (bySlug) return bySlug.id;
+
+    // 2. Fallback: Try to find by code/id (Legacy)
+    return departments.find(d => (d.code || d.id) === identifier)?.id;
+  };
+
+  const checkDept = (slugOrCode: string) => {
+    const targetDeptId = getDeptId(slugOrCode);
+    if (!targetDeptId) return false;
+
+    // 1. Direct matches
+    if (
+      currentUser.departmentUid === targetDeptId ||
+      currentUser.departmentId === slugOrCode ||
+      currentUser.departmentId === targetDeptId
+    ) {
+      return true;
+    }
+
+    // 2. Legacy Code match (e.g. user.departmentId === 'd2' vs dept.code === 'd2')
+    const resolvedDept = departments.find(d => d.id === targetDeptId);
+    if (resolvedDept && resolvedDept.code && currentUser.departmentId === resolvedDept.code) {
+      return true;
+    }
+
+    return false;
+  };
 
   // Custom Menus based on Department Leads
-  const isRegistrationHead = currentUser.role === 'Head of Dept' && currentUser.departmentId === 'd1';
-  const isNextGenHead = currentUser.role === 'Head of Dept' && currentUser.departmentId === 'd2';
-  const isParkingHead = currentUser.role === 'Head of Dept' && currentUser.departmentId === 'd3';
-  const isFinanceHead = currentUser.role === 'Head of Dept' && currentUser.departmentId === 'd4';
-  const isTransportationHead = currentUser.role === 'Head of Dept' && currentUser.departmentId === 'd5';
-  const isSchoolsHead = currentUser.role === 'Head of Dept' && currentUser.departmentId === 'd7';
+  const isRegistrationHead = (currentUser.role === 'Head of Dept' || currentUser.role === 'Dept Admin') && checkDept('registration');
+  const isNextGenHead = (currentUser.role === 'Head of Dept' || currentUser.role === 'Dept Admin' || currentUser.role === 'Staff' || currentUser.role === 'Member' || currentUser.role === 'Volunteer') && checkDept('next-gen');
+  const isParkingHead = (currentUser.role === 'Head of Dept' || currentUser.role === 'Dept Admin') && checkDept('parking');
+  const isFinanceHead = (currentUser.role === 'Head of Dept' || currentUser.role === 'Dept Admin') && checkDept('finance');
+  const isTransportationHead = (currentUser.role === 'Head of Dept' || currentUser.role === 'Dept Admin') && checkDept('transportation');
+  const isSchoolsHead = (currentUser.role === 'Head of Dept' || currentUser.role === 'Dept Admin') && checkDept('schools');
   // Healing Head or Staff (d8) - Restricted View
-  const isHealingHead = (currentUser.role === 'Head of Dept' || currentUser.role === 'Staff') && currentUser.departmentId === 'd8';
+  const isHealingHead = (currentUser.role === 'Head of Dept' || currentUser.role === 'Dept Admin' || currentUser.role === 'Staff') && checkDept('healing');
 
-  const isStageCoordinator = currentUser.role === 'Coordinator' && !!currentUser.stationId;
-  const isVehicleCoordinator = currentUser.role === 'Coordinator' && !currentUser.stationId;
+  const isStageCoordinator = (currentUser.role === 'Stage Coordinator' || currentUser.role === 'Coordinator') && !!currentUser.stationId;
+  const isVehicleCoordinator = (currentUser.role === 'Vehicle Coordinator' || currentUser.role === 'Coordinator') && !currentUser.stationId;
   const isLogisticsEntrant = currentUser.role === 'Logistics';
   const isTeamLeader = currentUser.role === 'TeamLeader';
-  const isFollowUpHead = (currentUser.role === 'Head of Dept' || currentUser.role === 'Dept Admin') && currentUser.departmentId === 'd6';
-  const isFollowUpMember = currentUser.role === 'Member' && currentUser.departmentId === 'd6';
+  const isFollowUpHead = (currentUser.role === 'Head of Dept' || currentUser.role === 'Dept Admin') && checkDept('follow-up');
+  const isFollowUpMember = currentUser.role === 'Member' && checkDept('follow-up');
 
   let menuItems: any[] = [];
 
@@ -83,6 +129,15 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, onLogout, isOpen, onClos
       { id: 'requisitions', label: 'Requisitions', icon: FileText },
       { id: 'assets', label: 'Assets', icon: Package },
     ];
+    // Next Gen Staff should not see Reports or Team Management
+    if (currentUser.role === 'Staff') {
+      menuItems = menuItems.filter(i => !['reports', 'next-gen-reports', 'settings', 'requisitions', 'assets'].includes(i.id));
+    }
+    // Next Gen Member or Volunteer should only see Dashboard and Follow Up
+    if (currentUser.role === 'Member' || currentUser.role === 'Volunteer') {
+      menuItems = menuItems.filter(i => ['next-gen', 'next-gen-follow-up'].includes(i.id));
+    }
+
   } else if (isParkingHead) {
     menuItems = [
       { id: 'parking', label: 'Parking Dashboard', icon: Car },
@@ -115,6 +170,10 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, onLogout, isOpen, onClos
       { id: 'assets', label: 'Assets', icon: Package },
       { id: 'settings', label: 'Settings', icon: Settings },
     ];
+    // Healing Staff should not see Reports or Settings
+    if (currentUser.role === 'Staff') {
+      menuItems = menuItems.filter(i => !['reports', 'settings', 'requisitions', 'assets'].includes(i.id));
+    }
   } else if (isFollowUpHead) {
     menuItems = [
       { id: 'follow-up', label: 'Follow Up Dashboard', icon: UserPlus },

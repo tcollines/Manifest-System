@@ -59,6 +59,7 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, events
     const [pickupStations, setPickupStations] = useState<PickUpStation[]>([]);
     const [currency, setCurrency] = useState('UGX');
     const [isRefreshing, setIsRefreshing] = useState(false);
+    const [financeSummary, setFinanceSummary] = useState({ total_income: 0, total_expense: 0, net_balance: 0, transaction_count: 0 });
     const [selectedEventId, setSelectedEventId] = useState<string>('');
 
     // Sync selectedEventId with events prop if not set
@@ -103,16 +104,48 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, events
     useEffect(() => {
         refreshData();
 
-        // Realtime Subscriptions
-        const channel = supabase.channel('finance-dashboard-live')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'finance_transactions' }, () => {
-                refreshData();
+        const activeEventId = selectedEventId;
+        if (!activeEventId) return;
+
+        // Scoped Realtime Subscriptions
+        const channel = supabase.channel(`finance-dashboard-scoped-${activeEventId}`)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'finance_transactions', filter: `event_id=eq.${activeEventId}` }, (payload) => {
+                const { eventType, new: newRecord, old: oldRecord } = payload;
+                if (eventType === 'INSERT') {
+                    setTransactions(prev => {
+                        if (prev.some(t => t.id === newRecord.id)) return prev;
+                        return [newRecord as Transaction, ...prev];
+                    });
+                }
+                else if (eventType === 'UPDATE') setTransactions(prev => prev.map(t => t.id === newRecord.id ? (newRecord as Transaction) : t));
+                else if (eventType === 'DELETE') setTransactions(prev => prev.filter(t => t.id !== oldRecord.id));
             })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'department_requests' }, () => {
-                refreshData();
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'requisitions', filter: `event_id=eq.${activeEventId}` }, (payload) => {
+                const { eventType, new: newRecord, old: oldRecord } = payload;
+                if (eventType === 'INSERT') {
+                    setRequisitions(prev => {
+                        if (prev.some(r => r.id === newRecord.id)) return prev;
+                        return [newRecord as Requisition, ...prev];
+                    });
+                }
+                else if (eventType === 'UPDATE') setRequisitions(prev => prev.map(r => r.id === newRecord.id ? (newRecord as Requisition) : r));
+                else if (eventType === 'DELETE') setRequisitions(prev => prev.filter(r => r.id !== oldRecord.id));
             })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'vehicles' }, () => {
-                refreshData();
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'vehicles' }, (payload) => {
+                // Vehicles don't always have event_id directly in the filter-friendly way if they are linked via station
+                // But we can check the stationId or just use granular update without full refresh if it matches our local list
+                const { eventType, new: newRecord, old: oldRecord } = payload;
+                if (eventType === 'INSERT' || eventType === 'UPDATE') {
+                    setVehicles(prev => {
+                        const exists = prev.find(v => v.id === newRecord.id);
+                        if (exists) return prev.map(v => v.id === newRecord.id ? (newRecord as Vehicle) : v);
+                        // Only add if it belongs to our current stations? 
+                        // For simplicity in finance, we can just update if it's already in our list.
+                        return prev;
+                    });
+                } else if (eventType === 'DELETE') {
+                    setVehicles(prev => prev.filter(v => v.id !== oldRecord.id));
+                }
             })
             .subscribe();
 
@@ -127,8 +160,8 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, events
             // FIRE ALL REQUESTS IN PARALLEL (Performance Optimization)
             const [
                 vehicleRes,
-                passengerRes,
                 transactionsRes,
+                financeSummaryRes,
                 requestsRes,
                 requisitionsRes,
                 stationRes,
@@ -136,9 +169,9 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, events
                 usersRes
             ] = await Promise.all([
                 VehicleStore.getVehicles({ eventId: selectedEventId }),
-                VehicleStore.getPassengers({ eventId: selectedEventId }),
-                FinanceStore.getTransactions(), // Transactions are manually filtered in render for now, or could be event-filtered here
-                FinanceStore.getRequests(),
+                FinanceStore.getTransactions(selectedEventId), // Keep for table view
+                FinanceStore.getEventSummary(selectedEventId), // New O(1) RPC aggregate
+                FinanceStore.getRequests(selectedEventId),
                 RequisitionStore.getAll(),
                 LogisticsStore.getStations(selectedEventId),
                 ManifestStore.get(),
@@ -147,8 +180,8 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, events
 
             // UPDATE STATE (Non-blocking batch updates)
             setVehicles(vehicleRes.status === 'success' ? vehicleRes.data : []);
-            setPassengers(passengerRes.status === 'success' ? passengerRes.data : []);
             setTransactions(transactionsRes);
+            setFinanceSummary(financeSummaryRes);
             setRequests(requestsRes);
             setRequisitions(requisitionsRes);
             setPickupStations(stationRes.status === 'success' ? stationRes.data : []);
@@ -215,7 +248,7 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, events
 
             showToast("Payment recorded successfully!", 'success');
             setPayModalOpen(false);
-            refreshData(); // Refresh list to update progress/status
+            // refreshData(); // Removed in favor of Realtime
 
             // Optionally auto-create an expense transaction?
             // Ignoring for now, but good for future.
@@ -263,11 +296,12 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, events
 
     const handleRequestAction = async (id: string, action: 'Approved' | 'Rejected') => {
         await FinanceStore.updateRequest(id, action);
-        setRequests(await FinanceStore.getRequests());
+        // setRequests(await FinanceStore.getRequests()); // Removed in favor of Realtime
     };
 
     const handleOpenEventFleet = (event: MinistryEvent) => {
         setSelectedFleetEvent(event);
+        setSelectedEventId(event.id); // Sync global event ID to fetch data
         setFleetViewMode('vehicles');
         setFleetJourneyTab('Ongoing'); // Default
     };
@@ -297,74 +331,82 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, events
 
     // --- NEW: Update Finance Only (No Stage Change) ---
     const handleUpdateFinance = async () => {
-        if (!selectedVehicle) return;
-        const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        try {
+            if (!selectedVehicle) return;
+            const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-        const updatedVehicle: Vehicle = {
-            ...selectedVehicle,
-            financeDetails: {
-                ...selectedVehicle.financeDetails,
-                ongoingDispatch: fleetJourneyTab === 'Ongoing' ? financeForm.dispatch : (selectedVehicle.financeDetails?.ongoingDispatch || ''),
-                ongoingBalance: fleetJourneyTab === 'Ongoing' ? financeForm.balance : (selectedVehicle.financeDetails?.ongoingBalance || ''),
-                // Ensure other fields are preserved
-                returnDispatch: selectedVehicle.financeDetails?.returnDispatch || '',
-                returnBalance: selectedVehicle.financeDetails?.returnBalance || '',
-                processedAt: new Date().toISOString()
-            }
-        };
+            const updatedVehicle: Vehicle = {
+                ...selectedVehicle,
+                financeDetails: {
+                    ...selectedVehicle.financeDetails,
+                    ongoingDispatch: fleetJourneyTab === 'Ongoing' ? financeForm.dispatch : (selectedVehicle.financeDetails?.ongoingDispatch || ''),
+                    ongoingBalance: fleetJourneyTab === 'Ongoing' ? financeForm.balance : (selectedVehicle.financeDetails?.ongoingBalance || ''),
+                    // Ensure other fields are preserved
+                    returnDispatch: selectedVehicle.financeDetails?.returnDispatch || '',
+                    returnBalance: selectedVehicle.financeDetails?.returnBalance || '',
+                    processedAt: new Date().toISOString()
+                }
+            };
 
-        await VehicleStore.updateVehicle(updatedVehicle);
-        setVehicles(prev => prev.map(v => v.id === updatedVehicle.id ? updatedVehicle : v));
-        setSelectedVehicle(updatedVehicle); // Update local state to reflect changes immediately
-        showToast('Finance Details Updated Successfully', 'success');
+            await VehicleStore.updateVehicle(updatedVehicle);
+            setVehicles(prev => prev.map(v => v.id === updatedVehicle.id ? updatedVehicle : v));
+            setSelectedVehicle(updatedVehicle); // Update local state to reflect changes immediately
+            showToast('Finance Details Updated Successfully', 'success');
+        } catch (error: any) {
+            console.error("Error updating finance details:", error);
+            showToast(`Failed to update finance details: ${error.message || 'Unknown error'}`, 'error');
+        }
     };
 
     // --- REFACTORED: Dispatch Vehicle (Stage Transition) ---
     const handleDispatchVehicle = async () => {
-        if (!selectedVehicle) return;
-        const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        try {
+            if (!selectedVehicle) return;
+            const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-        // Ensure we use the latest values (either from form if just typed, or from vehicle object)
-        // We explicitly prioritize the form values if we are in the 'Ongoing' tab, effectively doing an "Update & Dispatch".
+            // Ensure we use the latest values
+            const updatedVehicle: Vehicle = {
+                ...selectedVehicle,
+                approvals: {
+                    ...selectedVehicle.approvals!,
+                    finance: 'Approved'
+                },
+                ongoingStartTime: fleetJourneyTab === 'Ongoing' ? now : selectedVehicle.ongoingStartTime,
+                returnStartTime: fleetJourneyTab === 'Return' ? now : selectedVehicle.returnStartTime,
+                financeDetails: {
+                    ...selectedVehicle.financeDetails,
+                    ongoingDispatch: fleetJourneyTab === 'Ongoing' ? financeForm.dispatch : (selectedVehicle.financeDetails?.ongoingDispatch || ''),
+                    ongoingBalance: fleetJourneyTab === 'Ongoing' ? financeForm.balance : (selectedVehicle.financeDetails?.ongoingBalance || ''),
 
-        const updatedVehicle: Vehicle = {
-            ...selectedVehicle,
-            approvals: {
-                ...selectedVehicle.approvals!,
-                finance: 'Approved'
-            },
-            ongoingStartTime: fleetJourneyTab === 'Ongoing' ? now : selectedVehicle.ongoingStartTime,
-            returnStartTime: fleetJourneyTab === 'Return' ? now : selectedVehicle.returnStartTime,
-            financeDetails: {
-                ...selectedVehicle.financeDetails,
-                ongoingDispatch: fleetJourneyTab === 'Ongoing' ? financeForm.dispatch : (selectedVehicle.financeDetails?.ongoingDispatch || ''),
-                ongoingBalance: fleetJourneyTab === 'Ongoing' ? financeForm.balance : (selectedVehicle.financeDetails?.ongoingBalance || ''),
+                    // Return Logic
+                    returnDispatch: fleetJourneyTab === 'Return'
+                        ? String(parseFloat(selectedVehicle.financeDetails?.ongoingDispatch || '0') - parseFloat(selectedVehicle.financeDetails?.ongoingBalance || '0'))
+                        : (selectedVehicle.financeDetails?.returnDispatch || ''),
+                    returnBalance: fleetJourneyTab === 'Return' ? '0' : (selectedVehicle.financeDetails?.returnBalance || ''),
 
-                // Return Logic: If dispatching return, calculate logic
-                returnDispatch: fleetJourneyTab === 'Return'
-                    ? String(parseFloat(selectedVehicle.financeDetails?.ongoingDispatch || '0') - parseFloat(selectedVehicle.financeDetails?.ongoingBalance || '0'))
-                    : (selectedVehicle.financeDetails?.returnDispatch || ''),
-                returnBalance: fleetJourneyTab === 'Return' ? '0' : (selectedVehicle.financeDetails?.returnBalance || ''),
+                    processedAt: new Date().toISOString()
+                },
+                currentStage: selectedVehicle.currentStage === 'FinanceApproval' ? 'Transit' : selectedVehicle.currentStage,
+                journeyDirection: fleetJourneyTab === 'Return' ? 'Return' : selectedVehicle.journeyDirection
+            };
 
-                processedAt: new Date().toISOString()
-            },
-            currentStage: selectedVehicle.currentStage === 'FinanceApproval' ? 'Transit' : selectedVehicle.currentStage,
-            journeyDirection: fleetJourneyTab === 'Return' ? 'Return' : selectedVehicle.journeyDirection
-        };
+            if (fleetJourneyTab === 'Ongoing' && (!updatedVehicle.financeDetails?.ongoingDispatch || updatedVehicle.financeDetails.ongoingDispatch === '0')) {
+                if (!confirm("Total Vehicle Cost is 0 or empty. Are you sure you want to dispatch?")) return;
+            }
 
-        if (fleetJourneyTab === 'Ongoing' && (!updatedVehicle.financeDetails?.ongoingDispatch || updatedVehicle.financeDetails.ongoingDispatch === '0')) {
-            if (!confirm("Total Vehicle Cost is 0 or empty. Are you sure you want to dispatch?")) return;
+            await VehicleStore.updateVehicle(updatedVehicle);
+            setVehicles(prev => prev.map(v => v.id === updatedVehicle.id ? updatedVehicle : v));
+            setSelectedVehicle(null);
+            showToast(
+                fleetJourneyTab === 'Ongoing'
+                    ? 'Finance Updated & Vehicle Dispatched to Transit'
+                    : 'Return Journey Cleared & Vehicle Released',
+                'success'
+            );
+        } catch (error: any) {
+            console.error("Error dispatching vehicle:", error);
+            showToast(`Failed to dispatch vehicle: ${error.message || 'Unknown error'}`, 'error');
         }
-
-        await VehicleStore.updateVehicle(updatedVehicle);
-        setVehicles(prev => prev.map(v => v.id === updatedVehicle.id ? updatedVehicle : v));
-        setSelectedVehicle(null);
-        showToast(
-            fleetJourneyTab === 'Ongoing'
-                ? 'Finance Updated & Vehicle Dispatched to Transit'
-                : 'Return Journey Cleared & Vehicle Released',
-            'success'
-        );
     };
 
     const handlePrintFleetReport = () => {
@@ -677,7 +719,7 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, events
         if (!selectedFleetEvent) return [];
         const eventStationIds = pickupStations.filter(s => s.eventId === selectedFleetEvent.id).map(s => s.id);
 
-        const allVehicles = vehicles.filter(v => eventStationIds.includes(v.stationId));
+        const allVehicles = vehicles.filter(v => v.eventId === selectedFleetEvent.id || eventStationIds.includes(v.stationId));
 
         if (fleetJourneyTab === 'All') {
             return allVehicles;
@@ -956,8 +998,8 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, events
                                     </div>
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                    {events.filter(e => e.type === 'Event' || e.type === 'Service').map(event => {
-                                        const isLocked = event.type === 'Service' ? isServiceClosed(event.date) : isEventLocked(event.date);
+                                    {events.filter(e => e.type === 'Event').map(event => {
+                                        const isLocked = isEventLocked(event.date);
                                         return (
                                             <div
                                                 key={event.id}
@@ -1059,9 +1101,9 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, events
                                     <div className="col-span-3 text-center py-12 text-gray-400">No vehicles requiring finance attention.</div>
                                 ) : (
                                     <div className="col-span-full space-y-8">
-                                        {Array.from(new Set(eventVehicles.map(v => v.stationId))).sort().map(stationId => {
-                                            const stationVehicles = eventVehicles.filter(v => v.stationId === stationId);
-                                            const stationName = pickupStations.find(s => s.id === stationId)?.name || 'Unknown Station';
+                                        {Array.from(new Set(eventVehicles.map(v => v.stationId || 'direct'))).sort().map(stationId => {
+                                            const stationVehicles = eventVehicles.filter(v => (v.stationId || 'direct') === stationId);
+                                            const stationName = stationId === 'direct' ? 'Direct Event Vehicles' : pickupStations.find(s => s.id === stationId)?.name || 'Unknown Station';
 
                                             return (
                                                 <div key={stationId} className="bg-gray-50 border border-gray-200 rounded-2xl overflow-hidden shadow-sm">

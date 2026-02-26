@@ -11,10 +11,17 @@ interface SoulEntryFormProps {
     existingMember?: any; // Ideally Member type
     initialData?: Soul;
     onSubmit: (data: Omit<Soul, 'id' | 'createdAt'>) => void;
-    onCancel?: () => void;
+    eventId?: string;
+    stationId?: string;
+    vehicleId?: string;
+    capturedBy?: string;
 }
 
-const SoulEntryForm: React.FC<SoulEntryFormProps> = ({ sourceType, sourceId, sourceName, existingMember, initialData, onSubmit, onCancel }) => {
+const SoulEntryForm: React.FC<SoulEntryFormProps> = ({
+    sourceType, sourceId, sourceName, existingMember, initialData,
+    eventId, stationId, vehicleId, capturedBy,
+    onSubmit, onCancel
+}) => {
     const { confirm: askConfirm } = useNotification();
     const [formData, setFormData] = useState<any>({
         firstName: '',
@@ -31,7 +38,8 @@ const SoulEntryForm: React.FC<SoulEntryFormProps> = ({ sourceType, sourceId, sou
         invitedBy: { name: '', contact: '' }
     });
 
-    // Device Pre-fill (Edit Mode or Member Select)
+    // ... (useEffect remains same)
+
     React.useEffect(() => {
         if (initialData) {
             setFormData({
@@ -76,12 +84,19 @@ const SoulEntryForm: React.FC<SoulEntryFormProps> = ({ sourceType, sourceId, sou
             }
         }
 
+        // AUTO-RESOLVE Event ID if not provided explicitly
+        // If sourceId is an event or service, it IS the eventId (mostly)
+        const resolvedEventId = eventId || (['Event', 'Service'].includes(sourceType) ? sourceId : undefined);
+
         onSubmit({
             ...formData,
             status: entryType === 'Confirmation' ? 'Confirmed' : 'New',
             sourceType,
             sourceId,
-            capturedBy: 'System' // Default, acts as filler until auth context is passed or "self" for public
+            eventId: resolvedEventId,
+            stationId,
+            vehicleId,
+            capturedBy: capturedBy || 'System' // Default to System for backward compatibility
         });
         // Reset form
         setFormData({

@@ -99,8 +99,8 @@ const NextGenFollowUp: React.FC<NextGenFollowUpProps> = ({ currentUser, events }
         }
 
         const results = children.filter(c =>
-            c.name.toLowerCase().includes(soulsSearchQuery.toLowerCase()) ||
-            c.parentContact.includes(soulsSearchQuery)
+            (c.name && c.name.toLowerCase().includes(soulsSearchQuery.toLowerCase())) ||
+            (c.parentContact && c.parentContact.includes(soulsSearchQuery))
         ).slice(0, 10);
 
         setChildSearchResults(results);
@@ -200,11 +200,11 @@ const NextGenFollowUp: React.FC<NextGenFollowUpProps> = ({ currentUser, events }
     const absentees = children.filter(c => c.status === 'Absent' && c.category !== 'First Timer');
 
     const filteredFirstTimers = firstTimers
-        .filter(c => c.name.toLowerCase().includes(searchQuery.toLowerCase()))
+        .filter(c => c.name && c.name.toLowerCase().includes(searchQuery.toLowerCase()))
         .filter(c => statusFilter === 'All' || c.followUpStatus === statusFilter || (!c.followUpStatus && statusFilter === 'Pending'));
 
     const filteredAbsentees = absentees
-        .filter(c => c.name.toLowerCase().includes(searchQuery.toLowerCase()))
+        .filter(c => c.name && c.name.toLowerCase().includes(searchQuery.toLowerCase()))
         .filter(c => statusFilter === 'All' || c.followUpStatus === statusFilter || (!c.followUpStatus && statusFilter === 'Pending'));
 
     const renderStatusBadge = (status?: string) => {
@@ -382,13 +382,15 @@ const NextGenFollowUp: React.FC<NextGenFollowUpProps> = ({ currentUser, events }
                                         </td>
                                         <td className="px-6 py-3 text-gray-500 text-xs">{soul.capturedBy}</td>
                                         <td className="px-6 py-3 text-right">
-                                            <button
-                                                onClick={() => handleDeleteSoul(soul.id)}
-                                                className="text-gray-400 hover:text-red-600 p-1 transition-colors"
-                                                title="Delete"
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
+                                            {currentUser?.role !== 'Staff' && currentUser?.role !== 'Member' && (
+                                                <button
+                                                    onClick={() => handleDeleteSoul(soul.id)}
+                                                    className="text-gray-400 hover:text-red-600 p-1 transition-colors"
+                                                    title="Delete"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            )}
                                         </td>
                                     </tr>
                                 ))}

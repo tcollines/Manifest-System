@@ -79,30 +79,26 @@ const App: React.FC = () => {
     }
   };
 
-  // Initialize Users and Events from Store and check for session
+  // 1. Initial Session Check (Standardize logic)
   useEffect(() => {
-    // Check for persisted session
-    const persistedUser = UserStore.getSession();
-    if (persistedUser) {
-      setCurrentUser(persistedUser);
-      // We rely on Router to handle the view based on URL. 
-      // If we are at root /, RoleRedirect will handle it.
-    }
-
-    // Check for errors in the URL hash (e.g. invalid/expired link)
-    const hash = window.location.hash;
-    if (hash && hash.includes('error=')) {
-      const params = new URLSearchParams(hash.substring(1)); // remove #
-      const errorDescription = params.get('error_description');
-      if (errorDescription) {
-        setLoginError(decodeURIComponent(errorDescription.replace(/\+/g, ' ')));
+    const init = async () => {
+      // Restore Session from Supabase natively
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session && session.user) {
+        // Fetch or sync user profile
+        const profile = await UserStore.getByEmail(session.user.email || '');
+        if (profile) {
+          setCurrentUser(profile);
+          refreshData(); // Only fetch data if we have a session
+        }
       }
-    }
+    };
+    init();
   }, []);
 
   // Auth & Realtime Data Listener
   useEffect(() => {
-    refreshData();
+    // Note: refreshData() removed from here, handled by init() and onAuthStateChange
 
     // Set up Realtime Subscription
     const subscription = supabase
@@ -120,51 +116,79 @@ const App: React.FC = () => {
         }
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'ministry_events' }, (payload) => {
-        refreshData();
+        const { eventType, new: newRecord, old: oldRecord } = payload;
+        setEvents(prev => {
+          let next;
+          if (eventType === 'INSERT') {
+            if (prev.some(e => e.id === newRecord.id)) return prev;
+            next = [newRecord as MinistryEvent, ...prev];
+          } else if (eventType === 'UPDATE') {
+            next = prev.map(e => e.id === newRecord.id ? (newRecord as MinistryEvent) : e);
+          } else if (eventType === 'DELETE') {
+            next = prev.filter(e => e.id !== oldRecord.id);
+          } else {
+            return prev;
+          }
+          // Maintain date-descending sort order
+          return next.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        });
       })
       .subscribe();
 
     // Supabase Auth Listener
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN' && session?.user?.email) {
-        // Fetch specific user profile to ensure we get it even if RLS restricts 'getAll'
-        const matchingUser = await UserStore.getByEmail(session.user.email);
+      try {
+        if (session?.access_token) {
+          // 🚨 CRITICAL FIX: Authenticate the Realtime WebSocket connection with the backend JWT
+          // This allows Postgres RLS to read the 'manifest_id' claim and broadcast cross-device updates.
+          await supabase.realtime.setAuth(session.access_token);
+        }
 
-        if (matchingUser) {
-          setCurrentUser(matchingUser);
-          UserStore.saveSession(matchingUser);
+        if (event === 'SIGNED_IN' && session?.user?.email) {
+          console.log(`[AUTH] SIGNED_IN detected for ${session.user.email}. Fetching profile...`);
+          // Fetch specific user profile to ensure we get it even if RLS restricts 'getAll'
+          const matchingUser = await UserStore.getByEmail(session.user.email, session.access_token);
 
-          // Check if new user needs to setup account
-          if (!matchingUser.username) {
-            navigate('/setup-account');
+          if (matchingUser && matchingUser.name) {
+            setCurrentUser(matchingUser);
+            UserStore.saveSession(matchingUser);
+            refreshData(); // Fetch events now that we are authenticated
+
+            // Check if new user needs to setup account
+            if (!matchingUser.username || matchingUser.username.trim() === '') {
+              // FORCE setup account
+              if (location.pathname !== '/setup-account') {
+                navigate('/setup-account', { replace: true });
+              }
+            } else {
+              // If we are strictly at / or /login, redirect. Else stay.
+              if (location.pathname === '/' || location.pathname === '/login') {
+                const target = getDashboardForUser(matchingUser);
+                navigate(target, { replace: true });
+              }
+            }
+            setLoginError(null);
+          } else if (matchingUser && !matchingUser.name) {
+            console.warn("User auto-created but not pre-invited:", session.user.email);
+            await supabase.auth.signOut();
+            setLoginError('Your Google email is not registered. Please ask an Administrator to add you.');
+            navigate('/');
           } else {
-            // If we are strictly at / or /login, redirect. Else stay.
-            if (location.pathname === '/' || location.pathname === '/login') {
-              const target = getDashboardForUser(matchingUser);
-              navigate(target);
+            console.warn("User authenticated but no profile found for:", session.user.email);
+            if (location.pathname === '/setup-account') {
+              // Handle setup flow
             }
           }
-          setLoginError(null);
-        } else {
-          console.warn("User authenticated but no profile found for:", session.user.email);
-          if (location.pathname === '/setup-account') {
-            // Handle setup flow
-            const tempUser: User = { /* ... placeholder ... */
-              id: session.user.id,
-              email: session.user.email || '',
-              username: '',
-              name: 'New User',
-              role: 'Member',
-              departmentId: '',
-              contact: '',
-              password: ''
-            };
-            setCurrentUser(tempUser);
-          }
         }
-      } else if (event === 'SIGNED_OUT') {
+      } catch (e: any) {
+        console.error("[AUTH] Error in onAuthStateChange profile fetch:", e);
+        // Do not block the app, but maybe set an error state if on the login page
+        if (location.pathname === '/' || location.pathname === '/login') {
+          setLoginError(`Profile error: ${e.message || 'Unauthorized'}`);
+        }
+      }
+      if (event === 'SIGNED_OUT') {
         setCurrentUser(null);
-        UserStore.clearSession();
         navigate('/');
       }
     });
@@ -183,9 +207,10 @@ const App: React.FC = () => {
         const user = response.data;
         setCurrentUser(user);
         UserStore.saveSession(user);
+        refreshData(); // Fetch events now that we are authenticated
 
-        if (!user.username) {
-          navigate('/setup-account');
+        if (!user.username || user.username.trim() === '') {
+          navigate('/setup-account', { replace: true });
           return;
         }
 
@@ -203,49 +228,85 @@ const App: React.FC = () => {
     }
   };
 
-  const handleGoogleLogin = async (email: string) => {
+  const handleGoogleLogin = async (email: string, token: string) => {
     try {
-      const user = await UserStore.getByEmail(email);
+      console.log(`[AUTH] Setting up Supabase session with Google Identity Token for ${email}`);
 
-      if (user) {
+      // FORCE clear all persistent state from any previous login attempts or debugging
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.startsWith('sb-') || key.includes('ministry_user_session'))) {
+          localStorage.removeItem(key);
+        }
+      }
+
+      const { data: authData, error: authError } = await supabase.auth.signInWithIdToken({
+        provider: 'google',
+        token: token,
+      });
+
+      if (authError || !authData.session) {
+        console.error("Supabase ID Token Auth Failed:", authError);
+        setLoginError('Authentication failed. Please try again.');
+        return;
+      }
+
+      console.log(`[AUTH] Session established. Fetching Manifest profile for ${email}`);
+
+      let user = null;
+      let lastErr = null;
+      try {
+        // Use recursive explicit token to bypass local session lookup races
+
+        user = await UserStore.getByEmail(email, authData.session.access_token);
+      } catch (e: any) {
+        lastErr = e.message || 'Unknown profile error';
+      }
+
+      if (user && user.name) {
         setCurrentUser(user);
         UserStore.saveSession(user);
+        refreshData(); // Fetch events now that we are authenticated
 
-        if (!user.username) {
-          const generatedUsername = user.email ? user.email.split('@')[0] : `user_${crypto.randomUUID()}`;
-          const updatedUser: User = { ...user, username: generatedUsername, status: 'Active' };
-
-          try {
-            await UserStore.update(updatedUser);
-            setCurrentUser(updatedUser);
-            UserStore.saveSession(updatedUser);
-
-            const targetTab = getDashboardForUser(updatedUser);
-            navigate(targetTab);
-            setLoginError(null);
-            return;
-          } catch (err) {
-            console.error("Failed to auto-update username", err);
-            navigate('/setup-account');
-            return;
-          }
+        if (!user.username || user.username.trim() === '') {
+          navigate('/setup-account', { replace: true });
+          return;
         }
 
         const targetTab = getDashboardForUser(user);
         navigate(targetTab);
         setLoginError(null);
+      } else if (user && !user.name) {
+        // User was auto-created by the DB trigger but was never explicitly invited by an Admin.
+        await supabase.auth.signOut();
+        setLoginError('Your Google email is not registered in Manifest. Please ask an Administrator to add you.');
       } else {
-        setLoginError('No account found with this Google email.');
+        console.error("[AUTH ERROR] Profile fetch failed for", email, "Error:", lastErr);
+        setLoginError(`Account profile not found for ${email}. Error: ${lastErr || 'No profile row'}`);
       }
-    } catch (e) {
-      console.error("Google Login Error", e);
-      setLoginError('Google login failed. Please try again.');
+    } catch (e: any) {
+      console.error("Google Login Catch Error:", e);
+      setLoginError(`Google login failed: ${e.message || 'Unknown error'}`);
     }
   };
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    UserStore.clearSession();
+    // Safety Force Logout if Supabase hangs
+    const forceLogout = setTimeout(() => {
+      console.warn("Sign out hanging? Forcing local state clear.");
+      setCurrentUser(null);
+      setLoginError(null);
+      setIsSidebarOpen(false);
+      navigate('/');
+    }, 2000);
+
+    try {
+      await supabase.auth.signOut({ scope: 'local' });
+    } catch (err) {
+      console.warn("Ignored local sign out warning:", err);
+    }
+
+    clearTimeout(forceLogout);
     setCurrentUser(null);
     setLoginError(null);
     setIsSidebarOpen(false);
@@ -341,7 +402,7 @@ const App: React.FC = () => {
     return <SignIn onLogin={handleLogin} onGoogleLogin={handleGoogleLogin} error={loginError} />;
   }
 
-  if (location.pathname === '/setup-account' || !currentUser.username) {
+  if (location.pathname === '/setup-account' || !currentUser.username || currentUser.username.trim() === '') {
     return <SetupAccount currentUser={currentUser} onComplete={handleSetupComplete} onLogout={handleLogout} />;
   }
 
@@ -447,7 +508,7 @@ const App: React.FC = () => {
 
             {/* Registration (d1) */}
             <Route element={<ProtectedRoute currentUser={currentUser} allowedDepartments={['d1']} bypassRoles={['Logistics']} />}>
-              <Route path="registration" element={<RegistrationDashboard events={events} currentUser={currentUser} onOpenModal={setModalType} />} />
+              <Route path="registration" element={<RegistrationDashboard events={events} currentUser={currentUser} onOpenModal={setModalType} refreshParentData={refreshData} />} />
             </Route>
 
             {/* Next Gen (d2) */}

@@ -68,7 +68,9 @@ export const EventStore = {
         body: JSON.stringify(mapEventToDB(event))
       });
     } catch (error: any) {
-      console.error('Error updating event:', error);
+      if (!error.message?.includes('Unauthorized')) {
+        console.error('Error updating event:', error);
+      }
       throw error;
     }
   },

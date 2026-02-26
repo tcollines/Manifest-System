@@ -8,10 +8,12 @@ const SESSION_KEY = 'ministry_user_session';
 
 // Helper to map DB snake_case to App camelCase
 const mapUserFromDB = (u: any): User => ({
-  id: u.id,
-  name: u.name,
-  role: u.role,
+  id: String(u.id),
+  name: String(u.name || ''),
+  role: String(u.role || 'Member') as any, // FORCE strictly derived scalar role
+  manifestId: u.manifest_id,
   departmentId: u.department_id,
+  departmentUid: u.department_uid,
   username: u.username,
   password: u.password,
   contact: u.contact,
@@ -29,7 +31,8 @@ const mapUserToDB = (u: User) => {
     id: u.id,
     name: u.name,
     role: u.role,
-    department_id: u.departmentId,
+    department_id: u.departmentId, // Map from App camelCase
+    department_uid: u.departmentUid,
     username: u.username,
     password: u.password,
     contact: u.contact,
@@ -44,18 +47,83 @@ const mapUserToDB = (u: User) => {
   return Object.fromEntries(Object.entries(data).filter(([_, v]) => v !== undefined));
 };
 
+import { supabase } from '../services/supabaseClient';
+
 export const UserStore = {
-  // Login now calls the API
+  // Login now uses Supabase Auth natively while handling legacy username formats
   login: async (username: string, password: string): Promise<ServiceResponse<User | null>> => {
-    return safeFetch(
-      () => apiFetch('/users/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
-      }),
-      'Login failed',
-      (data: any) => data ? mapUserFromDB(data) : null
-    );
+    try {
+      console.log(`[USERSTORE LOGIN START] Attempting login for: ${username}`);
+
+      // Force clear broken local storage states
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('sb-') && key.endsWith('-auth-token')) {
+          localStorage.removeItem(key);
+        }
+      }
+
+      const input = username.trim();
+
+      // Secure Backend Login Proxy
+      let authResult;
+      try {
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+        const response = await fetch(`${apiUrl}/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: input, password })
+        });
+
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}));
+          authResult = { error: { message: errData.error || 'Login failed' } };
+        } else {
+          const { session } = await response.json();
+          // Store session into the local Supabase client instance so realtime & api fetch works
+          const { data: setSessionData, error: setSessionError } = await supabase.auth.setSession({
+            access_token: session.access_token,
+            refresh_token: session.refresh_token,
+          });
+
+          if (setSessionError) {
+            authResult = { error: setSessionError };
+          } else {
+            authResult = { data: { session } };
+          }
+        }
+      } catch (err: any) {
+        authResult = { error: err };
+      }
+
+      if (authResult?.error) {
+        console.error(`[USERSTORE] Auth attempts failed:`, authResult.error.message);
+        return { status: 'error', message: 'Invalid credentials or Auth failure', error: authResult.error };
+      }
+
+      console.log(`[USERSTORE] Auth Success. JWT acquired. Fetching core profile via /users/profile endpoints...`);
+      // Fetch full user profile from database now that we have a JWT
+      // We must use the API getProfile, because it securely handles Legacy ID vs Auth ID duplication 
+      // by falling back to the email with the most complete profile data.
+      let profileData = null;
+      try {
+        profileData = await apiFetch('/users/profile', { token: authResult.data.session.access_token });
+      } catch (e) {
+        console.error(`[USERSTORE] API Profile Fetch Failed:`, e);
+      }
+
+      if (!profileData) {
+        console.error(`[USERSTORE] User profile not found in database via API fallback`);
+        return { status: 'error', message: 'User profile not found in database' };
+      }
+
+      console.log(`[USERSTORE] Core Profile Fetched. Login Complete.`);
+      return { status: 'success', data: mapUserFromDB(profileData) };
+
+    } catch (error: any) {
+      console.error(`[USERSTORE LOGIN CATCH]`, error);
+      return { status: 'error', message: 'Login Exception', error: error.message };
+    }
   },
 
   get: async (id: string): Promise<ServiceResponse<User | null>> => {
@@ -66,14 +134,18 @@ export const UserStore = {
     );
   },
 
-  getByEmail: async (email: string): Promise<User | null> => {
+  getByEmail: async (email: string, token?: string): Promise<User | null> => {
     try {
-      const result = await UserStore.getAll();
-      if (result.status === 'success') {
-        return result.data.find(u => u.email?.toLowerCase() === email.toLowerCase()) || null;
+      const response = await apiFetch('/users/profile', { token });
+      if (response && response.id) {
+        return mapUserFromDB(response);
       }
       return null;
-    } catch (e) { return null; }
+    } catch (e: any) {
+      console.error("[UserStore] getByEmail/profile failed:", e);
+      // Re-throw so handleGoogleLogin can catch the specific error (401, 500, etc.)
+      throw e;
+    }
   },
 
   getUserByToken: async (token: string): Promise<User | null> => {
@@ -155,6 +227,7 @@ export const UserStore = {
 
   // Session Persistence
   saveSession: (user: User) => {
+    console.log("[USERSTORE] Persisting Session to localStorage. Role:", user.role);
     localStorage.setItem(SESSION_KEY, JSON.stringify(user));
   },
 
@@ -162,7 +235,9 @@ export const UserStore = {
     const json = localStorage.getItem(SESSION_KEY);
     if (json) {
       try {
-        return JSON.parse(json);
+        const parsed = JSON.parse(json);
+        console.log("[USERSTORE] Hydrating Session from localStorage. Role:", parsed.role);
+        return parsed;
       } catch (e) {
         console.error("Failed to parse session", e);
         return null;
@@ -172,6 +247,7 @@ export const UserStore = {
   },
 
   clearSession: () => {
+    console.log("[USERSTORE] Purging all LocalStorage User Data.");
     localStorage.removeItem(SESSION_KEY);
   }
 };

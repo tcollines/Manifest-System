@@ -1,0 +1,127 @@
+{
+  "children": {
+    "total_rows": 251,
+    "uuid_pk_compliant": false,
+    "legacy_columns": [],
+    "legacy_usage": {}
+  },
+  "department_requests": {
+    "total_rows": 0,
+    "uuid_pk_compliant": true,
+    "legacy_columns": [],
+    "legacy_usage": {}
+  },
+  "passengers": {
+    "total_rows": 945,
+    "uuid_pk_compliant": true,
+    "legacy_columns": [
+      "legacy_id",
+      "legacy_vehicle_id",
+      "legacy_event_id",
+      "legacy_station_id"
+    ],
+    "legacy_usage": {
+      "legacy_id": 945,
+      "legacy_vehicle_id": 945,
+      "legacy_event_id": 939,
+      "legacy_station_id": 945
+    }
+  },
+  "personal_vehicles": {
+    "total_rows": 55,
+    "uuid_pk_compliant": true,
+    "legacy_columns": [],
+    "legacy_usage": {}
+  },
+  "transactions": {
+    "total_rows": 0,
+    "uuid_pk_compliant": true,
+    "legacy_columns": [],
+    "legacy_usage": {}
+  },
+  "users": {
+    "total_rows": 48,
+    "uuid_pk_compliant": true,
+    "legacy_columns": [],
+    "legacy_usage": {},
+    "d5_users": 11
+  },
+  "vehicles": {
+    "total_rows": 34,
+    "uuid_pk_compliant": true,
+    "legacy_columns": [
+      "legacy_id",
+      "legacy_station_id",
+      "legacy_event_id"
+    ],
+    "legacy_usage": {
+      "legacy_id": 34,
+      "legacy_station_id": 34,
+      "legacy_event_id": 33
+    }
+  },
+  "pickup_stations": {
+    "total_rows": 15,
+    "uuid_pk_compliant": true,
+    "legacy_columns": [
+      "legacy_id",
+      "legacy_event_id"
+    ],
+    "legacy_usage": {
+      "legacy_id": 15,
+      "legacy_event_id": 15
+    }
+  },
+  "ministry_events": {
+    "total_rows": 14,
+    "uuid_pk_compliant": true,
+    "legacy_columns": [
+      "legacy_id"
+    ],
+    "legacy_usage": {
+      "legacy_id": 13
+    }
+  },
+  "members": {
+    "total_rows": 4050,
+    "uuid_pk_compliant": true,
+    "legacy_columns": [
+      "legacy_id"
+    ],
+    "legacy_usage": {
+      "legacy_id": 4050
+    }
+  },
+  "service_attendance": {
+    "total_rows": 2064,
+    "uuid_pk_compliant": true,
+    "legacy_columns": [
+      "legacy_service_id",
+      "legacy_member_id"
+    ],
+    "legacy_usage": {
+      "legacy_service_id": 2064,
+      "legacy_member_id": 2064
+    }
+  },
+  "souls": {
+    "total_rows": 79,
+    "uuid_pk_compliant": true,
+    "legacy_columns": [
+      "legacy_event_id",
+      "legacy_station_id",
+      "legacy_vehicle_id"
+    ],
+    "legacy_usage": {
+      "legacy_event_id": 29,
+      "legacy_station_id": 7,
+      "legacy_vehicle_id": 0
+    }
+  },
+  "incidents": {
+    "total_rows": 0,
+    "uuid_pk_compliant": true,
+    "legacy_columns": [],
+    "legacy_usage": {}
+  }
+}

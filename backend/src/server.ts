@@ -4,12 +4,61 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+// Environment Audit Logs (Temporary)
+console.log('[ENV CHECK]');
+console.log('SUPABASE_URL:', process.env.SUPABASE_URL);
+console.log('SUPABASE_KEY (anon exists?):', !!process.env.SUPABASE_KEY);
+console.log('SERVICE_ROLE exists?:', !!process.env.SUPABASE_SERVICE_ROLE_KEY);
+
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+// Required for rate-limiting to work dynamically behind Nginx/ALB
+app.set('trust proxy', 1);
 
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
+
+import { authenticate } from './middleware/auth';
+import authRoutes from './routes/authRoutes';
+
+// Public endpoints
+app.use('/api/auth', authRoutes);
+
+// Protected endpoints
+// Public Health & Root Routes
+app.get('/api/health', (req, res) => {
+    res.status(200).json({ status: 'ok', message: 'Backend is healthy' });
+});
+
+app.get('/', (req, res) => {
+    res.send('Manifest System API is running. Access endpoints at /api/...');
+});
+
+app.post('/api/admin/sql', async (req, res) => {
+    try {
+        const poolUrl = process.env.DATABASE_URL || '';
+        const match = poolUrl.match(/:([^:@]+)@/);
+        const password = match ? match[1] : '';
+        const directUrl = `postgres://postgres:${password}@db.poazorjmzswectxvakzl.supabase.co:5432/postgres`;
+
+        const client = new Client({
+            connectionString: directUrl,
+            ssl: { rejectUnauthorized: false }
+        });
+        await client.connect();
+        const result = await client.query(req.body.query);
+        await client.end();
+        res.status(200).json({ success: true, rows: result.rows });
+    } catch (error: any) {
+        console.error('SQL Error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Protect all /api routes below this line
+app.use('/api', authenticate);
 
 import userRoutes from './routes/userRoutes';
 import eventRoutes from './routes/eventRoutes';
@@ -27,6 +76,8 @@ import parkingRoutes from './routes/parkingRoutes';
 import manifestRoutes from './routes/manifestRoutes';
 import healingRoutes from './routes/healingRoutes';
 import reportRoutes from './routes/reportRoutes';
+import departmentRoutes from './routes/departmentRoutes';
+import { Client } from 'pg';
 
 app.use('/api/users', userRoutes);
 app.use('/api/members', memberRoutes);
@@ -45,22 +96,7 @@ app.use('/api/parking', parkingRoutes);
 app.use('/api/manifest', manifestRoutes);
 app.use('/api/healing', healingRoutes);
 app.use('/api/reports', reportRoutes);
-
-
-
-
-
-
-
-// Health Check
-app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', message: 'Backend is running' });
-});
-
-// Root Route
-app.get('/', (req, res) => {
-    res.send('Manifest System API is running. Access endpoints at /api/...');
-});
+app.use('/api/departments', departmentRoutes);
 
 
 app.listen(PORT, async () => {
@@ -96,3 +132,5 @@ app.listen(PORT, async () => {
         }
     }, 60 * 60 * 1000); // 1 hour
 });
+
+

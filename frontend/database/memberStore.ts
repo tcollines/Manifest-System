@@ -19,7 +19,9 @@ const mapMemberFromDB = (m: any): Member => ({
   residency: m.residency,
   bornAgain: m.born_again,
   joinedDate: m.joined_date,
-  attendedServiceIds: m.attended_service_ids || []
+  attendedServiceIds: m.attended_service_ids || [],
+  firstTimerServiceId: m.first_timer_service_id,
+  createdAt: m.created_at
 });
 
 const mapMemberToDB = (m: Member) => ({
@@ -33,27 +35,54 @@ const mapMemberToDB = (m: Member) => ({
   residency: m.residency,
   born_again: m.bornAgain,
   joined_date: m.joinedDate,
-  attended_service_ids: m.attendedServiceIds
+  attended_service_ids: m.attendedServiceIds,
+  currentServiceId: m.currentServiceId
 });
 
+const MEMBER_CACHE = new Map<string, { timestamp: number, data: ServiceResponse<Member[]> }>();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes (not strictly used if we just want micro-cache for rapid nav)
+const MAX_CACHE_SIZE = 10;
+
 export const MemberStore = {
-  getMembers: async (page: number = 1, pageSize: number = 50, searchQuery: string = ''): Promise<ServiceResponse<Member[]>> => {
-    return safeFetch(
-      () => apiFetch(`/members?page=${page}&pageSize=${pageSize}&search=${encodeURIComponent(searchQuery)}`),
+  getMembers: async (page: number = 1, pageSize: number = 50, searchQuery: string = '', signal?: AbortSignal): Promise<ServiceResponse<Member[]>> => {
+    const cacheKey = `${page}-${pageSize}-${searchQuery.trim()}`;
+
+    // 1. Cache Hit Strategy: Return immediately if found
+    if (MEMBER_CACHE.has(cacheKey)) {
+      console.log(`[MemberStore] Cache Hit: ${cacheKey}`);
+      const cached = MEMBER_CACHE.get(cacheKey)!;
+
+      // Background Revalidation (Stale-While-Revalidate)
+      // We return cached immediately, then catch up. 
+      // Note: For a pure function, we can't easily "push" the update unless we use a subscription or just let the next render catch it.
+      // For "Ultra-Fast", returning cached is priority.
+      // If we want to be strict, we can check timestamp.
+      return cached.data;
+    }
+
+    const response = await safeFetch(
+      () => apiFetch(`/members?page=${page}&pageSize=${pageSize}&search=${encodeURIComponent(searchQuery)}`, { signal }),
       'Failed to load members list.',
-      (raw: any[]) => raw ? raw.map(mapMemberFromDB) : []
+      (raw: any[]) => raw ? raw.map(mapMemberFromDB) : [],
+      signal
     );
+
+    // 2. Cache Set Strategy
+    if (response.status === 'success' && !signal?.aborted) {
+      if (MEMBER_CACHE.size >= MAX_CACHE_SIZE) {
+        const firstKey = MEMBER_CACHE.keys().next().value;
+        MEMBER_CACHE.delete(firstKey);
+      }
+      MEMBER_CACHE.set(cacheKey, { timestamp: Date.now(), data: response });
+    }
+
+    return response;
   },
 
   getAll: async (): Promise<ServiceResponse<Member[]>> => {
-    try {
-      const data = await apiFetch('/members/all');
-      return { status: 'success', data: data ? data.map(mapMemberFromDB) : [] };
-    } catch (e) {
-      console.warn("Retrying getAll with pagination fallback", e);
-      // Fallback
-      return MemberStore.getMembers(1, 10000);
-    }
+    // Force pagination as /all is removed for stability. 
+    // Consumers needing "all" should fetch specific pages or use search.
+    return MemberStore.getMembers(1, 100);
   },
 
 
@@ -77,9 +106,9 @@ export const MemberStore = {
 
   getById: async (id: string): Promise<Member | null> => {
     try {
-      const data = await apiFetch(`/members?id=eq.${id}&select=*`);
-      if (data && data.length > 0) {
-        return mapMemberFromDB(data[0]);
+      const data = await apiFetch(`/members/${id}`);
+      if (data) {
+        return mapMemberFromDB(data);
       }
       return null;
     } catch (e) {

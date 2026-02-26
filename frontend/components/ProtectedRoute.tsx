@@ -2,6 +2,7 @@ import React from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { User } from '../types';
 import { getDashboardForUser } from '../utils';
+import { DEPARTMENTS } from '../constants';
 
 interface ProtectedRouteProps {
     currentUser: User | null;
@@ -22,6 +23,11 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
         return <Navigate to={redirectPath} replace />;
     }
 
+    // Force Setup Account if username is missing
+    if (!currentUser.username || currentUser.username.trim() === '') {
+        return <Navigate to="/setup-account" replace />;
+    }
+
     // 1. Super Admin / Administrator / TeamLeader bypass
     if (currentUser.role === 'Super Admin' || currentUser.role === 'Administrator' || currentUser.role === 'TeamLeader') {
         return <Outlet />;
@@ -35,7 +41,23 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     // 2. Department Check
     // If allowedDepartments is provided, user MUST be in one of them
     if (allowedDepartments.length > 0) {
-        if (!currentUser.departmentId || !allowedDepartments.includes(currentUser.departmentId)) {
+        // Resolve User's Department UUID to full object
+        const userDept = DEPARTMENTS.find(d =>
+            d.id === currentUser.departmentId ||
+            d.uuid === currentUser.departmentId ||
+            d.code === currentUser.departmentId // Handle if user still has legacy 'd1'
+        );
+
+        // Check if ANY of the user's identifiers match the allowed list
+        const isAllowed =
+            (currentUser.departmentId && allowedDepartments.includes(currentUser.departmentId)) || // Direct Match
+            (userDept && (
+                allowedDepartments.includes(userDept.code) || // Match 'd1'
+                allowedDepartments.includes(userDept.slug) || // Match 'registration'
+                allowedDepartments.includes(userDept.uuid)    // Match UUID
+            ));
+
+        if (!isAllowed) {
             // User is not in the allowed department
             console.warn(`Access Denied: User ${currentUser.username} (Dept: ${currentUser.departmentId}) attempted to access restricted route.`);
             const target = getDashboardForUser(currentUser);

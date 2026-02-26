@@ -8,13 +8,7 @@ export interface KPI {
   icon: string;
 }
 
-export interface Department {
-  id: string;
-  name: string;
-  head: string;
-  members: number;
-  status: 'Active' | 'Inactive';
-}
+
 
 export interface VolunteerAttendance {
   id: string;
@@ -25,6 +19,7 @@ export interface VolunteerAttendance {
   status: 'Present' | 'Late' | 'Absent';
   notes?: string;
   timestamp?: string;
+  manifestId?: string;
 }
 
 export interface ChartData {
@@ -80,7 +75,9 @@ export interface User {
   id: string;
   name: string;
   role: string;
-  departmentId?: string;
+  manifestId?: string;
+  departmentId?: string; // Legacy Code (e.g. 'd1')
+  departmentUid?: string; // New UUID
   // Credentials & Contact
   username?: string;
   password?: string;
@@ -103,6 +100,7 @@ export interface Member {
   checkInTime?: string;
   // Extended Fields
   gender?: 'Male' | 'Female';
+  createdAt?: string;
   residency?: string;
   email?: string;
   occupation?: string;
@@ -113,6 +111,8 @@ export interface Member {
   // Analytics
   joinedDate?: string;
   attendedServiceIds?: string[];
+  currentServiceId?: string;
+  firstTimerServiceId?: string;
 }
 
 export interface Child {
@@ -130,6 +130,7 @@ export interface Child {
   checkOutTime?: string;
   joinedDate: string;
   attendedServiceIds: string[];
+  currentServiceId?: string;
   // New Fields for Follow Up & Care
   followUpStatus?: 'Pending' | 'Called' | 'Message Sent' | 'Visited';
   assignedTo?: string; // Volunteer ID/Name
@@ -161,12 +162,14 @@ export interface VehicleFinance {
 export interface Vehicle {
   id: string;
   stationId: string;
+  eventId?: string; // Links vehicle to a specific event
   number_plate: string;
   driverName: string;
   driverContact: string;
   driverNin?: string; // Added field
   type: 'Car' | 'Taxi' | 'Coaster' | 'Bus';
   coordinator: string;
+  coordinatorUid?: string; // ID for robust matching
   coordinatorContact?: string; // Snapshot of contact info
   timeArrival: string;
   passengerCount?: number;
@@ -228,6 +231,8 @@ export interface Passenger {
   gender?: 'Male' | 'Female';
   soulWon?: boolean;
   parentContact?: string;
+  eventId?: string; // Links passenger to specific event
+  stationId?: string; // Links passenger to specific station
 }
 
 export interface PickUpStation {
@@ -291,6 +296,10 @@ export interface Soul {
   // New Fields for Healing Dept
   nextOfKinName?: string;
   nextOfKinContact?: string;
+  // Traceability Fields
+  eventId?: string;
+  stationId?: string;
+  vehicleId?: string;
 }
 
 export enum ModalType {
@@ -393,11 +402,17 @@ export interface TrainingRequest {
 // Monthly Reporting System Types
 
 export interface Department {
-  id: string; // 'd1', 'd2', etc.
+  id: string; // UUID (eventually) or 'd1' (currently)
+  code: string; // 'd1', 'd2' etc. (Legacy)
+  slug: string; // 'registration', 'transportation'
+  uuid: string; // Native UUID
   name: string;
   headId?: string;
+  dashboardRoute?: string;
+  status?: 'Active' | 'Inactive';
   // Computed/Joined fields
   headName?: string;
+  members?: number;
 }
 
 export interface ReportField {

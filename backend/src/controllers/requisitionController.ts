@@ -2,10 +2,14 @@ import { Request, Response } from 'express';
 import { supabase } from '../supabase';
 
 export const getAllRequisitions = async (req: Request, res: Response) => {
+    const manifestId = (req as any).manifestId;
+    if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
+
     try {
         const { data, error } = await supabase
             .from('requisitions')
             .select(`*, requisition_items (*)`)
+            .eq('manifest_id', manifestId) // Tenant Isolation
             .order('created_at', { ascending: false });
 
         if (error) throw error;
@@ -16,11 +20,15 @@ export const getAllRequisitions = async (req: Request, res: Response) => {
 };
 
 export const getRequisitionsByDepartment = async (req: Request, res: Response) => {
+    const manifestId = (req as any).manifestId;
+    if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
+
     const { deptId } = req.params;
     try {
         const { data, error } = await supabase
             .from('requisitions')
             .select(`*, requisition_items (*)`)
+            .eq('manifest_id', manifestId) // Tenant Isolation
             .eq('department_id', deptId)
             .order('created_at', { ascending: false });
 
@@ -32,6 +40,9 @@ export const getRequisitionsByDepartment = async (req: Request, res: Response) =
 };
 
 export const createRequisition = async (req: Request, res: Response) => {
+    const manifestId = (req as any).manifestId;
+    if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
+
     const { req: requisition, items } = req.body;
     try {
         const reqNumber = `REQ-${Date.now().toString().slice(-6)}`;
@@ -39,6 +50,7 @@ export const createRequisition = async (req: Request, res: Response) => {
         const { data: reqData, error: reqError } = await supabase
             .from('requisitions')
             .insert([{
+                manifest_id: manifestId, // INJECT TENANT ID
                 title: requisition.title,
                 department_id: requisition.departmentId,
                 requester_id: requisition.requesterId,
@@ -54,6 +66,7 @@ export const createRequisition = async (req: Request, res: Response) => {
         if (!reqData) throw new Error("Failed to create requisition record.");
 
         const itemsToInsert = items.map((item: any) => ({
+            manifest_id: manifestId, // INJECT TENANT ID
             requisition_id: reqData.id,
             description: item.description,
             quantity: item.quantity,
@@ -72,6 +85,9 @@ export const createRequisition = async (req: Request, res: Response) => {
 };
 
 export const updateRequisition = async (req: Request, res: Response) => {
+    const manifestId = (req as any).manifestId;
+    if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
+
     const { id } = req.params;
     const { req: requisition, items } = req.body;
 
@@ -86,14 +102,16 @@ export const updateRequisition = async (req: Request, res: Response) => {
                 rejection_reason: null,
                 updated_at: new Date().toISOString()
             })
+            .eq('manifest_id', manifestId) // Tenant Isolation
             .eq('id', id);
 
         if (reqError) throw reqError;
 
-        const { error: deleteError } = await supabase.from('requisition_items').delete().eq('requisition_id', id);
+        const { error: deleteError } = await supabase.from('requisition_items').delete().eq('manifest_id', manifestId).eq('requisition_id', id);
         if (deleteError) throw deleteError;
 
         const itemsToInsert = items.map((item: any) => ({
+            manifest_id: manifestId, // INJECT TENANT ID
             requisition_id: id,
             description: item.description,
             quantity: item.quantity,
@@ -111,6 +129,9 @@ export const updateRequisition = async (req: Request, res: Response) => {
 };
 
 export const updateStatus = async (req: Request, res: Response) => {
+    const manifestId = (req as any).manifestId;
+    if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
+
     const { id } = req.params;
     const { status, reason } = req.body;
 
@@ -118,7 +139,7 @@ export const updateStatus = async (req: Request, res: Response) => {
         const updateData: any = { status, updated_at: new Date().toISOString() };
         if (reason) updateData.rejection_reason = reason;
 
-        const { error } = await supabase.from('requisitions').update(updateData).eq('id', id);
+        const { error } = await supabase.from('requisitions').update(updateData).eq('manifest_id', manifestId).eq('id', id);
         if (error) throw error;
 
         res.json({ message: 'Status updated' });
@@ -128,11 +149,15 @@ export const updateStatus = async (req: Request, res: Response) => {
 };
 
 export const addPayment = async (req: Request, res: Response) => {
+    const manifestId = (req as any).manifestId;
+    if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
+
     const { id } = req.params;
     const { payment, newTotalPaid, isFullPayment } = req.body;
 
     try {
         const { error: payError } = await supabase.from('requisition_payments').insert([{
+            manifest_id: manifestId, // INJECT TENANT ID
             requisition_id: id,
             amount: payment.amount,
             method: payment.method,
@@ -152,7 +177,7 @@ export const addPayment = async (req: Request, res: Response) => {
             updateData.status = 'Paid';
         }
 
-        const { error: reqError } = await supabase.from('requisitions').update(updateData).eq('id', id);
+        const { error: reqError } = await supabase.from('requisitions').update(updateData).eq('manifest_id', manifestId).eq('id', id);
         if (reqError) throw reqError;
 
         res.json({ message: 'Payment added' });

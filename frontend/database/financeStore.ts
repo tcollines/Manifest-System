@@ -24,10 +24,34 @@ const mapRequestFromDB = (r: any): DepartmentRequest => ({
   status: r.status
 });
 
+export interface FinanceSummary {
+  total_income: number;
+  total_expense: number;
+  net_balance: number;
+  transaction_count: number;
+}
+
 export const FinanceStore = {
-  getTransactions: async (): Promise<Transaction[]> => {
+  getEventSummary: async (eventId?: string): Promise<FinanceSummary> => {
     try {
-      const data = await apiFetch('/finance/transactions');
+      const url = eventId ? `/finance/summary?eventId=${eventId}` : '/finance/summary';
+      const data = await apiFetch(url);
+      return {
+        total_income: Number(data.total_income || 0),
+        total_expense: Number(data.total_expense || 0),
+        net_balance: Number(data.net_balance || 0),
+        transaction_count: Number(data.transaction_count || 0)
+      };
+    } catch (e: any) {
+      console.error('Unexpected error fetching finance summary:', e.message || e);
+      return { total_income: 0, total_expense: 0, net_balance: 0, transaction_count: 0 };
+    }
+  },
+
+  getTransactions: async (eventId?: string, page: number = 1, limit: number = 100): Promise<Transaction[]> => {
+    try {
+      const url = eventId ? `/finance/transactions?eventId=${eventId}&page=${page}&limit=${limit}` : `/finance/transactions?page=${page}&limit=${limit}`;
+      const data = await apiFetch(url);
       return data.map(mapTransactionFromDB);
     } catch (e: any) {
       console.error('Unexpected error fetching transactions:', e.message || e);
@@ -55,9 +79,10 @@ export const FinanceStore = {
     }
   },
 
-  getRequests: async (): Promise<DepartmentRequest[]> => {
+  getRequests: async (eventId?: string, page: number = 1, limit: number = 100): Promise<DepartmentRequest[]> => {
     try {
-      const data = await apiFetch('/finance/requests');
+      const url = eventId ? `/finance/requests?eventId=${eventId}&page=${page}&limit=${limit}` : `/finance/requests?page=${page}&limit=${limit}`;
+      const data = await apiFetch(url);
       if (!data) return DEPARTMENT_REQUESTS;
       return data.map(mapRequestFromDB);
     } catch (e: any) {

@@ -12,6 +12,7 @@ import { ManifestStore } from '../database/manifestStore';
 import { EventStore } from '../database/eventStore';
 import { SoulsStore } from '../database/soulsStore';
 import { supabase } from '../services/supabaseClient';
+import { v4 as uuidv4 } from 'uuid';
 import * as XLSX from 'xlsx';
 import {
   ClipboardCheck,
@@ -55,7 +56,9 @@ import {
   History,
   Settings,
   User as UserIcon,
-  Copy
+  Copy,
+  Heart,
+  Loader2
 } from 'lucide-react';
 import EventDetailsModal from './EventDetailsModal';
 import { AssetsTab } from './AssetsTab';
@@ -67,6 +70,7 @@ interface RegistrationDashboardProps {
   events: MinistryEvent[];
   currentUser: User;
   onOpenModal?: (type: ModalType) => void;
+  refreshParentData?: () => void;
 }
 
 type Tab = 'checkin' | 'events' | 'database';
@@ -75,7 +79,7 @@ type ViewMode = 'list' | 'service-active' | 'service-review' | 'Vehicle-view' | 
 // Helper for sanitizing empty strings to undefined
 const sanitize = (val: string | undefined): string | undefined => (!val || val.trim() === '') ? undefined : val;
 
-const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, currentUser, onOpenModal }) => {
+const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, currentUser, onOpenModal, refreshParentData }) => {
   const { showToast, confirm: askConfirm } = useNotification();
   /* Persistence Logic */
   const [activeTab, setActiveTab] = useState<Tab>(() => {
@@ -101,6 +105,8 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
   }, [currentUser.role]);
 
 
+  // Logistics: Auto-Select Station if assigned
+
 
   const [members, setMembers] = useState<Member[]>([]);
   const [totalMembers, setTotalMembers] = useState(0);
@@ -123,11 +129,63 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
 
   // Logistics Hierarchy State
   const [selectedLogisticsEvent, setSelectedLogisticsEvent] = useState<MinistryEvent | null>(null); // Level 1 -> 2
+
   const [selectedStation, setSelectedStation] = useState<ExtendedStation | null>(null); // Level 2 -> 3
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null); // Level 3 -> 4
 
+
+  // Logistics: Auto-Select Station if assigned
+  // Loading state to prevent flicker of "Select Event" screen
+  const [isLogisticsInitializing, setIsLogisticsInitializing] = useState(() => {
+    return currentUser.role === 'Logistics' && !!currentUser.stationId;
+  });
+
+  useEffect(() => {
+    const autoSelectStation = async () => {
+      console.log("AutoSelect Trace: Start", { role: currentUser.role, stId: currentUser.stationId });
+
+      if (currentUser.role === 'Logistics' && currentUser.stationId && !selectedStation) {
+        try {
+          const { data: stationData, error } = await supabase
+            .from('pickup_stations')
+            .select('*')
+            .eq('id', currentUser.stationId)
+            .single();
+
+          console.log("AutoSelect Trace: Station Data", stationData, error);
+
+          if (stationData) {
+            const station: ExtendedStation = {
+              ...stationData,
+              eventId: stationData.event_id, // CRITICAL: Map to camelCase for filter matching
+              coordinatorName: stationData.coordinator_name || '',
+              coordinatorContact: stationData.coordinator_contact || '',
+              totalPassengers: 0,
+              vehicles: []
+            };
+
+            const relatedEvent = events.find(e => e.id === stationData.event_id);
+            console.log("AutoSelect Trace: Related Event", relatedEvent);
+
+            if (relatedEvent) {
+              setSelectedLogisticsEvent(relatedEvent);
+              setSelectedStation(station);
+              setViewMode('station-detail');
+            }
+          }
+        } catch (err) {
+          console.error("Auto-select station failed", err);
+        } finally {
+          setIsLogisticsInitializing(false);
+        }
+      } else if (!currentUser.stationId) {
+        setIsLogisticsInitializing(false);
+      }
+    };
+    autoSelectStation();
+  }, [currentUser, events, selectedStation]);
+
   const [stationEntrants, setStationEntrants] = useState<User[]>([]);
-  const [availableCoordinators, setAvailableCoordinators] = useState<User[]>([]);
 
   // Logistics Data
   const [stations, setStations] = useState<ExtendedStation[]>([]);
@@ -245,8 +303,9 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
   const [isChildCountModalOpen, setIsChildCountModalOpen] = useState(false);
 
   // Check-in Stats State
-  const [checkInStats, setCheckInStats] = useState({ total: 0, firstTimers: 0 });
+  const [checkInStats, setCheckInStats] = useState({ total: 0, firstTimers: 0, soulsWon: 0 });
   const [checkedInIds, setCheckedInIds] = useState<Set<string>>(new Set());
+  const [checkedSoulIds, setCheckedSoulIds] = useState<Set<string>>(new Set());
 
   // Member Details View State
   const [selectedMemberDetails, setSelectedMemberDetails] = useState<{ member: Member, attendedCount: number, totalServices: number, history: any[] } | null>(null);
@@ -262,7 +321,8 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
 
   // --- REALTIME SYNC: Service Check-Ins ---
   useEffect(() => {
-    if (!selectedService || viewMode !== 'service-active') return;
+    const manifestId = currentUser.manifestId || currentUser.manifest_id;
+    if (!selectedService || viewMode !== 'service-active' || !manifestId) return;
 
     const channelName = `service-checkins-${selectedService.id}`;
     const channel = supabase
@@ -270,32 +330,94 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
       .on(
         'postgres_changes',
         {
-          event: '*', // Listen for INSERT and DELETE (and UPDATE if needed)
+          event: '*',
           schema: 'public',
           table: 'service_attendance',
-          filter: `service_id=eq.${selectedService.id}` // Server-side filtering
+          // Enforce strict tenant isolation alongside service scope
+          filter: `manifest_id=eq.${manifestId}`
         },
-        async (payload) => {
-          // Re-fetch stats when any change happens to this service's attendance
-          try {
-            const stats = await MemberStore.getServiceStats(selectedService.id, selectedService.date);
-            const childrenCount = selectedService.stats?.manualChildrenCount || 0;
-            setCheckInStats({ total: stats.total + childrenCount, firstTimers: stats.firstTimers });
-            setCheckedInIds(new Set(stats.memberIds));
-          } catch (error) {
-            console.error("Realtime sync failed:", error);
+        (payload) => {
+          const { eventType, new: newRecord, old: oldRecord } = payload;
+
+          // Double verification just to be safe
+          if (newRecord && (newRecord as any).service_id !== selectedService.id) return;
+          if (oldRecord && (oldRecord as any).service_id !== selectedService.id) return;
+
+          if (eventType === 'INSERT') {
+            const memberId = (newRecord as any).member_id;
+            setCheckedInIds(prev => {
+              if (prev.has(memberId)) return prev;
+              const next = new Set(prev);
+              next.add(memberId);
+              setCheckInStats(stats => ({ ...stats, total: stats.total + 1 }));
+              return next;
+            });
+          } else if (eventType === 'DELETE') {
+            const memberId = (oldRecord as any).member_id;
+            setCheckedInIds(prev => {
+              if (!prev.has(memberId)) return prev;
+              const next = new Set(prev);
+              next.delete(memberId);
+              setCheckInStats(stats => ({ ...stats, total: Math.max(0, stats.total - 1) }));
+              return next;
+            });
           }
         }
       )
       .subscribe();
 
+    const channel_souls = supabase
+      .channel(`service-souls-${selectedService.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'souls',
+          filter: `source_id=eq.${selectedService.id}`
+        },
+        (payload) => {
+          const soulId = (payload.new as any).id;
+          setCheckedSoulIds(prev => {
+            if (prev.has(soulId)) return prev;
+            const next = new Set(prev);
+            next.add(soulId);
+            setCheckInStats(stats => ({ ...stats, soulsWon: stats.soulsWon + 1 }));
+            return next;
+          });
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'souls',
+          filter: `source_id=eq.${selectedService.id}`
+        },
+        (payload) => {
+          const soulId = (payload.old as any).id;
+          setCheckedSoulIds(prev => {
+            if (!prev.has(soulId)) return prev;
+            const next = new Set(prev);
+            next.delete(soulId);
+            setCheckInStats(stats => ({ ...stats, soulsWon: Math.max(0, stats.soulsWon - 1) }));
+            return next;
+          });
+        }
+      )
+      .subscribe();
+
+
     return () => {
       supabase.removeChannel(channel);
+      supabase.removeChannel(channel_souls);
     };
-  }, [selectedService?.id, viewMode]);
+  }, [selectedService?.id, viewMode, currentUser.manifestId, currentUser.manifest_id]);
 
 
   // Robust Role Check: Case-insensitive and includes Department ID 'd5' (Transportation/Logistics) - Fixes Data Entrant Guard
+  // TODO: Refactor to use Department Slug from Global Context/Store
   const isLogisticsRole = (currentUser.role && currentUser.role.trim().toLowerCase() === 'logistics') || currentUser.departmentId === 'd5';
 
   // Permission for Deletion: Head of Dept or Administration Department (d0) or Administrator
@@ -374,69 +496,96 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
     return debouncedValue;
   }
 
-  const debouncedSearchQuery = useDebounce(searchQuery, 600);
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
+
+  // Ultra-Fast Search Logic
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
 
   const refreshData = async () => {
     try {
+      // 1. Cancellation: Abort previous request
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      abortControllerRef.current = new AbortController();
+      const signal = abortControllerRef.current.signal;
+
       // Only search if query is empty (reset) or >= 2 chars
       const effectiveQuery = debouncedSearchQuery.length >= 2 ? debouncedSearchQuery : '';
-
       const queryToSend = effectiveQuery;
 
+      setIsSearching(!!effectiveQuery);
+
       // Special Fetch Logic for Check-In Filters
-      // If we are filtering by Check-In status, we want ALL checked-in members, not just the current page
+      // Only apply filterCategory if we are in the Check-In tab
+      const isCheckInTab = activeTab === 'checkin';
+      const effectiveFilterCategory = isCheckInTab ? filterCategory : null;
+
       let membersPromise: Promise<ServiceResponse<Member[]>>;
 
-      if (filterCategory) {
+      // OPTIMIZATION: Reduce page size during search for faster rendering
+      const currentPageSize = effectiveQuery ? 20 : itemsPerPage;
+
+      if (effectiveFilterCategory) {
         if (checkedInIds.size > 0) {
-          // Fetch specific IDs
-          console.log("Filtering by IDs:", Array.from(checkedInIds));
+          // Fetch specific IDs (No signal support on getManyByIds yet, but it's fast)
           membersPromise = MemberStore.getManyByIds(Array.from(checkedInIds));
         } else {
-          // If filtering by stats but no one checked in, return empty
-          // Use explicit cast or ensure type safety matching ServiceResponse
           membersPromise = Promise.resolve({ status: 'success', data: [] } as ServiceResponse<Member[]>);
         }
       } else {
-        membersPromise = MemberStore.getMembers(currentPage, itemsPerPage, queryToSend);
+        // Pass signal for cancellation
+        membersPromise = MemberStore.getMembers(currentPage, currentPageSize, queryToSend, signal);
       }
 
+      // Parallel Fetch - Note: Only members fetch is cancellable for now, others let run (usually cached or fast)
       const [fetchedStations, fetchedVehicles, fetchedPassengers, fetchedMembersResult, fetchedUsers, fetchedPersonalCars] = await Promise.all([
         LogisticsStore.getStations(),
-        VehicleStore.getVehicles(),
-        VehicleStore.getPassengers(),
-        membersPromise,
+        VehicleStore.getVehicles({ eventId: selectedLogisticsEvent?.id }),
+        VehicleStore.getPassengers({ eventId: selectedLogisticsEvent?.id }),
+        membersPromise.catch(err => {
+          // Handle AbortError specifically to return a "cancelled" state
+          if (signal.aborted || err.name === 'AbortError') return { status: 'cancelled' } as any;
+          throw err;
+        }),
         UserStore.getAll(),
         VehicleStore.getPersonalVehicles()
       ]);
 
-      setStations(fetchedStations.status === 'success' ? fetchedStations.data : []);
-      // LogisticsStore was NOT refactored yet. Steps below refactor it.
-      // But VehicleStore IS refactored.
+      if (signal.aborted) return; // Stop if cancelled
 
+      setStations(fetchedStations.status === 'success' ? fetchedStations.data : []);
       setVehicles(fetchedVehicles.status === 'success' ? fetchedVehicles.data : []);
       setPersonalVehicles(fetchedPersonalCars.status === 'success' ? fetchedPersonalCars.data : []);
       setPassengers(fetchedPassengers.status === 'success' ? fetchedPassengers.data : []);
 
-      // Handle Member Result (Safe Fetch Pattern)
+      // Handle Member Result
       if (fetchedMembersResult.status === 'success' && Array.isArray(fetchedMembersResult.data)) {
         setMembers(fetchedMembersResult.data);
         setTotalMembers(fetchedMembersResult.count || fetchedMembersResult.data.length);
-      } else {
+      } else if (fetchedMembersResult.status !== 'cancelled') {
+        // Error handling
         const errorMsg = (fetchedMembersResult as any).message || "Unknown error";
         console.error("Member Fetch Error:", errorMsg);
         showToast(`Error loading members: ${errorMsg}`, 'error');
-        // Optionally set an error state variable to show a banner
-        setMembers([]); // Safe fallback to empty but with Toast warning
+        setMembers([]);
         setTotalMembers(0);
       }
 
-      setCoordinators(fetchedUsers.status === 'success' && Array.isArray(fetchedUsers.data) ? fetchedUsers.data.filter(u => u.role === 'Coordinator') : []);
-
+      setCoordinators(fetchedUsers.status === 'success' && Array.isArray(fetchedUsers.data)
+        ? fetchedUsers.data.filter(u => u.role === 'Vehicle Coordinator' || u.role === 'Coordinator')
+        : []);
 
     } catch (error: any) {
-      console.error("Error refreshing data:", error);
-      showToast("Critical error refreshing data.", 'error');
+      if (error.name !== 'AbortError') {
+        console.error("Error refreshing data:", error);
+        showToast("Critical error refreshing data.", 'error');
+      }
+    } finally {
+      if (abortControllerRef?.current?.signal?.aborted === false) {
+        setIsSearching(false);
+      }
     }
   };
 
@@ -444,13 +593,14 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
   refreshDataRef.current = refreshData;
 
   useEffect(() => {
-    // Skip fetch if length is 1 to avoid "heavy" defaults if not intended
-    if (searchQuery.length > 0 && searchQuery.length < 2) {
+    // Skip fetch if length is exactly 1 (wait for at least 2 chars to search)
+    // BUT we MUST fetch if length is 0 (cleared search)
+    if (debouncedSearchQuery.length === 1) {
       return;
     }
 
     refreshData();
-  }, [currentPage, debouncedSearchQuery, activeTab, filterCategory]); // Added filterCategory dependency
+  }, [currentPage, debouncedSearchQuery, activeTab, filterCategory, selectedLogisticsEvent?.id]); // Added filterCategory dependency
 
   const selectedServiceRef = useRef(selectedService);
   useEffect(() => {
@@ -473,179 +623,105 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
 
   // Realtime Subscriptions with Granular Updates
   useEffect(() => {
-    const channel = supabase.channel('reg-dashboard-live')
-      // Members Table: Granular Updates
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'members' }, (payload) => {
-        const newMember = payload.new as any;
-        // 1. Update Members List (if needed for list view / search)
-        // Only append if it matches current search
-        const matchesSearch = !searchQuery ||
-          newMember.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          newMember.phone.includes(searchQuery);
+    const activeOperationId = selectedService?.id || selectedLogisticsEvent?.id;
+    if (!activeOperationId) return;
 
-        if (matchesSearch) {
-          setMembers(prev => {
-            // Avoid duplicates
-            if (prev.find(m => m.id === newMember.id)) return prev;
-            // Map DB snake_case to CamelCase if necessary, but payload usually has raw DB columns
-            // We need to map it properly to Member interface
-            const mapped: Member = {
-              id: newMember.id,
-              name: newMember.name,
-              category: newMember.category,
-              phone: newMember.phone,
-              status: newMember.status,
-              checkInTime: newMember.check_in_time,
-              gender: newMember.gender,
-              residency: newMember.residency,
-              bornAgain: newMember.born_again,
-              joinedDate: newMember.joined_date,
-              attendedServiceIds: newMember.attended_service_ids || []
-            };
-            return [mapped, ...prev];
-          });
-          setTotalMembers(prev => prev + 1);
+    const channel = supabase.channel(`reg-dashboard-scoped-${activeOperationId}`);
+
+    // Helpers for granular updates
+    const handleStationChange = (payload: any) => {
+      const { eventType, new: newRecord, old: oldRecord } = payload;
+      if (eventType === 'INSERT') {
+        setStations(prev => {
+          if (prev.find(s => s.id === newRecord.id)) return prev;
+          const mapped: ExtendedStation = {
+            ...newRecord,
+            eventId: newRecord.event_id,
+            coordinatorName: newRecord.coordinator_name || '',
+            coordinatorContact: newRecord.coordinator_contact || '',
+            totalPassengers: 0,
+            vehicles: []
+          } as ExtendedStation;
+          return [mapped, ...prev];
+        });
+      } else if (eventType === 'UPDATE') {
+        const updated = newRecord as any;
+        setStations(prev => prev.map(s => s.id === updated.id ? {
+          ...s,
+          ...updated,
+          eventId: updated.event_id // Map snake_case to camelCase
+        } : s));
+      } else if (eventType === 'DELETE') {
+        setStations(prev => prev.filter(s => s.id !== oldRecord.id));
+      }
+    };
+
+    const handleVehicleChange = (payload: any) => {
+      const { eventType, new: newRecord, old: oldRecord } = payload;
+      if (eventType === 'INSERT') {
+        setVehicles(prev => {
+          if (prev.find(v => v.id === newRecord.id)) return prev;
+          return [newRecord as Vehicle, ...prev];
+        });
+      } else if (eventType === 'UPDATE') {
+        setVehicles(prev => prev.map(v => v.id === newRecord.id ? (newRecord as Vehicle) : v));
+        if (selectedVehicle?.id === newRecord.id) {
+          setSelectedVehicle(newRecord as Vehicle);
         }
+      } else if (eventType === 'DELETE') {
+        setVehicles(prev => prev.filter(v => v.id !== oldRecord.id));
+        if (selectedVehicle?.id === oldRecord.id) setSelectedVehicle(null);
+      }
+    };
 
-        // 2. Update Check-In Stats (if for current service)
-        const currentService = selectedServiceRef.current;
-        if (currentService && newMember.attended_service_ids?.includes(currentService.id)) {
-          setCheckInStats(prev => ({
-            total: prev.total + 1,
-            firstTimers: newMember.category === 'First Timer' ? prev.firstTimers + 1 : prev.firstTimers
-          }));
-          setCheckedInIds(prev => {
-            const newSet = new Set(prev);
-            newSet.add(newMember.id);
-            return newSet;
-          });
-        }
-      })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'members' }, async (payload) => {
-        const updated = payload.new as any;
-        const currentService = selectedServiceRef.current;
+    const handlePassengerChange = (payload: any) => {
+      const { eventType, new: newRecord, old: oldRecord } = payload;
+      if (eventType === 'INSERT') {
+        setPassengers(prev => {
+          if (prev.find(p => p.id === newRecord.id)) return prev;
+          return [newRecord as Passenger, ...prev];
+        });
+      } else if (eventType === 'UPDATE') {
+        setPassengers(prev => prev.map(p => p.id === newRecord.id ? (newRecord as Passenger) : p));
+      } else if (eventType === 'DELETE') {
+        setPassengers(prev => prev.filter(p => p.id !== oldRecord.id));
+      }
+    };
 
-        // 1. Resolve Category (Local or Fetch)
-        let category: string | undefined = updated.category;
-        const existingMember = membersRef.current.find(m => m.id === updated.id);
-
-        if (existingMember) {
-          category = category || existingMember.category;
-        } else if (!category) {
-          try {
-            const fetched = await MemberStore.getById(updated.id);
-            if (fetched) category = fetched.category;
-          } catch (err) {
-            console.error("Error fetching member for realtime update:", err);
-          }
-        }
-
-        // 1. Update Members List
-        setMembers(prev => prev.map(m => {
-          if (m.id === updated.id) {
-            return {
-              ...m,
-              name: updated.name,
-              category: updated.category,
-              phone: updated.phone,
-              status: updated.status,
-              checkInTime: updated.check_in_time,
-              gender: updated.gender,
-              bornAgain: updated.born_again,
-              attendedServiceIds: updated.attended_service_ids || []
-            };
-          }
-          return m;
-        }));
-
-        // 2. Update Stats (Check if check-in status changed for THIS service)
-        // CRITICAL CHECK: Only update stats if attended_service_ids is actually in the payload
-        if (currentService && updated.attended_service_ids !== undefined) {
-          // Use Ref for "Old" State because payload.old might be incomplete
-          const wasCheckedIn = checkedInIdsRef.current.has(updated.id);
-          const isCheckedIn = updated.attended_service_ids.includes(currentService.id);
-
-          console.log(`[Stats Check] ID: ${updated.id}, Was: ${wasCheckedIn}, Is: ${isCheckedIn}`);
-
-          if (!wasCheckedIn && isCheckedIn) {
-            // Added check-in
-            setCheckInStats(prev => ({
-              total: prev.total + 1,
-              firstTimers: category === 'First Timer' ? prev.firstTimers + 1 : prev.firstTimers
-            }));
-            setCheckedInIds(prev => {
-              const newSet = new Set(prev);
-              newSet.add(updated.id);
-              return newSet;
-            });
-          } else if (wasCheckedIn && !isCheckedIn) {
-            // Removed check-in
-            setCheckInStats(prev => ({
-              total: Math.max(0, prev.total - 1),
-              firstTimers: category === 'First Timer' ? Math.max(0, prev.firstTimers - 1) : prev.firstTimers
-            }));
-            setCheckedInIds(prev => {
-              const newSet = new Set(prev);
-              newSet.delete(updated.id);
-              return newSet;
-            });
-          }
-        }
-      })
-      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'members' }, (payload) => {
-        const deletedId = payload.old.id;
-        const existingMember = membersRef.current.find(m => m.id === deletedId);
-        const category = existingMember?.category;
-
-        // 1. Remove from list
-        setMembers(prev => prev.filter(m => m.id !== deletedId));
-        setTotalMembers(prev => Math.max(0, prev - 1));
-
-        // 2. Update Stats
-        if (checkedInIdsRef.current.has(deletedId)) {
-          setCheckInStats(stats => ({
-            total: Math.max(0, stats.total - 1),
-            firstTimers: category === 'First Timer' ? Math.max(0, stats.firstTimers - 1) : stats.firstTimers
-          }));
-          setCheckedInIds(prev => {
-            const newSet = new Set(prev);
-            newSet.delete(deletedId);
-            return newSet;
+    const handleUserChange = (payload: any) => {
+      const { eventType, new: newRecord, old: oldRecord } = payload;
+      if (eventType === 'INSERT' || eventType === 'UPDATE') {
+        setCoordinators(prev => {
+          const exists = prev.find(u => u.id === newRecord.id);
+          if (exists) return prev.map(u => u.id === newRecord.id ? (newRecord as User) : u);
+          return [newRecord as User, ...prev];
+        });
+      } else if (eventType === 'DELETE') {
+        setCoordinators(prev => prev.filter(u => u.id !== oldRecord.id));
+      }
+    };
+    channel
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'pickup_stations', filter: `event_id=eq.${activeOperationId}` }, handleStationChange)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'vehicles', filter: `event_id=eq.${activeOperationId}` }, handleVehicleChange)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'passengers', filter: `event_id=eq.${activeOperationId}` }, handlePassengerChange)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'users', filter: `event_id=eq.${activeOperationId}` }, handleUserChange)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'personal_vehicles', filter: `current_service_id=eq.${activeOperationId}` }, (payload) => {
+        const { eventType, new: newRecord, old: oldRecord } = payload;
+        if (eventType === 'INSERT') {
+          setPersonalVehicles(prev => {
+            if (prev.some(v => v.id === newRecord.id)) return prev;
+            return [newRecord as PersonalVehicle, ...prev];
           });
         }
+        else if (eventType === 'UPDATE') setPersonalVehicles(prev => prev.map(v => v.id === newRecord.id ? (newRecord as PersonalVehicle) : v));
+        else if (eventType === 'DELETE') setPersonalVehicles(prev => prev.filter(v => v.id !== oldRecord.id));
       })
-
-      // Other Tables: Keep using refreshData for now or implement similar logic
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, () => { refreshDataRef.current(); forceUpdate(n => n + 1); })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'pickup_stations' }, () => { refreshDataRef.current(); forceUpdate(n => n + 1); })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'vehicles' }, () => { refreshDataRef.current(); forceUpdate(n => n + 1); })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'personal_vehicles' }, () => { refreshDataRef.current(); forceUpdate(n => n + 1); })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'ministry_events' }, () => { refreshDataRef.current(); }) // Less aggressive
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'passengers' }, () => { refreshDataRef.current(); forceUpdate(n => n + 1); })
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
-
-  // Fetch coordinators when selectedLogisticsEvent changes
-  useEffect(() => {
-    const fetchCoordinators = async () => {
-      if (selectedLogisticsEvent) {
-        const result = await UserStore.getAll();
-        if (result.status === 'success') {
-          const eventCoords = result.data.filter(u =>
-            u.role === 'Coordinator' &&
-            u.departmentId === 'd5' &&
-            u.eventId === selectedLogisticsEvent.id
-          );
-          setAvailableCoordinators(eventCoords);
-        }
-      }
-    };
-    fetchCoordinators();
-  }, [selectedLogisticsEvent]);
+  }, [selectedService?.id, selectedLogisticsEvent?.id]);
 
   // Clear selections when changing tabs or views
   useEffect(() => {
@@ -671,8 +747,9 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
     setViewMode('service-active');
     // Fetch initial stats
     const stats = await MemberStore.getServiceStats(service.id, service.date);
+    const souls = await SoulsStore.getServiceStats(service.id);
     const childrenCount = service.stats?.manualChildrenCount || 0;
-    setCheckInStats({ total: stats.total + childrenCount, firstTimers: stats.firstTimers });
+    setCheckInStats({ total: stats.total + childrenCount, firstTimers: stats.firstTimers, soulsWon: souls });
     setCheckedInIds(new Set(stats.memberIds));
   };
 
@@ -686,6 +763,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
       ['Date', selectedService.date],
       ['Total Members Checked In', checkInStats.total],
       ['First Timers', checkInStats.firstTimers],
+      ['Souls Won', checkInStats.soulsWon],
       ['Children Count', selectedService.stats?.manualChildrenCount || 0]
     ];
 
@@ -1063,7 +1141,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
     }
 
     const newMember: Member = {
-      id: crypto.randomUUID(),
+      id: uuidv4(),
       name: formData.name,
       category: formData.category as any,
       phone: fullPhone,
@@ -1077,6 +1155,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
       email: formData.email,
       occupation: formData.occupation,
       placeOfWork: formData.placeOfWork,
+      currentServiceId: serviceIdToUse,
       isPhanerooMember: formData.isPhanerooMember as any,
       referralSource: formData.referralSource
     };
@@ -1113,6 +1192,12 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
         // If we auto-saved, stats need fetching for the NEW ID
         const sid = serviceIdToUse || selectedService.id;
         const sdate = autoSavedEvent?.date || selectedService.date;
+
+        // CRITICAL FIX: Explicitly guarantee check-in through the dedicated Express endpoint
+        // The RPC 'submit_member_entry' JSONB regex parser has a known bug silently failing attendance inserts.
+        if (sid) {
+          await MemberStore.checkIn(realMember.id, sid);
+        }
 
         // Fetch fresh stats
         try {
@@ -1159,14 +1244,8 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
       try {
         showToast("Saving new event before check-in...", "info");
         const realEvent = await EventStore.add(selectedService);
-
-        // Update Local State with Real ID
-        // const updatedServices = services.map(s => s.id === selectedService.id ? realEvent : s);
-        // setServices(updatedServices); // Removed
         setSelectedService(realEvent);
         serviceToUse = realEvent;
-
-        // Also need to update cache/parent if possible, but local state update handles current session
       } catch (e) {
         console.error("Auto-save failed", e);
         showToast("Failed to save temporary event. Check-in aborted.", "error");
@@ -1175,7 +1254,31 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
     }
 
     try {
-      // Use new Relational Check-in with REAL ID
+      // 1. Optimistic UI Updates - INSTANT FEEDBACK
+      // Add member to local checked-in set to immediately hide the button
+      setCheckedInIds(prev => {
+        const next = new Set(prev);
+        next.add(memberId);
+        return next;
+      });
+
+      // Optimistically increment check-in totals
+      setCheckInStats(prev => ({
+        ...prev,
+        total: prev.total + 1
+      }));
+
+      // Update the local member object for UI badges/lists
+      setMembers(prev => prev.map(m => m.id === memberId ? {
+        ...m,
+        status: 'Checked In',
+        checkInTime: new Date().toLocaleTimeString()
+      } : m));
+
+      // Clear the search query to allow immediate next search
+      setSearchQuery('');
+
+      // 2. Perform Backend Request
       const res = await MemberStore.checkIn(memberId, serviceToUse.id);
 
       // Warning for ignored temp IDs (Should not happen now if auto-save worked, but valid safeguard)
@@ -1185,18 +1288,26 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
         showToast("Member Checked In Successfully", "success");
       }
 
-      // Update local state for immediate UI feedback (Badge)
-      setMembers(prev => prev.map(m => m.id === memberId ? { ...m, status: 'Checked In', checkInTime: new Date().toLocaleTimeString() } : m));
-
-      // Refresh Stats
-      const stats = await MemberStore.getServiceStats(serviceToUse.id, serviceToUse.date);
-      const childrenCount = serviceToUse.stats?.manualChildrenCount || 0;
-      setCheckInStats({ total: stats.total + childrenCount, firstTimers: stats.firstTimers });
-      setCheckedInIds(new Set(stats.memberIds));
-
+      // Note: Stats are updated automatically via idempotent Realtime listeners for parallel devices
     } catch (error: any) {
       console.error("Check-in Error:", error);
-      // Handle strict block for pure temp events
+
+      // Rollback Optimistic UI on failure
+      setCheckedInIds(prev => {
+        const next = new Set(prev);
+        next.delete(memberId);
+        return next;
+      });
+      setCheckInStats(prev => ({
+        ...prev,
+        total: Math.max(0, prev.total - 1)
+      }));
+      setMembers(prev => prev.map(m => m.id === memberId ? {
+        ...m,
+        status: 'Member', // Assuming default is 'Member', might need exact prior state in edge cases
+        checkInTime: undefined
+      } : m));
+
       const msg = error.message || "Check-in failed";
       if (msg.includes('Please save the event')) {
         showToast(msg, 'warning');
@@ -1320,6 +1431,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
           coordinator: vehicleForm.coordinator || currentUser.name,
           // Preserve stationId if needed or update it
           stationId: selectedStation.id,
+          eventId: selectedStation.eventId,
         };
 
         await VehicleStore.updateVehicle(updatedVehicle);
@@ -1341,8 +1453,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
           coordinator: '',
           id: ''
         });
-        // We don't strictly need refreshData if we did optimistic update, but keeping it for safety
-        refreshData();
+        // refreshData(); // Removed in favor of local state update and Realtime sync
       } catch (error: any) {
         console.error("Update failed", error);
         showToast(`Failed to update vehicle: ${error.message || 'Unknown error'}`, 'error');
@@ -1351,18 +1462,25 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
     }
 
     try {
-      const res = await VehicleStore.addVehicle({
+      const newVehicleId = uuidv4();
+      const newVeh: Vehicle = {
         ...vehicleForm,
-        id: crypto.randomUUID(),
-        number_plate: formatted, // Use formatted plate
+        id: newVehicleId,
+        number_plate: formatted,
         stationId: selectedStation.id,
+        eventId: selectedStation.eventId,
         coordinator: vehicleForm.coordinator || currentUser.name,
-      });
+        approvals: { registration: 'Pending', finance: 'Pending' } as any,
+        currentStage: 'Registration' as any
+      };
+
+      const res = await VehicleStore.addVehicle(newVeh);
 
       if (res.status === 'error') {
         throw new Error(res.message || "Failed to add vehicle");
       }
 
+      setVehicles(prev => [...prev, newVeh]);
       showToast("Vehicle Added Successfully", 'success');
       setIsAddVehicleOpen(false);
       setVehicleForm({
@@ -1374,7 +1492,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
         coordinator: '',
         id: ''
       });
-      refreshData();
+      // refreshData(); // Removed in favor of local state update and Realtime sync
     } catch (e) {
       console.error(e);
       showToast("Failed to add vehicle", 'error');
@@ -1430,7 +1548,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
 
         if (name) {
           const newMember: Member = {
-            id: crypto.randomUUID(),
+            id: uuidv4(),
             name,
             phone,
             category: 'Member', // Forced as requested
@@ -1525,7 +1643,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
     e.preventDefault();
     try {
       const newEvent: MinistryEvent = {
-        id: crypto.randomUUID(),
+        id: uuidv4(),
         title: eventForm.title,
         type: eventFormType,
         date: eventForm.date,
@@ -1537,7 +1655,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
       };
 
       await EventStore.add(newEvent);
-      refreshData(); // Refresh parent data
+      if (refreshParentData) refreshParentData(); // Refresh parent data
       setIsAddEventOpen(false);
       setEventForm({ title: '', date: new Date().toISOString().split('T')[0], time: '17:00', location: 'Phaneroo Grounds', description: '' });
       showToast(`${eventFormType} created successfully.`, 'success');
@@ -1551,12 +1669,16 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
 
   const filteredMembers = members.filter(m => {
     // 0. Stats Card Filter (Drill-down)
-    if (filterCategory) {
+    // Only apply filterCategory if we are in the Check-In tab
+    const isCheckInTab = activeTab === 'checkin';
+    const effectiveFilterCategory = isCheckInTab ? filterCategory : null;
+
+    if (effectiveFilterCategory) {
       // Must be checked in - (Essential to prevent showing all members if fetch fallback occurs)
       if (!checkedInIds.has(m.id)) return false;
 
       // If specific category
-      if (filterCategory !== 'CHECKED_IN_ALL' && m.category !== filterCategory) return false;
+      if (effectiveFilterCategory !== 'CHECKED_IN_ALL' && m.category !== effectiveFilterCategory) return false;
     }
 
     const tokens = searchQuery.toLowerCase().split(/\s+/).filter(Boolean);
@@ -1578,6 +1700,15 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
 
       return false;
     });
+  }).sort((a, b) => {
+    if (a.createdAt && b.createdAt) {
+      return b.createdAt.localeCompare(a.createdAt);
+    }
+    // If one has createdAt (new) and other doesn't (old), new comes first
+    if (a.createdAt) return -1;
+    if (b.createdAt) return 1;
+    // Fallback: Name
+    return a.name.localeCompare(b.name);
   });
 
   // Bulk Selection Handlers
@@ -1663,7 +1794,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
           } else {
             // Create new if none existed but added in edit
             const newEntrant: User = {
-              id: crypto.randomUUID(),
+              id: uuidv4(),
               name: stationForm.entrantName,
               username: stationForm.entrantUsername,
               password: stationForm.entrantPassword,
@@ -1697,7 +1828,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
     }
 
     // CREATE LOGIC
-    const stationId = `s-${Date.now()}`;
+    const stationId = uuidv4();
     const newStation: ExtendedStation = {
       id: stationId,
       name: stationForm.name,
@@ -1711,10 +1842,12 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
     };
 
     try {
-      await LogisticsStore.addStation(newStation);
+      const res = await LogisticsStore.addStation(newStation);
+      if (res.status === 'error') throw new Error(res.message || "Failed to add station");
+
       if (stationForm.entrantName && stationForm.entrantUsername && stationForm.entrantPassword) {
         const newEntrant: User = {
-          id: crypto.randomUUID(),
+          id: uuidv4(),
           name: stationForm.entrantName,
           username: stationForm.entrantUsername,
           password: stationForm.entrantPassword,
@@ -1745,7 +1878,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
     }
 
     const newUser: User = {
-      id: crypto.randomUUID(),
+      id: uuidv4(),
       name: newEntrant.name,
       username: newEntrant.username,
       password: newEntrant.password,
@@ -1799,8 +1932,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
       finalContact = '256'; // Default placeholder for Contact if Parent Contact is used
     }
 
-    console.log("Submitting Passenger Form:", passengerForm); // DEBUG
-
+    // Contact Confirmation (Hardened)
     // Contact Confirmation (Hardened)
     const isContactEmpty = !finalContact || finalContact === '256' || finalContact.length <= 3;
     const isParentContactEmpty = !finalParentContact || finalParentContact === '256' || finalParentContact.length <= 3;
@@ -1810,11 +1942,28 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
         return;
       }
     }
+    const resolvedEventId = selectedVehicle.eventId
+      || stations.find(s => s.id === selectedVehicle.stationId)?.eventId
+      || selectedLogisticsEvent?.id
+      || selectedService?.id;
+
+    if (!resolvedEventId) {
+      console.error("CRITICAL: No Event ID resolved!", {
+        vehicleEventId: selectedVehicle.eventId,
+        stationEventId: stations.find(s => s.id === selectedVehicle.stationId)?.eventId,
+        logisticsEventId: selectedLogisticsEvent?.id,
+        serviceId: selectedService?.id,
+        vehicleStationId: selectedVehicle.stationId
+      });
+      showToast("System Error: Could not determine current Event. Please refresh.", 'error');
+      return;
+    }
 
     const payload: Passenger = {
       ...passengerForm,
-      id: passengerForm.id || crypto.randomUUID(), // Use existing ID if editing
+      id: passengerForm.id || uuidv4(), // Use existing ID if editing
       vehicleId: selectedVehicle.id,
+      eventId: resolvedEventId,
       contact: sanitize(finalContact) || '256',
       parentContact: sanitize(finalParentContact),
       residence: sanitize(passengerForm.residence) || '',
@@ -1825,18 +1974,14 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
       soulWon: passengerForm.soulWon // Default handled in store if needed, or pass correctly
     };
 
-    console.log("Passenger Payload:", payload); // DEBUG
-
     try {
       if (passengerForm.id) {
         // UPDATE MODE
-        console.log("Updating existing passenger..."); // DEBUG
         await VehicleStore.updatePassenger(payload);
         setPassengers(prev => prev.map(p => p.id === payload.id ? payload : p));
         showToast("Passenger updated successfully", 'success');
       } else {
         // CREATE MODE
-        console.log("Adding new passenger..."); // DEBUG
         await VehicleStore.addPassenger(payload);
         setPassengers([...passengers, payload]);
         showToast("Passenger added successfully", 'success');
@@ -1858,7 +2003,8 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
         soulWon: 'No',
         id: '' // Reset ID
       });
-      refreshData();
+      showToast(passengerForm.id ? "Passenger updated successfully" : "Passenger added successfully", 'success');
+      // refreshData(); // Removed in favor of local state update and Realtime sync
     } catch (error: any) {
       console.error("Failed to save passenger:", error);
       showToast(passengerForm.id ? "Failed to update passenger" : "Failed to add passenger", 'error');
@@ -1945,7 +2091,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
       setIsAddChildrenOpen(false);
 
       showToast("Children count updated.", 'success');
-      refreshData();
+      // refreshData(); // Removed in favor of local state update and Realtime sync
     } catch (err) {
       console.error("Error updating children count", err);
       showToast("Failed to update children count.", 'error');
@@ -2180,9 +2326,8 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
   /* --- EXPORT MEMBERS --- */
   const handleExportMembers = async () => {
     try {
-      showToast("Preparing members export...", 'info');
-      const result = await MemberStore.getAll();
-
+      // Export is now safely bounded to the currently searched dataset up to 100 rows to prevent Node.js OOM crashes.
+      const result = await MemberStore.getMembers(1, 100, debouncedSearchQuery);
       if (result.status === 'error') {
         showToast(`Export failed: ${result.message}`, 'error');
         return;
@@ -2461,6 +2606,15 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
                       <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Children Count</p>
                       <p className="text-4xl font-black text-gray-900 mt-2">{selectedService.stats?.manualChildrenCount || 0}</p>
                     </div>
+
+                    {/* Souls Won */}
+                    <div className="bg-white border border-gray-200 p-6 rounded-2xl shadow-sm flex flex-col items-center justify-center text-center">
+                      <div className="p-3 bg-red-50 text-red-600 rounded-full mb-3">
+                        <Heart className="w-6 h-6" />
+                      </div>
+                      <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Souls Won</p>
+                      <p className="text-4xl font-black text-gray-900 mt-2">{checkInStats.soulsWon}</p>
+                    </div>
                   </div>
 
                   <div className="flex justify-center">
@@ -2721,579 +2875,585 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
         {/* === EVENTS & LOGISTICS TAB (UPDATED HIERARCHY) === */}
         {effectiveTab === 'events' && (
           <div className="space-y-6">
-
-            {/* LEVEL 1: EVENTS LIST */}
-            {!selectedLogisticsEvent && !selectedStation && (
-              <div className="animate-in fade-in p-4 md:p-0">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-lg font-bold text-gray-800">Select an Event to Manage Stations</h3>
-                  {!isLogisticsRole && (
-                    <button
-                      onClick={() => { setEventFormType('Event'); setIsAddEventOpen(true); }}
-                      className="flex items-center space-x-2 bg-ministry-text text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors shadow-sm font-bold text-sm"
-                    >
-                      <CalendarPlus className="w-4 h-4" />
-                      <span>Plan Event</span>
-                    </button>
-                  )}
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {logisticsEvents.map(event => (
-                    <div key={event.id} className="bg-white border border-gray-200 rounded-xl p-5 hover:shadow-lg transition-all group">
-                      <div className="flex justify-between items-start mb-3">
-                        <Calendar className="w-6 h-6 text-gray-400 group-hover:text-ministry-orange transition-colors" />
-                        <span className="text-xs font-bold px-2 py-1 rounded-full bg-purple-50 text-purple-600">
-                          {event.type}
-                        </span>
-                      </div>
-                      <h4 className="text-lg font-bold text-gray-900 mb-1">{event.title}</h4>
-                      <p className="text-sm text-gray-500 mb-4">{event.date} • {event.time}</p>
-                      <button
-                        onClick={() => {
-                          if (isEventLocked(event.date)) {
-                            setHighlightEvent(event);
-                            setShowHighlights(true);
-                          } else {
-                            setSelectedLogisticsEvent(event);
-                          }
-                        }}
-                        className={`w-full py-2 rounded-lg font-bold transition-colors ${isEventLocked(event.date)
-                          ? 'bg-gray-900 text-white hover:bg-black'
-                          : 'bg-gray-50 border border-gray-200 text-gray-700 hover:bg-ministry-text hover:text-white'
-                          }`}
-                      >
-                        {isEventLocked(event.date) ? 'Preview Highlights' : 'View Stations'}
-                      </button>
-
-                      {currentUser.role === 'TeamLeader' && (
+            {isLogisticsInitializing ? (
+              <div className="flex flex-col items-center justify-center py-20 animate-in fade-in">
+                <div className="w-12 h-12 border-4 border-ministry-orange border-t-transparent rounded-full animate-spin"></div>
+                <p className="mt-4 text-gray-500 font-bold">Synchronizing Station...</p>
+              </div>
+            ) : (
+              <>
+                {/* LEVEL 1: EVENTS LIST */}
+                {!selectedLogisticsEvent && !selectedStation && viewMode !== 'station-detail' && (
+                  <div className="animate-in fade-in p-4 md:p-0">
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="text-lg font-bold text-gray-800">Select an Event to Manage Stations</h3>
+                      {!isLogisticsRole && (
                         <button
-                          onClick={() => handleDeleteEvent(event)}
-                          className="mt-2 w-full py-2 rounded-lg font-bold text-red-500 bg-red-50 hover:bg-red-100 transition-colors flex items-center justify-center border border-red-100"
+                          onClick={() => { setEventFormType('Event'); setIsAddEventOpen(true); }}
+                          className="flex items-center space-x-2 bg-ministry-text text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors shadow-sm font-bold text-sm"
                         >
-                          <Trash2 className="w-4 h-4 mr-2" /> Delete Event
+                          <CalendarPlus className="w-4 h-4" />
+                          <span>Plan Event</span>
                         </button>
                       )}
                     </div>
-                  ))}
-                  {logisticsEvents.length === 0 && (
-                    <div className="col-span-full py-12 text-center text-gray-400 bg-white rounded-xl border border-dashed border-gray-300">
-                      No special events found. Logistics for services are handled via Service Check-In if configured.
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* LEVEL 2: STATION LIST (FOR SELECTED EVENT) */}
-            {selectedLogisticsEvent && !selectedStation && (
-              <div className="animate-in slide-in-from-right-4 p-4 md:p-0">
-                <div className="flex justify-between items-center mb-6">
-                  <div className="flex items-center space-x-3">
-                    <button onClick={handleBackLogistics} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
-                      <ArrowLeft className="w-5 h-5 text-gray-600" />
-                    </button>
-                    <div>
-                      <h3 className="text-xl font-bold text-gray-800">{selectedLogisticsEvent.title}</h3>
-                      <p className="text-sm text-gray-500">Pickup Stations Management</p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => setIsAddStationOpen(true)}
-                    className="flex items-center space-x-2 bg-ministry-text text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span>Add Pickup Station</span>
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {stations.filter(s => s.eventId === selectedLogisticsEvent.id).map(station => (
-                    <div key={station.id} className="bg-white border border-gray-200 rounded-xl p-5 hover:shadow-md transition-all">
-                      <div className="flex justify-between items-start mb-3">
-                        <div className="p-2 bg-blue-50 rounded-lg"><MapPin className="w-5 h-5 text-blue-600" /></div>
-                        <span className="text-xs bg-gray-100 px-2 py-1 rounded font-bold text-gray-600">
-                          {vehicles.filter(v => v.stationId === station.id).length} Vehicles
-                        </span>
-                      </div>
-                      <h4 className="text-lg font-bold text-gray-900">{station.name}</h4>
-                      <p className="text-sm text-gray-500 mb-4">{station.location}</p>
-                      <div className="flex items-center text-xs text-gray-500 mb-4 bg-gray-50 p-2 rounded">
-                        <UserPlus className="w-3 h-3 mr-2" />
-                        Coord: {station.coordinatorName || 'None'}
-                      </div>
-                      <button
-                        onClick={() => handleSelectStation(station)}
-                        className="w-full bg-white border border-gray-200 text-gray-700 py-2 rounded-lg font-bold hover:bg-gray-50 transition-colors"
-                      >
-                        View Station Details
-                      </button>
-                    </div>
-                  ))}
-                  {stations.filter(s => s.eventId === selectedLogisticsEvent.id).length === 0 && (
-                    <div className="col-span-full py-12 text-center text-gray-400 bg-white rounded-xl border border-dashed border-gray-300">
-                      No pickup stations added for this event yet.
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* LEVEL 3: STATION DETAILS (VEHICLES & ENTRANTS) */}
-            {selectedStation && !selectedVehicle && (
-              <div className="animate-in slide-in-from-right-4 space-y-6">
-
-                {/* Mobile-Optimized Station Header Card */}
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden mx-4 md:mx-0">
-                  <div className="p-6">
-                    <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          {!isLogisticsRole && (
-                            <button onClick={handleBackLogistics} className="p-1 -ml-2 hover:bg-gray-100 rounded-full text-gray-500">
-                              <ArrowLeft className="w-5 h-5" />
-                            </button>
-                          )}
-                          <span className="text-xs font-bold uppercase tracking-wider text-ministry-orange">
-                            {selectedLogisticsEvent?.title || 'Event'}
-                          </span>
-                        </div>
-                        <h2 className="text-2xl md:text-3xl font-bold text-gray-900 leading-tight">
-                          {selectedStation.name}
-                        </h2>
-                        <p className="text-gray-500 flex items-center gap-1">
-                          <MapPin className="w-4 h-4" />
-                          {selectedStation.location}
-                        </p>
-                      </div>
-
-                      {/* Stats & Actions */}
-                      <div className="flex items-center justify-between md:flex-col md:items-end gap-4 mt-2 md:mt-0">
-                        <div className="bg-green-50 border border-green-100 text-green-700 px-4 py-2 rounded-xl flex flex-col items-center">
-                          <span className="text-xs font-bold uppercase">Registered</span>
-                          <span className="text-2xl font-bold leading-none">
-                            {passengers.filter(p => vehicles.find(v => v.id === p.vehicleId)?.stationId === selectedStation.id).length}
-                          </span>
-                        </div>
-
-                        {isLogisticsRole && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {logisticsEvents.map(event => (
+                        <div key={event.id} className="bg-white border border-gray-200 rounded-xl p-5 hover:shadow-lg transition-all group">
+                          <div className="flex justify-between items-start mb-3">
+                            <Calendar className="w-6 h-6 text-gray-400 group-hover:text-ministry-orange transition-colors" />
+                            <span className="text-xs font-bold px-2 py-1 rounded-full bg-purple-50 text-purple-600">
+                              {event.type}
+                            </span>
+                          </div>
+                          <h4 className="text-lg font-bold text-gray-900 mb-1">{event.title}</h4>
+                          <p className="text-sm text-gray-500 mb-4">{event.date} • {event.time}</p>
                           <button
                             onClick={() => {
-                              setVehicleForm({
-                                number_plate: '',
-                                driverName: '',
-                                driverContact: '256',
-                                driverNin: '',
-                                type: 'Taxi',
-                                capacity: '',
-                                coordinator: '',
-                                id: ''
-                              });
-                              setIsAddVehicleOpen(true);
+                              if (isEventLocked(event.date)) {
+                                setHighlightEvent(event);
+                                setShowHighlights(true);
+                              } else {
+                                setSelectedLogisticsEvent(event);
+                              }
                             }}
-                            className="flex items-center justify-center space-x-2 bg-ministry-orange text-white px-6 py-3 rounded-xl hover:bg-orange-600 shadow-lg shadow-orange-200 transition-transform active:scale-95 font-bold"
+                            className={`w-full py-2 rounded-lg font-bold transition-colors ${isEventLocked(event.date)
+                              ? 'bg-gray-900 text-white hover:bg-black'
+                              : 'bg-gray-50 border border-gray-200 text-gray-700 hover:bg-ministry-text hover:text-white'
+                              }`}
                           >
-                            <Plus className="w-5 h-5" />
-                            <span>Add Vehicle</span>
+                            {isEventLocked(event.date) ? 'Preview Highlights' : 'View Stations'}
                           </button>
-                        )}
 
-                        {canDeleteLogistics && (
-                          <div className="flex space-x-2 mt-2 md:mt-0">
+                          {currentUser.role === 'TeamLeader' && (
                             <button
-                              onClick={() => {
-                                setStationForm({
-                                  id: selectedStation.id,
-                                  name: selectedStation.name,
-                                  location: selectedStation.location,
-                                  coordinatorName: selectedStation.coordinatorName || '',
-                                  coordinatorContact: selectedStation.coordinatorContact || '',
-                                  // Pre-fill first entrant if available
-                                  entrantName: stationEntrants[0] ? stationEntrants[0].name : '',
-                                  entrantUsername: stationEntrants[0] ? stationEntrants[0].username || '' : '',
-                                  entrantPassword: stationEntrants[0] ? stationEntrants[0].password || '' : ''
-                                });
-                                setIsAddStationOpen(true);
-                              }}
-                              className="bg-gray-100 text-gray-700 p-3 rounded-xl hover:bg-gray-200 transition-colors"
-                              title="Edit Station"
+                              onClick={() => handleDeleteEvent(event)}
+                              className="mt-2 w-full py-2 rounded-lg font-bold text-red-500 bg-red-50 hover:bg-red-100 transition-colors flex items-center justify-center border border-red-100"
                             >
-                              <Settings className="w-5 h-5" />
+                              <Trash2 className="w-4 h-4 mr-2" /> Delete Event
                             </button>
-                            <button
-                              onClick={handleDeleteStation}
-                              className="bg-red-50 text-red-600 p-3 rounded-xl hover:bg-red-100 transition-colors border border-red-100"
-                              title="Delete Station"
-                            >
-                              <Trash2 className="w-5 h-5" />
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  {/* Decorative element */}
-                  <div className="h-1 w-full bg-gray-100">
-                    <div className="h-full bg-ministry-orange w-1/3 rounded-r-full"></div>
-                  </div>
-                </div>
-
-                {/* ENTRANT MANAGEMENT (ADMIN ONLY) */}
-                {!isLogisticsRole && (
-                  <div className="mb-8 bg-gray-50 p-6 rounded-2xl border border-gray-200 mx-4 md:mx-0">
-                    <div className="flex justify-between items-center mb-4">
-                      <h3 className="text-lg font-bold text-gray-800 flex items-center">
-                        <Users className="w-5 h-5 mr-2 text-ministry-orange" />
-                        Assigned Data Entrants
-                      </h3>
-                      <button
-                        onClick={() => setIsAddEntrantOpen(true)}
-                        className="text-sm font-bold text-ministry-text hover:text-ministry-orange flex items-center bg-white border border-gray-200 px-3 py-2 rounded-lg shadow-sm"
-                      >
-                        <Plus className="w-4 h-4 mr-1" /> Add Entrant
-                      </button>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {stationEntrants.map(user => (
-                        <div key={user.id} className="bg-white border border-gray-200 p-4 rounded-xl flex items-center justify-between">
-                          <div className="flex items-center space-x-3">
-                            <div className="w-10 h-10 bg-ministry-neon text-black font-bold rounded-full flex items-center justify-center">
-                              {user.name.charAt(0)}
-                            </div>
-                            <div>
-                              <p className="font-bold text-sm text-gray-900">{user.name}</p>
-                              <p className="text-xs text-gray-500">@{user.username}</p>
-                            </div>
-                          </div>
-                          <div className="text-xs bg-green-50 text-green-700 px-2 py-1 rounded font-bold">Active</div>
+                          )}
                         </div>
                       ))}
-                      {stationEntrants.length === 0 && (
-                        <div className="col-span-full py-4 text-center text-gray-400 text-sm italic">
-                          No Data Entrants assigned.
+                      {logisticsEvents.length === 0 && (
+                        <div className="col-span-full py-12 text-center text-gray-400 bg-white rounded-xl border border-dashed border-gray-300">
+                          No special events found. Logistics for services are handled via Service Check-In if configured.
                         </div>
                       )}
                     </div>
-                    {/* Add Entrant Button */}
-                    <button
-                      onClick={() => setIsAddEntrantOpen(true)}
-                      className="mt-4 w-full py-2 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 font-bold hover:border-ministry-orange hover:text-ministry-orange transition-colors flex items-center justify-center text-sm"
-                    >
-                      <Plus className="w-4 h-4 mr-1" /> Add Data Entrant
-                    </button>
                   </div>
                 )}
 
-                {/* VEHICLE LIST */}
-                <div className="px-4 md:px-0">
-                  <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center"><Bus className="w-5 h-5 mr-2 text-ministry-orange" /> Registered Vehicles</h3>
-                  {/* DEBUG: Vehicle List */}
-                  {console.log("Rendering Vehicles:", {
-                    totalVehicles: vehicles.length,
-                    selectedStationId: selectedStation?.id,
-                    filteredCount: vehicles.filter(v => v.stationId === selectedStation?.id).length,
-                    sampleVehicle: vehicles[0]
-                  })}
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-                    {vehicles.filter(v => String(v.stationId) === String(selectedStation.id)).map(vehicle => {
-                      const vPassengers = passengers.filter(p => p.vehicleId === vehicle.id);
-                      let statusColor = "bg-gray-100 text-gray-600";
-                      let statusText = vehicle.currentStage || "Onboarding";
+                {/* LEVEL 2: STATION LIST (FOR SELECTED EVENT) */}
+                {selectedLogisticsEvent && !selectedStation && (
+                  <div className="animate-in slide-in-from-right-4 p-4 md:p-0">
+                    <div className="flex justify-between items-center mb-6">
+                      <div className="flex items-center space-x-3">
+                        <button onClick={handleBackLogistics} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+                          <ArrowLeft className="w-5 h-5 text-gray-600" />
+                        </button>
+                        <div>
+                          <h3 className="text-xl font-bold text-gray-800">{selectedLogisticsEvent.title}</h3>
+                          <p className="text-sm text-gray-500">Pickup Stations Management</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setIsAddStationOpen(true)}
+                        className="flex items-center space-x-2 bg-ministry-text text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>Add Pickup Station</span>
+                      </button>
+                    </div>
 
-                      if (vehicle.currentStage === 'RegApproval') { statusColor = "bg-orange-100 text-orange-700"; }
-                      else if (vehicle.currentStage === 'FinanceApproval') { statusColor = "bg-blue-100 text-blue-700"; }
-                      else if (vehicle.currentStage === 'Transit') { statusColor = "bg-green-100 text-green-700"; }
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {stations.filter(s => s.eventId === selectedLogisticsEvent.id).map(station => (
+                        <div key={station.id} className="bg-white border border-gray-200 rounded-xl p-5 hover:shadow-md transition-all">
+                          <div className="flex justify-between items-start mb-3">
+                            <div className="p-2 bg-blue-50 rounded-lg"><MapPin className="w-5 h-5 text-blue-600" /></div>
+                            <span className="text-xs bg-gray-100 px-2 py-1 rounded font-bold text-gray-600">
+                              {vehicles.filter(v => v.stationId === station.id).length} Vehicles
+                            </span>
+                          </div>
+                          <h4 className="text-lg font-bold text-gray-900">{station.name}</h4>
+                          <p className="text-sm text-gray-500 mb-4">{station.location}</p>
+                          <div className="flex items-center text-xs text-gray-500 mb-4 bg-gray-50 p-2 rounded">
+                            <UserPlus className="w-3 h-3 mr-2" />
+                            Coord: {station.coordinatorName || 'None'}
+                          </div>
+                          <button
+                            onClick={() => handleSelectStation(station)}
+                            className="w-full bg-white border border-gray-200 text-gray-700 py-2 rounded-lg font-bold hover:bg-gray-50 transition-colors"
+                          >
+                            View Station Details
+                          </button>
+                        </div>
+                      ))}
+                      {stations.filter(s => s.eventId === selectedLogisticsEvent.id).length === 0 && (
+                        <div className="col-span-full py-12 text-center text-gray-400 bg-white rounded-xl border border-dashed border-gray-300">
+                          No pickup stations added for this event yet.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
 
-                      return (
-                        <div key={vehicle.id} className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm hover:border-ministry-orange/50 transition-all group">
-                          <div className="p-4 bg-white border-b border-gray-100 flex justify-between items-start">
-                            <span className="font-mono font-bold text-xl text-gray-900">{vehicle.number_plate}</span>
-                            <div className="text-right">
-                              <span className="text-[10px] font-bold uppercase bg-gray-50 border border-gray-200 px-2 py-1 rounded text-gray-500 block mb-1">{vehicle.type}</span>
-                              <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${statusColor}`}>
-                                {statusText}
+                {/* LEVEL 3: STATION DETAILS (VEHICLES & ENTRANTS) */}
+                {selectedStation && !selectedVehicle && (
+                  <div className="animate-in slide-in-from-right-4 space-y-6">
+
+                    {/* Mobile-Optimized Station Header Card */}
+                    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden mx-4 md:mx-0">
+                      <div className="p-6">
+                        <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              {!isLogisticsRole && (
+                                <button onClick={handleBackLogistics} className="p-1 -ml-2 hover:bg-gray-100 rounded-full text-gray-500">
+                                  <ArrowLeft className="w-5 h-5" />
+                                </button>
+                              )}
+                              <span className="text-xs font-bold uppercase tracking-wider text-ministry-orange">
+                                {selectedLogisticsEvent?.title || 'Event'}
                               </span>
                             </div>
+                            <h2 className="text-2xl md:text-3xl font-bold text-gray-900 leading-tight">
+                              {selectedStation.name}
+                            </h2>
+                            <p className="text-gray-500 flex items-center gap-1">
+                              <MapPin className="w-4 h-4" />
+                              {selectedStation.location}
+                            </p>
                           </div>
-                          <div className="p-4">
-                            <div className="mb-4 flex justify-between">
-                              <div>
-                                <p className="text-xs text-gray-400 uppercase font-bold">Driver</p>
-                                <p className="font-bold text-gray-700">{vehicle.driverName}</p>
-                              </div>
-                              <div className="text-right">
-                                <p className="text-xs text-gray-400 uppercase font-bold">Passengers</p>
-                                <div className="flex items-center justify-end text-blue-600 font-bold text-lg">
-                                  <Users className="w-4 h-4 mr-1" />
-                                  {vPassengers.length}
-                                </div>
-                              </div>
+
+                          {/* Stats & Actions */}
+                          <div className="flex items-center justify-between md:flex-col md:items-end gap-4 mt-2 md:mt-0">
+                            <div className="bg-green-50 border border-green-100 text-green-700 px-4 py-2 rounded-xl flex flex-col items-center">
+                              <span className="text-xs font-bold uppercase">Registered</span>
+                              <span className="text-2xl font-bold leading-none">
+                                {passengers.filter(p => vehicles.find(v => v.id === p.vehicleId)?.stationId === selectedStation.id).length}
+                              </span>
                             </div>
-                            <button
-                              onClick={() => setSelectedVehicle(vehicle)}
-                              className="w-full text-center bg-ministry-text text-white py-3 rounded-xl font-bold text-sm hover:bg-ministry-orange transition-colors flex items-center justify-center shadow-md active:scale-95"
-                            >
-                              Manage Vehicle <ChevronRight className="w-4 h-4 ml-1" />
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                    {vehicles.filter(v => String(v.stationId) === String(selectedStation.id)).length === 0 && (
-                      <div className="col-span-full py-12 text-center text-gray-400 bg-white rounded-xl border border-dashed border-gray-300">
-                        No vehicles registered at this station yet.
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
 
-            {/* LEVEL 4: VEHICLE DETAILS (DETAILS) */}
-            {selectedVehicle && (() => {
-              const isLocked = selectedVehicle.approvals?.registration === 'Approved';
-              return (
-                <div className="animate-in slide-in-from-right-4 p-4 md:p-0">
-                  <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 gap-4">
-                    <div className="flex items-center space-x-3">
-                      <button onClick={handleBackLogistics} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
-                        <ArrowLeft className="w-5 h-5 text-gray-600" />
-                      </button>
-                      <div>
-                        <h2 className="text-2xl font-bold font-mono text-ministry-text flex items-center flex-wrap gap-2">
-                          {selectedVehicle.number_plate}
-                          <span className={`text-xs px-2 py-1 rounded-full font-bold ${selectedVehicle.currentStage === 'FinanceApproval' ? 'bg-blue-100 text-blue-700' :
-                            selectedVehicle.currentStage === 'RegApproval' ? 'bg-orange-100 text-orange-700' :
-                              selectedVehicle.currentStage === 'Transit' ? 'bg-green-100 text-green-700' :
-                                'bg-gray-100 text-gray-600'
-                            }`}>
-                            {selectedVehicle.currentStage || 'Onboarding'}
-                          </span>
-                        </h2>
-                        <p className="text-sm text-gray-500">Vehicle Details & Statistics</p>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-wrap gap-2 w-full lg:w-auto items-center justify-start lg:justify-end">
-                      {(() => {
-
-                        // Allow approval for Administrator, TeamLeader, and Lead
-                        const canApprove = ['Administrator', 'TeamLeader', 'Head of Dept'].includes(currentUser.role);
-
-                        // Show button if authorized (either active or disabled state)
-                        const isApproved = selectedVehicle.currentStage === 'FinanceApproval' || isLocked;
-
-                        return (
-                          <>
-                            {isLogisticsRole ? (
+                            {isLogisticsRole && (
                               <button
                                 onClick={() => {
-                                  setChildrenForm({ count: String(selectedVehicle.childrenCount || 0) });
-                                  setIsAddChildrenOpen(true);
+                                  setVehicleForm({
+                                    number_plate: '',
+                                    driverName: '',
+                                    driverContact: '256',
+                                    driverNin: '',
+                                    type: 'Taxi',
+                                    capacity: '',
+                                    coordinator: '',
+                                    id: ''
+                                  });
+                                  setIsAddVehicleOpen(true);
                                 }}
-                                disabled={isLocked}
-                                className={`flex-1 lg:flex-none flex items-center justify-center space-x-2 px-4 py-2 rounded-lg transition-colors shadow-sm font-bold ${isLocked
-                                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                                  : 'bg-gray-800 text-white hover:bg-gray-900'
-                                  }`}
+                                className="flex items-center justify-center space-x-2 bg-ministry-orange text-white px-6 py-3 rounded-xl hover:bg-orange-600 shadow-lg shadow-orange-200 transition-transform active:scale-95 font-bold"
                               >
-                                <Baby className="w-4 h-4" />
-                                <span>Children Count</span>
-                              </button>
-                            ) : (
-                              <button
-                                onClick={handlePrintManifest}
-                                className="flex-1 lg:flex-none flex items-center justify-center space-x-2 bg-gray-800 text-white px-4 py-2 rounded-lg hover:bg-gray-900 transition-colors shadow-sm font-bold"
-                              >
-                                <Printer className="w-4 h-4" />
-                                <span>Print Vehicle</span>
+                                <Plus className="w-5 h-5" />
+                                <span>Add Vehicle</span>
                               </button>
                             )}
 
-                            {/* APPROVE BUTTON */}
-                            {canApprove && (
-                              <button
-                                onClick={handleApproveVehicle}
-                                disabled={isApproved}
-                                className={`flex-1 lg:flex-none flex items-center justify-center space-x-2 px-4 py-2 rounded-lg transition-colors shadow-sm font-bold ${isApproved
-                                  ? 'bg-green-100 text-green-700 cursor-not-allowed border border-green-200'
-                                  : 'bg-green-600 text-white hover:bg-green-700'
-                                  }`}
-                              >
-                                <ShieldCheck className="w-4 h-4" />
-                                <span>{isApproved ? 'Approved (Finance)' : 'Approve Vehicle'}</span>
-                              </button>
-                            )}
-
-                            {/* Add Buttons: Only if not locked */}
-                            {!isLocked ? (
-                              <>
-                                <button
-                                  onClick={openAddMember}
-                                  className="flex-1 lg:flex-none flex items-center justify-center space-x-2 bg-ministry-text text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors shadow-sm"
-                                >
-                                  <UserPlus className="w-4 h-4" />
-                                  <span>Add Member</span>
-                                </button>
-                                <button
-                                  onClick={openAddStudent}
-                                  className="flex-1 lg:flex-none flex items-center justify-center space-x-2 bg-white border border-ministry-text text-ministry-text px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors shadow-sm font-bold"
-                                >
-                                  <GraduationCap className="w-4 h-4" />
-                                  <span>Add Student</span>
-                                </button>
-                                <button
-                                  onClick={openAddInstitution}
-                                  className="flex-1 lg:flex-none flex items-center justify-center space-x-2 bg-white border border-ministry-text text-ministry-text px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors shadow-sm font-bold"
-                                >
-                                  <Building2 className="w-4 h-4" />
-                                  <span>Add Institution</span>
-                                </button>
-                              </>
-                            ) : (
-                              // Locked State Indicator
-                              <div className="flex items-center space-x-2 bg-gray-100 text-gray-500 px-4 py-2 rounded-lg font-bold border border-gray-200 cursor-not-allowed">
-                                <Lock className="w-4 h-4" />
-                                <span>Vehicle Locked ({selectedVehicle.currentStage})</span>
-                              </div>
-                            )}
-
-                            {/* LOGISTICS ACTIONS (Edit/Delete) - Moved to end for better layout flow */}
                             {canDeleteLogistics && (
-                              <div className="flex space-x-2">
+                              <div className="flex space-x-2 mt-2 md:mt-0">
                                 <button
                                   onClick={() => {
-                                    setVehicleForm({
-                                      number_plate: selectedVehicle.number_plate,
-                                      driverName: selectedVehicle.driverName,
-                                      driverContact: selectedVehicle.driverContact,
-                                      driverNin: selectedVehicle.driverNin || '',
-                                      type: selectedVehicle.type,
-                                      capacity: '',
-                                      coordinator: selectedVehicle.coordinator || '',
-                                      id: selectedVehicle.id // Set ID for edit mode
+                                    setStationForm({
+                                      id: selectedStation.id,
+                                      name: selectedStation.name,
+                                      location: selectedStation.location,
+                                      coordinatorName: selectedStation.coordinatorName || '',
+                                      coordinatorContact: selectedStation.coordinatorContact || '',
+                                      // Pre-fill first entrant if available
+                                      entrantName: stationEntrants[0] ? stationEntrants[0].name : '',
+                                      entrantUsername: stationEntrants[0] ? stationEntrants[0].username || '' : '',
+                                      entrantPassword: stationEntrants[0] ? stationEntrants[0].password || '' : ''
                                     });
-                                    setIsAddVehicleOpen(true);
+                                    setIsAddStationOpen(true);
                                   }}
-                                  className="bg-gray-100 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-200 transition-colors"
-                                  title="Edit Vehicle"
+                                  className="bg-gray-100 text-gray-700 p-3 rounded-xl hover:bg-gray-200 transition-colors"
+                                  title="Edit Station"
                                 >
-                                  <Settings className="w-4 h-4" />
+                                  <Settings className="w-5 h-5" />
                                 </button>
                                 <button
-                                  onClick={handleDeleteVehicle}
-                                  className="bg-red-50 text-red-600 px-3 py-2 rounded-lg hover:bg-red-100 transition-colors border border-red-100"
-                                  title="Delete Vehicle"
+                                  onClick={handleDeleteStation}
+                                  className="bg-red-50 text-red-600 p-3 rounded-xl hover:bg-red-100 transition-colors border border-red-100"
+                                  title="Delete Station"
                                 >
-                                  <Trash2 className="w-4 h-4" />
+                                  <Trash2 className="w-5 h-5" />
                                 </button>
                               </div>
                             )}
-                          </>
-                        );
-                      })()}
+                          </div>
+                        </div>
+                      </div>
+                      {/* Decorative element */}
+                      <div className="h-1 w-full bg-gray-100">
+                        <div className="h-full bg-ministry-orange w-1/3 rounded-r-full"></div>
+                      </div>
                     </div>
-                  </div>
 
-                  {/* Stats Grid */}
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-8">
-                    <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm">
-                      <p className="text-[10px] font-bold text-gray-400 uppercase">Total Passengers</p>
-                      <p className="text-2xl font-bold text-ministry-text mt-1">{passengers.filter(p => p.vehicleId === selectedVehicle.id).length}</p>
-                    </div>
-                    <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm">
-                      <p className="text-[10px] font-bold text-gray-400 uppercase">First Timers</p>
-                      <p className="text-2xl font-bold text-green-600 mt-1">{passengers.filter(p => p.vehicleId === selectedVehicle.id && p.isFirstTime === 'Yes').length}</p>
-                    </div>
-                    <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm">
-                      <p className="text-[10px] font-bold text-gray-400 uppercase">Students</p>
-                      <p className="text-2xl font-bold text-blue-600 mt-1">{passengers.filter(p => p.vehicleId === selectedVehicle.id && p.category === 'Student').length}</p>
-                    </div>
-                    <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm">
-                      <p className="text-[10px] font-bold text-gray-400 uppercase">Institutions</p>
-                      <p className="text-2xl font-bold text-purple-600 mt-1">{passengers.filter(p => p.vehicleId === selectedVehicle.id && p.category === 'Institution').length}</p>
-                    </div>
-                    <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm border-l-4 border-l-ministry-orange">
-                      <p className="text-[10px] font-bold text-gray-400 uppercase">Children</p>
-                      <p className="text-2xl font-bold text-ministry-orange mt-1">{selectedVehicle.childrenCount || 0}</p>
-                    </div>
-                  </div>
-
-                  {/* Manifest Table */}
-                  <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
-                    <div className="p-4 border-b border-gray-100 bg-white flex items-center">
-                      <LayoutList className="w-4 h-4 mr-2 text-gray-500" />
-                      <h4 className="font-bold text-gray-700 text-sm uppercase">Passenger Manifest</h4>
-                    </div>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left min-w-[600px]">
-                        <thead className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
-                          <tr>
-                            <th className="px-6 py-4">Name</th>
-                            <th className="px-6 py-4">Category</th>
-                            <th className="px-6 py-4">Contact</th>
-                            <th className="px-6 py-4">Residence</th>
-                            <th className="px-6 py-4">Status</th>
-                            <th className="px-6 py-4 text-right">Action</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100">
-                          {passengers.filter(p => p.vehicleId === selectedVehicle.id).map(p => (
-                            <tr key={p.id} className="hover:bg-gray-50">
-                              <td className="px-6 py-4 font-bold text-gray-900">{p.name}</td>
-                              <td className="px-6 py-4 text-sm">{p.category}</td>
-                              <td className="px-6 py-4 text-sm font-mono text-gray-600">{p.contact}</td>
-                              <td className="px-6 py-4 text-sm text-gray-600">{p.residence}</td>
-                              <td className="px-6 py-4">
-                                {p.isFirstTime === 'Yes' ? (
-                                  <span className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded-full font-bold">New</span>
-                                ) : (
-                                  <span className="bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded-full font-bold">Member</span>
-                                )}
-                              </td>
-                              <td className="px-6 py-4 text-right">
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setPassengerForm({
-                                      ...p,
-                                      id: p.id // Ensure ID is set for edit mode
-                                    });
-                                    setIsAddPassengerOpen(true);
-                                  }}
-                                  disabled={isLocked}
-                                  className={`p-2 rounded-lg transition-colors mr-1 ${isLocked ? 'text-gray-200 cursor-not-allowed' : 'text-gray-400 hover:text-blue-600 hover:bg-blue-50'}`}
-                                  title={isLocked ? "Cannot edit locked vehicle" : "Edit Passenger"}
-                                >
-                                  <Edit2 className="w-4 h-4" />
-                                </button>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation(); // Prevent any parent clicks
-                                    handleDeletePassenger(p.id);
-                                  }}
-                                  disabled={isLocked}
-                                  className={`p-2 rounded-lg transition-colors ${isLocked ? 'text-gray-200 cursor-not-allowed' : 'text-gray-400 hover:text-red-600 hover:bg-red-50'}`}
-                                  title={isLocked ? "Cannot remove from locked vehicle" : "Remove Passenger"}
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                              </td>
-                            </tr>
+                    {/* ENTRANT MANAGEMENT (ADMIN ONLY) */}
+                    {!isLogisticsRole && (
+                      <div className="mb-8 bg-gray-50 p-6 rounded-2xl border border-gray-200 mx-4 md:mx-0">
+                        <div className="flex justify-between items-center mb-4">
+                          <h3 className="text-lg font-bold text-gray-800 flex items-center">
+                            <Users className="w-5 h-5 mr-2 text-ministry-orange" />
+                            Assigned Data Entrants
+                          </h3>
+                          <button
+                            onClick={() => setIsAddEntrantOpen(true)}
+                            className="text-sm font-bold text-ministry-text hover:text-ministry-orange flex items-center bg-white border border-gray-200 px-3 py-2 rounded-lg shadow-sm"
+                          >
+                            <Plus className="w-4 h-4 mr-1" /> Add Entrant
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                          {stationEntrants.map(user => (
+                            <div key={user.id} className="bg-white border border-gray-200 p-4 rounded-xl flex items-center justify-between">
+                              <div className="flex items-center space-x-3">
+                                <div className="w-10 h-10 bg-ministry-neon text-black font-bold rounded-full flex items-center justify-center">
+                                  {user.name.charAt(0)}
+                                </div>
+                                <div>
+                                  <p className="font-bold text-sm text-gray-900">{user.name}</p>
+                                  <p className="text-xs text-gray-500">@{user.username}</p>
+                                </div>
+                              </div>
+                              <div className="text-xs bg-green-50 text-green-700 px-2 py-1 rounded font-bold">Active</div>
+                            </div>
                           ))}
-                          {passengers.filter(p => p.vehicleId === selectedVehicle.id).length === 0 && (
-                            <tr><td colSpan={6} className="p-8 text-center text-gray-400">No passengers recorded in this vehicle.</td></tr>
+                          {stationEntrants.length === 0 && (
+                            <div className="col-span-full py-4 text-center text-gray-400 text-sm italic">
+                              No Data Entrants assigned.
+                            </div>
                           )}
-                        </tbody>
-                      </table>
+                        </div>
+                        {/* Add Entrant Button */}
+                        <button
+                          onClick={() => setIsAddEntrantOpen(true)}
+                          className="mt-4 w-full py-2 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 font-bold hover:border-ministry-orange hover:text-ministry-orange transition-colors flex items-center justify-center text-sm"
+                        >
+                          <Plus className="w-4 h-4 mr-1" /> Add Data Entrant
+                        </button>
+                      </div>
+                    )}
+
+                    {/* VEHICLE LIST */}
+                    <div className="px-4 md:px-0">
+                      <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center"><Bus className="w-5 h-5 mr-2 text-ministry-orange" /> Registered Vehicles</h3>
+                      {/* DEBUG: Vehicle List */}
+                      {console.log("Rendering Vehicles:", {
+                        totalVehicles: vehicles.length,
+                        selectedStationId: selectedStation?.id,
+                        filteredCount: vehicles.filter(v => v.stationId === selectedStation?.id).length,
+                        sampleVehicle: vehicles[0]
+                      })}
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+                        {vehicles.filter(v => String(v.stationId) === String(selectedStation.id)).map(vehicle => {
+                          const vPassengers = passengers.filter(p => p.vehicleId === vehicle.id);
+                          let statusColor = "bg-gray-100 text-gray-600";
+                          let statusText = vehicle.currentStage || "Onboarding";
+
+                          if (vehicle.currentStage === 'RegApproval') { statusColor = "bg-orange-100 text-orange-700"; }
+                          else if (vehicle.currentStage === 'FinanceApproval') { statusColor = "bg-blue-100 text-blue-700"; }
+                          else if (vehicle.currentStage === 'Transit') { statusColor = "bg-green-100 text-green-700"; }
+
+                          return (
+                            <div key={vehicle.id} className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm hover:border-ministry-orange/50 transition-all group">
+                              <div className="p-4 bg-white border-b border-gray-100 flex justify-between items-start">
+                                <span className="font-mono font-bold text-xl text-gray-900">{vehicle.number_plate}</span>
+                                <div className="text-right">
+                                  <span className="text-[10px] font-bold uppercase bg-gray-50 border border-gray-200 px-2 py-1 rounded text-gray-500 block mb-1">{vehicle.type}</span>
+                                  <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${statusColor}`}>
+                                    {statusText}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="p-4">
+                                <div className="mb-4 flex justify-between">
+                                  <div>
+                                    <p className="text-xs text-gray-400 uppercase font-bold">Driver</p>
+                                    <p className="font-bold text-gray-700">{vehicle.driverName}</p>
+                                  </div>
+                                  <div className="text-right">
+                                    <p className="text-xs text-gray-400 uppercase font-bold">Passengers</p>
+                                    <div className="flex items-center justify-end text-blue-600 font-bold text-lg">
+                                      <Users className="w-4 h-4 mr-1" />
+                                      {vPassengers.length}
+                                    </div>
+                                  </div>
+                                </div>
+                                <button
+                                  onClick={() => setSelectedVehicle(vehicle)}
+                                  className="w-full text-center bg-ministry-text text-white py-3 rounded-xl font-bold text-sm hover:bg-ministry-orange transition-colors flex items-center justify-center shadow-md active:scale-95"
+                                >
+                                  Manage Vehicle <ChevronRight className="w-4 h-4 ml-1" />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                        {vehicles.filter(v => String(v.stationId) === String(selectedStation.id)).length === 0 && (
+                          <div className="col-span-full py-12 text-center text-gray-400 bg-white rounded-xl border border-dashed border-gray-300">
+                            No vehicles registered at this station yet.
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })()}
+                )}
 
+                {/* LEVEL 4: VEHICLE DETAILS (DETAILS) */}
+                {selectedVehicle && (() => {
+                  const isLocked = selectedVehicle.approvals?.registration === 'Approved';
+                  return (
+                    <div className="animate-in slide-in-from-right-4 p-4 md:p-0">
+                      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 gap-4">
+                        <div className="flex items-center space-x-3">
+                          <button onClick={handleBackLogistics} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+                            <ArrowLeft className="w-5 h-5 text-gray-600" />
+                          </button>
+                          <div>
+                            <h2 className="text-2xl font-bold font-mono text-ministry-text flex items-center flex-wrap gap-2">
+                              {selectedVehicle.number_plate}
+                              <span className={`text-xs px-2 py-1 rounded-full font-bold ${selectedVehicle.currentStage === 'FinanceApproval' ? 'bg-blue-100 text-blue-700' :
+                                selectedVehicle.currentStage === 'RegApproval' ? 'bg-orange-100 text-orange-700' :
+                                  selectedVehicle.currentStage === 'Transit' ? 'bg-green-100 text-green-700' :
+                                    'bg-gray-100 text-gray-600'
+                                }`}>
+                                {selectedVehicle.currentStage || 'Onboarding'}
+                              </span>
+                            </h2>
+                            <p className="text-sm text-gray-500">Vehicle Details & Statistics</p>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-wrap gap-2 w-full lg:w-auto items-center justify-start lg:justify-end">
+                          {(() => {
+
+                            // Allow approval for Administrator, TeamLeader, and Lead
+                            const canApprove = ['Administrator', 'TeamLeader', 'Head of Dept'].includes(currentUser.role);
+
+                            // Show button if authorized (either active or disabled state)
+                            const isApproved = selectedVehicle.currentStage === 'FinanceApproval' || isLocked;
+
+                            return (
+                              <>
+                                {isLogisticsRole ? (
+                                  <button
+                                    onClick={() => {
+                                      setChildrenForm({ count: String(selectedVehicle.childrenCount || 0) });
+                                      setIsAddChildrenOpen(true);
+                                    }}
+                                    disabled={isLocked}
+                                    className={`flex-1 lg:flex-none flex items-center justify-center space-x-2 px-4 py-2 rounded-lg transition-colors shadow-sm font-bold ${isLocked
+                                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                      : 'bg-gray-800 text-white hover:bg-gray-900'
+                                      }`}
+                                  >
+                                    <Baby className="w-4 h-4" />
+                                    <span>Children Count</span>
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={handlePrintManifest}
+                                    className="flex-1 lg:flex-none flex items-center justify-center space-x-2 bg-gray-800 text-white px-4 py-2 rounded-lg hover:bg-gray-900 transition-colors shadow-sm font-bold"
+                                  >
+                                    <Printer className="w-4 h-4" />
+                                    <span>Print Vehicle</span>
+                                  </button>
+                                )}
+
+                                {/* APPROVE BUTTON */}
+                                {canApprove && (
+                                  <button
+                                    onClick={handleApproveVehicle}
+                                    disabled={isApproved}
+                                    className={`flex-1 lg:flex-none flex items-center justify-center space-x-2 px-4 py-2 rounded-lg transition-colors shadow-sm font-bold ${isApproved
+                                      ? 'bg-green-100 text-green-700 cursor-not-allowed border border-green-200'
+                                      : 'bg-green-600 text-white hover:bg-green-700'
+                                      }`}
+                                  >
+                                    <ShieldCheck className="w-4 h-4" />
+                                    <span>{isApproved ? 'Approved (Finance)' : 'Approve Vehicle'}</span>
+                                  </button>
+                                )}
+
+                                {/* Add Buttons: Only if not locked */}
+                                {!isLocked ? (
+                                  <>
+                                    <button
+                                      onClick={openAddMember}
+                                      className="flex-1 lg:flex-none flex items-center justify-center space-x-2 bg-ministry-text text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors shadow-sm"
+                                    >
+                                      <UserPlus className="w-4 h-4" />
+                                      <span>Add Member</span>
+                                    </button>
+                                    <button
+                                      onClick={openAddStudent}
+                                      className="flex-1 lg:flex-none flex items-center justify-center space-x-2 bg-white border border-ministry-text text-ministry-text px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors shadow-sm font-bold"
+                                    >
+                                      <GraduationCap className="w-4 h-4" />
+                                      <span>Add Student</span>
+                                    </button>
+                                    <button
+                                      onClick={openAddInstitution}
+                                      className="flex-1 lg:flex-none flex items-center justify-center space-x-2 bg-white border border-ministry-text text-ministry-text px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors shadow-sm font-bold"
+                                    >
+                                      <Building2 className="w-4 h-4" />
+                                      <span>Add Institution</span>
+                                    </button>
+                                  </>
+                                ) : (
+                                  // Locked State Indicator
+                                  <div className="flex items-center space-x-2 bg-gray-100 text-gray-500 px-4 py-2 rounded-lg font-bold border border-gray-200 cursor-not-allowed">
+                                    <Lock className="w-4 h-4" />
+                                    <span>Vehicle Locked ({selectedVehicle.currentStage})</span>
+                                  </div>
+                                )}
+
+                                {/* LOGISTICS ACTIONS (Edit/Delete) - Moved to end for better layout flow */}
+                                {canDeleteLogistics && (
+                                  <div className="flex space-x-2">
+                                    <button
+                                      onClick={() => {
+                                        setVehicleForm({
+                                          number_plate: selectedVehicle.number_plate,
+                                          driverName: selectedVehicle.driverName,
+                                          driverContact: selectedVehicle.driverContact,
+                                          driverNin: selectedVehicle.driverNin || '',
+                                          type: selectedVehicle.type,
+                                          capacity: '',
+                                          coordinator: selectedVehicle.coordinator || '',
+                                          id: selectedVehicle.id // Set ID for edit mode
+                                        });
+                                        setIsAddVehicleOpen(true);
+                                      }}
+                                      className="bg-gray-100 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-200 transition-colors"
+                                      title="Edit Vehicle"
+                                    >
+                                      <Settings className="w-4 h-4" />
+                                    </button>
+                                    <button
+                                      onClick={handleDeleteVehicle}
+                                      className="bg-red-50 text-red-600 px-3 py-2 rounded-lg hover:bg-red-100 transition-colors border border-red-100"
+                                      title="Delete Vehicle"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </button>
+                                  </div>
+                                )}
+                              </>
+                            );
+                          })()}
+                        </div>
+                      </div>
+
+                      {/* Stats Grid */}
+                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-8">
+                        <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm">
+                          <p className="text-[10px] font-bold text-gray-400 uppercase">Total Passengers</p>
+                          <p className="text-2xl font-bold text-ministry-text mt-1">{passengers.filter(p => p.vehicleId === selectedVehicle.id).length}</p>
+                        </div>
+                        <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm">
+                          <p className="text-[10px] font-bold text-gray-400 uppercase">First Timers</p>
+                          <p className="text-2xl font-bold text-green-600 mt-1">{passengers.filter(p => p.vehicleId === selectedVehicle.id && p.isFirstTime === 'Yes').length}</p>
+                        </div>
+                        <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm">
+                          <p className="text-[10px] font-bold text-gray-400 uppercase">Students</p>
+                          <p className="text-2xl font-bold text-blue-600 mt-1">{passengers.filter(p => p.vehicleId === selectedVehicle.id && p.category === 'Student').length}</p>
+                        </div>
+                        <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm">
+                          <p className="text-[10px] font-bold text-gray-400 uppercase">Institutions</p>
+                          <p className="text-2xl font-bold text-purple-600 mt-1">{passengers.filter(p => p.vehicleId === selectedVehicle.id && p.category === 'Institution').length}</p>
+                        </div>
+                        <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm border-l-4 border-l-ministry-orange">
+                          <p className="text-[10px] font-bold text-gray-400 uppercase">Children</p>
+                          <p className="text-2xl font-bold text-ministry-orange mt-1">{selectedVehicle.childrenCount || 0}</p>
+                        </div>
+                      </div>
+
+                      {/* Manifest Table */}
+                      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                        <div className="p-4 border-b border-gray-100 bg-white flex items-center">
+                          <LayoutList className="w-4 h-4 mr-2 text-gray-500" />
+                          <h4 className="font-bold text-gray-700 text-sm uppercase">Passenger Manifest</h4>
+                        </div>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left min-w-[600px]">
+                            <thead className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
+                              <tr>
+                                <th className="px-6 py-4">Name</th>
+                                <th className="px-6 py-4">Category</th>
+                                <th className="px-6 py-4">Contact</th>
+                                <th className="px-6 py-4">Residence</th>
+                                <th className="px-6 py-4">Status</th>
+                                <th className="px-6 py-4 text-right">Action</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                              {passengers.filter(p => p.vehicleId === selectedVehicle.id).map(p => (
+                                <tr key={p.id} className="hover:bg-gray-50">
+                                  <td className="px-6 py-4 font-bold text-gray-900">{p.name}</td>
+                                  <td className="px-6 py-4 text-sm">{p.category}</td>
+                                  <td className="px-6 py-4 text-sm font-mono text-gray-600">{p.contact}</td>
+                                  <td className="px-6 py-4 text-sm text-gray-600">{p.residence}</td>
+                                  <td className="px-6 py-4">
+                                    {p.isFirstTime === 'Yes' ? (
+                                      <span className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded-full font-bold">New</span>
+                                    ) : (
+                                      <span className="bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded-full font-bold">Member</span>
+                                    )}
+                                  </td>
+                                  <td className="px-6 py-4 text-right">
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setPassengerForm({
+                                          ...p,
+                                          id: p.id // Ensure ID is set for edit mode
+                                        });
+                                        setIsAddPassengerOpen(true);
+                                      }}
+                                      disabled={isLocked}
+                                      className={`p-2 rounded-lg transition-colors mr-1 ${isLocked ? 'text-gray-200 cursor-not-allowed' : 'text-gray-400 hover:text-blue-600 hover:bg-blue-50'}`}
+                                      title={isLocked ? "Cannot edit locked vehicle" : "Edit Passenger"}
+                                    >
+                                      <Edit2 className="w-4 h-4" />
+                                    </button>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation(); // Prevent any parent clicks
+                                        handleDeletePassenger(p.id);
+                                      }}
+                                      disabled={isLocked}
+                                      className={`p-2 rounded-lg transition-colors ${isLocked ? 'text-gray-200 cursor-not-allowed' : 'text-gray-400 hover:text-red-600 hover:bg-red-50'}`}
+                                      title={isLocked ? "Cannot remove from locked vehicle" : "Remove Passenger"}
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+                              {passengers.filter(p => p.vehicleId === selectedVehicle.id).length === 0 && (
+                                <tr><td colSpan={6} className="p-8 text-center text-gray-400">No passengers recorded in this vehicle.</td></tr>
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </>
+            )}
           </div>
         )}
-
         {/* ... Database Tabs ... */}
         {activeTab === 'database' && viewMode === 'list' && (
           <div className="space-y-6 p-4 md:p-0">
@@ -3327,7 +3487,12 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
             <div className="flex flex-col md:flex-row gap-4 items-center">
               {/* Search */}
               <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${isSearching ? 'text-ministry-orange animate-pulse' : 'text-gray-400'}`} />
+                {isSearching && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <Loader2 className="w-4 h-4 text-ministry-orange animate-spin" />
+                  </div>
+                )}
                 <input
                   type="text"
                   placeholder="Search database..."
@@ -3387,7 +3552,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
                   <table className="w-full text-left relative">
                     <thead className="bg-gray-50 border-b border-gray-100 sticky top-0 z-20 shadow-sm">
                       <tr>
-                        <th className="p-4 w-10"><input type="checkbox" onChange={handleSelectAll} checked={selectedMemberIds.size === members.length && members.length > 0} className="rounded border-gray-300" /></th>
+                        <th className="p-4 w-10"><input type="checkbox" onChange={handleSelectAll} checked={selectedMemberIds.size === filteredMembers.length && filteredMembers.length > 0} className="rounded border-gray-300" /></th>
                         <th className="p-4 text-xs font-bold text-gray-500 uppercase">Name</th>
                         <th className="p-4 text-xs font-bold text-gray-500 uppercase">Category</th>
                         <th className="p-4 text-xs font-bold text-gray-500 uppercase">Phone</th>
@@ -3396,7 +3561,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
-                      {members.map((member) => (
+                      {filteredMembers.map((member) => (
                         <tr key={member.id} className="hover:bg-gray-50 transition-colors group">
                           <td className="p-4"><input type="checkbox" checked={selectedMemberIds.has(member.id)} onChange={() => handleSelectOne(member.id)} className="rounded border-gray-300" /></td>
                           <td className="p-4 font-bold text-gray-900">{member.name}</td>
@@ -3534,11 +3699,22 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
                 <div className="space-y-3 max-h-[500px] overflow-y-auto">
                   {selectedMemberDetails.history.map((record, idx) => (
                     <div key={idx} className="flex items-center p-3 bg-gray-50 rounded-lg border border-gray-100">
-                      <div className="p-2 bg-green-100 rounded-full mr-3">
-                        <CheckCircle className="w-4 h-4 text-green-600" />
+                      <div className={`p-2 rounded-full mr-3 ${record.type === 'Service' || !record.type ? 'bg-green-100' : 'bg-purple-100'}`}>
+                        {record.type === 'Service' || !record.type ? (
+                          <CheckCircle className="w-4 h-4 text-green-600" />
+                        ) : (
+                          <Calendar className="w-4 h-4 text-purple-600" />
+                        )}
                       </div>
                       <div>
-                        <p className="text-sm font-bold text-gray-900">{record.title}</p>
+                        <p className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                          {record.title}
+                          {record.type && record.type !== 'Service' && (
+                            <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 font-bold border border-purple-200">
+                              {record.type}
+                            </span>
+                          )}
+                        </p>
                         <p className="text-xs text-gray-500">{record.date} at {record.checkInTime}</p>
                       </div>
                     </div>
@@ -3680,7 +3856,10 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
                   >
                     <option value="">Select Coordinator</option>
                     {coordinators
-                      .filter(coord => coord.eventId === selectedStation?.eventId && !coord.stationId)
+                      .filter(coord =>
+                        coord.eventId === selectedStation?.eventId &&
+                        (coord.stationId === selectedStation?.id || !coord.stationId)
+                      )
                       .map(coord => (
                         <option key={coord.id} value={coord.name}>
                           {coord.name} ({coord.username})

@@ -1,11 +1,16 @@
 import { Request, Response } from 'express';
 import { supabase } from '../supabase';
+import { v4 as uuidv4 } from 'uuid';
 
 export const getChildren = async (req: Request, res: Response) => {
+    const manifestId = (req as any).manifestId;
+    if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
+
     try {
         const { data, error } = await supabase
             .from('children')
             .select('*')
+            .eq('manifest_id', manifestId) // Tenant Isolation
             .order('created_at', { ascending: false });
         if (error) {
             console.error('Supabase Error:', error);
@@ -20,44 +25,112 @@ export const getChildren = async (req: Request, res: Response) => {
 };
 
 export const addChild = async (req: Request, res: Response) => {
+    const manifestId = (req as any).manifestId;
+    if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
+
     try {
-        // console.log('[ADD CHILD RPC] Payload:', JSON.stringify(req.body));
         const c = req.body;
+        const targetId = c.id || uuidv4();
 
-        // Map payload to RPC parameters (snake_case)
-        // CRITICAL: All arguments must be present (or have defaults in SQL). 
-        // We default all optional/nullable fields to null to ensure signature match.
-        const rpcParams = {
-            _id: c.id || null,
-            _name: c.name || null,
-            _parent_name: c.parentName || c.parent_name || null,
-            _parent_contact: c.parentContact || c.parent_contact || null,
-            _age: c.age || null,
-            _gender: c.gender || null,
-            _residence: c.residence || null,
-            _allergies: c.allergies || null,
-            _status: c.status || null,
-            _check_in_time: c.checkInTime || c.check_in_time || null,
-            _joined_date: c.joinedDate || c.joined_date || new Date().toISOString(),
-            _attended_service_ids: c.attendedServiceIds || c.attended_service_ids || [],
-            _category: c.category || null,
-            // Ensure frontend passes currentServiceId if available
-            _current_service_id: c.currentServiceId || null
-        };
+        // 1. DEDUPLICATION (Manual Logic mimicking RPC)
+        const nameNorm = (c.name || '').trim().toLowerCase();
+        const contactNorm = (c.parentContact || c.parent_contact || '').replace(/[^0-9]/g, '');
 
-        const { data, error } = await supabase.rpc('submit_child_entry', rpcParams);
+        const { data: existing, error: findError } = await supabase
+            .from('children')
+            .select('*')
+            .eq('manifest_id', manifestId);
 
-        if (error) {
-            console.error('[ADD CHILD RPC ERROR]', error);
-            throw error;
+        if (findError) throw findError;
+
+        // Filter in JS for precision (Postgres TRIM/LOWER equivalent)
+        const match = (existing || []).find(e => {
+            const eNameNorm = (e.name || '').trim().toLowerCase();
+            const eContactNorm = (e.parent_contact || '').replace(/[^0-9]/g, '');
+            return eNameNorm === nameNorm && eContactNorm === contactNorm;
+        });
+
+        let result: any;
+        if (match) {
+            // MERGE Logic
+            const updates: any = {
+                status: c.status || match.status,
+                check_in_time: c.checkInTime || c.check_in_time || match.check_in_time,
+                age: c.age || match.age,
+                residence: c.residence || match.residence
+            };
+
+            if (match.category === 'First Timer') {
+                updates.category = 'Member';
+            }
+
+            const { data: updated, error: updateError } = await supabase
+                .from('children')
+                .update(updates)
+                .eq('id', match.id)
+                .select()
+                .single();
+
+            if (updateError) throw updateError;
+            result = updated;
+            result._meta = { action: 'MERGE', match_reason: 'ON_CONFLICT_MATCH' };
+        } else {
+            // INSERT Logic
+            const isFirstTimer = c.category === 'First Timer';
+
+            const insertData: any = {
+                manifest_id: manifestId,
+                id: targetId,
+                name: c.name,
+                parent_name: c.parentName || c.parent_name,
+                parent_contact: c.parentContact || c.parent_contact,
+                age: c.age,
+                gender: c.gender,
+                residence: c.residence,
+                allergies: c.allergies,
+                status: c.status,
+                check_in_time: c.checkInTime || c.check_in_time,
+                joined_date: c.joinedDate || c.joined_date || new Date().toISOString(),
+                category: c.category,
+                is_first_timer: isFirstTimer,
+                first_timer_date: isFirstTimer ? (c.checkInTime ? c.checkInTime.split('T')[0] : new Date().toISOString().split('T')[0]) : null,
+                first_timer_service_id: isFirstTimer ? (c.currentServiceId || null) : null
+            };
+
+            const { data: inserted, error: insertError } = await supabase
+                .from('children')
+                .insert(insertData)
+                .select()
+                .single();
+
+            if (insertError) throw insertError;
+            result = inserted;
+            result._meta = { action: 'INSERT', match_reason: 'NEW_RECORD' };
         }
 
-        console.log('[ADD CHILD RPC SUCCESS] Result:', data);
-        res.status(201).json(data);
+        // 2. ATTENDANCE SYNC
+        const rawAttendance = c.attendedServiceIds || c.attended_service_ids || [];
+        const incomingServiceIds = Array.isArray(rawAttendance) ? rawAttendance : [];
+
+        if (incomingServiceIds.length > 0) {
+            const existingIds = result.attended_service_ids || [];
+            const combinedIds = Array.from(new Set([...existingIds, ...incomingServiceIds]));
+
+            const { error: syncError } = await supabase
+                .from('children')
+                .update({ attended_service_ids: combinedIds })
+                .eq('id', result.id);
+
+            if (!syncError) {
+                result.attended_service_ids = combinedIds;
+            }
+        }
+
+        res.status(201).json(result);
     } catch (error: any) {
         console.error('[ADD CHILD CONTROLLER ERROR]', error);
-        if (error.message && (error.message.includes('idx_children_unique_identity') || error.message.includes('unique constraint'))) {
-            res.status(409).json({ error: 'This child is already registered.' });
+        if (error.message && (error.message.includes('unique constraint') || error.message.includes('dedupe'))) {
+            res.status(409).json({ error: 'This child is already registered in this Manifest.' });
         } else {
             res.status(500).json({ error: error.message });
         }
@@ -65,9 +138,16 @@ export const addChild = async (req: Request, res: Response) => {
 };
 
 export const bulkAddChildren = async (req: Request, res: Response) => {
+    const manifestId = (req as any).manifestId;
+    if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
+
     try {
         const { children } = req.body;
-        const { error } = await supabase.from('children').insert(children);
+        const injectedChildren = children.map((c: any) => ({
+            ...c,
+            manifest_id: manifestId // INJECT TENANT ID
+        }));
+        const { error } = await supabase.from('children').insert(injectedChildren);
         if (error) throw error;
         res.status(201).json({ message: 'Children added in bulk' });
     } catch (error: any) {
@@ -76,22 +156,35 @@ export const bulkAddChildren = async (req: Request, res: Response) => {
 };
 
 export const updateChild = async (req: Request, res: Response) => {
+    const manifestId = (req as any).manifestId;
+    if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
+
     const { id } = req.params;
     try {
         const updates = req.body;
-        delete updates.id;     // Cannot update PK
-        delete updates._meta;  // Remove RPC metadata
+        delete updates.id;
+        delete updates._meta;
+        delete updates.id_uuid;
+        delete updates.legacy_id;
+        delete updates.id_legacy_deprecated;
 
-        // AUTO-PROMOTE LOGIC:
-        // If updating status to 'Checked In', check if they are currently 'First Timer'
-        if (updates.status === 'Checked In' || updates.check_in_time || updates.checkInTime) {
-            const { data: current } = await supabase.from('children').select('category').eq('id', id).single();
-            if (current && current.category === 'First Timer') {
-                updates.category = 'Member';
-            }
+        const { data: current } = await supabase
+            .from('children')
+            .select('category')
+            .eq('manifest_id', manifestId) // Tenant Isolation
+            .eq('id', id)
+            .single();
+
+        if (current && current.category === 'First Timer') {
+            updates.category = 'Member';
         }
 
-        const { error } = await supabase.from('children').update(updates).eq('id', id);
+        const { error } = await supabase
+            .from('children')
+            .update(updates)
+            .eq('manifest_id', manifestId) // Tenant Isolation
+            .eq('id', id);
+
         if (error) throw error;
         res.json({ message: 'Child updated' });
     } catch (error: any) {
@@ -100,9 +193,17 @@ export const updateChild = async (req: Request, res: Response) => {
 };
 
 export const deleteChild = async (req: Request, res: Response) => {
+    const manifestId = (req as any).manifestId;
+    if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
+
     const { id } = req.params;
     try {
-        const { error } = await supabase.from('children').delete().eq('id', id);
+        const { error } = await supabase
+            .from('children')
+            .delete()
+            .eq('manifest_id', manifestId) // Tenant Isolation
+            .eq('id', id);
+
         if (error) throw error;
         res.json({ message: 'Child deleted' });
     } catch (error: any) {
@@ -111,9 +212,14 @@ export const deleteChild = async (req: Request, res: Response) => {
 };
 
 export const bulkDeleteChildren = async (req: Request, res: Response) => {
+    const manifestId = (req as any).manifestId;
+    if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
+
     const { ids } = req.body;
     try {
-        const { error } = await supabase.from('children').delete().in('id', ids);
+        const { error } = await supabase.from('children').delete()
+            .eq('manifest_id', manifestId) // Tenant Isolation
+            .in('id', ids);
         if (error) throw error;
         res.json({ message: 'Children deleted' });
     } catch (error: any) {
@@ -122,11 +228,15 @@ export const bulkDeleteChildren = async (req: Request, res: Response) => {
 };
 
 export const getChildAttendance = async (req: Request, res: Response) => {
+    const manifestId = (req as any).manifestId;
+    if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
+
     const { serviceId } = req.params;
     try {
         const { count, error } = await supabase
             .from('children')
             .select('*', { count: 'exact', head: true })
+            .eq('manifest_id', manifestId) // Tenant Isolation
             .contains('attended_service_ids', [serviceId]);
 
         if (error) throw error;

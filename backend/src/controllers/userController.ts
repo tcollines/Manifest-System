@@ -2,20 +2,21 @@ import { Request, Response } from 'express';
 import { supabase } from '../supabase';
 
 export const getAllUsers = async (req: Request, res: Response) => {
+    const manifestId = (req as any).manifestId;
+    if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
+
     const role = req.query.role as string;
     const eventId = req.query.eventId as string;
     const departmentId = req.query.departmentId as string;
     const validEventId = (eventId && eventId !== 'undefined' && eventId !== 'null') ? eventId : null;
 
     try {
-        // STRICT SCOPING RULE: Coordinators must be fetched by Event
-        // If searching for Coordinators globally, reject it.
         if (role === 'Coordinator' && !validEventId) {
             console.warn('[BACKEND] Blocked global coordinator fetch attempt. Missing eventId.');
             return res.json([]);
         }
 
-        let query = supabase.from('users').select('*');
+        let query = supabase.from('users').select('*').eq('manifest_id', manifestId).neq('status', 'Deleted'); // Tenant Isolation + Filter Deleted
         if (role) query = query.eq('role', role);
         if (validEventId) query = query.eq('event_id', validEventId);
         if (departmentId) query = query.eq('department_id', departmentId);
@@ -28,47 +29,76 @@ export const getAllUsers = async (req: Request, res: Response) => {
     }
 };
 
-export const loginUser = async (req: Request, res: Response) => {
-    const { username, password } = req.body;
-    console.log(`[LOGIN ATTEMPT] Username: '${username}', Password: '${password}'`);
+export const getProfile = async (req: Request, res: Response) => {
+    const manifestId = (req as any).manifestId;
+    const user = (req as any).user;
 
-    if (!username || !password) {
-        return res.status(400).json({ error: 'Username and password are required' });
+    if (!manifestId || !user) {
+        return res.status(401).json({
+            error: 'Unauthorized',
+            details: `Missing ${!user ? 'user context' : 'manifest association'}.`
+        });
     }
 
     try {
-        // Trim inputs to match our sanitized DB
-        const cleanUsername = username.trim();
-        const cleanPassword = password.trim();
+        // Prevent stale browser caching on profile authentications
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
 
-        const { data, error } = await supabase
+        let { data, error } = await supabase
             .from('users')
             .select('*')
-            .eq('username', cleanUsername)
-            .eq('password', cleanPassword) // In a real app, hash this!
-            .maybeSingle(); // Returns null if not found, error if multiple
+            .eq('id', user.id)
+            .eq('manifest_id', manifestId)
+            .maybeSingle();
 
-        if (error) {
-            console.error('[LOGIN ERROR] DB Error:', error.message);
-            return res.status(500).json({ error: 'Database error checking credentials' });
+        // Fallback by email if ID lookup fails
+        if (!data && !error && user.email) {
+            console.warn(`[PROFILE FALLBACK] Row not found by ID (${user.id}). Trying email: ${user.email}`);
+            const { data: emailData, error: emailError } = await supabase
+                .from('users')
+                .select('*')
+                .eq('email', user.email)
+                .eq('manifest_id', manifestId)
+                .order('name', { ascending: false, nullsFirst: false }) // Prioritize profiles with a name
+                .limit(1)
+                .maybeSingle();
+
+            if (emailData) {
+                data = emailData;
+                console.log(`[PROFILE SUCCESS] Found via email fallback for ${user.email}`);
+            }
         }
 
-        if (!data) {
-            console.warn(`[LOGIN FAILED] No user found for '${cleanUsername}' with provided password.`);
-            return res.status(401).json({ error: 'Invalid username or password' });
-        }
+        if (error) throw error;
+        if (!data) return res.status(404).json({ error: 'User profile not found in database' });
 
-        console.log(`[LOGIN SUCCESS] User found: ${data.username} (${data.role})`);
         res.json(data);
     } catch (error: any) {
-        console.error('[LOGIN EXCEPTION]', error);
+        console.error('[PROFILE ERROR]', error);
         res.status(500).json({ error: error.message });
     }
 };
 
+
 export const createUser = async (req: Request, res: Response) => {
+    const manifestId = (req as any).manifestId;
+    if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
+
     try {
-        const { error } = await supabase.from('users').insert([req.body]);
+        const payload = {
+            ...req.body,
+            manifest_id: manifestId, // INJECT TENANT ID
+            department_id: req.body.departmentId || req.body.department_id || null,
+            station_id: req.body.stationId || req.body.station_id || null,
+            event_id: req.body.eventId || req.body.event_id || null,
+        };
+        delete payload.departmentId;
+        delete payload.stationId;
+        delete payload.eventId;
+
+        const { error } = await supabase.from('users').insert([payload]);
         if (error) throw error;
         res.status(201).json({ message: 'User created' });
     } catch (error: any) {
@@ -76,21 +106,197 @@ export const createUser = async (req: Request, res: Response) => {
     }
 };
 
+const ROLE_RANK: Record<string, number> = {
+    'Member': 1,
+    'Logistics': 2,
+    'Coordinator': 3,
+    'TeamLeader': 4,
+    'Administrator': 5,
+    'Super Admin': 6
+};
+
 export const updateUser = async (req: Request, res: Response) => {
+    const manifestId = (req as any).manifestId;
+    const authUser = (req as any).user;
+    if (!manifestId || !authUser) return res.status(401).json({ error: 'Unauthorized' });
+
     const { id } = req.params;
+
     try {
-        const { error } = await supabase.from('users').update(req.body).eq('id', id);
+        const payload = {
+            ...req.body,
+            department_id: req.body.departmentId || req.body.department_id || null,
+            station_id: req.body.stationId || req.body.station_id || null,
+            event_id: req.body.eventId || req.body.event_id || null,
+        };
+        delete payload.departmentId;
+        delete payload.stationId;
+        delete payload.eventId;
+
+        // Role Escalation & Invariant Protection
+        let oldRole = null;
+        if (payload.role) {
+            // 1. Fetch current target state to determine original role
+            const { data: targetUser } = await supabase.from('users').select('role').eq('id', id).maybeSingle();
+            oldRole = targetUser?.role;
+            const targetRole = payload.role;
+
+            if (oldRole !== targetRole) {
+                // Determine Actor Role (Supabase JS middleware sets `authUser.role` out of metadata, 
+                // but we should natively fetch actor role to remain purely DB-backed as part of Phase 3)
+                const { data: actor } = await supabase.from('users').select('role').eq('id', authUser.id).maybeSingle();
+                const actorRole = actor?.role;
+
+                if (!actorRole) throw new Error('Unauthorized role escalation. Actor role unresolved.');
+
+                if (process.env.ENFORCE_ROLE_GUARDS === 'true') {
+                    // A) Prevent Self-Escalation
+                    if (authUser.id === id) {
+                        console.warn('[SECURITY] Blocked role mutation attempt', {
+                            actor: authUser.id,
+                            target: id,
+                            attemptedRole: targetRole,
+                            reason: 'Self-Escalation'
+                        });
+                        throw new Error('Unauthorized: You cannot alter your own role.');
+                    }
+
+                    // B) Prevent Escalation Beyond Authority
+                    if ((ROLE_RANK[targetRole] || 0) >= (ROLE_RANK[actorRole] || 0) && actorRole !== 'Super Admin') {
+                        console.warn('[SECURITY] Blocked role mutation attempt', {
+                            actor: authUser.id,
+                            target: id,
+                            attemptedRole: targetRole,
+                            reason: 'Escalation Beyond Authority'
+                        });
+                        throw new Error('Unauthorized role escalation attempt. Target role exceeds your rank.');
+                    }
+
+                    // C) Protect Against "Last Super Admin" Deletion/Demotion
+                    if (oldRole === 'Super Admin' && targetRole !== 'Super Admin') {
+                        const { count: saCount } = await supabase
+                            .from('users')
+                            .select('*', { count: 'exact', head: true })
+                            .eq('role', 'Super Admin')
+                            .eq('manifest_id', manifestId);
+
+                        if (saCount && saCount <= 1) {
+                            console.warn('[SECURITY] Blocked role mutation attempt', {
+                                actor: authUser.id,
+                                target: id,
+                                attemptedRole: targetRole,
+                                reason: 'Last Super Admin Demotion'
+                            });
+                            throw new Error('Invariant Violation: Cannot demote the last Super Admin.');
+                        }
+                    }
+                }
+            }
+        }
+
+        // Execute Update
+        const { data, error } = await supabase.from('users')
+            .update(payload)
+            .eq('manifest_id', manifestId)
+            .eq('id', id)
+            .select();
+
         if (error) throw error;
+        if (!data || data.length === 0) {
+            console.error('[CRITICAL] User update failed: 0 rows affected', { payloadId: id, authUser: authUser.id });
+            throw new Error('User update failed: 0 rows affected. Possible UUID mismatch or RLS block.');
+        }
+
+        // ==========================================
+        // GoTrue Identity Synchronization (Setup Fix)
+        // If updating a password, seamlessly provision or sync the auth identity
+        // ==========================================
+        if (payload.password && !payload.password.startsWith('PENDING_')) {
+            const userEmail = payload.email || data[0].email;
+            if (userEmail) {
+                try {
+                    // Check if Auth User exists
+                    const { data: authCheck } = await supabase.auth.admin.getUserById(id);
+                    if (authCheck?.user) {
+                        // Update existing Identity
+                        await supabase.auth.admin.updateUserById(id, {
+                            password: payload.password,
+                            email: userEmail,
+                            email_confirm: true
+                        });
+                    } else {
+                        // Dynamically create the missing Identity mimicking the DB UUID
+                        const { error: createErr } = await supabase.auth.admin.createUser({
+                            id: id,
+                            email: userEmail,
+                            password: payload.password,
+                            email_confirm: true
+                        });
+
+                        // Handle race conditions where email is taken by a ghost account
+                        if (createErr && createErr.message.includes('already registered')) {
+                            console.warn(`[SYNC] Auth email collision mapping ${userEmail}`);
+                        }
+                    }
+                } catch (syncErr) {
+                    console.error('[SYNC WARNING] Failed to mirror password to Auth:', syncErr);
+                }
+            }
+        }
+
+        // D) Log Successful Role Mutation
+        if (payload.role && oldRole !== payload.role) {
+            await supabase.from('role_change_log').insert([{
+                user_id: id,
+                old_role: oldRole,
+                new_role: payload.role,
+                changed_by: authUser.id
+            }]);
+        }
+
         res.json({ message: 'User updated' });
     } catch (error: any) {
+        console.error('[USER UPDATE BLOCKED]', error.message);
         res.status(500).json({ error: error.message });
     }
 };
 
 export const deleteUser = async (req: Request, res: Response) => {
+    const manifestId = (req as any).manifestId;
+    if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
+
     const { id } = req.params;
     try {
-        const { error } = await supabase.from('users').delete().eq('id', id);
+        // C) Protect Against "Last Super Admin" Deletion
+        if (process.env.ENFORCE_ROLE_GUARDS === 'true') {
+            const { data: targetUser } = await supabase.from('users').select('role').eq('id', id).maybeSingle();
+            if (targetUser?.role === 'Super Admin') {
+                const { count: saCount } = await supabase
+                    .from('users')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('role', 'Super Admin')
+                    .eq('manifest_id', manifestId);
+
+                if (saCount && saCount <= 1) {
+                    console.warn('[SECURITY] Blocked role mutation attempt', {
+                        actor: (req as any).user?.id,
+                        target: id,
+                        reason: 'Last Super Admin Deletion'
+                    });
+                    throw new Error('Invariant Violation: Cannot delete the last Super Admin.');
+                }
+            }
+        }
+
+        // Soft delete the user by updating status and scrambling the email/username to free it up
+        const { error } = await supabase.from('users')
+            .update({
+                status: 'Deleted',
+                email: `deleted_${id}_${Date.now()}@manifest.local`,
+                username: `deleted_${id}_${Date.now()}`
+            })
+            .eq('manifest_id', manifestId)
+            .eq('id', id);
         if (error) throw error;
         res.json({ message: 'User deleted' });
     } catch (error: any) {

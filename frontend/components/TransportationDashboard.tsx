@@ -11,6 +11,7 @@ import { LogisticsStore, ExtendedStation } from '../database/logisticsStore';
 import { SoulsStore } from '../database/soulsStore';
 import { supabase } from '../services/supabaseClient';
 import { validateContact, isEventLocked } from '../utils';
+import { v5 as uuidv5, validate as validateUuid } from 'uuid';
 import {
     Bus,
     Navigation,
@@ -52,6 +53,8 @@ const mapContainerStyle = {
     height: '100%'
 };
 
+const PASSENGER_NAMESPACE = '6ba7b810-9dad-11d1-80b4-00c04fd430c8'; // URL Namespace UUID as base
+
 const center = {
     lat: 0.3476,
     lng: 32.5825
@@ -87,12 +90,23 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
     const [selectedEventId, setSelectedEventId] = useState<string>('');
 
     // Sync selectedEventId with events prop if not set
+    // Sync selectedEventId with events prop if not set
     useEffect(() => {
         if (!selectedEventId && events && events.length > 0) {
+            // Prioritize the user's assigned event (e.g. Stage Coordinators)
+            if (currentUser?.eventId) {
+                // Verify event exists in list to avoid dead ID
+                const myEvent = events.find(e => e.id === currentUser.eventId);
+                if (myEvent) {
+                    setSelectedEventId(currentUser.eventId);
+                    return;
+                }
+            }
+
             const firstEvent = events.find(e => e.type === 'Event');
             if (firstEvent) setSelectedEventId(firstEvent.id);
         }
-    }, [events, selectedEventId]);
+    }, [events, selectedEventId, currentUser]);
 
 
     const selectedEvent = events.find(e => e.id === selectedEventId);
@@ -110,7 +124,10 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
     const [selectedCoordinator, setSelectedCoordinator] = useState('');
 
     // --- COORDINATOR SPECIFIC STATE ---
-    const isCoordinatorView = currentUser?.role === 'Coordinator';
+    // --- COORDINATOR SPECIFIC STATE ---
+    // "isCoordinatorView" now strictly means "Single Vehicle Operator View" (Vehicle Coordinator)
+    // Stage Coordinators use the filtered Dashboard View (similar to Admin but scoped)
+    const isCoordinatorView = currentUser?.role === 'Vehicle Coordinator' || currentUser?.role === 'Coordinator';
     const [myVehicle, setMyVehicle] = useState<Vehicle | null>(null);
     const [activeJourneyTab, setActiveJourneyTab] = useState<'Ongoing' | 'Return'>('Ongoing');
     const [passengers, setPassengers] = useState<Passenger[]>([]);
@@ -137,8 +154,10 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
     // Force re-render state
     const [, forceUpdate] = useState(0);
 
-    const refreshData = async (targetEventId: string) => {
+    const refreshData = async (targetEventId: string = selectedEventId) => {
         const isCoord = isCoordinatorView && currentUser;
+        const isStageCoord = currentUser?.role === 'Stage Coordinator' || currentUser?.role === 'Coordinator';
+        const isVehicleCoord = currentUser?.role === 'Vehicle Coordinator';
 
         // Prevent global fetch if not coordinator and no event selected
         if (!isCoord && !targetEventId) {
@@ -150,15 +169,19 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
 
         try {
 
-            if (isCoord) {
-                // COORDINATOR VIEW: Parallelize My Vehicle and My Passengers
+            if (isVehicleCoord) {
+                // VEHICLE COORDINATOR VIEW: Parallelize My Vehicle and My Passengers
                 const [vehicleRes, passengerRes] = await Promise.all([
-                    VehicleStore.getVehicles({ coordinator: currentUser.name }),
-                    Promise.resolve({ status: 'success', data: [] }) // Placeholder for parallel fetch
+                    VehicleStore.getVehicles({ coordinatorUid: currentUser.id, coordinator: currentUser.name }), // Use both ID and name for robust search
+                    Promise.resolve({ status: 'success', data: [] })
                 ]);
 
                 const fetchedVehicles = vehicleRes.status === 'success' ? vehicleRes.data : [];
-                const mine = fetchedVehicles.find(v => v.coordinator?.trim().toLowerCase() === currentUser.name.trim().toLowerCase());
+                // Primary match by ID, fallback to name for legacy data
+                const mine = fetchedVehicles.find(v =>
+                    (v.coordinatorUid === currentUser.id) ||
+                    (v.coordinator?.trim().toLowerCase() === currentUser.name.trim().toLowerCase())
+                );
 
                 if (mine) {
                     let updated = mine;
@@ -169,6 +192,11 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
                     setMyVehicle(updated);
                     if (updated.journeyDirection) setActiveJourneyTab(updated.journeyDirection);
 
+                    // FIX: Ensure real-time subscription listens to the correct event channel
+                    if (updated.eventId && updated.eventId !== selectedEventId) {
+                        setTimeout(() => setSelectedEventId(updated.eventId!), 0);
+                    }
+
                     // Re-fetch passengers specifically for this vehicle to be sure
                     const pRes = await VehicleStore.getPassengers(mine.id);
                     setPassengers(pRes.status === 'success' ? pRes.data : []);
@@ -176,13 +204,72 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
                     setMyVehicle(null);
                     setPassengers([]);
                 }
+            } else if (isStageCoord) {
+                // STAGE COORDINATOR VIEW: Fetch Station Scope + Unassigned
+                const [vehicleRes, userRes, passengerRes, stationRes] = await Promise.all([
+                    VehicleStore.getVehicles({ eventId: targetEventId }),
+                    UserStore.getAll({ eventId: targetEventId }),
+                    VehicleStore.getPassengers({ eventId: targetEventId }), // Fetch all, filter locally
+                    LogisticsStore.getStations(targetEventId)
+                ]);
+
+                const myStationId = currentUser.stationId;
+                const dbStations = stationRes.status === 'success' ? stationRes.data : [];
+                setDbStations(dbStations);
+
+                // 1. Vehicles: Filter by Station
+                const allVehicles = vehicleRes.status === 'success' ? vehicleRes.data : [];
+                const myStationVehicles = allVehicles.filter(v =>
+                    v.stationId === myStationId
+                );
+
+                // Tracked Vehicles Transformation
+                const trackedVehicles: TrackedVehicle[] = myStationVehicles.map(v => {
+                    const stages: JourneyStage[] = ['Onboarding', 'Verifying', 'RegApproval', 'FinanceApproval', 'Transit', 'Arrived'];
+                    const stage = v.currentStage || 'Onboarding';
+                    const idx = stages.indexOf(stage);
+                    return {
+                        ...v,
+                        status: (v.status || 'Pending') as any,
+                        progress: idx === -1 ? 0 : Math.round(((idx + 1) / stages.length) * 100),
+                        eta: `${Math.floor(Math.random() * 20) + 5} mins`,
+                        isDelayed: Math.random() > 0.8,
+                        currentStage: stage,
+                        journeyDirection: v.journeyDirection || 'Ongoing',
+                    };
+                });
+                setVehicles(trackedVehicles);
+
+                // 2. Coordinators: Filter by Station + Unassigned
+                const allUsers = userRes.status === 'success' ? userRes.data : [];
+                const stationStaff = allUsers.filter(u => {
+                    const isRelevantRole = u.role === 'Vehicle Coordinator' || u.role === 'Stage Coordinator';
+                    const isMyStation = u.stationId === myStationId;
+                    const isUnassigned = !u.stationId;
+                    // Show if role is relevant AND (belongs to my station OR is unassigned)
+                    return isRelevantRole && (isMyStation || isUnassigned);
+                });
+                setCoordinators(stationStaff);
+
+                // 3. Set My Vehicle (if any assigned specifically to me)
+                const mine = trackedVehicles.find(v =>
+                    (v.coordinatorUid === currentUser.id) ||
+                    (v.coordinator?.trim().toLowerCase() === currentUser.name.trim().toLowerCase())
+                );
+                setMyVehicle(mine || null);
+
+                // 4. Passengers (Filter by my station vehicles)
+                const allPassengers = passengerRes.status === 'success' ? passengerRes.data : [];
+                const myStationVehicleIds = myStationVehicles.map(v => v.id);
+                setPassengers(allPassengers.filter(p => myStationVehicleIds.includes(p.vehicleId)));
+
             } else {
                 // HEAD OF DEPT VIEW: Parallelize ALL event-scoped data
                 const [vehicleRes, stationRes, passengerRes, userRes] = await Promise.all([
                     VehicleStore.getVehicles({ eventId: targetEventId }),
                     LogisticsStore.getStations(targetEventId),
                     VehicleStore.getPassengers({ eventId: targetEventId }),
-                    UserStore.getAll({ role: 'Coordinator', eventId: targetEventId }) // Broaden: removed strict d5 to ensure they show
+                    UserStore.getAll({ eventId: targetEventId }) // Broaden: fetch all relevant users and filter locally for flexibility
                 ]);
 
                 // 1. Stations
@@ -234,9 +321,9 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
                             id: `fallback-${name}`,
                             name: name,
                             username: name.toLowerCase().replace(/\s+/g, ''),
-                            role: 'Coordinator',
+                            role: 'Vehicle Coordinator', // Default to Vehicle Coordinator for fallback
                             departmentId: 'transport',
-                            status: 'active',
+                            status: 'Active',
                             contact: 'N/A',
                             email: `${name.toLowerCase().replace(/\s+/g, '')}@example.com`,
                             password: '***',
@@ -276,26 +363,42 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
 
         // INVARIANT 2: Reactive Realtime Channels
         const channel = supabase
-            .channel(`transport-dashboard-live-${selectedEventId}`)
-            .on(
-                'postgres_changes',
-                { event: '*', schema: 'public', table: 'vehicles' },
-                () => {
-                    // Success Criterion: Strict derivation from refreshData on ANY fleet change
-                    // This eliminates stale closure bugs and ensures cross-event leakage is impossible
-                    refreshDataRef.current(selectedEventId);
+            .channel(`transport-dashboard-scoped-${selectedEventId}`)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'vehicles', filter: `event_id=eq.${selectedEventId}` }, (payload) => {
+                const { eventType, new: newRecord, old: oldRecord } = payload;
+                if (eventType === 'INSERT') {
+                    setVehicles(prev => {
+                        if (prev.some(v => v.id === newRecord.id)) return prev;
+                        return [...prev, newRecord as TrackedVehicle];
+                    });
                 }
-            )
-            .on(
-                'postgres_changes',
-                { event: '*', schema: 'public', table: 'users' },
-                () => refreshDataRef.current(selectedEventId)
-            )
-            .on(
-                'postgres_changes',
-                { event: '*', schema: 'public', table: 'passengers' },
-                () => refreshDataRef.current(selectedEventId)
-            )
+                else if (eventType === 'UPDATE') {
+                    setVehicles(prev => prev.map(v => v.id === newRecord.id ? (newRecord as TrackedVehicle) : v));
+                    if (myVehicle?.id === newRecord.id) setMyVehicle(newRecord as Vehicle);
+                } else if (eventType === 'DELETE') setVehicles(prev => prev.filter(v => v.id !== oldRecord.id));
+            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, (payload) => {
+                const { eventType, new: newRecord, old: oldRecord } = payload;
+                if (eventType === 'INSERT') {
+                    setCoordinators(prev => {
+                        if (prev.some(u => u.id === newRecord.id)) return prev;
+                        return [...prev, newRecord as User];
+                    });
+                }
+                else if (eventType === 'UPDATE') setCoordinators(prev => prev.map(u => u.id === newRecord.id ? (newRecord as User) : u));
+                else if (eventType === 'DELETE') setCoordinators(prev => prev.filter(u => u.id !== oldRecord.id));
+            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'passengers', filter: `event_id=eq.${selectedEventId}` }, (payload) => {
+                const { eventType, new: newRecord, old: oldRecord } = payload;
+                if (eventType === 'INSERT') {
+                    setPassengers(prev => {
+                        if (prev.some(p => p.id === newRecord.id)) return prev;
+                        return [...prev, newRecord as Passenger];
+                    });
+                }
+                else if (eventType === 'UPDATE') setPassengers(prev => prev.map(p => p.id === newRecord.id ? (newRecord as Passenger) : p));
+                else if (eventType === 'DELETE') setPassengers(prev => prev.filter(p => p.id !== oldRecord.id));
+            })
             .subscribe();
 
         return () => {
@@ -442,6 +545,7 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
         const newP: Passenger = {
             id: crypto.randomUUID(),
             vehicleId: myVehicle.id,
+            eventId: myVehicle.eventId || selectedEventId, // Robust Fallback
             name: returnPassengerForm.name,
             contact: returnPassengerForm.contact,
             residence: returnPassengerForm.residence,
@@ -480,6 +584,16 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
         const p = passengers.find(p => p.id === passengerId);
         if (!p || !myVehicle) return;
 
+        // RESOLVE EVENT ID:
+        // Coordinators might be in "My Vehicle" view without a globally selected event.
+        // We must fallback to the vehicle's linked event ID.
+        const effectiveEventId = selectedEventId || myVehicle.eventId;
+
+        if (!effectiveEventId) {
+            showToast("System Error: Could not link this soul to an active event. Please refresh.", "error");
+            return;
+        }
+
         const newSoulWonStatus = !p.soulWon;
         const updatedPassenger = { ...p, soulWon: newSoulWonStatus };
 
@@ -487,14 +601,22 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
         setPassengers(passengers.map(pas => pas.id === passengerId ? updatedPassenger : pas));
         await VehicleStore.updatePassenger(updatedPassenger);
 
+        // Deterministic Soul ID: Use Passenger ID if UUID, else generate v5 Namespace UUID
+        // This ensures Legacy IDs (e.g. "P-123") don't break the UUID constraint, 
+        // while maintaining the 1:1 link for toggling off.
+        let soulId = p.id;
+        if (!validateUuid(p.id)) {
+            soulId = uuidv5(p.id, PASSENGER_NAMESPACE);
+        }
+
         if (newSoulWonStatus) {
-            // Add to Souls Store (Deterministic ID)
+            // Add to Souls Store
             const nameParts = p.name.split(' ');
             const firstName = nameParts[0];
             const lastName = nameParts.slice(1).join(' ') || 'Unknown';
 
             const newSoul: Soul = {
-                id: p.id, // Deterministic Link
+                id: soulId, // Deterministic Link
                 firstName,
                 lastName,
                 phone: p.contact,
@@ -502,9 +624,13 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
                 residence: p.residence,
                 status: 'New',
                 sourceType: 'Event',
-                sourceId: selectedEventId,
-                capturedBy: currentUser?.name || 'Vehicle Coordinator',
-                createdAt: new Date().toISOString()
+                sourceId: effectiveEventId,
+                capturedBy: currentUser?.id || '00000000-0000-0000-0000-000000000000',
+                createdAt: new Date().toISOString(),
+                // Traceability
+                eventId: effectiveEventId,
+                stationId: p.vehicleId ? vehicles.find(v => v.id === p.vehicleId)?.stationId : undefined,
+                vehicleId: p.vehicleId
             };
 
             try {
@@ -517,7 +643,7 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
         } else {
             // REMOVE from Souls Store
             try {
-                await SoulsStore.delete(p.id);
+                await SoulsStore.delete(soulId);
                 showToast(`Soul status removed for ${p.name.split(' ')[0]}`, 'info');
             } catch (error) {
                 console.error("Failed to remove soul", error);
@@ -552,7 +678,7 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
             VehicleStore.updateVehicle(updated);
             setVehicles(prev => prev.map(v => v.id === vehicleId ? updated : v));
             setIsAssigning(null);
-            refreshData();
+            // refreshData(); // Removed in favor of Realtime
         }
     };
 
@@ -573,11 +699,11 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
         const newUser: User = {
             id: crypto.randomUUID(),
             name: newCoordinator.name.trim(),
-            role: 'Coordinator',
+            role: formRoleType === 'vehicle' ? 'Vehicle Coordinator' : 'Stage Coordinator',
             username: newCoordinator.username,
             password: newCoordinator.password,
             departmentId: 'd5',
-            eventId: selectedEventId,
+            eventId: selectedEventId || currentUser?.eventId, // Robust Fallback
             contact: newCoordinator.contact,
             stationId: newCoordinator.stationId || undefined // Optional linkage
         };
@@ -599,7 +725,7 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
 
             setNewCoordinator({ name: '', username: '', password: '', contact: '', stationId: '' });
             setFormRoleType('vehicle');
-            refreshData(selectedEventId);
+            // refreshData(selectedEventId); // Removed in favor of Realtime
             showToast(`Coordinator ${newUser.name} created successfully.`, 'success');
         } catch (error: any) {
             showToast(error.message, 'error');
@@ -609,7 +735,7 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
     const handleDeleteCoordinator = async (id: string) => {
         if (await askConfirm("Delete Coordinator", 'Are you sure you want to delete this coordinator?')) {
             await UserStore.remove(id);
-            refreshData(selectedEventId);
+            // refreshData(selectedEventId); // Removed in favor of Realtime
         }
     };
 
@@ -1562,7 +1688,7 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
                                                     <p className="text-xs text-gray-400">@{c.username}</p>
                                                     <div className="mt-1 flex flex-wrap gap-2">
                                                         {/* Role Badge */}
-                                                        {c.stationId ? (
+                                                        {c.role === 'Stage Coordinator' || c.stationId ? (
                                                             <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 border border-blue-200">
                                                                 Stage: {dbStations.find(s => s.id === c.stationId)?.name || 'Unknown Station'}
                                                             </span>

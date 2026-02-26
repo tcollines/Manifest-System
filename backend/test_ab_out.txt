@@ -1,0 +1,8 @@
+--- INVESTIGATING ABRAHAM'S ROLE ---\nFound 1 records for abratumwe@gmail.com:\n[
+  {
+    "id": "6738fde0-08a1-4715-9f4a-f5e1f0d63fa7",
+    "name": "Abraham",
+    "role": "Head of Dept",
+    "email": "abratumwe@gmail.com"
+  }
+]\n

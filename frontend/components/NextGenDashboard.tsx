@@ -54,7 +54,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
     const [selectedService, setSelectedService] = useState<MinistryEvent | null>(null);
 
     // Stats Filter State
-    const [activeStatsFilter, setActiveStatsFilter] = useState<'All' | 'CheckIn' | 'CheckedOut' | 'FirstTimer' | 'Souls'>('CheckIn');
+    const [activeStatsFilter, setActiveStatsFilter] = useState<'All' | 'CheckIn' | 'CheckedOut' | 'FirstTimer' | 'Souls'>('All');
 
     // Confirmation Modal State
     const [confirmModal, setConfirmModal] = useState<{
@@ -127,15 +127,31 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
         const channel = supabase.channel('nextgen-live')
             // Children: Granular Updates
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'children' }, (payload) => {
-                const newChild = payload.new as any;
+                const newRecord = payload.new as any;
                 setChildren(prev => {
-                    if (prev.find(c => c.id === newChild.id)) return prev;
-                    // ... (mapping logic omitted for brevity, assuming existing map function or full reload)
-                    // For safety, and since we don't have mapChildFromDB here, we might just refresh
-                    // But to avoid flicker, let's append what we can or wait for refreshData
-                    return prev; // Rely on refreshData for now or implement full mapping if critical
+                    if (prev.find(c => c.id === newRecord.id)) return prev;
+                    const mapped: Child = {
+                        id: newRecord.id,
+                        name: newRecord.name,
+                        parentName: newRecord.parent_name,
+                        parentContact: newRecord.parent_contact,
+                        age: newRecord.age,
+                        gender: newRecord.gender,
+                        category: newRecord.category,
+                        residence: newRecord.residence,
+                        allergies: newRecord.allergies,
+                        status: newRecord.status,
+                        checkInTime: newRecord.check_in_time,
+                        checkOutTime: newRecord.check_out_time,
+                        attendedServiceIds: newRecord.attended_service_ids || [],
+                        followUpStatus: newRecord.follow_up_status,
+                        assignedTo: newRecord.assigned_to,
+                        salvationDate: newRecord.salvation_date,
+                        careNotes: newRecord.care_notes || [],
+                        joinedDate: newRecord.created_at?.split('T')[0] || new Date().toISOString().split('T')[0]
+                    };
+                    return [mapped, ...prev];
                 });
-                refreshData();
             })
             .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'children' }, (payload) => {
                 const updated = payload.new as any;
@@ -171,38 +187,53 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
             // Souls: Granular Updates
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'next_gen_souls' }, (payload) => {
                 const newSoul = payload.new as any;
-                // Add to list
-                setNextGenSouls(prev => [
-                    {
-                        id: newSoul.id,
-                        firstName: newSoul.first_name,
-                        lastName: newSoul.last_name,
-                        phone: newSoul.phone,
-                        age: newSoul.age,
-                        gender: newSoul.gender,
-                        residence: newSoul.residence,
-                        serviceId: newSoul.service_id,
-                        status: newSoul.status,
-                        capturedBy: newSoul.captured_by,
-                        notes: newSoul.notes,
-                        createdAt: newSoul.created_at
-                    },
-                    ...prev
-                ]);
+                // Add to list with idempotency guard
+                setNextGenSouls(prev => {
+                    if (prev.some(s => s.id === newSoul.id)) return prev;
+                    return [
+                        {
+                            id: newSoul.id,
+                            firstName: newSoul.first_name,
+                            lastName: newSoul.last_name,
+                            phone: newSoul.phone,
+                            age: newSoul.age,
+                            gender: newSoul.gender,
+                            residence: newSoul.residence,
+                            serviceId: newSoul.service_id,
+                            status: newSoul.status,
+                            capturedBy: newSoul.captured_by,
+                            notes: newSoul.notes,
+                            createdAt: newSoul.created_at
+                        },
+                        ...prev
+                    ];
+                });
 
-                // Update Count if Service Matches
-                if (selectedServiceRef.current && newSoul.service_id === selectedServiceRef.current.id) {
-                    setSoulsWonCount(prev => prev + 1);
-                }
+                // Update Count if Service Matches AND it wasn't already counted
+                // (Using a functional update logic to ensure we don't double count is harder here as state is separate, 
+                // but checking the list before adding is the primary guard)
+                setNextGenSouls(prev => {
+                    const alreadyExisted = prev.some(s => s.id === newSoul.id);
+                    if (!alreadyExisted && selectedServiceRef.current && newSoul.service_id === selectedServiceRef.current.id) {
+                        setSoulsWonCount(c => c + 1);
+                    }
+                    return prev;
+                });
             })
             .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'next_gen_souls' }, (payload) => {
-                setNextGenSouls(prev => prev.filter(s => s.id !== payload.old.id));
-                // Re-fetch count safely
-                if (selectedServiceRef.current) {
-                    NextGenSoulsStore.getCountByService(selectedServiceRef.current.id).then(count => {
-                        if (isMountedRef.current) setSoulsWonCount(count);
-                    });
-                }
+                const deletedId = payload.old.id;
+                setNextGenSouls(prev => {
+                    const soulToDelete = prev.find(s => s.id === deletedId);
+                    if (soulToDelete) {
+                        // Check if it belongs to current service
+                        const matchesService = selectedServiceRef.current && soulToDelete.serviceId === selectedServiceRef.current.id;
+
+                        if (matchesService && isMountedRef.current) {
+                            setSoulsWonCount(c => Math.max(0, c - 1));
+                        }
+                    }
+                    return prev.filter(s => s.id !== deletedId);
+                });
             })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'ministry_events' }, () => {
                 // Avoiding full page reload.
@@ -293,7 +324,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
             }
             if (activeStatsFilter === 'FirstTimer') {
                 // First timers who attended filtering
-                return matchesSearch && isAttended && (c.category === 'First Timer' || c.joinedDate === selectedService.date);
+                return matchesSearch && isAttended && (c.category === 'First Timer' || (c.joinedDate && c.joinedDate.slice(0, 10) === selectedService.date.slice(0, 10)));
             }
 
             // If 'All' or no specific filter, allow searching everyone (for check-in)
@@ -497,6 +528,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
             checkInTime: isServiceActive ? new Date().toISOString() : undefined,
             joinedDate: new Date().toISOString().split('T')[0],
             attendedServiceIds: isServiceActive && selectedService ? [selectedService.id] : [],
+            currentServiceId: isServiceActive && selectedService ? selectedService.id : undefined,
             howHeard: (formData as any).howHeard
         };
 
@@ -756,16 +788,18 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                     </button>
 
 
-                    <button
-                        onClick={() => { setActiveTab('souls'); setViewMode('list'); }}
-                        className={`flex items-center space-x-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${activeTab === 'souls'
-                            ? 'bg-black text-white shadow-md'
-                            : 'text-gray-500 hover:text-gray-900'
-                            }`}
-                    >
-                        <Heart className={`w-4 h-4 ${activeTab === 'souls' ? 'text-ministry-neon' : ''}`} />
-                        <span>Souls DB</span>
-                    </button>
+                    {!isRestrictedUser && (
+                        <button
+                            onClick={() => { setActiveTab('souls'); setViewMode('list'); }}
+                            className={`flex items-center space-x-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${activeTab === 'souls'
+                                ? 'bg-black text-white shadow-md'
+                                : 'text-gray-500 hover:text-gray-900'
+                                }`}
+                        >
+                            <Heart className={`w-4 h-4 ${activeTab === 'souls' ? 'text-ministry-neon' : ''}`} />
+                            <span>Souls DB</span>
+                        </button>
+                    )}
                     {!isRestrictedUser && (
                         <button
                             onClick={() => { setActiveTab('database'); setViewMode('list'); }}
@@ -1160,7 +1194,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                                     <div className="bg-ministry-text border-l-4 border-ministry-neon p-6 rounded-xl shadow-sm text-center">
                                         <h4 className="text-white font-bold uppercase text-xs mb-2">Total Check-Ins</h4>
                                         <p className="text-4xl font-black text-white">
-                                            {children.filter(c => c.attendedServiceIds.includes(selectedService.id)).length}
+                                            {children.filter(c => (c.attendedServiceIds.includes(selectedService.id) || !!(selectedService.legacyId && c.attendedServiceIds.includes(selectedService.legacyId)))).length}
                                         </p>
                                     </div>
 
@@ -1168,7 +1202,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                                     <div className="bg-white border-2 border-ministry-orange p-6 rounded-xl shadow-sm text-center">
                                         <h4 className="text-ministry-text font-bold uppercase text-xs mb-2">First Timers</h4>
                                         <p className="text-4xl font-black text-gray-800">
-                                            {children.filter(c => c.attendedServiceIds.includes(selectedService.id) && c.joinedDate === selectedService.date).length}
+                                            {children.filter(c => (c.attendedServiceIds.includes(selectedService.id) || !!(selectedService.legacyId && c.attendedServiceIds.includes(selectedService.legacyId))) && (c.category === 'First Timer' || (c.joinedDate && c.joinedDate.slice(0, 10) === selectedService.date.slice(0, 10)))).length}
                                         </p>
                                     </div>
 
@@ -1179,7 +1213,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                                         </div>
                                         <h4 className="text-ministry-orange font-bold uppercase text-xs mb-2">Souls Won</h4>
                                         <p className="text-4xl font-black text-ministry-orange">
-                                            {nextGenSouls.filter(s => s.serviceId === selectedService.id).length}
+                                            {nextGenSouls.filter(s => (s.serviceId === selectedService.id || !!(selectedService.legacyId && s.serviceId === selectedService.legacyId))).length}
                                         </p>
                                     </div>
 
@@ -1187,7 +1221,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                                     <div className="bg-white border border-gray-300 p-6 rounded-xl shadow-sm text-center">
                                         <h4 className="text-gray-500 font-bold uppercase text-xs mb-2">Checked Out</h4>
                                         <p className="text-4xl font-black text-gray-700">
-                                            {children.filter(c => c.attendedServiceIds.includes(selectedService.id) && c.status === 'Checked Out').length}
+                                            {children.filter(c => (c.attendedServiceIds.includes(selectedService.id) || !!(selectedService.legacyId && c.attendedServiceIds.includes(selectedService.legacyId))) && c.status === 'Checked Out').length}
                                         </p>
                                     </div>
                                 </div>
@@ -1235,7 +1269,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                                     >
                                         <h4 className="text-white font-bold uppercase text-xs mb-2">Total Check-Ins</h4>
                                         <p className="text-4xl font-black text-white">
-                                            {children.filter(c => c.attendedServiceIds.includes(selectedService.id)).length}
+                                            {children.filter(c => (c.attendedServiceIds.includes(selectedService.id) || !!(selectedService.legacyId && c.attendedServiceIds.includes(selectedService.legacyId)))).length}
                                         </p>
                                     </button>
 
@@ -1246,7 +1280,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                                     >
                                         <h4 className="text-gray-500 font-bold uppercase text-xs mb-2">Checked Out</h4>
                                         <p className="text-4xl font-black text-gray-700">
-                                            {children.filter(c => c.attendedServiceIds.includes(selectedService.id) && c.status === 'Checked Out').length}
+                                            {children.filter(c => (c.attendedServiceIds.includes(selectedService.id) || !!(selectedService.legacyId && c.attendedServiceIds.includes(selectedService.legacyId))) && c.status === 'Checked Out').length}
                                         </p>
                                     </button>
 
@@ -1257,7 +1291,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                                     >
                                         <h4 className="text-ministry-text font-bold uppercase text-xs mb-2">First Timers</h4>
                                         <p className="text-4xl font-black text-gray-800">
-                                            {children.filter(c => c.attendedServiceIds.includes(selectedService.id) && (c.category === 'First Timer' || c.joinedDate === selectedService.date)).length}
+                                            {children.filter(c => (c.attendedServiceIds.includes(selectedService.id) || !!(selectedService.legacyId && c.attendedServiceIds.includes(selectedService.legacyId))) && (c.category === 'First Timer' || (c.joinedDate && c.joinedDate.slice(0, 10) === selectedService.date.slice(0, 10)))).length}
                                         </p>
                                     </button>
 
@@ -1271,7 +1305,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                                         </div>
                                         <h4 className="text-ministry-orange font-bold uppercase text-xs mb-2">Souls Won</h4>
                                         <p className="text-4xl font-black text-ministry-orange">
-                                            {nextGenSouls.filter(s => s.serviceId === selectedService.id).length}
+                                            {nextGenSouls.filter(s => (s.serviceId === selectedService.id || !!(selectedService.legacyId && s.serviceId === selectedService.legacyId))).length}
                                         </p>
                                     </button>
                                 </div>
@@ -1279,16 +1313,16 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                                 {/* --- Demographics & Safety Section --- */}
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                     {/* Safety Flag */}
-                                    <div className={`p-6 rounded-xl border-l-4 shadow-sm ${(children.filter(c => c.attendedServiceIds.includes(selectedService.id) && c.status === 'Checked In').length) > 0
+                                    <div className={`p-6 rounded-xl border-l-4 shadow-sm ${(children.filter(c => (c.attendedServiceIds.includes(selectedService.id) || !!(selectedService.legacyId && c.attendedServiceIds.includes(selectedService.legacyId))) && c.status === 'Checked In').length) > 0
                                         ? 'bg-yellow-50 border-yellow-500 text-yellow-800' // Warning if kids still checked in
                                         : 'bg-green-50 border-green-500 text-green-800' // All clear
                                         }`}>
                                         <div className="flex items-center justify-between mb-2">
                                             <h4 className="font-bold uppercase text-xs opacity-70">Safety Flag</h4>
-                                            {(children.filter(c => c.attendedServiceIds.includes(selectedService.id) && c.status === 'Checked In').length) > 0 ? <AlertCircle className="w-5 h-5" /> : <ShieldCheck className="w-5 h-5" />}
+                                            {(children.filter(c => (c.attendedServiceIds.includes(selectedService.id) || !!(selectedService.legacyId && c.attendedServiceIds.includes(selectedService.legacyId))) && c.status === 'Checked In').length) > 0 ? <AlertCircle className="w-5 h-5" /> : <ShieldCheck className="w-5 h-5" />}
                                         </div>
                                         <p className="text-3xl font-black">
-                                            {children.filter(c => c.attendedServiceIds.includes(selectedService.id) && c.status === 'Checked In').length}
+                                            {children.filter(c => (c.attendedServiceIds.includes(selectedService.id) || !!(selectedService.legacyId && c.attendedServiceIds.includes(selectedService.legacyId))) && c.status === 'Checked In').length}
                                         </p>
                                         <p className="text-xs font-bold mt-1">Children currently checked in</p>
                                     </div>
@@ -1301,10 +1335,10 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                                         </h4>
                                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                             {[
-                                                { label: 'General (>12)', count: children.filter(c => c.attendedServiceIds.includes(selectedService.id) && c.age > 12).length, color: 'bg-purple-100 text-purple-700' },
-                                                { label: 'Captain (10-12)', count: children.filter(c => c.attendedServiceIds.includes(selectedService.id) && c.age > 9 && c.age <= 12).length, color: 'bg-blue-100 text-blue-700' },
-                                                { label: 'Lieutenant (7-9)', count: children.filter(c => c.attendedServiceIds.includes(selectedService.id) && c.age > 6 && c.age <= 9).length, color: 'bg-green-100 text-green-700' },
-                                                { label: 'Sergeant (2-6)', count: children.filter(c => c.attendedServiceIds.includes(selectedService.id) && c.age >= 2 && c.age <= 6).length, color: 'bg-orange-100 text-orange-700' }
+                                                { label: 'General (>12)', count: children.filter(c => (c.attendedServiceIds.includes(selectedService.id) || !!(selectedService.legacyId && c.attendedServiceIds.includes(selectedService.legacyId))) && c.age > 12).length, color: 'bg-purple-100 text-purple-700' },
+                                                { label: 'Captain (10-12)', count: children.filter(c => (c.attendedServiceIds.includes(selectedService.id) || !!(selectedService.legacyId && c.attendedServiceIds.includes(selectedService.legacyId))) && c.age > 9 && c.age <= 12).length, color: 'bg-blue-100 text-blue-700' },
+                                                { label: 'Lieutenant (7-9)', count: children.filter(c => (c.attendedServiceIds.includes(selectedService.id) || !!(selectedService.legacyId && c.attendedServiceIds.includes(selectedService.legacyId))) && c.age > 6 && c.age <= 9).length, color: 'bg-green-100 text-green-700' },
+                                                { label: 'Sergeant (2-6)', count: children.filter(c => (c.attendedServiceIds.includes(selectedService.id) || !!(selectedService.legacyId && c.attendedServiceIds.includes(selectedService.legacyId))) && c.age >= 2 && c.age <= 6).length, color: 'bg-orange-100 text-orange-700' }
                                             ].map(rank => (
                                                 <div key={rank.label} className={`${rank.color} p-3 rounded-lg text-center`}>
                                                     <div className="text-2xl font-black">{rank.count}</div>
@@ -1319,9 +1353,9 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                                     <div className="space-y-4 animate-in fade-in">
                                         <div className="bg-white border border-gray-200 rounded-xl shadow-lg divide-y divide-gray-100 max-h-96 overflow-y-auto">
                                             <div className="p-3 bg-gray-50 border-b border-gray-100 text-xs font-bold text-gray-500 uppercase">
-                                                Showing {nextGenSouls.filter(s => s.serviceId === selectedService.id).length} Souls Won
+                                                Showing {nextGenSouls.filter(s => (s.serviceId === selectedService.id || !!(selectedService.legacyId && s.serviceId === selectedService.legacyId))).length} Souls Won
                                             </div>
-                                            {nextGenSouls.filter(s => s.serviceId === selectedService.id).map(soul => (
+                                            {nextGenSouls.filter(s => (s.serviceId === selectedService.id || !!(selectedService.legacyId && s.serviceId === selectedService.legacyId))).map(soul => (
                                                 <div key={soul.id} className="p-4 flex justify-between items-center hover:bg-gray-50 transition-colors">
                                                     <div className="flex-1 min-w-0 mr-4">
                                                         <div className="flex items-center gap-2">
@@ -1334,7 +1368,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                                                     </div>
                                                 </div>
                                             ))}
-                                            {nextGenSouls.filter(s => s.serviceId === selectedService.id).length === 0 && (
+                                            {nextGenSouls.filter(s => (s.serviceId === selectedService.id || !!(selectedService.legacyId && s.serviceId === selectedService.legacyId))).length === 0 && (
                                                 <div className="p-4 text-center text-gray-500">
                                                     No souls recorded for this service yet.
                                                 </div>
@@ -1362,16 +1396,21 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                                                     <div className="flex-1 min-w-0 mr-4">
                                                         <div className="flex items-center gap-2">
                                                             <p className="font-bold text-gray-900 truncate">{c.name}</p>
-                                                            {(c.status === 'Checked In' || (selectedService && c.attendedServiceIds.includes(selectedService.id))) && (
+                                                            {(c.status === 'Checked In' || (selectedService && (c.attendedServiceIds.includes(selectedService.id) || !!(selectedService.legacyId && c.attendedServiceIds.includes(selectedService.legacyId))))) && (
                                                                 <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${c.status === 'Checked Out' ? 'bg-gray-100 text-gray-500' : 'bg-green-100 text-green-700'}`}>
                                                                     {c.status === 'Checked Out' ? 'Checked Out' : 'Checked In'}
                                                                 </span>
                                                             )}
                                                         </div>
+                                                        <div className="flex items-center gap-2 mt-1 mb-1">
+                                                            <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-blue-50 text-blue-700 border border-blue-200">
+                                                                Cat: {c.category || 'Missing'}
+                                                            </span>
+                                                        </div>
                                                         <p className="text-xs text-gray-500 truncate">{c.age} yrs • Parent: {c.parentName} ({c.parentContact})</p>
                                                     </div>
                                                     <div>
-                                                        {(c.status === 'Checked In' || (selectedService && c.attendedServiceIds.includes(selectedService.id) && c.status !== 'Checked Out')) ? (
+                                                        {(c.status === 'Checked In' || (selectedService && (c.attendedServiceIds.includes(selectedService.id) || !!(selectedService.legacyId && c.attendedServiceIds.includes(selectedService.legacyId))) && c.status !== 'Checked Out')) ? (
                                                             <div className="flex items-center space-x-3">
                                                                 <button
                                                                     onClick={() => handleCheckOut(c.id)}

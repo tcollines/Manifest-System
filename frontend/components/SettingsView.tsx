@@ -3,6 +3,7 @@ import { useNotification } from './ui/NotificationSystem';
 import { DEPARTMENTS, CURRENCIES } from '../constants';
 import { User, ModalType, ManifestDetails } from '../types';
 import { UserStore } from '../database/userStore';
+import { ManifestStore } from '../database/manifestStore';
 import {
     Users,
     Map,
@@ -38,6 +39,27 @@ const SettingsView: React.FC<SettingsViewProps> = ({ users = [], openModal, onDe
     const { showToast, confirm: askConfirm } = useNotification();
     const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab || 'users');
     const [searchQuery, setSearchQuery] = useState('');
+    const [internalUsers, setInternalUsers] = useState<User[]>(users);
+
+    // Update internal users when prop changes
+    useEffect(() => {
+        if (users && users.length > 0) {
+            setInternalUsers(users);
+        }
+    }, [users]);
+
+    // On-demand fetch if list is empty
+    useEffect(() => {
+        if (activeTab === 'users' && internalUsers.length === 0) {
+            const loadUsers = async () => {
+                const resp = await UserStore.getAll();
+                if (resp.status === 'success' && resp.data) {
+                    setInternalUsers(resp.data);
+                }
+            };
+            loadUsers();
+        }
+    }, [activeTab, internalUsers.length]);
 
     // Profile State
     const [profileName, setProfileName] = useState(currentUser?.name || "");
@@ -76,15 +98,32 @@ const SettingsView: React.FC<SettingsViewProps> = ({ users = [], openModal, onDe
         loadManifest();
     }, []);
 
+    // Departments State (Dynamic)
+    const [departments, setDepartments] = useState<any[]>(DEPARTMENTS); // Fallback to constants
+
+    useEffect(() => {
+        const fetchDepts = async () => {
+            try {
+                const { apiFetch } = await import('../services/api');
+                const data = await apiFetch('/departments');
+                if (Array.isArray(data)) setDepartments(data);
+            } catch (e) {
+                console.error("Failed to load departments in settings", e);
+            }
+        };
+        fetchDepts();
+    }, []);
+
     // Filter users: Admins/Team Leaders see all, Leads see only their department
     const baseUsers = (isAdmin || isTeamLeader)
-        ? users
-        : users.filter(u => u.departmentId === currentUser?.departmentId);
+        ? internalUsers
+        : internalUsers.filter(u => u.departmentId === currentUser?.departmentId);
 
     const filteredUsers = baseUsers.filter(user => {
         if (!searchQuery) return true;
         const query = searchQuery.toLowerCase();
-        const deptName = DEPARTMENTS.find(d => d.id === user.departmentId)?.name.toLowerCase() || '';
+        // Dynamic Lookup
+        const deptName = departments.find(d => d.id === user.departmentId || d.slug === user.departmentId)?.name.toLowerCase() || '';
 
         return (
             user.name.toLowerCase().includes(query) ||
@@ -382,7 +421,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ users = [], openModal, onDe
                                                 }`}>{user.role}</span>
                                         </td>
                                         <td className="px-6 py-4 text-sm text-gray-600">
-                                            {DEPARTMENTS.find(d => d.id === user.departmentId)?.name || 'N/A'}
+                                            {departments.find(d => d.id === user.departmentId || d.slug === user.departmentId)?.name || 'N/A'}
                                         </td>
                                         <td className="px-6 py-4 text-sm font-mono text-gray-500">{user.username}</td>
                                         <td className="px-6 py-4 text-right">

@@ -47,6 +47,20 @@ const SetupAccount: React.FC<SetupAccountProps> = ({ currentUser, onComplete, on
 
         setIsSubmitting(true);
         try {
+            // 0. Check for username uniqueness
+            const usersResp = await UserStore.getAll();
+            if (usersResp.status === 'success' && usersResp.data) {
+                const isTaken = usersResp.data.some(u =>
+                    u.username?.toLowerCase() === formData.username.toLowerCase() &&
+                    u.id !== currentUser.id
+                );
+                if (isTaken) {
+                    setError(`The username "${formData.username}" is already taken. Please choose another.`);
+                    setIsSubmitting(false);
+                    return;
+                }
+            }
+
             // 1. Update Supabase Auth Password
             const { error: authError } = await supabase.auth.updateUser({
                 password: formData.password
@@ -58,7 +72,8 @@ const SetupAccount: React.FC<SetupAccountProps> = ({ currentUser, onComplete, on
             const updatedUser: User = {
                 ...currentUser,
                 username: formData.username,
-                password: formData.password // Keeping legacy field for now as per system design
+                password: formData.password, // Overwrites PENDING_ placeholder
+                status: 'Active' // Mark as active once setup is complete
             };
 
             await UserStore.update(updatedUser);

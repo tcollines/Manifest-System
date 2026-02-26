@@ -1,0 +1,43 @@
+{
+  "personal_vehicles": {
+    "id": "TEXT"
+  },
+  "passengers": {
+    "id": "UUID",
+    "vehicle_id": "UUID",
+    "event_id": "UUID",
+    "station_id": "UUID"
+  },
+  "vehicles": {
+    "id": "UUID",
+    "event_id": "UUID",
+    "station_id": "UUID"
+  },
+  "pickup_stations": {
+    "id": "UUID",
+    "event_id": "UUID"
+  },
+  "users": {
+    "id": "TEXT",
+    "event_id": "TEXT",
+    "department_id": "TEXT"
+  },
+  "children": {
+    "id": "TEXT",
+    "parent_id": "UNKNOWN (column children.parent_id does not exist)"
+  },
+  "ministry_events": {
+    "id": "UUID"
+  },
+  "members": {
+    "id": "UUID"
+  },
+  "service_attendance": {
+    "member_id": "UUID",
+    "service_id": "UUID"
+  },
+  "souls": {
+    "id": "UUID",
+    "event_id": "UUID"
+  }
+}

@@ -1,0 +1,16 @@
+<html lang="en">
+<body>
+    <h1>Supabase Standalone Test</h1>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        const supabaseUrl = 'https://poazorjmzswectxvakzl.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBvYXpvcmptenN3ZWN0eHZha3psIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY4MTEyNjgsImV4cCI6MjA4MjM4NzI2OH0.63UUyttqrMAvPYeiA2IIqPxTnk_WftlMLTKQ99Ejv-A';
+        const client = supabase.createClient(supabaseUrl, supabaseKey);
+        
+        console.log('CLIENT CREATED');
+        client.auth.signInWithPassword({ email: 'loymawanda1@manifest.local', password: 'password123' })
+            .then(res => console.log('SIGN IN RESOLVED:', JSON.stringify(res)))
+            .catch(err => console.error('SIGN IN REJECTED:', err));
+    </script>
+</body>
+</html>

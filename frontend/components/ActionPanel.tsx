@@ -54,7 +54,7 @@ const ActionPanel: React.FC<ActionPanelProps> = ({ modalType, closeModal, onSave
       email: '',
       contact: '256', // Initialize with 256
       // If not admin/team leader, lock to current user's department
-      departmentId: !isAdmin && !isTeamLeader && currentUser?.departmentId ? currentUser.departmentId : '',
+      departmentId: !isAdmin && !isTeamLeader && currentUser?.departmentId ? currentUser.departmentId : (DEPARTMENTS.length > 0 ? DEPARTMENTS[0].id : ''),
 
       role: isTeamLeader ? 'Administrator' : 'Dept Admin' // Default role for Team Leader adds is Admin
     });
@@ -150,6 +150,12 @@ const ActionPanel: React.FC<ActionPanelProps> = ({ modalType, closeModal, onSave
       // Mandate Contact Field
       if (!cleanContact || cleanContact === '256' || cleanContact.length <= 3) {
         showToast("Contact number is required for new users.", 'error');
+        return;
+      }
+
+      // Mandate Department
+      if (!formData.departmentId) {
+        showToast("Please select a department for the new user.", 'error');
         return;
       }
 

@@ -1,0 +1,29 @@
+{
+  "id": "8cd31ea5-9569-4d4e-a429-74ffbdef22df",
+  "name": "EJOGA SHARIF",
+  "category": "Member",
+  "phone": "256757433879",
+  "gender": "Male",
+  "born_again": "false",
+  "residency": "BUNONO",
+  "status": "Absent",
+  "check_in_time": "2026-02-08 06:33:18.931+00",
+  "joined_date": "2025-12-29 00:00:00+00",
+  "attended_service_ids": [
+    "7dc7cd8f-332c-41b3-85b4-686aea26f90c"
+  ],
+  "created_at": "2026-02-08T18:32:53.305611+00:00",
+  "email": null,
+  "occupation": null,
+  "place_of_work": null,
+  "is_phaneroo_member": null,
+  "referral_source": null,
+  "location_coordinates": null,
+  "place_id": null,
+  "name_norm": "ejoga sharif",
+  "phone_last9": "757433879",
+  "residency_norm": "bunono",
+  "is_first_timer": false,
+  "first_timer_date": null,
+  "first_timer_service_id": null
+}

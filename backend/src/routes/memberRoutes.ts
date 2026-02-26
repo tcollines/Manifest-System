@@ -1,7 +1,6 @@
 import { Router } from 'express';
 import {
     getMembers,
-    getAllMembers,
     addMember,
     updateMember,
     deleteMember,
@@ -10,12 +9,11 @@ import {
     getMemberDetails,
     searchMembersWithStatus,
     getEventAttendees,
+    getMemberById,
     getMembersByIds
 } from '../controllers/memberController';
 
 const router = Router();
-
-router.get('/all', getAllMembers);
 router.get('/', getMembers);
 router.post('/batch', getMembersByIds); // New batch retrieval endpoint
 router.post('/', addMember);
@@ -26,5 +24,6 @@ router.get('/stats/:serviceId', getServiceStats);
 router.get('/:id/details', getMemberDetails);
 router.get('/search-status/:serviceId', searchMembersWithStatus);
 router.get('/attendees/:id', getEventAttendees);
+router.get('/:id', getMemberById);
 
 export default router;

@@ -1,0 +1,24 @@
+--- UUID COMPLIANCE AUDIT ---
+
+--- RELATIONSHIP AUDIT ---
+Requisitions link to Department IDs: 
+Users link to Department IDs: d3, d2, d6, d0, d8, d1, d4, d5, d7, 
+
+TABLE: members
+  ❌ PK 'id' is NOT UUID-only. Found 93/100 non-UUIDs.
+  ⚠️ Sample Non-UUIDs: m-1769102734895
+  ✅ Column 'attended_service_ids' appears compliant (or empty).
+
+TABLE: ministry_events
+  ✅ PK 'id' appears to be UUID.
+
+TABLE: requisitions
+  [INFO] Table is empty.
+
+TABLE: souls
+  ✅ PK 'id' appears to be UUID.
+  ❌ Column 'source_id' contains non-UUIDs. Found 55/100 samples.
+  ⚠️ Samples: evt-1769154800040, evt-1769010837721, 
+
+TABLE: healing_reports
+  [INFO] Table is empty.

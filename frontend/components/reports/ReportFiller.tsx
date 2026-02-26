@@ -1,6 +1,6 @@
-
 import React, { useState, useEffect } from 'react';
 import { MonitoringReport, ReportField, User } from '../../types';
+import { apiFetch } from '../../services/api';
 
 interface ReportFillerProps {
     report: MonitoringReport;
@@ -40,9 +40,8 @@ const ReportFiller: React.FC<ReportFillerProps> = ({ report, departmentId, user,
                 }
             }
 
-            const res = await fetch(`http://localhost:5000/api/reports/${report.id}/submit`, {
+            await apiFetch(`/reports/${report.id}/submit`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     departmentId,
                     content: formData,
@@ -50,11 +49,6 @@ const ReportFiller: React.FC<ReportFillerProps> = ({ report, departmentId, user,
                     userId: user.id
                 })
             });
-
-            if (!res.ok) {
-                const err = await res.json();
-                throw new Error(err.error || 'Submission failed');
-            }
 
             onSuccess();
         } catch (err: any) {

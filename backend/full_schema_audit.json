@@ -1,0 +1,221 @@
+{
+  "children": [
+    {
+      "column": "id",
+      "type": "TEXT (Inferred)"
+    },
+    {
+      "column": "place_id",
+      "type": "TEXT (Inferred)"
+    },
+    {
+      "column": "first_timer_service_id",
+      "type": "TEXT (Inferred)"
+    }
+  ],
+  "department_requests": [],
+  "passengers": [
+    {
+      "column": "legacy_id",
+      "type": "TEXT (Inferred)"
+    },
+    {
+      "column": "legacy_vehicle_id",
+      "type": "TEXT (Inferred)"
+    },
+    {
+      "column": "legacy_event_id",
+      "type": "TEXT (Inferred)"
+    },
+    {
+      "column": "id",
+      "type": "UUID"
+    },
+    {
+      "column": "vehicle_id",
+      "type": "UUID"
+    },
+    {
+      "column": "event_id",
+      "type": "UUID"
+    },
+    {
+      "column": "station_id",
+      "type": "UUID"
+    },
+    {
+      "column": "legacy_station_id",
+      "type": "TEXT (Inferred)"
+    }
+  ],
+  "personal_vehicles": [
+    {
+      "column": "id",
+      "type": "TEXT (Inferred)"
+    },
+    {
+      "column": "current_service_id",
+      "type": "TEXT (Inferred)"
+    },
+    {
+      "column": "current_service_id_uuid",
+      "type": "UUID"
+    }
+  ],
+  "transactions": [],
+  "users": [
+    {
+      "column": "id",
+      "type": "TEXT (Inferred)"
+    },
+    {
+      "column": "department_id",
+      "type": "TEXT (Inferred)"
+    },
+    {
+      "column": "station_id",
+      "type": "TEXT (Inferred)"
+    },
+    {
+      "column": "event_id",
+      "type": "TEXT (Inferred)"
+    }
+  ],
+  "vehicles": [
+    {
+      "column": "legacy_id",
+      "type": "TEXT (Inferred)"
+    },
+    {
+      "column": "legacy_station_id",
+      "type": "TEXT (Inferred)"
+    },
+    {
+      "column": "legacy_event_id",
+      "type": "TEXT (Inferred)"
+    },
+    {
+      "column": "coordinator_uid",
+      "type": "TEXT (Inferred)"
+    },
+    {
+      "column": "id",
+      "type": "UUID"
+    },
+    {
+      "column": "station_id",
+      "type": "UUID"
+    },
+    {
+      "column": "event_id",
+      "type": "UUID"
+    }
+  ],
+  "pickup_stations": [
+    {
+      "column": "legacy_id",
+      "type": "TEXT (Inferred)"
+    },
+    {
+      "column": "legacy_event_id",
+      "type": "TEXT (Inferred)"
+    },
+    {
+      "column": "id",
+      "type": "UUID"
+    },
+    {
+      "column": "event_id",
+      "type": "UUID"
+    }
+  ],
+  "ministry_events": [
+    {
+      "column": "legacy_id",
+      "type": "TEXT (Inferred)"
+    },
+    {
+      "column": "id",
+      "type": "UUID"
+    }
+  ],
+  "members": [
+    {
+      "column": "legacy_id",
+      "type": "TEXT (Inferred)"
+    },
+    {
+      "column": "place_id",
+      "type": "TEXT (Inferred)"
+    },
+    {
+      "column": "first_timer_service_id",
+      "type": "TEXT (Inferred)"
+    },
+    {
+      "column": "id",
+      "type": "UUID"
+    }
+  ],
+  "service_attendance": [
+    {
+      "column": "id",
+      "type": "UUID"
+    },
+    {
+      "column": "legacy_service_id",
+      "type": "TEXT (Inferred)"
+    },
+    {
+      "column": "legacy_member_id",
+      "type": "TEXT (Inferred)"
+    },
+    {
+      "column": "member_id",
+      "type": "UUID"
+    },
+    {
+      "column": "service_id",
+      "type": "UUID"
+    }
+  ],
+  "souls": [
+    {
+      "column": "id",
+      "type": "UUID"
+    },
+    {
+      "column": "source_id",
+      "type": "TEXT (Inferred)"
+    },
+    {
+      "column": "legacy_event_id",
+      "type": "TEXT (Inferred)"
+    },
+    {
+      "column": "legacy_station_id",
+      "type": "TEXT (Inferred)"
+    },
+    {
+      "column": "legacy_vehicle_id",
+      "type": "TEXT (Inferred)"
+    },
+    {
+      "column": "event_id",
+      "type": "UUID"
+    },
+    {
+      "column": "station_id",
+      "type": "UUID"
+    },
+    {
+      "column": "vehicle_id",
+      "type": "UUID"
+    },
+    {
+      "column": "event_id_uuid",
+      "type": "UUID"
+    }
+  ],
+  "incidents": []
+}

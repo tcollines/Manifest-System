@@ -21,7 +21,10 @@ const mapSoulFromDB = (s: any): Soul => ({
     age: s.age,
     occupation: s.occupation,
     invitedBy: s.invited_by, // Assumed JSONB or structured text
-    ministry: s.ministry
+    ministry: s.ministry,
+    eventId: s.event_id,
+    stationId: s.station_id,
+    vehicleId: s.vehicle_id
 });
 
 const mapSoulToDB = (s: Soul) => ({
@@ -42,7 +45,10 @@ const mapSoulToDB = (s: Soul) => ({
     age: s.age,
     occupation: s.occupation,
     invited_by: s.invitedBy, // Supabase handles object -> JSONB auto conversion often, or check types
-    ministry: s.ministry
+    ministry: s.ministry,
+    event_id: s.eventId,
+    station_id: s.stationId,
+    vehicle_id: s.vehicleId
 });
 
 export const SoulsStore = {
