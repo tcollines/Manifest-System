@@ -20,6 +20,7 @@ import vehicleRoutes from './routes/vehicleRoutes';
 import childRoutes from './routes/childRoutes';
 import schoolRoutes from './routes/schoolRoutes';
 import soulRoutes from './routes/soulRoutes';
+import analyticsRoutes from './routes/analyticsRoutes';
 import assetRoutes from './routes/assetRoutes';
 import logisticsRoutes from './routes/logisticsRoutes';
 import parkingRoutes from './routes/parkingRoutes';
@@ -28,14 +29,16 @@ import healingRoutes from './routes/healingRoutes';
 import reportRoutes from './routes/reportRoutes';
 
 app.use('/api/users', userRoutes);
-app.use('/api/events', eventRoutes);
 app.use('/api/members', memberRoutes);
+app.use('/api/events', eventRoutes);
+app.use('/api/reports', reportRoutes); // Register report routes
 app.use('/api/requisitions', requisitionRoutes);
 app.use('/api/finance', financeRoutes);
+app.use('/api/souls', soulRoutes);
+app.use('/api/analytics', analyticsRoutes);
 app.use('/api/vehicles', vehicleRoutes);
 app.use('/api/children', childRoutes);
 app.use('/api/schools', schoolRoutes);
-app.use('/api/souls', soulRoutes);
 app.use('/api/assets', assetRoutes);
 app.use('/api/logistics', logisticsRoutes);
 app.use('/api/parking', parkingRoutes);
