@@ -418,7 +418,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
 
   // Robust Role Check: Case-insensitive and includes Department ID 'd5' (Transportation/Logistics) - Fixes Data Entrant Guard
   // TODO: Refactor to use Department Slug from Global Context/Store
-  const isLogisticsRole = (currentUser.role && currentUser.role.trim().toLowerCase() === 'logistics') || currentUser.departmentId === 'd5';
+  const isLogisticsRole = (currentUser.role && currentUser.role.trim().toLowerCase() === 'logistics') || currentUser.departmentId === '4630e48a-f97e-48fd-a901-864b591c282f' || currentUser.departmentId === 'd5';
 
   // Permission for Deletion: Head of Dept or Administration Department (d0) or Administrator
   const canDeleteLogistics = currentUser.role === 'Head of Dept' || currentUser.departmentId === 'd0' || currentUser.role === 'Administrator';
@@ -1812,7 +1812,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
               password: stationForm.entrantPassword,
               role: 'Logistics',
               stationId: stationForm.id,
-              departmentId: 'd5'
+              departmentId: '4630e48a-f97e-48fd-a901-864b591c282f' // Transportation UUID
             };
             const addRes = await UserStore.add(newEntrant);
             if (addRes.status === 'error') throw new Error(addRes.message);
@@ -1865,7 +1865,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
           password: stationForm.entrantPassword,
           role: 'Logistics',
           stationId: stationId,
-          departmentId: 'd5'
+          departmentId: '4630e48a-f97e-48fd-a901-864b591c282f' // Transportation UUID
         };
         await UserStore.add(newEntrant);
       }
@@ -1896,7 +1896,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
       password: newEntrant.password,
       role: 'Logistics',
       stationId: selectedStation.id,
-      departmentId: currentUser.departmentId || 'd5' // Default to current user's department or d5
+      departmentId: currentUser.departmentId || '4630e48a-f97e-48fd-a901-864b591c282f' // Default to current user's department or Transportation UUID
     };
 
     try {

@@ -188,6 +188,7 @@ export const getDashboardForUser = (user: User): string => {
         case 'd2': return '/next-gen';
         case 'd3': return '/parking';
         case 'd4': return '/finance';
+        case '4630e48a-f97e-48fd-a901-864b591c282f':
         case 'd5': return '/transportation';
         case 'd6': return '/follow-up';
         case 'd7': return '/schools';

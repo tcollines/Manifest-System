@@ -535,7 +535,7 @@ const App: React.FC = () => {
             </Route>
 
             {/* Transportation (d5) */}
-            <Route element={<ProtectedRoute currentUser={currentUser} allowedDepartments={['d5']} />}>
+            <Route element={<ProtectedRoute currentUser={currentUser} allowedDepartments={['4630e48a-f97e-48fd-a901-864b591c282f', 'd5']} />}>
               <Route path="transportation" element={<TransportationDashboard currentUser={currentUser} events={events} onOpenModal={setModalType} />} />
               <Route path="stage-dashboard" element={<StageCoordinatorDashboard currentUser={currentUser} events={events} onOpenModal={setModalType} />} />
             </Route>

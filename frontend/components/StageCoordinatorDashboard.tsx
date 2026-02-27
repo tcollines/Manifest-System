@@ -206,7 +206,7 @@ const StageCoordinatorDashboard: React.FC<StageCoordinatorDashboardProps> = ({ c
                 password: newUser.password,
                 contact: newUser.contact,
                 role: newUser.role as 'Vehicle Coordinator' | 'Stage Coordinator' | 'Coordinator' | 'Logistics',
-                departmentId: 'd5', // Transportation default
+                departmentId: '4630e48a-f97e-48fd-a901-864b591c282f', // Transportation default (UUID)
                 stationId: currentUser.stationId, // Link to this stage
                 email: '',
                 status: 'Active'

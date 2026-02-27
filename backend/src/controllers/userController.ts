@@ -98,6 +98,20 @@ export const createUser = async (req: Request, res: Response) => {
         delete payload.stationId;
         delete payload.eventId;
 
+        // Prevent Duplicate Usernames natively at the API level
+        if (payload.username) {
+            const { data: existingUser } = await supabase
+                .from('users')
+                .select('id')
+                .eq('username', payload.username)
+                .neq('status', 'Deleted')
+                .maybeSingle();
+
+            if (existingUser) {
+                return res.status(400).json({ error: 'Username already exists' });
+            }
+        }
+
         const { error } = await supabase.from('users').insert([payload]);
         if (error) throw error;
         res.status(201).json({ message: 'User created' });
