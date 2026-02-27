@@ -322,7 +322,7 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
                             name: name,
                             username: name.toLowerCase().replace(/\s+/g, ''),
                             role: 'Vehicle Coordinator', // Default to Vehicle Coordinator for fallback
-                            departmentId: 'transport',
+                            departmentId: '4630e48a-f97e-48fd-a901-864b591c282f', // Transportation Dept UUID
                             status: 'Active',
                             contact: 'N/A',
                             email: `${name.toLowerCase().replace(/\s+/g, '')}@example.com`,
@@ -702,7 +702,7 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
             role: formRoleType === 'vehicle' ? 'Vehicle Coordinator' : 'Stage Coordinator',
             username: newCoordinator.username,
             password: newCoordinator.password,
-            departmentId: 'd5',
+            departmentId: '4630e48a-f97e-48fd-a901-864b591c282f', // Transportation Department UUID
             eventId: selectedEventId || currentUser?.eventId, // Robust Fallback
             contact: newCoordinator.contact,
             stationId: newCoordinator.stationId || undefined // Optional linkage
