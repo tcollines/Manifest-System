@@ -23,7 +23,7 @@ export const login = async (req: Request, res: Response) => {
 
         const data = usersData?.[0];
 
-        if (error || !data || !data.email) {
+        if (error || !data) {
             console.log('[LOGIN DEBUG]', {
                 inputIdentifier,
                 supabaseError: error?.message || 'Identifier not found in public.users'
@@ -32,7 +32,10 @@ export const login = async (req: Request, res: Response) => {
             await new Promise(resolve => setTimeout(resolve, 1000));
             return res.status(401).json({ error: 'Invalid login credentials' });
         }
-        targetEmail = data.email;
+
+        // Use true email if it exists, otherwise reconstruct the synthetic .local identity
+        // used to provision Coordinators and Data Entrants.
+        targetEmail = data.email || `${inputIdentifier.toLowerCase().replace(/\s+/g, '')}@manifest.local`;
 
         // Step 2: Authenticate securely with the real email
         // MUST use Anon Client, Service Role cannot generate sessions.
