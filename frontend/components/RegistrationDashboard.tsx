@@ -691,10 +691,22 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
     const handleUserChange = (payload: any) => {
       const { eventType, new: newRecord, old: oldRecord } = payload;
       if (eventType === 'INSERT' || eventType === 'UPDATE') {
+        // Only track coordinators
+        if (newRecord.role !== 'Vehicle Coordinator' && newRecord.role !== 'Coordinator') return;
+
         setCoordinators(prev => {
           const exists = prev.find(u => u.id === newRecord.id);
-          if (exists) return prev.map(u => u.id === newRecord.id ? (newRecord as User) : u);
-          return [newRecord as User, ...prev];
+          const mappedUser = {
+            id: newRecord.id,
+            name: newRecord.name,
+            role: newRecord.role,
+            eventId: newRecord.event_id,
+            stationId: newRecord.station_id,
+            departmentId: newRecord.department_id
+          } as User;
+
+          if (exists) return prev.map(u => u.id === newRecord.id ? mappedUser : u);
+          return [mappedUser, ...prev];
         });
       } else if (eventType === 'DELETE') {
         setCoordinators(prev => prev.filter(u => u.id !== oldRecord.id));
@@ -704,7 +716,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
       .on('postgres_changes', { event: '*', schema: 'public', table: 'pickup_stations', filter: `event_id=eq.${activeOperationId}` }, handleStationChange)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'vehicles', filter: `event_id=eq.${activeOperationId}` }, handleVehicleChange)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'passengers', filter: `event_id=eq.${activeOperationId}` }, handlePassengerChange)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'users', filter: `event_id=eq.${activeOperationId}` }, handleUserChange)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, handleUserChange)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'personal_vehicles', filter: `current_service_id=eq.${activeOperationId}` }, (payload) => {
         const { eventType, new: newRecord, old: oldRecord } = payload;
         if (eventType === 'INSERT') {
