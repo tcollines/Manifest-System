@@ -15,10 +15,12 @@ export const login = async (req: Request, res: Response) => {
         let targetEmail = inputIdentifier;
 
         // Search by either exact username OR exact email lookup case-insensitively
+        // STRICT: We MUST exclude deleted users to prevent identity collisions
         const { data: usersData, error } = await supabase
             .from('users')
             .select('email, password')
             .or(`username.ilike.${inputIdentifier},email.ilike.${inputIdentifier}`)
+            .neq('status', 'Deleted')
             .limit(1);
 
         const data = usersData?.[0];

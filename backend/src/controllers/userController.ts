@@ -116,7 +116,7 @@ export const createUser = async (req: Request, res: Response) => {
         let authUserId = null;
         if (payload.username && payload.password) {
             // Generate synthetic email if none provided
-            const targetEmail = payload.email || `${payload.username.toLowerCase().replace(/\\s+/g, '')}@manifest.local`;
+            const targetEmail = payload.email || `${payload.username.toLowerCase().replace(/\s+/g, '')}@manifest.local`;
 
             const { data: authData, error: authError } = await supabase.auth.admin.createUser({
                 email: targetEmail,
@@ -261,7 +261,7 @@ export const updateUser = async (req: Request, res: Response) => {
         // If updating a password, seamlessly provision or sync the auth identity
         // ==========================================
         if (payload.password && !payload.password.startsWith('PENDING_')) {
-            const userEmail = payload.email || data[0].email;
+            const userEmail = payload.email || data[0].email || (payload.username ? `${payload.username.toLowerCase().replace(/\s+/g, '')}@manifest.local` : null);
             if (userEmail) {
                 try {
                     // Check if Auth User exists
