@@ -111,18 +111,8 @@ export const VehicleStore = {
             driver_nin: vehicle.driverNin,
             type: vehicle.type,
             coordinator: vehicle.coordinator,
-            coordinator_contact: vehicle.coordinatorContact, // Map to DB
+            coordinator_contact: vehicle.coordinatorContact,
             time_arrival: vehicle.timeArrival,
-            status: vehicle.status,
-            journey_direction: vehicle.journeyDirection,
-            current_stage: vehicle.currentStage,
-            approvals: vehicle.approvals,
-            finance_details: vehicle.financeDetails,
-            location: vehicle.location,
-            ongoing_start_time: vehicle.ongoingStartTime,
-            ongoing_arrival_time: vehicle.ongoingArrivalTime,
-            return_start_time: vehicle.returnStartTime,
-            return_arrival_time: vehicle.returnArrivalTime,
             children: vehicle.childrenCount
         };
         try {
@@ -137,14 +127,42 @@ export const VehicleStore = {
     },
 
     // Targeted update for approvals to avoid overwriting other fields
-    updateVehicleStage: async (id: string, stage: string, approvals: any): Promise<void> => {
+    updateVehicleStage: async (id: string, stage: string, approvals: any, options?: { status?: string, journeyDirection?: string, ongoingArrivalTime?: string, returnArrivalTime?: string, ongoingStartTime?: string, returnStartTime?: string }): Promise<void> => {
         try {
             await apiFetch(`/vehicles/${id}/stage`, {
                 method: 'PATCH',
-                body: JSON.stringify({ stage, approvals })
+                body: JSON.stringify({
+                    stage,
+                    approvals,
+                    status: options?.status,
+                    journey_direction: options?.journeyDirection,
+                    ongoing_arrival_time: options?.ongoingArrivalTime,
+                    return_arrival_time: options?.returnArrivalTime,
+                    ongoing_start_time: options?.ongoingStartTime,
+                    return_start_time: options?.returnStartTime
+                })
             });
         } catch (e: any) {
             console.error('Error updating vehicle stage:', e.message || e);
+            throw e;
+        }
+    },
+
+    updateVehicleFinance: async (id: string, financeDetails: any, currentStage?: string, approvals?: any, journeyDirection?: string, ongoingStartTime?: string, returnStartTime?: string): Promise<void> => {
+        try {
+            await apiFetch(`/vehicles/${id}/finance`, {
+                method: 'PATCH',
+                body: JSON.stringify({
+                    finance_details: financeDetails,
+                    current_stage: currentStage,
+                    approvals: approvals,
+                    journey_direction: journeyDirection,
+                    ongoing_start_time: ongoingStartTime,
+                    return_start_time: returnStartTime
+                })
+            });
+        } catch (e: any) {
+            console.error('Error updating vehicle finance:', e.message || e);
             throw e;
         }
     },

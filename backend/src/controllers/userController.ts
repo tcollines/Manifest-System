@@ -112,10 +112,45 @@ export const createUser = async (req: Request, res: Response) => {
             }
         }
 
-        const { error } = await supabase.from('users').insert([payload]);
-        if (error) throw error;
-        res.status(201).json({ message: 'User created' });
+        // --- NEW: Auto-Provision Auth Identity ---
+        let authUserId = null;
+        if (payload.username && payload.password) {
+            // Generate synthetic email if none provided
+            const targetEmail = payload.email || `${payload.username.toLowerCase().replace(/\\s+/g, '')}@manifest.local`;
+
+            const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+                email: targetEmail,
+                password: payload.password,
+                email_confirm: true // Auto-confirm to allow immediate login
+            });
+
+            if (authError) {
+                console.error("[createUser] Auth Provisioning Error:", authError);
+                return res.status(400).json({ error: 'Failed to provision authentication credentials: ' + authError.message });
+            }
+
+            if (authData.user) {
+                authUserId = authData.user.id;
+                payload.id = authUserId; // Bind the public profile exactly to the new Auth ID
+                payload.email = targetEmail; // Save the synthetic or real email to profile
+            }
+        }
+
+        // Insert public profile
+        const { error: dbError } = await supabase.from('users').insert([payload]);
+
+        // Rollback Auth if DB fails (e.g., constraint violation)
+        if (dbError) {
+            if (authUserId) {
+                console.log(`[createUser] DB Insert failed, rolling back newly created Auth identity ${authUserId}`);
+                await supabase.auth.admin.deleteUser(authUserId);
+            }
+            throw dbError;
+        }
+
+        res.status(201).json({ message: 'User created securely with Auth Identity' });
     } catch (error: any) {
+        console.error("[createUser] Catch Error:", error);
         res.status(500).json({ error: error.message });
     }
 };
@@ -302,18 +337,26 @@ export const deleteUser = async (req: Request, res: Response) => {
             }
         }
 
-        // Soft delete the user by updating status and scrambling the email/username to free it up
-        const { error } = await supabase.from('users')
-            .update({
-                status: 'Deleted',
-                email: `deleted_${id}_${Date.now()}@manifest.local`,
-                username: `deleted_${id}_${Date.now()}`
-            })
+        // --- NEW: Hard Delete User ---
+        // 1. Delete from Supabase Auth (gotrue) to completely eradicate their login identity
+        const { error: authError } = await supabase.auth.admin.deleteUser(id);
+        if (authError && authError.message !== 'User not found') {
+            console.warn(`[deleteUser] Failed to delete Auth Identity for ${id}:`, authError.message);
+            // We log the warning but might still want to proceed with DB deletion to clear the UI ghost if Auth was out of sync
+        }
+
+        // 2. Delete strictly from the database (Hard Delete)
+        const { error: dbError } = await supabase.from('users')
+            .delete()
             .eq('manifest_id', manifestId)
             .eq('id', id);
-        if (error) throw error;
-        res.json({ message: 'User deleted' });
+
+        if (dbError) throw dbError;
+
+        console.log(`[deleteUser] Successfully hard-deleted user ${id}`);
+        res.json({ message: 'User permanently deleted' });
     } catch (error: any) {
+        console.error("[deleteUser] Error:", error);
         res.status(500).json({ error: error.message });
     }
 }

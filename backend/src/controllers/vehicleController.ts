@@ -27,10 +27,14 @@ export const getVehicles = async (req: Request, res: Response) => {
 
         let query = supabase.from('vehicles').select('*').eq('manifest_id', manifestId); // Tenant Isolation
 
-        if (coordinatorUid) {
-            query = query.eq('coordinator_uid', coordinatorUid);
+        const validUid = coordinatorUid ? toUUID(coordinatorUid) : null;
+
+        if (validUid && coordinator) {
+            query = query.or(`coordinator_uid.eq.${validUid},coordinator.ilike."${coordinator}"`);
+        } else if (validUid) {
+            query = query.eq('coordinator_uid', validUid);
         } else if (coordinator) {
-            query = query.eq('coordinator', coordinator);
+            query = query.ilike('coordinator', coordinator);
         }
 
         if (validEventId) {
@@ -153,7 +157,7 @@ export const updateVehicle = async (req: Request, res: Response) => {
                     manifest_id: manifestId, // INJECT TENANT ID
                     id: newUserId,
                     name: coordinator,
-                    role: 'Coordinator',
+                    role: 'Vehicle Coordinator',
                     username: generateUsername(coordinator),
                     password: 'ChangeMe123!',
                     contact: coordinator_contact || null,
@@ -215,13 +219,48 @@ export const updateVehicleStage = async (req: Request, res: Response) => {
     if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
 
     const { id } = req.params;
-    const { stage, approvals } = req.body;
+    const { stage, approvals, status, journey_direction, ongoing_arrival_time, return_arrival_time, ongoing_start_time, return_start_time } = req.body;
     try {
+        const payload: any = {};
+        if (stage !== undefined) payload.current_stage = stage;
+        if (approvals !== undefined) payload.approvals = approvals;
+        if (status !== undefined) payload.status = status;
+        if (journey_direction !== undefined) payload.journey_direction = journey_direction;
+        if (ongoing_arrival_time !== undefined) payload.ongoing_arrival_time = ongoing_arrival_time;
+        if (return_arrival_time !== undefined) payload.return_arrival_time = return_arrival_time;
+        if (ongoing_start_time !== undefined) payload.ongoing_start_time = ongoing_start_time;
+        if (return_start_time !== undefined) payload.return_start_time = return_start_time;
+
         const { error } = await supabase.from('vehicles')
-            .update({ current_stage: stage, approvals: approvals })
+            .update(payload)
             .eq('manifest_id', manifestId).eq('id', id);
         if (error) throw error;
         res.json({ message: 'Vehicle stage updated' });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+export const updateVehicleFinance = async (req: Request, res: Response) => {
+    const manifestId = (req as any).manifestId;
+    if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
+
+    const { id } = req.params;
+    const { finance_details, approvals, current_stage, journey_direction, ongoing_start_time, return_start_time } = req.body;
+    try {
+        const payload: any = {};
+        if (finance_details !== undefined) payload.finance_details = finance_details;
+        if (approvals !== undefined) payload.approvals = approvals;
+        if (current_stage !== undefined) payload.current_stage = current_stage;
+        if (journey_direction !== undefined) payload.journey_direction = journey_direction;
+        if (ongoing_start_time !== undefined) payload.ongoing_start_time = ongoing_start_time;
+        if (return_start_time !== undefined) payload.return_start_time = return_start_time;
+
+        const { error } = await supabase.from('vehicles')
+            .update(payload)
+            .eq('manifest_id', manifestId).eq('id', id);
+        if (error) throw error;
+        res.json({ message: 'Vehicle finance updated' });
     } catch (error: any) {
         res.status(500).json({ error: error.message });
     }

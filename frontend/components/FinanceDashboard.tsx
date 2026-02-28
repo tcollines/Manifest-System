@@ -61,6 +61,7 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, events
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [financeSummary, setFinanceSummary] = useState({ total_income: 0, total_expense: 0, net_balance: 0, transaction_count: 0 });
     const [selectedEventId, setSelectedEventId] = useState<string>('');
+    const activeFetchTarget = React.useRef<string | null>(null);
 
     // Sync selectedEventId with events prop if not set
     useEffect(() => {
@@ -154,7 +155,12 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, events
         };
     }, [selectedEventId]);
 
-    const refreshData = async () => {
+    const refreshData = async (eventIdTrigger?: string | any) => {
+        const targetEventId = (typeof eventIdTrigger === 'string') ? eventIdTrigger : selectedEventId;
+        if (!targetEventId) return; // Prevent raw fetch
+
+        activeFetchTarget.current = targetEventId;
+
         try {
             setIsRefreshing(true);
             // FIRE ALL REQUESTS IN PARALLEL (Performance Optimization)
@@ -166,17 +172,28 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, events
                 requisitionsRes,
                 stationRes,
                 manifestRes,
-                usersRes
+                usersRes,
+                passengerRes
             ] = await Promise.all([
-                VehicleStore.getVehicles({ eventId: selectedEventId }),
-                FinanceStore.getTransactions(selectedEventId), // Keep for table view
-                FinanceStore.getEventSummary(selectedEventId), // New O(1) RPC aggregate
-                FinanceStore.getRequests(selectedEventId),
+                VehicleStore.getVehicles({ eventId: targetEventId }),
+                FinanceStore.getTransactions(targetEventId), // Keep for table view
+                FinanceStore.getEventSummary(targetEventId), // New O(1) RPC aggregate
+                FinanceStore.getRequests(targetEventId),
                 RequisitionStore.getAll(),
-                LogisticsStore.getStations(selectedEventId),
+                LogisticsStore.getStations(targetEventId),
                 ManifestStore.get(),
-                UserStore.getAll({ eventId: selectedEventId })
+                UserStore.getAll({ eventId: targetEventId }),
+                VehicleStore.getPassengers({ eventId: targetEventId })
             ]);
+
+            // [RACE CONDITION PREVENTION]
+            // If the user rapidly clicked another Event Card while this slow fetch was still compiling,
+            // the state would be corrupted by the slow, stale payload returning *after* the fast valid payload.
+            // We explicitly abort mapping the data if the target event drifts.
+            if (activeFetchTarget.current !== targetEventId) {
+                console.warn(`[DIAGNOSTICS] Suppressing stale Promise.all return for Event: ${targetEventId}`);
+                return;
+            }
 
             // UPDATE STATE (Non-blocking batch updates)
             setVehicles(vehicleRes.status === 'success' ? vehicleRes.data : []);
@@ -187,6 +204,7 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, events
             setPickupStations(stationRes.status === 'success' ? stationRes.data : []);
             if (manifestRes.currency) setCurrency(manifestRes.currency);
             setAvailableCoordinators(usersRes.status === 'success' ? usersRes.data : []);
+            setPassengers(passengerRes.status === 'success' ? passengerRes.data : []);
 
         } catch (e) {
             console.error("Error refreshing Finance data:", e);
@@ -348,7 +366,10 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, events
                 }
             };
 
-            await VehicleStore.updateVehicle(updatedVehicle);
+            await VehicleStore.updateVehicleFinance(
+                updatedVehicle.id,
+                updatedVehicle.financeDetails
+            );
             setVehicles(prev => prev.map(v => v.id === updatedVehicle.id ? updatedVehicle : v));
             setSelectedVehicle(updatedVehicle); // Update local state to reflect changes immediately
             showToast('Finance Details Updated Successfully', 'success');
@@ -394,7 +415,15 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, events
                 if (!confirm("Total Vehicle Cost is 0 or empty. Are you sure you want to dispatch?")) return;
             }
 
-            await VehicleStore.updateVehicle(updatedVehicle);
+            await VehicleStore.updateVehicleFinance(
+                updatedVehicle.id,
+                updatedVehicle.financeDetails,
+                updatedVehicle.currentStage,
+                updatedVehicle.approvals,
+                updatedVehicle.journeyDirection,
+                updatedVehicle.ongoingStartTime,
+                updatedVehicle.returnStartTime
+            );
             setVehicles(prev => prev.map(v => v.id === updatedVehicle.id ? updatedVehicle : v));
             setSelectedVehicle(null);
             showToast(
@@ -416,7 +445,7 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, events
 
         // Get all vehicles for this event linked via station
         const allEventVehicles = vehicles.filter(v =>
-            eventStationIds.includes(v.stationId)
+            v.eventId === selectedFleetEvent.id || eventStationIds.includes(v.stationId)
         );
 
         // Calculate Stats
@@ -719,32 +748,41 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, events
         if (!selectedFleetEvent) return [];
         const eventStationIds = pickupStations.filter(s => s.eventId === selectedFleetEvent.id).map(s => s.id);
 
-        const allVehicles = vehicles.filter(v => v.eventId === selectedFleetEvent.id || eventStationIds.includes(v.stationId));
+        // Assuming 'vehicles' state holds all vehicles, and we filter them down.
+        // If 'permittedVehicles' is meant to be a pre-filtered list, it needs to be defined elsewhere.
+        // For now, I'll assume 'vehicles' is the source and apply the filter logic.
+        const permittedVehicles = vehicles; // Placeholder: if 'permittedVehicles' is a global state, it should be used.
+        // If it's a new filter, it needs to be defined.
+        // Based on the diff, it seems like 'vehicles' should be used here.
+
+        const allVehicles = permittedVehicles.filter(v =>
+            v.eventId === selectedFleetEvent.id || eventStationIds.includes(v.stationId)
+        );
 
         if (fleetJourneyTab === 'All') {
             return allVehicles;
         }
 
-        // For workflow tabs, only show Approved vehicles
-        const approvedVehicles = allVehicles.filter(v => v.approvals?.registration === 'Approved');
+        // For workflow tabs, only show Approved vehicles (Fallback to true if approvals object is null for legacy backwards compatibility)
+        const approvedVehicles = allVehicles.filter(v => !v.approvals || v.approvals.registration === 'Approved');
 
         if (fleetJourneyTab === 'Ongoing') {
-            return approvedVehicles.filter(v => !v.financeDetails?.ongoingDispatch || v.financeDetails.ongoingDispatch === '');
+            return approvedVehicles.filter(v => !v.financeDetails?.ongoingDispatch || v.financeDetails.ongoingDispatch === '' || v.financeDetails.ongoingDispatch === '0');
         } else if (fleetJourneyTab === 'Return') {
             return approvedVehicles.filter(v =>
-                (v.financeDetails?.ongoingDispatch && v.financeDetails.ongoingDispatch !== '') &&
-                (!v.financeDetails?.returnDispatch || v.financeDetails.returnDispatch === '')
+                (v.financeDetails?.ongoingDispatch && v.financeDetails.ongoingDispatch !== '' && v.financeDetails.ongoingDispatch !== '0') &&
+                (!v.financeDetails?.returnDispatch || v.financeDetails.returnDispatch === '' || v.financeDetails.returnDispatch === '0')
             );
         } else {
-            return approvedVehicles.filter(v => v.financeDetails?.returnDispatch && v.financeDetails.returnDispatch !== '');
+            return approvedVehicles.filter(v => v.financeDetails?.returnDispatch && v.financeDetails.returnDispatch !== '' && v.financeDetails.returnDispatch !== '0');
         }
     };
 
     const eventVehicles = getEventVehicles();
 
     const getVehicleJourneyStatus = (v: Vehicle) => {
-        if (!v.financeDetails?.ongoingDispatch || v.financeDetails.ongoingDispatch === '') return 'Ongoing';
-        if (!v.financeDetails?.returnDispatch || v.financeDetails.returnDispatch === '') return 'Return';
+        if (!v.financeDetails?.ongoingDispatch || v.financeDetails.ongoingDispatch === '' || v.financeDetails.ongoingDispatch === '0') return 'Ongoing';
+        if (!v.financeDetails?.returnDispatch || v.financeDetails.returnDispatch === '' || v.financeDetails.returnDispatch === '0') return 'Return';
         return 'Cleared';
     };
 
@@ -1126,8 +1164,8 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, events
                                                                 <div className="flex justify-between items-start mb-2">
                                                                     <h4 className="text-lg font-bold font-mono text-gray-900">{v.number_plate}</h4>
                                                                     {fleetJourneyTab === 'All' && (
-                                                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${v.approvals?.registration === 'Approved' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                                                                            {v.approvals?.registration === 'Approved' ? 'Active' : 'Pending'}
+                                                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${(!v.approvals || v.approvals.registration === 'Approved') ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                                                                            {(!v.approvals || v.approvals.registration === 'Approved') ? 'Active' : 'Pending'}
                                                                         </span>
                                                                     )}
                                                                 </div>
@@ -1483,12 +1521,6 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, events
 
                                                 <div className="flex gap-3">
                                                     <button onClick={() => setSelectedVehicle(null)} className="px-6 py-3 text-gray-500 font-bold hover:bg-gray-50 rounded-xl transition-colors">Cancel</button>
-
-                                                    {effectiveJourneyTab === 'Ongoing' && (
-                                                        <button onClick={handleUpdateFinance} className="px-6 py-3 bg-gray-100 text-gray-800 font-bold rounded-xl hover:bg-gray-200 transition-colors">
-                                                            Update
-                                                        </button>
-                                                    )}
 
                                                     {effectiveJourneyTab !== 'Cleared' && (
                                                         <button

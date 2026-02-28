@@ -126,8 +126,7 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
     // --- COORDINATOR SPECIFIC STATE ---
     // --- COORDINATOR SPECIFIC STATE ---
     // "isCoordinatorView" now strictly means "Single Vehicle Operator View" (Vehicle Coordinator)
-    // Stage Coordinators use the filtered Dashboard View (similar to Admin but scoped)
-    const isCoordinatorView = currentUser?.role === 'Vehicle Coordinator' || currentUser?.role === 'Coordinator';
+    const isCoordinatorView = currentUser?.role === 'Vehicle Coordinator' || (currentUser?.role === 'Coordinator' && !currentUser?.stationId);
     const [myVehicle, setMyVehicle] = useState<Vehicle | null>(null);
     const [activeJourneyTab, setActiveJourneyTab] = useState<'Ongoing' | 'Return'>('Ongoing');
     const [passengers, setPassengers] = useState<Passenger[]>([]);
@@ -156,8 +155,8 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
 
     const refreshData = async (targetEventId: string = selectedEventId) => {
         const isCoord = isCoordinatorView && currentUser;
-        const isStageCoord = currentUser?.role === 'Stage Coordinator' || currentUser?.role === 'Coordinator';
-        const isVehicleCoord = currentUser?.role === 'Vehicle Coordinator';
+        const isStageCoord = currentUser?.role === 'Stage Coordinator' || (currentUser?.role === 'Coordinator' && !!currentUser?.stationId);
+        const isVehicleCoord = currentUser?.role === 'Vehicle Coordinator' || (currentUser?.role === 'Coordinator' && !currentUser?.stationId);
 
         // Prevent global fetch if not coordinator and no event selected
         if (!isCoord && !targetEventId) {
@@ -187,7 +186,9 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
                     let updated = mine;
                     if (!mine.currentStage || !mine.journeyDirection) {
                         updated = { ...mine, currentStage: 'Onboarding', journeyDirection: 'Ongoing', approvals: { registration: 'Pending', finance: 'Pending' } };
-                        VehicleStore.updateVehicle(updated);
+                        VehicleStore.updateVehicleStage(updated.id, updated.currentStage, updated.approvals, {
+                            journeyDirection: updated.journeyDirection
+                        });
                     }
                     setMyVehicle(updated);
                     if (updated.journeyDirection) setActiveJourneyTab(updated.journeyDirection);
@@ -478,7 +479,11 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
             if (activeJourneyTab === 'Ongoing') {
                 updated.ongoingArrivalTime = now;
                 // Update DB and state before switching
-                VehicleStore.updateVehicle(updated);
+                VehicleStore.updateVehicleStage(updated.id, updated.currentStage, updated.approvals, {
+                    ongoingArrivalTime: updated.ongoingArrivalTime,
+                    status: updated.status,
+                    ongoingStartTime: updated.ongoingStartTime
+                });
                 setMyVehicle(updated);
 
                 showToast("Ongoing Journey Completed. Switching to Return...", "success");
@@ -500,7 +505,13 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
         if (newStage === 'FinanceApproval') updated.approvals = { ...updated.approvals!, registration: 'Approved', finance: 'Pending' };
         if (newStage === 'Transit') updated.approvals = { ...updated.approvals!, finance: 'Approved', registration: 'Approved' };
 
-        VehicleStore.updateVehicle(updated);
+        VehicleStore.updateVehicleStage(updated.id, updated.currentStage, updated.approvals, {
+            status: updated.status,
+            ongoingStartTime: updated.ongoingStartTime,
+            returnStartTime: updated.returnStartTime,
+            ongoingArrivalTime: updated.ongoingArrivalTime,
+            returnArrivalTime: updated.returnArrivalTime
+        });
         setMyVehicle(updated);
     };
 
@@ -569,7 +580,9 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
             currentStage: 'Onboarding' as JourneyStage,
             approvals: { registration: 'Pending', finance: 'Pending' }
         };
-        VehicleStore.updateVehicle(updated);
+        VehicleStore.updateVehicleStage(updated.id, updated.currentStage, updated.approvals, {
+            journeyDirection: updated.journeyDirection
+        });
         setMyVehicle(updated);
         if (tab === 'Return') {
             const resetPassengers = passengers.map(p => ({ ...p, verified: false }));
@@ -952,9 +965,9 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
 
                                     return (
                                         <div key={stage} className="flex flex-col items-center">
-                                            <div className={`w-10 h-10 rounded-full flex items-center justify-center border-4 transition-all duration-300 z-10 bg-white ${isActive ? 'border-ministry-neon bg-black text-ministry-neon scale-110' :
+                                            <div className={`w-10 h-10 rounded-full flex items-center justify-center border-4 transition-all duration-300 z-10 ${isActive ? 'border-ministry-neon bg-black text-ministry-neon scale-110' :
                                                 isCompleted ? 'border-ministry-orange bg-ministry-orange text-white' :
-                                                    'border-gray-200 text-gray-300'
+                                                    'border-gray-200 bg-white text-gray-300'
                                                 }`}>
                                                 {isCompleted ? <Check className="w-5 h-5" /> : (idx + 1)}
                                             </div>
