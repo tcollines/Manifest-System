@@ -1,7 +1,7 @@
 import { Requisition, RequisitionItem, RequisitionPayment } from '../types';
 import { apiFetch } from '../services/api';
 
-const mapRequisitionFromDB = (dbReq: any): Requisition => ({
+export const mapRequisitionFromDB = (dbReq: any): Requisition => ({
     id: dbReq.id,
     requisitionNumber: dbReq.requisition_number,
     title: dbReq.title,

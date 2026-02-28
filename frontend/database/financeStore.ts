@@ -3,7 +3,7 @@ import { Transaction, DepartmentRequest } from '../types';
 import { apiFetch } from '../services/api';
 import { DEPARTMENT_REQUESTS } from '../constants';
 
-const mapTransactionFromDB = (t: any): Transaction => ({
+export const mapTransactionFromDB = (t: any): Transaction => ({
   id: t.id,
   type: t.type,
   category: t.category,
@@ -14,7 +14,7 @@ const mapTransactionFromDB = (t: any): Transaction => ({
   eventId: t.event_id ? String(t.event_id) : undefined
 });
 
-const mapRequestFromDB = (r: any): DepartmentRequest => ({
+export const mapRequestFromDB = (r: any): DepartmentRequest => ({
   id: r.id,
   department: r.department,
   requester: r.requester,

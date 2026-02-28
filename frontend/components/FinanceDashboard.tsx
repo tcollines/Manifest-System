@@ -23,13 +23,13 @@ import {
     RotateCcw
 } from 'lucide-react';
 import { isEventLocked, isServiceClosed } from '../utils';
-import { VehicleStore } from '../database/vehicleStore';
-import { FinanceStore } from '../database/financeStore';
+import { VehicleStore, mapVehicleFromDB } from '../database/vehicleStore';
+import { FinanceStore, mapTransactionFromDB, mapRequestFromDB } from '../database/financeStore';
 import { EventStore } from '../database/eventStore';
 import { LogisticsStore } from '../database/logisticsStore';
 import { ManifestStore } from '../database/manifestStore';
 import { supabase } from '../services/supabaseClient';
-import { RequisitionStore } from '../database/requisitionStore';
+import { RequisitionStore, mapRequisitionFromDB } from '../database/requisitionStore';
 import { Vehicle, MinistryEvent, Transaction, DepartmentRequest, Passenger, PickUpStation, User, Requisition, ModalType } from '../types';
 import { UserStore } from '../database/userStore';
 
@@ -115,10 +115,10 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, events
                 if (eventType === 'INSERT') {
                     setTransactions(prev => {
                         if (prev.some(t => t.id === newRecord.id)) return prev;
-                        return [newRecord as Transaction, ...prev];
+                        return [mapTransactionFromDB(newRecord), ...prev];
                     });
                 }
-                else if (eventType === 'UPDATE') setTransactions(prev => prev.map(t => t.id === newRecord.id ? (newRecord as Transaction) : t));
+                else if (eventType === 'UPDATE') setTransactions(prev => prev.map(t => t.id === newRecord.id ? mapTransactionFromDB(newRecord) : t));
                 else if (eventType === 'DELETE') setTransactions(prev => prev.filter(t => t.id !== oldRecord.id));
             })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'requisitions', filter: `event_id=eq.${activeEventId}` }, (payload) => {
@@ -126,10 +126,10 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, events
                 if (eventType === 'INSERT') {
                     setRequisitions(prev => {
                         if (prev.some(r => r.id === newRecord.id)) return prev;
-                        return [newRecord as Requisition, ...prev];
+                        return [mapRequisitionFromDB(newRecord), ...prev];
                     });
                 }
-                else if (eventType === 'UPDATE') setRequisitions(prev => prev.map(r => r.id === newRecord.id ? (newRecord as Requisition) : r));
+                else if (eventType === 'UPDATE') setRequisitions(prev => prev.map(r => r.id === newRecord.id ? mapRequisitionFromDB(newRecord) : r));
                 else if (eventType === 'DELETE') setRequisitions(prev => prev.filter(r => r.id !== oldRecord.id));
             })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'vehicles' }, (payload) => {
@@ -139,9 +139,15 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, events
                 if (eventType === 'INSERT' || eventType === 'UPDATE') {
                     setVehicles(prev => {
                         const exists = prev.find(v => v.id === newRecord.id);
-                        if (exists) return prev.map(v => v.id === newRecord.id ? (newRecord as Vehicle) : v);
-                        // Only add if it belongs to our current stations? 
-                        // For simplicity in finance, we can just update if it's already in our list.
+                        if (exists) return prev.map(v => v.id === newRecord.id ? mapVehicleFromDB(newRecord) : v);
+
+                        // FIX: If it's a new vehicle, check if it belongs to our current event or our current stations
+                        const belongsToEvent = newRecord.event_id === activeEventId;
+                        const belongsToStation = pickupStations.some(s => s.id === newRecord.station_id);
+
+                        if (belongsToEvent || belongsToStation) {
+                            return [...prev, mapVehicleFromDB(newRecord)];
+                        }
                         return prev;
                     });
                 } else if (eventType === 'DELETE') {
