@@ -377,7 +377,7 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
                 else if (eventType === 'UPDATE') {
                     const mapped = mapVehicleFromDB(newRecord);
                     setVehicles(prev => prev.map(v => v.id === mapped.id ? (mapped as TrackedVehicle) : v));
-                    if (myVehicle?.id === mapped.id) setMyVehicle(mapped as Vehicle);
+                    setMyVehicle(prev => prev?.id === mapped.id ? (mapped as Vehicle) : prev);
                 } else if (eventType === 'DELETE') setVehicles(prev => prev.filter(v => v.id !== oldRecord.id));
             })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, (payload) => {
