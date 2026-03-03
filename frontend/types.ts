@@ -278,7 +278,7 @@ export interface Soul {
   gender: 'Male' | 'Female';
   residence: string;
   status: 'New' | 'Contacted' | 'Visited' | 'Integrated' | 'Lost' | 'Confirmed';
-  sourceType: 'Service' | 'Event' | 'Outreach' | 'Other' | 'Healing Dept';
+  sourceType: 'Service' | 'Event' | 'Outreach' | 'Other' | 'Healing Dept' | 'Campus';
   sourceId?: string;
   capturedBy?: string; // User ID or Name
   notes?: string;
@@ -300,6 +300,47 @@ export interface Soul {
   eventId?: string;
   stationId?: string;
   vehicleId?: string;
+  // Campus Fields
+  campusCategory?: 'Family' | 'Evangelism' | 'Vacists' | 'Alumni';
+  activityId?: string;
+}
+
+export interface CampusActivity {
+  id: string;
+  category: 'Family' | 'Evangelism' | 'Vacists' | 'Alumni';
+  title: string;
+  date: string;
+  location: string;
+  soulsWon: number;
+  contactsCollected: number;
+  notes?: string;
+  createdAt?: string;
+  createdBy?: string;
+}
+
+export interface CampusActivityAttendant {
+  id: string;
+  activityId: string;
+  name: string;
+  contact?: string;
+  residence?: string;
+  isStudent: boolean;
+  institutionName?: string;
+  course?: string;
+  createdAt?: string;
+  createdBy?: string;
+}
+
+export interface CampusFinance {
+  id: string;
+  type: 'Income' | 'Expense';
+  category: string;
+  amount: number;
+  description: string;
+  date: string;
+  method: 'Cash' | 'Mobile Money' | 'Bank';
+  recordedBy?: string;
+  createdAt?: string;
 }
 
 export enum ModalType {
@@ -407,6 +448,7 @@ export interface Department {
   slug: string; // 'registration', 'transportation'
   uuid: string; // Native UUID
   name: string;
+  head?: string;
   headId?: string;
   dashboardRoute?: string;
   status?: 'Active' | 'Inactive';

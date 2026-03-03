@@ -141,7 +141,7 @@ const SetupAccount: React.FC<SetupAccountProps> = ({ currentUser, onComplete, on
                                     <div>
                                         <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Department</label>
                                         <p className="text-sm font-semibold text-white">
-                                            {DEPARTMENTS.find(d => d.id === currentUser.departmentId)?.name || currentUser.departmentId}
+                                            {DEPARTMENTS.find(d => d.id === currentUser.departmentId || d.slug === currentUser.departmentId || d.code === currentUser.departmentId)?.name || currentUser.departmentId}
                                         </p>
                                     </div>
                                 )}

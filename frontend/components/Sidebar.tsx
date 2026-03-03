@@ -1,29 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
-import {
-  LayoutDashboard,
-  Users,
-  Calendar,
-  BarChart2,
-  Settings,
-  LogOut,
-  Cross,
-  ClipboardCheck,
-  Bus,
-  Baby,
-  CreditCard,
-  Car,
-  Map,
-  Globe,
-  X,
-  FileText,
-  Package,
-  BookOpen,
-  Phone,
-  UserPlus,
-  Heart
-} from 'lucide-react';
+import { LayoutDashboard, Users, Calendar, Bus, PlusSquare, FileText, ClipboardList, Map, BookOpen, Clock, FileCheck, Phone, CheckCircle, Package, Search, Menu, X, Settings, Heart, Database, BarChart2, Briefcase, GraduationCap, ArrowRight, UserPlus, CreditCard, Building2, DollarSign, ClipboardCheck, Baby, Car, Globe, LogOut } from 'lucide-react';
 import { ModalType, User, Department } from '../types';
 
 interface SidebarProps {
@@ -97,6 +75,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, onLogout, isOpen, onClos
   const isTeamLeader = currentUser.role === 'TeamLeader';
   const isFollowUpHead = (currentUser.role === 'Head of Dept' || currentUser.role === 'Dept Admin') && checkDept('follow-up');
   const isFollowUpMember = currentUser.role === 'Member' && checkDept('follow-up');
+  const isCampusHead = (currentUser.role === 'Head of Dept' || currentUser.role === 'Dept Admin') && (checkDept('campus') || checkDept('campus and institutions'));
 
   let menuItems: any[] = [];
 
@@ -186,6 +165,16 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, onLogout, isOpen, onClos
     menuItems = [
       { id: 'follow-up', label: 'Follow Up Dashboard', icon: UserPlus },
     ];
+  } else if (isCampusHead) {
+    menuItems = [
+      { id: 'campus', label: 'Campus Dashboard', icon: Building2 },
+      { id: 'campus-events', label: 'Ministry Events', icon: Calendar },
+      { id: 'campus-finance', label: 'Departmental Finance', icon: DollarSign },
+      { id: 'reports', label: 'Monthly Reports', icon: BarChart2 },
+      { id: 'settings', label: 'Team Management', icon: Users },
+      { id: 'requisitions', label: 'Requisitions', icon: FileText },
+      { id: 'assets', label: 'Assets', icon: Package },
+    ];
   } else if (isStageCoordinator) {
     menuItems = [
       { id: 'stage-dashboard', label: 'Stage Dashboard', icon: Bus },
@@ -270,6 +259,9 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, onLogout, isOpen, onClos
       case 'schools': return '/schools';
       case 'follow-up': return '/follow-up';
       case 'healing': return '/healing';
+      case 'campus': return '/campus';
+      case 'campus-events': return '/campus/events';
+      case 'campus-finance': return '/campus/finance';
       case 'stage-dashboard': return '/stage-dashboard';
       default: return '/dashboard';
     }
@@ -307,6 +299,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, onLogout, isOpen, onClos
               <NavLink
                 key={item.id}
                 to={path}
+                end // Ensures exact match so parent routes don't stay active inappropriately
                 onClick={handleItemClick}
                 className={({ isActive }) => `w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 group ${isActive
                   ? 'bg-ministry-neon text-black font-semibold shadow-md'

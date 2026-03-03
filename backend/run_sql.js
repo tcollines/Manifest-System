@@ -22,7 +22,9 @@ async function runSQL() {
     try {
         await client.connect();
         console.log("Connected securely to Supabase DB. Running migration...");
-        const sql = fs.readFileSync('d:\\Manifest System\\backend\\database\\80_deduplicate_and_soft_delete_users.sql', 'utf8');
+        const sqlFile = process.argv[2];
+        if (!sqlFile) throw new Error("Please provide an SQL file as an argument");
+        const sql = fs.readFileSync(sqlFile, 'utf8');
         await client.query(sql);
         console.log("Migration successful!");
     } catch (err) {

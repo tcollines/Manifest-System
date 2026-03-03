@@ -69,6 +69,16 @@ export const SoulsStore = {
         }
     },
 
+    getBySourceType: async (sourceType: string): Promise<Soul[]> => {
+        try {
+            const data = await apiFetch(`/souls`);
+            return data.map(mapSoulFromDB).filter(s => s.sourceType === sourceType);
+        } catch (e) {
+            console.error('Failed to fetch souls by source type', e);
+            return [];
+        }
+    },
+
     add: async (soul: Soul): Promise<void> => {
         // Ensure UUID
         const finalSoul = { ...soul, id: soul.id || crypto.randomUUID() };

@@ -34,6 +34,9 @@ import { Bell, Search, Menu } from 'lucide-react';
 import { supabase } from './services/supabaseClient';
 import TeamLeaderRequisitions from './components/TeamLeaderRequisitions';
 import { SchoolsDashboard } from './components/SchoolsDashboard';
+import CampusDashboard from './components/CampusDashboard';
+import CampusMinistryEvents from './components/CampusMinistryEvents';
+import CampusFinanceDashboard from './components/CampusFinanceDashboard';
 import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { getDashboardForUser } from './utils';
 import RoleRedirect from './components/RoleRedirect';
@@ -548,6 +551,13 @@ const App: React.FC = () => {
             {/* Schools (d7) */}
             <Route element={<ProtectedRoute currentUser={currentUser} allowedDepartments={['d7']} />}>
               <Route path="schools" element={<SchoolsDashboard currentUser={currentUser} events={events} onOpenModal={setModalType} />} />
+            </Route>
+
+            {/* Campus and Institutions (d9) */}
+            <Route element={<ProtectedRoute currentUser={currentUser} allowedDepartments={['d9']} />}>
+              <Route path="campus" element={<CampusDashboard currentUser={currentUser} events={events} onOpenModal={setModalType} />} />
+              <Route path="campus/events" element={<CampusMinistryEvents events={events} />} />
+              <Route path="campus/finance" element={<CampusFinanceDashboard currentUser={currentUser} />} />
             </Route>
 
             {/* General Routes/Shared Logic */}

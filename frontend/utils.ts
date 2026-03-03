@@ -178,6 +178,7 @@ export const getDashboardForUser = (user: User): string => {
             case 'follow-up': return '/follow-up';
             case 'schools': return '/schools';
             case 'healing': return '/healing';
+            case 'campus': return '/campus';
             case 'administration': return '/dashboard'; // Admin backup
         }
     }
@@ -193,6 +194,7 @@ export const getDashboardForUser = (user: User): string => {
         case 'd6': return '/follow-up';
         case 'd7': return '/schools';
         case 'd8': return '/healing';
+        case 'd9': return '/campus';
         default: return '/team-dashboard'; // TeamLeader or Member
     }
 };

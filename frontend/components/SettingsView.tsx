@@ -122,8 +122,8 @@ const SettingsView: React.FC<SettingsViewProps> = ({ users = [], openModal, onDe
     const filteredUsers = baseUsers.filter(user => {
         if (!searchQuery) return true;
         const query = searchQuery.toLowerCase();
-        // Dynamic Lookup
-        const deptName = departments.find(d => d.id === user.departmentId || d.slug === user.departmentId)?.name.toLowerCase() || '';
+        // Dynamic Lookup (supports id, slug, or legacy code)
+        const deptName = departments.find(d => d.id === user.departmentId || d.slug === user.departmentId || d.code === user.departmentId)?.name.toLowerCase() || '';
 
         return (
             user.name.toLowerCase().includes(query) ||
@@ -421,7 +421,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ users = [], openModal, onDe
                                                 }`}>{user.role}</span>
                                         </td>
                                         <td className="px-6 py-4 text-sm text-gray-600">
-                                            {departments.find(d => d.id === user.departmentId || d.slug === user.departmentId)?.name || 'N/A'}
+                                            {departments.find(d => d.id === user.departmentId || d.slug === user.departmentId || d.code === user.departmentId)?.name || 'N/A'}
                                         </td>
                                         <td className="px-6 py-4 text-sm font-mono text-gray-500">{user.username}</td>
                                         <td className="px-6 py-4 text-right">

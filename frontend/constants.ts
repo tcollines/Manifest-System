@@ -29,6 +29,7 @@ export const DEPARTMENTS: Department[] = [
   { id: 'e680342f-72c7-4d10-b7cb-631725afe770', code: 'd6', slug: 'follow-up', uuid: 'e680342f-72c7-4d10-b7cb-631725afe770', name: 'Follow-Up', head: 'Donna Paulsen', members: 22, status: 'Active' },
   { id: '4d99940e-58ec-40ba-92bd-4a65651bf23a', code: 'd7', slug: 'schools', uuid: '4d99940e-58ec-40ba-92bd-4a65651bf23a', name: 'Schools', head: 'Schools Coordinator', members: 10, status: 'Active' },
   { id: 'f1a0d749-d681-4150-9764-aecfeac8b0ca', code: 'd8', slug: 'healing', uuid: 'f1a0d749-d681-4150-9764-aecfeac8b0ca', name: 'Healing', head: 'Healing Coordinator', members: 5, status: 'Active' },
+  { id: 'b2c1d3e4-f5a6-7890-bcde-1234567890ab', code: 'd9', slug: 'campus', uuid: 'b2c1d3e4-f5a6-7890-bcde-1234567890ab', name: 'Campus and Institutions', head: 'Campus Coordinator', members: 10, status: 'Active' },
 ];
 
 // Replaced by DB data, keeping empty arrays or minimal fallbacks if strictly necessary for type safety in some old components, but aiming to use stores.
@@ -149,3 +150,12 @@ export const CURRENCIES = [
   { code: 'CHF', name: 'Swiss Franc' },
   { code: 'ZMW', name: 'Zambian Kwacha' },
 ];
+
+export const SOURCE_TYPE_COLORS: Record<string, string> = {
+  'Healing Dept': 'bg-red-50 text-red-700',
+  'Campus': 'bg-blue-50 text-blue-700',
+  'Service': 'bg-gray-100 text-gray-800',
+  'Event': 'bg-gray-100 text-gray-800',
+  'Outreach': 'bg-gray-100 text-gray-800',
+  'Other': 'bg-gray-100 text-gray-800',
+};

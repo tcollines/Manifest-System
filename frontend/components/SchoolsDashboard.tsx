@@ -46,6 +46,7 @@ export const SchoolsDashboard: React.FC<SchoolsDashboardProps> = ({
 
     const [selectedEvent, setSelectedEvent] = useState<MinistryEvent | null>(null);
     const [eventPassengers, setEventPassengers] = useState<Passenger[]>([]);
+    const [eventFilter, setEventFilter] = useState<'all' | 'first-timers' | 'souls-won'>('all');
 
     useEffect(() => {
         loadReports();
@@ -681,77 +682,116 @@ export const SchoolsDashboard: React.FC<SchoolsDashboardProps> = ({
                             </div>
                         ) : (
                             <div className="space-y-6">
-                                <div className="flex items-center justify-between border-b pb-4">
-                                    <div>
-                                        <button onClick={() => setSelectedEvent(null)} className="text-gray-500 hover:text-black text-sm mb-1">← Back to Events</button>
-                                        <h2 className="text-2xl font-bold text-ministry-text">{selectedEvent.title} <span className="text-gray-400 text-lg font-normal">Students List</span></h2>
+                                <div className="flex items-center justify-between border-b border-gray-100 pb-4 mb-6">
+                                    <div className="flex items-center space-x-4">
+                                        <button onClick={() => setSelectedEvent(null)} className="text-sm font-medium text-gray-500 hover:text-ministry-orange transition-colors flex items-center">
+                                            <span className="mr-2">←</span> Back to Events
+                                        </button>
+                                        <div>
+                                            <h3 className="text-xl font-bold text-ministry-text uppercase tracking-tight">
+                                                {selectedEvent.title} <span className="font-light text-gray-400 normal-case tracking-normal">Students List</span>
+                                            </h3>
+                                        </div>
                                     </div>
-                                    <button onClick={handleDownloadExcel} className="flex items-center space-x-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors shadow-sm">
-                                        <Download className="w-4 h-4" />
-                                        <span>Download Excel</span>
+                                    <button onClick={handleDownloadExcel} className="bg-[#10b981] hover:bg-[#059669] text-white px-4 py-2 rounded font-medium flex items-center shadow-sm transition-colors">
+                                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                                        Download Excel
                                     </button>
                                 </div>
 
                                 {/* Summary Cards */}
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                    <div className="bg-white p-4 rounded-xl border border-gray-200">
-                                        <p className="text-gray-500 text-xs uppercase font-bold">Total Students</p>
-                                        <p className="text-2xl font-black">{eventPassengers.length}</p>
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                                    <div
+                                        onClick={() => setEventFilter('all')}
+                                        className={`border rounded-xl p-4 flex flex-col justify-center bg-white shadow-sm cursor-pointer transition-all ${eventFilter === 'all' ? 'border-ministry-orange ring-1 ring-ministry-orange bg-orange-50/10' : 'border-gray-200 hover:border-ministry-orange/50'}`}
+                                    >
+                                        <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Total Students</div>
+                                        <div className="text-3xl font-black text-gray-900">{eventPassengers.length}</div>
                                     </div>
-                                    <div className="bg-white p-4 rounded-xl border border-gray-200">
-                                        <p className="text-gray-500 text-xs uppercase font-bold">First Timers</p>
-                                        <p className="text-2xl font-black text-ministry-orange">{eventPassengers.filter(p => p.isFirstTime === 'Yes').length}</p>
+                                    <div
+                                        onClick={() => setEventFilter('first-timers')}
+                                        className={`border rounded-xl p-4 flex flex-col justify-center bg-white shadow-sm cursor-pointer transition-all ${eventFilter === 'first-timers' ? 'border-red-500 ring-1 ring-red-500 bg-red-50/30' : 'border-gray-200 hover:border-red-300'}`}
+                                    >
+                                        <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">First Timers</div>
+                                        <div className="text-3xl font-black text-red-500">{eventPassengers.filter(p => p.isFirstTime === 'Yes' || p.isFirstTime === true).length}</div>
                                     </div>
-                                    <div className="bg-white p-4 rounded-xl border border-gray-200">
-                                        <p className="text-gray-500 text-xs uppercase font-bold">Souls Won</p>
-                                        <p className="text-2xl font-black text-green-600">{eventPassengers.filter(p => p.soulWon).length}</p>
+                                    <div
+                                        onClick={() => setEventFilter('souls-won')}
+                                        className={`border rounded-xl p-4 flex flex-col justify-center bg-white shadow-sm cursor-pointer transition-all ${eventFilter === 'souls-won' ? 'border-green-500 ring-1 ring-green-500 bg-green-50/30' : 'border-gray-200 hover:border-green-300'}`}
+                                    >
+                                        <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Souls Won</div>
+                                        <div className="text-3xl font-black text-green-500">{eventPassengers.filter(p => p.soulWon).length}</div>
                                     </div>
-                                    <div className="bg-white p-4 rounded-xl border border-gray-200 flex items-center justify-center">
-                                        <button
-                                            onClick={handlePrintAllManifests}
-                                            className="flex flex-col items-center justify-center space-y-1 text-gray-600 hover:text-ministry-orange transition-colors"
-                                        >
-                                            <span className="text-xs font-bold uppercase">Download PDF</span>
-                                        </button>
-                                    </div>
+                                    <button
+                                        onClick={handlePrintAllManifests}
+                                        className="border border-gray-200 rounded-xl p-4 flex flex-col justify-center items-center bg-white shadow-sm hover:bg-gray-50 transition-colors"
+                                    >
+                                        <span className="text-xs font-bold text-gray-700 uppercase tracking-widest">Download PDF</span>
+                                    </button>
                                 </div>
 
                                 {/* List */}
-                                <div className="bg-white border md:rounded-xl overflow-hidden">
-                                    <table className="w-full text-left">
-                                        <thead className="bg-gray-50 text-xs uppercase text-gray-500 font-bold border-b">
-                                            <tr>
-                                                <th className="p-4">Name</th>
-                                                <th className="p-4">School / Class</th>
-                                                <th className="p-4">Contact</th>
-                                                <th className="p-4">Vehicle</th>
-                                                <th className="p-4">Coordinator</th>
-                                                <th className="p-4">Status</th>
+                                <div className="overflow-x-auto border border-gray-100 rounded-xl shadow-sm">
+                                    <table className="w-full text-left border-collapse bg-white">
+                                        <thead>
+                                            <tr className="bg-gray-50 text-gray-500 text-[10px] uppercase font-bold tracking-wider border-b border-gray-200">
+                                                <th className="px-6 py-4">Name</th>
+                                                <th className="px-6 py-4">School / Class</th>
+                                                <th className="px-6 py-4">Contact</th>
+                                                <th className="px-6 py-4">Vehicle</th>
+                                                <th className="px-6 py-4">Coordinator</th>
+                                                <th className="px-6 py-4 text-center">Status</th>
                                             </tr>
                                         </thead>
-                                        <tbody className="divide-y divide-gray-100">
-                                            {eventPassengers.map(p => (
-                                                <tr key={p.id} className="hover:bg-gray-50">
-                                                    <td className="p-4 font-bold text-gray-900">{p.name}</td>
-                                                    <td className="p-4 text-sm text-gray-600">{p.school} • {p.studentClass}</td>
-                                                    <td className="p-4 text-sm font-mono text-gray-500">{p.contact}</td>
-                                                    <td className="p-4 text-sm">
-                                                        <div className="text-gray-800 font-bold">{(p as any).vehicleNumberPlate}</div>
-                                                        <div className="text-xs text-gray-500">{(p as any).vehicleDriver}</div>
+                                        <tbody className="text-sm">
+                                            {eventPassengers.filter(p => {
+                                                if (eventFilter === 'first-timers') return p.isFirstTime === 'Yes' || p.isFirstTime === true;
+                                                if (eventFilter === 'souls-won') return p.soulWon;
+                                                return true;
+                                            }).map((p, idx) => (
+                                                <tr key={p.id || idx} className="border-b border-gray-100 last:border-0 hover:bg-gray-50/50 transition-colors">
+                                                    <td className="px-6 py-4 font-bold text-gray-900">{p.name || '-'}</td>
+                                                    <td className="px-6 py-4 text-gray-600">{p.school || '-'} <span className="text-xs text-gray-400 font-bold ml-1">• {p.studentClass || '-'}</span></td>
+                                                    <td className="px-6 py-4 text-gray-500">{p.contact || '-'}</td>
+                                                    <td className="px-6 py-4 text-gray-900">
+                                                        <div className="flex flex-col">
+                                                            <span className="font-bold">{(p as any).vehicleNumberPlate || '-'}</span>
+                                                            <span className="text-xs text-gray-500 font-medium">{(p as any).vehicleDriver || '-'}</span>
+                                                        </div>
                                                     </td>
-                                                    <td className="p-4 text-sm">
-                                                        <div className="text-gray-800 font-bold">{(p as any).vehicleCoordinator || 'N/A'}</div>
-                                                        <div className="text-xs text-gray-500">{(p as any).vehicleCoordinatorContact}</div>
+                                                    <td className="px-6 py-4 text-gray-900">
+                                                        <div className="flex flex-col">
+                                                            <span className="font-bold">{(p as any).vehicleCoordinator || 'N/A'}</span>
+                                                            <span className="text-xs text-gray-500 font-medium">{(p as any).vehicleCoordinatorContact || '-'}</span>
+                                                        </div>
                                                     </td>
-                                                    <td className="p-4">
-                                                        {p.soulWon && <span className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-bold mr-2">Soul Won</span>}
-                                                        {p.isFirstTime === 'Yes' && <span className="bg-orange-100 text-orange-700 px-2 py-1 rounded text-xs font-bold">First Timer</span>}
+                                                    <td className="px-6 py-4 text-center">
+                                                        <div className="flex flex-col gap-1 items-center">
+                                                            {(p.isFirstTime === 'Yes' || p.isFirstTime === true) && (
+                                                                <span className="bg-orange-100 text-orange-800 px-3 py-1 rounded font-bold text-xs uppercase tracking-wide">
+                                                                    First Timer
+                                                                </span>
+                                                            )}
+                                                            {p.soulWon && (
+                                                                <span className="bg-green-100 text-green-800 px-3 py-1 rounded font-bold text-xs uppercase tracking-wide">
+                                                                    Soul Won
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                     </td>
                                                 </tr>
                                             ))}
-                                            {eventPassengers.length === 0 && (
-                                                <tr><td colSpan={5} className="p-8 text-center text-gray-500">No students found for this event.</td></tr>
-                                            )}
+                                            {eventPassengers.filter(p => {
+                                                if (eventFilter === 'first-timers') return p.isFirstTime === 'Yes' || p.isFirstTime === true;
+                                                if (eventFilter === 'souls-won') return p.soulWon;
+                                                return true;
+                                            }).length === 0 && (
+                                                    <tr>
+                                                        <td colSpan={6} className="text-center py-10 text-gray-400 bg-gray-50">
+                                                            No students match the selected filter.
+                                                        </td>
+                                                    </tr>
+                                                )}
                                         </tbody>
                                     </table>
                                 </div>

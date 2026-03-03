@@ -8,6 +8,7 @@ import { isEventLocked, isServiceClosed } from '../utils';
 import { EventStore, mapEventFromDB } from '../database/eventStore';
 import { SoulsStore, mapSoulFromDB } from '../database/soulsStore';
 import { MemberStore } from '../database/memberStore';
+import { SOURCE_TYPE_COLORS } from '../constants';
 import SoulEntryForm from './SoulEntryForm';
 import MemberSearchInput from './MemberSearchInput';
 
@@ -587,16 +588,16 @@ const FollowUpDashboard: React.FC<FollowUpDashboardProps> = ({ onOpenModal, curr
                                     <div className="text-xs text-gray-400 mt-0.5">{soul.residence}</div>
                                 </td>
                                 <td className="px-6 py-4">
-                                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${soul.sourceType === 'Healing Dept'
-                                        ? 'bg-red-50 text-red-700'
-                                        : 'bg-gray-100 text-gray-800'
+                                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${SOURCE_TYPE_COLORS[soul.sourceType as keyof typeof SOURCE_TYPE_COLORS] || 'bg-gray-100 text-gray-800'
                                         }`}>
                                         {soul.sourceType}
                                     </span>
                                     <div className="text-xs text-gray-500 mt-0.5">
                                         {soul.sourceType === 'Healing Dept'
                                             ? (soul.notes?.replace('Healing Outreach: ', '') || 'Hospital Outreach')
-                                            : ((soul.sourceType === 'Event' ? events : services).find(e => e.id === soul.sourceId)?.title) || 'Unknown Source'
+                                            : soul.sourceType === 'Campus'
+                                                ? (soul.campusCategory || 'Campus Outreach')
+                                                : ((soul.sourceType === 'Event' ? events : services).find(e => e.id === soul.sourceId)?.title) || 'Unknown Source'
                                         }
                                     </div>
                                 </td>
