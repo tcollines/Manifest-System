@@ -2004,7 +2004,6 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
         soulWon: 'No',
         id: '' // Reset ID
       });
-      showToast(passengerForm.id ? "Passenger updated successfully" : "Passenger added successfully", 'success');
       // refreshData(); // Removed in favor of local state update and Realtime sync
     } catch (error: any) {
       console.error("Failed to save passenger:", error);
