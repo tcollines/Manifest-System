@@ -113,23 +113,27 @@ export const VehicleStore = {
         );
     },
 
-    updateVehicle: async (vehicle: Vehicle): Promise<void> => {
-        const payload = {
-            station_id: vehicle.stationId,
-            event_id: vehicle.eventId, // Added field
-            number_plate: vehicle.number_plate,
-            driver_name: vehicle.driverName,
-            driver_contact: vehicle.driverContact,
-            driver_nin: vehicle.driverNin,
-            type: vehicle.type,
-            coordinator: vehicle.coordinator,
-            coordinator_contact: vehicle.coordinatorContact,
-            time_arrival: vehicle.timeArrival,
-            children: vehicle.childrenCount
-        };
+    updateVehicle: async (vehicle: Partial<Vehicle> & { id: string }): Promise<void> => {
+        // Construct payload dynamically to allow pure PATCH updates (no overwrites)
+        const payload: Record<string, any> = {};
+
+        if (vehicle.stationId !== undefined) payload.station_id = vehicle.stationId;
+        if (vehicle.eventId !== undefined) payload.event_id = vehicle.eventId;
+        if (vehicle.number_plate !== undefined) payload.number_plate = vehicle.number_plate;
+        if (vehicle.driverName !== undefined) payload.driver_name = vehicle.driverName;
+        if (vehicle.driverContact !== undefined) payload.driver_contact = vehicle.driverContact;
+        if (vehicle.driverNin !== undefined) payload.driver_nin = vehicle.driverNin;
+        if (vehicle.type !== undefined) payload.type = vehicle.type;
+        if (vehicle.coordinator !== undefined) payload.coordinator = vehicle.coordinator;
+        if (vehicle.coordinatorUid !== undefined) payload.coordinator_uid = vehicle.coordinatorUid;
+        if (vehicle.coordinatorContact !== undefined) payload.coordinator_contact = vehicle.coordinatorContact;
+        if (vehicle.timeArrival !== undefined) payload.time_arrival = vehicle.timeArrival;
+        if (vehicle.childrenCount !== undefined) payload.children = vehicle.childrenCount;
+        if (vehicle.version !== undefined) payload.version = vehicle.version; // For optimistic locking
+
         try {
             await apiFetch(`/vehicles/${vehicle.id}`, {
-                method: 'PUT',
+                method: 'PATCH',
                 body: JSON.stringify(payload)
             });
         } catch (e: any) {
@@ -139,7 +143,7 @@ export const VehicleStore = {
     },
 
     // Targeted update for approvals to avoid overwriting other fields
-    updateVehicleStage: async (id: string, stage: string, approvals: any, options?: { status?: string, journeyDirection?: string, ongoingArrivalTime?: string, returnArrivalTime?: string, ongoingStartTime?: string, returnStartTime?: string }): Promise<void> => {
+    updateVehicleStage: async (id: string, stage: string, approvals: any, options?: { status?: string, journeyDirection?: string, ongoingArrivalTime?: string, returnArrivalTime?: string, ongoingStartTime?: string, returnStartTime?: string, version?: number }): Promise<void> => {
         try {
             await apiFetch(`/vehicles/${id}/stage`, {
                 method: 'PATCH',
@@ -151,7 +155,8 @@ export const VehicleStore = {
                     ongoing_arrival_time: options?.ongoingArrivalTime,
                     return_arrival_time: options?.returnArrivalTime,
                     ongoing_start_time: options?.ongoingStartTime,
-                    return_start_time: options?.returnStartTime
+                    return_start_time: options?.returnStartTime,
+                    version: options?.version
                 })
             });
         } catch (e: any) {
@@ -160,7 +165,19 @@ export const VehicleStore = {
         }
     },
 
-    updateVehicleFinance: async (id: string, financeDetails: any, currentStage?: string, approvals?: any, journeyDirection?: string, ongoingStartTime?: string, returnStartTime?: string): Promise<void> => {
+    startReturnJourney: async (id: string, version?: number): Promise<void> => {
+        try {
+            await apiFetch(`/vehicles/${id}/return-journey`, {
+                method: 'POST',
+                body: JSON.stringify({ version })
+            });
+        } catch (e: any) {
+            console.error('Error starting return journey:', e.message || e);
+            throw e;
+        }
+    },
+
+    updateVehicleFinance: async (id: string, financeDetails: any, currentStage?: string, approvals?: any, journeyDirection?: string, ongoingStartTime?: string, returnStartTime?: string, version?: number): Promise<void> => {
         try {
             await apiFetch(`/vehicles/${id}/finance`, {
                 method: 'PATCH',
@@ -170,7 +187,8 @@ export const VehicleStore = {
                     approvals: approvals,
                     journey_direction: journeyDirection,
                     ongoing_start_time: ongoingStartTime,
-                    return_start_time: returnStartTime
+                    return_start_time: returnStartTime,
+                    version: version
                 })
             });
         } catch (e: any) {
@@ -234,6 +252,13 @@ export const VehicleStore = {
         );
     },
 
+    getPassengerCounts: async (eventId: string): Promise<ServiceResponse<Record<string, number>>> => {
+        return safeFetch(
+            () => apiFetch(`/vehicles/passengers/counts?eventId=${eventId}`),
+            'Failed to fetch passenger counts'
+        );
+    },
+
     addPassenger: async (passenger: Passenger): Promise<void> => {
         const payload = {
             id: passenger.id,
@@ -264,30 +289,45 @@ export const VehicleStore = {
         }
     },
 
-    updatePassenger: async (passenger: Passenger): Promise<void> => {
-        const payload = {
-            vehicle_id: passenger.vehicleId,
-            category: passenger.category,
-            name: passenger.name,
-            contact: passenger.contact,
-            residence: passenger.residence,
-            is_first_time: passenger.isFirstTime,
-            verified: passenger.verified,
-            school: passenger.school,
-            student_class: passenger.studentClass,
-            boarding_type: passenger.boardingType,
-            gender: passenger.gender,
-            parent_contact: passenger.parentContact,
-            soul_won: passenger.soulWon,
-            event_id: passenger.eventId // Added field
-        };
+    updatePassenger: async (passenger: Partial<Passenger> & { id: string }): Promise<void> => {
+        const payload: Record<string, any> = {};
+
+        if (passenger.vehicleId !== undefined) payload.vehicle_id = passenger.vehicleId;
+        if (passenger.category !== undefined) payload.category = passenger.category;
+        if (passenger.name !== undefined) payload.name = passenger.name;
+        if (passenger.contact !== undefined) payload.contact = passenger.contact;
+        if (passenger.residence !== undefined) payload.residence = passenger.residence;
+        if (passenger.isFirstTime !== undefined) payload.is_first_time = passenger.isFirstTime;
+        if (passenger.verified !== undefined) payload.verified = passenger.verified;
+        if (passenger.school !== undefined) payload.school = passenger.school;
+        if (passenger.studentClass !== undefined) payload.student_class = passenger.studentClass;
+        if (passenger.boardingType !== undefined) payload.boarding_type = passenger.boardingType;
+        if (passenger.gender !== undefined) payload.gender = passenger.gender;
+        if (passenger.parentContact !== undefined) payload.parent_contact = passenger.parentContact;
+        if (passenger.soulWon !== undefined) payload.soul_won = passenger.soulWon;
+        if (passenger.eventId !== undefined) payload.event_id = passenger.eventId;
+        if (passenger.stationId !== undefined) payload.station_id = passenger.stationId;
+        if (passenger.version !== undefined) payload.version = passenger.version; // For optimistic locking
+
         try {
             await apiFetch(`/vehicles/passengers/${passenger.id}`, {
-                method: 'PUT',
+                method: 'PATCH',
                 body: JSON.stringify(payload)
             });
         } catch (e: any) {
             console.error('Unexpected error updating passenger:', e.message || e);
+            throw e;
+        }
+    },
+
+    checkinPassenger: async (passengerId: string, isVerified: boolean, version?: number): Promise<void> => {
+        try {
+            await apiFetch(`/vehicles/passengers/${passengerId}/checkin`, {
+                method: 'PATCH',
+                body: JSON.stringify({ isVerified, version })
+            });
+        } catch (e: any) {
+            console.error('Error checking in passenger:', e.message || e);
             throw e;
         }
     },

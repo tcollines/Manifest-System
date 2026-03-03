@@ -191,6 +191,7 @@ export interface Vehicle {
   returnStartTime?: string;
   returnArrivalTime?: string;
   childrenCount?: number;
+  version?: number;
 }
 
 // Parking Module Vehicle
@@ -233,6 +234,7 @@ export interface Passenger {
   parentContact?: string;
   eventId?: string; // Links passenger to specific event
   stationId?: string; // Links passenger to specific station
+  version?: number;
 }
 
 export interface PickUpStation {

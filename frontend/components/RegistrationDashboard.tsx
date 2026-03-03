@@ -1422,15 +1422,14 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
         const existingVehicle = vehicles.find(v => v.id === vehicleForm.id) || selectedVehicle;
         if (!existingVehicle) throw new Error("Vehicle not found");
 
-        const updatedVehicle: Vehicle = {
-          ...existingVehicle,
+        const updatedVehicle: Partial<Vehicle> & { id: string } = {
+          id: existingVehicle.id,
           number_plate: formatted,
           driverName: vehicleForm.driverName,
           driverContact: vehicleForm.driverContact,
           driverNin: vehicleForm.driverNin,
           type: vehicleForm.type,
           coordinator: vehicleForm.coordinator || currentUser.name,
-          // Preserve stationId if needed or update it
           stationId: selectedStation.id,
           eventId: selectedStation.eventId,
         };
@@ -1438,9 +1437,9 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
         await VehicleStore.updateVehicle(updatedVehicle);
 
         // Update Local State
-        setVehicles(prev => prev.map(v => v.id === updatedVehicle.id ? updatedVehicle : v));
+        setVehicles(prev => prev.map(v => v.id === updatedVehicle.id ? { ...v, ...updatedVehicle } as Vehicle : v));
         if (selectedVehicle && selectedVehicle.id === updatedVehicle.id) {
-          setSelectedVehicle(updatedVehicle);
+          setSelectedVehicle({ ...selectedVehicle, ...updatedVehicle } as Vehicle);
         }
 
         showToast("Vehicle Updated Successfully", 'success');
@@ -1978,8 +1977,22 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
     try {
       if (passengerForm.id) {
         // UPDATE MODE
-        await VehicleStore.updatePassenger(payload);
-        setPassengers(prev => prev.map(p => p.id === payload.id ? payload : p));
+        const updatePayload: Partial<Passenger> & { id: string } = {
+          id: passengerForm.id,
+          name: passengerForm.name,
+          category: passengerForm.category as 'Member' | 'Student' | 'Institution',
+          contact: passengerForm.contact,
+          residence: passengerForm.residence,
+          isFirstTime: passengerForm.isFirstTime ? 'Yes' : 'No',
+          school: passengerForm.school,
+          studentClass: passengerForm.studentClass,
+          boardingType: passengerForm.boardingType as 'Day' | 'Boarding',
+          gender: passengerForm.gender as 'Male' | 'Female',
+          soulWon: passengerForm.soulWon
+        };
+
+        await VehicleStore.updatePassenger(updatePayload);
+        setPassengers(prev => prev.map(p => p.id === updatePayload.id ? { ...p, ...updatePayload } as Passenger : p));
         showToast("Passenger updated successfully", 'success');
       } else {
         // CREATE MODE

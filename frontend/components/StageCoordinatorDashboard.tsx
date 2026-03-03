@@ -50,7 +50,7 @@ const StageCoordinatorDashboard: React.FC<StageCoordinatorDashboardProps> = ({ c
     const [station, setStation] = useState<ExtendedStation | null>(null);
     const [vehicles, setVehicles] = useState<TrackedVehicle[]>([]);
     const [staff, setStaff] = useState<User[]>([]);
-    const [passengers, setPassengers] = useState<Passenger[]>([]);
+    const [passengerCounts, setPassengerCounts] = useState<Record<string, number>>({});
     const [allCoordinators, setAllCoordinators] = useState<User[]>([]);
     const [activeTab, setActiveTab] = useState<'overview' | 'staff' | 'vehicles' | 'map'>('overview');
 
@@ -131,13 +131,10 @@ const StageCoordinatorDashboard: React.FC<StageCoordinatorDashboardProps> = ({ c
                 u.role === 'Coordinator'
             ));
 
-            // 4. Get Passengers for this event (Server-scoped)
-            const passengerRes = await VehicleStore.getPassengers({ eventId: myStation.eventId });
-            if (passengerRes.status === 'success') {
-                const stationPassengers = passengerRes.data.filter(p =>
-                    myVehicles.some(v => v.id === p.vehicleId)
-                );
-                setPassengers(stationPassengers);
+            // 4. Get Passengers counts for this event
+            const countRes = await VehicleStore.getPassengerCounts(myStation.eventId);
+            if (countRes.status === 'success') {
+                setPassengerCounts(countRes.data);
             }
 
         } catch (error) {
@@ -154,37 +151,38 @@ const StageCoordinatorDashboard: React.FC<StageCoordinatorDashboardProps> = ({ c
                 'postgres_changes',
                 { event: '*', schema: 'public', table: 'passengers' },
                 (payload) => {
-                    const { eventType, new: newRecord, old: oldRecord } = payload;
-                    const record = newRecord as any;
+                    const { eventType } = payload;
+                    const newRecord = payload.new as any;
+                    const oldRecord = payload.old as any;
 
-                    // Filter: Only care if it belongs to one of our vehicles
-                    // Since specific vehicle filtering inside realtime is hard without a list of IDs in closure,
-                    // we will check if the vehicleId matches any of our KNOWN vehicles.
-                    // However, 'vehicles' state might be stale in closure unless we use a Ref or functional updates carefully.
-                    // For safety in this specific "Stage" context, we might just refresh if uncertain, 
-                    // BUT granular updates are key for checkbox stability.
-
-                    // We will trust the vehicle ID check if we have the list.
-                    // Note: 'vehicles' state dependency in useEffect might cause frequent resubscriptions.
-                    // Better approach: Functional update on 'passengers' allows us to check existence? No, need vehicle list.
-
-                    // FALLBACK: For now, we will just apply updates if the passenger is ALREADY in our list (Update/Delete)
-                    // OR if it's an INSERT, we might need to refresh or check vehicle ID against a Ref.
-
-                    // Let's keep it simple and robust for the checkbox issue (UPDATES):
-
-                    if (eventType === 'UPDATE') {
-                        const updatedPassenger = mapPassengerFromDB(newRecord);
-                        setPassengers(prev => {
-                            // Only update if we are already tracking this passenger
-                            if (prev.some(p => p.id === updatedPassenger.id)) {
-                                return prev.map(p => p.id === updatedPassenger.id ? updatedPassenger : p);
-                            }
-                            return prev;
-                        });
+                    if (eventType === 'INSERT') {
+                        const vehicleId = newRecord?.vehicle_id;
+                        if (vehicleId) {
+                            setPassengerCounts(prev => ({
+                                ...prev,
+                                [vehicleId]: (prev[vehicleId] || 0) + 1
+                            }));
+                        }
+                    } else if (eventType === 'DELETE') {
+                        const vehicleId = oldRecord?.vehicle_id;
+                        if (vehicleId) {
+                            setPassengerCounts(prev => ({
+                                ...prev,
+                                [vehicleId]: Math.max(0, (prev[vehicleId] || 0) - 1)
+                            }));
+                        }
+                    } else if (eventType === 'UPDATE') {
+                        const newVid = newRecord?.vehicle_id;
+                        const oldVid = oldRecord?.vehicle_id;
+                        if (oldVid && newVid && oldVid !== newVid) {
+                            setPassengerCounts(prev => {
+                                const next = { ...prev };
+                                next[oldVid] = Math.max(0, (next[oldVid] || 0) - 1);
+                                next[newVid] = (next[newVid] || 0) + 1;
+                                return next;
+                            });
+                        }
                     }
-                    // For Inserts/Deletes in Stage Dashboard, we can allow full refresh or careful addition.
-                    // But the main user complaint is "Check/Uncheck" flickering (UPDATES).
                 }
             )
             .on(
@@ -290,7 +288,9 @@ const StageCoordinatorDashboard: React.FC<StageCoordinatorDashboardProps> = ({ c
                     </div>
                     <div className="bg-blue-50 px-4 py-2 rounded-2xl border border-blue-100">
                         <p className="text-xs text-blue-600 font-bold uppercase">Passenger Count</p>
-                        <p className="text-2xl font-black text-blue-600">{passengers.length}</p>
+                        <p className="text-2xl font-black text-blue-600">
+                            {vehicles.reduce((sum, v) => sum + (passengerCounts[v.id] || 0), 0)}
+                        </p>
                     </div>
                     <div className="bg-purple-50 px-4 py-2 rounded-2xl border border-purple-100">
                         <p className="text-xs text-purple-600 font-bold uppercase">Total Children</p>
@@ -657,7 +657,7 @@ const StageCoordinatorDashboard: React.FC<StageCoordinatorDashboardProps> = ({ c
                                                 <div className="bg-gray-50 p-3 rounded-xl">
                                                     <p className="text-xs text-gray-400 font-bold uppercase mb-1">Onboarded</p>
                                                     <p className="text-2xl font-black text-gray-800">
-                                                        {passengers.filter(p => p.vehicleId === vehicle.id).length}
+                                                        {passengerCounts[vehicle.id] || 0}
                                                     </p>
                                                 </div>
                                                 <div className="bg-gray-50 p-3 rounded-xl">

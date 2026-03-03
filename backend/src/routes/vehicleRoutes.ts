@@ -12,9 +12,12 @@ import {
     addPassenger,
     updatePassenger,
     deletePassenger,
+    getPassengerCounts,
     getPersonalVehicles,
     addPersonalVehicle,
-    updatePersonalVehicleStatus
+    updatePersonalVehicleStatus,
+    startReturnJourney,
+    checkinPassenger
 } from '../controllers/vehicleController';
 
 const router = Router();
@@ -22,17 +25,20 @@ const router = Router();
 // Vehicles
 router.get('/', getVehicles);
 router.post('/', addVehicle);
-router.put('/:id', updateVehicle);
+router.patch('/:id', updateVehicle);
 router.patch('/:id/stage', updateVehicleStage);
+router.post('/:id/return-journey', startReturnJourney);
 router.patch('/:id/finance', updateVehicleFinance);
 router.patch('/:id/location', updateVehicleLocation);
 router.patch('/:id/children', updateVehicleChildren);
 router.delete('/:id', deleteVehicle);
 
 // Passengers
+router.get('/passengers/counts', getPassengerCounts);
 router.get('/passengers', getPassengers);
 router.post('/passengers', addPassenger);
-router.put('/passengers/:id', updatePassenger);
+router.patch('/passengers/:id', updatePassenger);
+router.patch('/passengers/:id/checkin', checkinPassenger);
 router.delete('/passengers/:id', deletePassenger);
 
 // Personal Vehicles

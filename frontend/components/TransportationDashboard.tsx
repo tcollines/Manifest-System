@@ -564,7 +564,8 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
             setPassengers(prev => prev.map(pas => pas.id === passengerId ? updated : pas));
 
             try {
-                await VehicleStore.updatePassenger(updated);
+                // Use ATOMIC Postgres RPC
+                await VehicleStore.checkinPassenger(p.id, !p.verified, p.version);
             } catch (error) {
                 console.error("Failed to verify passenger:", error);
                 // Revert on failure
@@ -601,7 +602,7 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
         setReturnPassengerForm({ name: '', contact: '', residence: '' });
     };
 
-    const switchJourneyTab = (tab: 'Ongoing' | 'Return', vehicleOverride?: Vehicle) => {
+    const switchJourneyTab = async (tab: 'Ongoing' | 'Return', vehicleOverride?: Vehicle) => {
         const vehicleToUpdate = vehicleOverride || myVehicle;
         if (!vehicleToUpdate) return;
 
@@ -612,14 +613,24 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
             currentStage: 'Onboarding' as JourneyStage,
             approvals: { registration: 'Pending', finance: 'Pending' }
         };
-        VehicleStore.updateVehicleStage(updated.id, updated.currentStage, updated.approvals, {
-            journeyDirection: updated.journeyDirection
-        });
-        setMyVehicle(updated);
+
         if (tab === 'Return') {
-            const resetPassengers = passengers.map(p => ({ ...p, verified: false }));
-            resetPassengers.forEach(p => VehicleStore.updatePassenger(p));
-            setPassengers(resetPassengers);
+            // Use the ATOMIC Postgres RPC to avoid N+1 requests
+            try {
+                await VehicleStore.startReturnJourney(updated.id, vehicleToUpdate.version);
+                const resetPassengers = passengers.map(p => ({ ...p, verified: false }));
+                setPassengers(resetPassengers);
+                setMyVehicle(updated);
+            } catch (error) {
+                console.error("Failed to start return journey via RPC:", error);
+                showToast("Failed to start return journey", "error");
+            }
+        } else {
+            // Normal fallback
+            VehicleStore.updateVehicleStage(updated.id, updated.currentStage, updated.approvals, {
+                journeyDirection: updated.journeyDirection
+            });
+            setMyVehicle(updated);
         }
     };
 
@@ -714,14 +725,15 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
             const foundUser = coordinators.find(c => c.name === selectedCoordinator);
             const contactSnapshot = foundUser?.contact || 'N/A';
 
-            const updated = {
-                ...targetVehicle,
+            const partialUpdate: Partial<Vehicle> & { id: string } = {
+                id: targetVehicle.id,
                 coordinator: selectedCoordinator,
                 coordinatorContact: contactSnapshot
             };
 
-            VehicleStore.updateVehicle(updated);
-            setVehicles(prev => prev.map(v => v.id === vehicleId ? updated : v));
+            VehicleStore.updateVehicle(partialUpdate);
+            const fullUpdated = { ...targetVehicle, ...partialUpdate };
+            setVehicles(prev => prev.map(v => v.id === vehicleId ? fullUpdated : v));
             setIsAssigning(null);
             // refreshData(); // Removed in favor of Realtime
         }
