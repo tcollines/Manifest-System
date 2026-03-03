@@ -46,7 +46,7 @@ import { StageDetailsTab } from './StageDetailsTab';
 
 
 
-import { GoogleMap, useJsApiLoader, Marker, Polyline } from '@react-google-maps/api';
+import { GoogleMap, useJsApiLoader, Marker, MarkerClusterer, Polyline } from '@react-google-maps/api';
 
 const mapContainerStyle = {
     width: '100%',
@@ -1544,27 +1544,34 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
                                                 onUnmount={onUnmount}
                                                 options={{ mapTypeId: 'roadmap' }}
                                             >
-                                                {activeVehicles.map(v => (
-                                                    v.location && (
-                                                        <Marker
-                                                            key={v.id}
-                                                            position={{ lat: v.location.lat, lng: v.location.lng }}
-                                                            label={{
-                                                                text: `${v.coordinator || 'Unassigned'}`,
-                                                                color: "white",
-                                                                fontWeight: "bold",
-                                                                fontSize: "12px",
-                                                                className: "bg-orange-500 px-2 py-1 rounded shadow-md"
-                                                            }}
-                                                            // Custom SVG Icon (Car Shape)
-                                                            icon={{
-                                                                url: v.isDelayed ? "http://maps.google.com/mapfiles/ms/icons/orange-dot.png" : "http://maps.google.com/mapfiles/ms/icons/green-dot.png",
-                                                                labelOrigin: (window as any).google ? new (window as any).google.maps.Point(16, -20) : undefined
-                                                            }}
-                                                            title={`${v.number_plate} - ${v.coordinator}`}
-                                                        />
-                                                    )
-                                                ))}
+                                                <MarkerClusterer>
+                                                    {(clusterer) => (
+                                                        <>
+                                                            {activeVehicles.map(v => (
+                                                                v.location && (
+                                                                    <Marker
+                                                                        key={v.id}
+                                                                        position={{ lat: v.location.lat, lng: v.location.lng }}
+                                                                        clusterer={clusterer}
+                                                                        label={{
+                                                                            text: `${v.coordinator || 'Unassigned'}`,
+                                                                            color: "white",
+                                                                            fontWeight: "bold",
+                                                                            fontSize: "12px",
+                                                                            className: "bg-orange-500 px-2 py-1 rounded shadow-md"
+                                                                        }}
+                                                                        // Custom SVG Icon (Car Shape)
+                                                                        icon={{
+                                                                            url: v.isDelayed ? "http://maps.google.com/mapfiles/ms/icons/orange-dot.png" : "http://maps.google.com/mapfiles/ms/icons/green-dot.png",
+                                                                            labelOrigin: (window as any).google ? new (window as any).google.maps.Point(16, -20) : undefined
+                                                                        }}
+                                                                        title={`${v.number_plate} - ${v.coordinator}`}
+                                                                    />
+                                                                )
+                                                            ))}
+                                                        </>
+                                                    )}
+                                                </MarkerClusterer>
                                             </GoogleMap>
                                         ) : <div className="w-full h-full flex items-center justify-center bg-gray-900 text-white">Loading Live View...</div>}
 
