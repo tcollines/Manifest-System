@@ -23,6 +23,7 @@ import {
     Upload
 } from 'lucide-react';
 import { ParkingStore } from '../database/parkingStore';
+import { mapPersonalVehicleFromDB } from '../database/vehicleStore';
 import { supabase } from '../services/supabaseClient';
 import NumberPlateInput from './NumberPlateInput';
 import PhoneInput from './PhoneInput';
@@ -59,42 +60,15 @@ const ParkingDashboard: React.FC<ParkingDashboardProps> = ({ events = [], onOpen
         const channel = supabase.channel('parking-live')
             // Personal Vehicles: Granular Updates
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'personal_vehicles' }, (payload) => {
-                const newVehicle = payload.new as any;
+                const mapped = mapPersonalVehicleFromDB(payload.new);
                 setVehicles(prev => {
-                    if (prev.find(v => v.id === newVehicle.id)) return prev;
-                    const mapped: PersonalVehicle = {
-                        id: newVehicle.id,
-                        number_plate: newVehicle.number_plate,
-                        driverName: newVehicle.driver_name,
-                        driverContact: newVehicle.driver_contact,
-                        status: newVehicle.status,
-                        checkInTime: newVehicle.check_in_time,
-                        checkOutTime: newVehicle.check_out_time,
-                        currentServiceId: newVehicle.current_service_id,
-                        registeredDate: newVehicle.registered_date,
-                        attendedServiceIds: newVehicle.attended_service_ids || []
-                    };
+                    if (prev.find(v => v.id === mapped.id)) return prev;
                     return [mapped, ...prev];
                 });
             })
             .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'personal_vehicles' }, (payload) => {
-                const updated = payload.new as any;
-                setVehicles(prev => prev.map(v => {
-                    if (v.id === updated.id) {
-                        return {
-                            ...v,
-                            number_plate: updated.number_plate,
-                            driverName: updated.driver_name,
-                            driverContact: updated.driver_contact,
-                            status: updated.status,
-                            checkInTime: updated.check_in_time,
-                            checkOutTime: updated.check_out_time,
-                            currentServiceId: updated.current_service_id,
-                            attendedServiceIds: updated.attended_service_ids || []
-                        };
-                    }
-                    return v;
-                }));
+                const mapped = mapPersonalVehicleFromDB(payload.new);
+                setVehicles(prev => prev.map(v => v.id === mapped.id ? mapped : v));
             })
             .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'personal_vehicles' }, (payload) => {
                 const deletedId = payload.old.id;

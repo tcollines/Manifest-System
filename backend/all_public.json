@@ -1,0 +1,494 @@
+[
+  {
+    "id": "7855034a-299c-4675-889b-842d03073c4e",
+    "username": "vehicle",
+    "email": null,
+    "name": "Edson"
+  },
+  {
+    "id": "f6b3e104-ba29-4e64-a88b-4d45f0367aa4",
+    "username": "kitooro",
+    "email": null,
+    "name": "Vehicle Kitooro"
+  },
+  {
+    "id": "04af3e1d-92e7-40ea-9dcf-393ba89e3dde",
+    "username": "UEDCL",
+    "email": null,
+    "name": "Vehicle UEDCL"
+  },
+  {
+    "id": "f330ee73-5301-4910-a715-61c72007b768",
+    "username": "vehicle1",
+    "email": null,
+    "name": "Vehicle2"
+  },
+  {
+    "id": "6f6183fd-1174-4911-9f3f-54f7c3a9d4bf",
+    "username": "kigungu",
+    "email": null,
+    "name": "Vehicle Kigungu"
+  },
+  {
+    "id": "7f932a06-7add-4364-89a6-3ae846b69a11",
+    "username": "Cherry",
+    "email": null,
+    "name": "Cherry Nyakato"
+  },
+  {
+    "id": "0f3526c4-f8b0-460a-b649-c435434f2ea4",
+    "username": "aine",
+    "email": "aine@entebbemanifest.com",
+    "name": "Aine Francis"
+  },
+  {
+    "id": "5ed14837-4427-42d8-8496-8e7bbcf92ffd",
+    "username": "tl@entebbemanifest.com",
+    "email": "gmawanda307@gmail.com",
+    "name": "Team Leader"
+  },
+  {
+    "id": "d7d013ab-c518-4a38-82e6-528ab46a9cfe",
+    "username": "Ebuflavia",
+    "email": "flaviamulen5@gmail.com",
+    "name": "Flavia Ebu"
+  },
+  {
+    "id": "6738fde0-08a1-4715-9f4a-f5e1f0d63fa7",
+    "username": null,
+    "email": "abratumwe@gmail.com",
+    "name": "Abraham"
+  },
+  {
+    "id": "7427ce8c-1dde-42e8-934e-af473796ff09",
+    "username": "lydia_log2",
+    "email": null,
+    "name": "Lydia Ddembe"
+  },
+  {
+    "id": "13ef7501-3727-41d0-bb96-e75e32f4ce4a",
+    "username": "Raymond",
+    "email": "georgeraymond719@gmail.com",
+    "name": "MUKIIBI RAYMOND GEORGE"
+  },
+  {
+    "id": "ed01e4b3-2db7-41dd-ad83-3aa7e4181848",
+    "username": "mpala",
+    "email": null,
+    "name": "Mpala"
+  },
+  {
+    "id": "31cf8555-4e99-4127-a85b-5bd0ffb6ce1e",
+    "username": "Estherjojo",
+    "email": "kesthers2022@gmail.com",
+    "name": "ESTHER KYAKWAHULIIRE"
+  },
+  {
+    "id": "f3320454-71c6-45e6-ac4f-006afe533f5d",
+    "username": "Collines",
+    "email": "tcollines004@gmail.com",
+    "name": "Tumwiine Collines"
+  },
+  {
+    "id": "447524e8-d20e-4698-b3bd-30257f31d600",
+    "username": "Ruth",
+    "email": "ruth@test.com",
+    "name": "Ruth Zoe"
+  },
+  {
+    "id": "46ea30ae-5753-4051-9672-633fd23e5aa1",
+    "username": "tcollines",
+    "email": "brandagl9@gmail.com",
+    "name": "COLLINES T"
+  },
+  {
+    "id": "988a54c5-c3eb-49f5-824e-2eefc83fe057",
+    "username": "Okeesammie",
+    "email": "okeesammie@gmail.com",
+    "name": "OKEE SAMUEL JUDE"
+  },
+  {
+    "id": "a52f6106-b598-477e-8d26-4684003d7b22",
+    "username": "Zawie",
+    "email": "zawieannriel7@gmail.com",
+    "name": "ZAWEDDE ANNET"
+  },
+  {
+    "id": "66d26e30-c49b-4f17-883f-796425f833e0",
+    "username": "loymawanda1",
+    "email": "nalubegaloyce@gmail.com",
+    "name": "LOY MAWANDA"
+  },
+  {
+    "id": "e9f5876c-c81e-403a-80d1-1d2f8fd0009f",
+    "username": "Portia ",
+    "email": "poshma19@gmail.com",
+    "name": "Sunday Portia"
+  },
+  {
+    "id": "f618b4af-6ba4-4188-9a2e-cce91af5ffaa",
+    "username": "EMS",
+    "email": "isaacdollarz@gmail.com",
+    "name": "ISAAC KAMUGISHA"
+  },
+  {
+    "id": "e5eda31e-e99d-41e1-ad7d-0b0d5a506db4",
+    "username": "admin",
+    "email": "admin@manifest.com",
+    "name": "System Administrator"
+  },
+  {
+    "id": "91c07b32-b3bd-4f29-a828-e2d61b18621b",
+    "username": "Charis Otai ",
+    "email": "charisabraham.otai@gmail.com",
+    "name": "CharisOtai"
+  },
+  {
+    "id": "633f7c22-63e7-40d7-ba21-4d81e731b37a",
+    "username": "Lydia",
+    "email": "ddembelydia62@gmail.com",
+    "name": "DDEMBE LYDIA"
+  },
+  {
+    "id": "6b93240f-9e37-4a8e-83d7-a1ef16f9f45c",
+    "username": "Moscow ",
+    "email": "tullenben9@gmail.com",
+    "name": "TULLEN BEN"
+  },
+  {
+    "id": "4c909592-62fb-45b5-a2cc-260d050d9c0b",
+    "username": "lisa",
+    "email": "lisaharriet49@gmail.com",
+    "name": "Lisa Harriet Kobusobozi"
+  },
+  {
+    "id": "59d5d0ff-3c2f-4136-a2d1-3bb9b3fa5bec",
+    "username": "Lilian Gimbo ",
+    "email": "lilianrechealgimbo@gmail.com",
+    "name": "Lillian Gimbo"
+  },
+  {
+    "id": "3acd98e0-54fc-4d27-8d42-4d49090dba88",
+    "username": "Koko",
+    "email": "Kweenkoko3@gmail.com",
+    "name": "Eunice Atunu"
+  },
+  {
+    "id": "f4ee2c43-1c5d-4255-9900-512281075633",
+    "username": null,
+    "email": "kazibwecollins1@gmail.com",
+    "name": "Kazibwe collins"
+  },
+  {
+    "id": "77019cb1-8521-4316-8760-dd341ae47d34",
+    "username": null,
+    "email": "mellisanakate5@gmail.com",
+    "name": "Mellisa Salomy Nakate"
+  },
+  {
+    "id": "2bcd422d-3eef-4ad0-a380-a594f2c40f7b",
+    "username": null,
+    "email": "kimoteseed17@gmail.com",
+    "name": "Shakirah Ninsiima"
+  },
+  {
+    "id": "0361aa00-797e-40f6-916a-5355425b3579",
+    "username": null,
+    "email": "joshuamulamba7@g.mail.com",
+    "name": "Mulamba joshua"
+  },
+  {
+    "id": "40f52a96-4e3d-43fa-8b35-c70953ae9eaf",
+    "username": null,
+    "email": "calebsanya.2016@gmail.com",
+    "name": "Sanya Caleb"
+  },
+  {
+    "id": "2035e477-184b-465f-bd53-65d1426b01e5",
+    "username": null,
+    "email": "karungiann@yahoo.com",
+    "name": "karungi Annet"
+  },
+  {
+    "id": "931ceb1f-c4e8-4d94-97a3-e0867080c265",
+    "username": null,
+    "email": "shelaghnatukunda@gmail.com",
+    "name": "Shelagh Natukunda"
+  },
+  {
+    "id": "c98b24b4-c675-4827-8875-b9bee52d308a",
+    "username": "Wilberforce",
+    "email": "kalulewilberforce7@gmail.com",
+    "name": "Wilberforce Kalule"
+  },
+  {
+    "id": "1e4a5b3a-bac4-43e4-9cd6-32c3f33ba098",
+    "username": "Ntaate Catherine Nanfuka ",
+    "email": "ntaatecathie076@gmail.com",
+    "name": "Ntaate Catherine Nanfuka"
+  },
+  {
+    "id": "7c7be6b8-063f-488e-b5a4-db600a2dbe75",
+    "username": "rodney",
+    "email": "rodneyssebuliba1@gmail.com",
+    "name": "RODNEY SSEBULIBA"
+  },
+  {
+    "id": "211e33b0-7312-4b99-a207-66476daa9ad7",
+    "username": "Abraham O",
+    "email": "abrahamosamuel@gmail.com",
+    "name": "Abraham Otai"
+  },
+  {
+    "id": "7cddda42-4754-43d6-8db3-443064d9fade",
+    "username": "deleted_7cddda42-4754-43d6-8db3-443064d9fade_1771880284448",
+    "email": "deleted_7cddda42-4754-43d6-8db3-443064d9fade_1771880284448@manifest.local",
+    "name": "Test user 2"
+  },
+  {
+    "id": "62fdeffe-ee72-4656-9bd2-6951fcc5743a",
+    "username": null,
+    "email": "abratumwe.subs@gmail.com",
+    "name": "Tumwesigye"
+  },
+  {
+    "id": "862d69b8-b1ca-4754-ac78-50dc2b53f4e5",
+    "username": null,
+    "email": "kweenkoko3@gmail.com",
+    "name": "kweenkoko3@gmail.com"
+  },
+  {
+    "id": "b87e6bbd-7516-4afc-a753-9ff8042ea4ac",
+    "username": "lydia_log1",
+    "email": null,
+    "name": "Lydia Ddembe"
+  },
+  {
+    "id": "d3a3bcf8-1398-4640-8868-f66372906a27",
+    "username": "vehiclecoord509",
+    "email": null,
+    "name": "Vehicle Coord"
+  },
+  {
+    "id": "3ba919d5-cf62-4d6a-b3f5-02a5e97e8204",
+    "username": "ben",
+    "email": null,
+    "name": "Ben Kutosi"
+  },
+  {
+    "id": "5095846a-f530-40f1-b19e-ac95610edd99",
+    "username": "ddembe2",
+    "email": null,
+    "name": "Lydia"
+  },
+  {
+    "id": "7566dae5-5ad5-4100-8d9a-219053a9d713",
+    "username": "mirembe",
+    "email": null,
+    "name": "Vivian Mirembe"
+  },
+  {
+    "id": "4da0bd7c-56c9-414e-a863-34d219390a4c",
+    "username": "nyakato",
+    "email": null,
+    "name": "Nyakato Cherry"
+  },
+  {
+    "id": "bd233241-de04-45d0-8f43-aa09d7bbcb28",
+    "username": "ssebuliba",
+    "email": null,
+    "name": "Rodney Ssebuliba"
+  },
+  {
+    "id": "53cc3e0a-987f-45df-a8ca-f0e287b68aca",
+    "username": "ddembe",
+    "email": null,
+    "name": "Ddembe Lydia"
+  },
+  {
+    "id": "ea688b73-36e0-4b31-b57f-19a3b4a8b97b",
+    "username": "esther",
+    "email": null,
+    "name": "Esther"
+  },
+  {
+    "id": "b1a2cd52-1072-4c13-8b9d-c2e3b6a4e581",
+    "username": "D",
+    "email": null,
+    "name": "Dorah Mwenyango "
+  },
+  {
+    "id": "4438f9c0-a942-4074-b9a4-8502d900852d",
+    "username": "testuserapi",
+    "email": "api@manifest.com",
+    "name": "Test User API"
+  },
+  {
+    "id": "a4603c16-0ae2-4c01-bf41-f4a79062b74e",
+    "username": "wendy",
+    "email": null,
+    "name": "Wendy Abigail "
+  },
+  {
+    "id": "44099973-d813-4a19-ba24-177cb7a53b13",
+    "username": null,
+    "email": "kajobajoryne1@gmail.com",
+    "name": "Kajoba Joryne"
+  },
+  {
+    "id": "ce8c5b5b-caf2-41c8-b22f-511cb9199802",
+    "username": null,
+    "email": "sheillahnambafu877@gmail.com",
+    "name": "NAMBAFU SHEILLAH KALENDA"
+  },
+  {
+    "id": "1b174d2b-fd52-48e1-942d-1b8245f9f05e",
+    "username": null,
+    "email": "elizabethabuo23@gmail.com",
+    "name": "Liz Abuo"
+  },
+  {
+    "id": "25d7b949-15d2-44c0-b062-5c253716424e",
+    "username": null,
+    "email": "ninsiimasharon25@gmail.com",
+    "name": "ninsiima sharon"
+  },
+  {
+    "id": "010be285-e167-446a-935f-6131ec5c5ac1",
+    "username": null,
+    "email": "zyram693@gmail.com",
+    "name": "Jjemba peter"
+  },
+  {
+    "id": "aa85027c-3a36-44b3-8a4f-4cc67589bc65",
+    "username": null,
+    "email": "mwogeresk@gmail.com",
+    "name": "Suzan Mwogere"
+  },
+  {
+    "id": "f1b701e4-3ae0-4ef2-957d-c6e48d4fbe3c",
+    "username": null,
+    "email": "ojemapaul19@gmail.com",
+    "name": "Ojema Paul"
+  },
+  {
+    "id": "9f3d02cf-dad2-4fb2-b308-d2bf3c282865",
+    "username": null,
+    "email": "derricktemboebu@gmail.com",
+    "name": "Ebu Derrick"
+  },
+  {
+    "id": "9c93156a-5c3a-4e5f-95f8-193b027a9707",
+    "username": null,
+    "email": "lindanabuuma2@gmail.com",
+    "name": "NABUUMA LINDA"
+  },
+  {
+    "id": "f93fbd21-d00e-436f-b257-ec8f386926de",
+    "username": null,
+    "email": "setup_test2@manifest.com",
+    "name": "Test Setup User 2"
+  },
+  {
+    "id": "8cc558cf-7237-4aa4-a8c2-a1bfd6a224ae",
+    "username": null,
+    "email": "angellojohn00@gmail.com",
+    "name": "Angello John"
+  },
+  {
+    "id": "ceffffd2-95c4-4192-a154-4a456f248b79",
+    "username": null,
+    "email": "seraanita484@gmail.com",
+    "name": "Seera Anita"
+  },
+  {
+    "id": "44da0d3e-f314-4b6a-9477-501025d014f2",
+    "username": "gasper",
+    "email": null,
+    "name": "Gasper Akankwasa"
+  },
+  {
+    "id": "e07d1a7a-fb57-4b78-8f68-a2aa1fdeb387",
+    "username": "boss",
+    "email": null,
+    "name": "Mukisa Boss"
+  },
+  {
+    "id": "853b9077-1a3b-419c-905c-0066fecc4e9b",
+    "username": "angella",
+    "email": null,
+    "name": "Angela White "
+  },
+  {
+    "id": "55bbc8c5-ee4b-4869-8b83-5116e987145c",
+    "username": "deleted_55bbc8c5-ee4b-4869-8b83-5116e987145c_1771878787939",
+    "email": "deleted_55bbc8c5-ee4b-4869-8b83-5116e987145c_1771878787939@manifest.local",
+    "name": "Abraham"
+  },
+  {
+    "id": "1ef6c88b-e973-4e24-86ad-33be33883c0e",
+    "username": null,
+    "email": "nangozisharifah3@gmail.com",
+    "name": "nangozisharifah3@gmail.com"
+  },
+  {
+    "id": "898d9a84-36bb-4880-b1eb-dc218cf7aed5",
+    "username": "deleted_898d9a84-36bb-4880-b1eb-dc218cf7aed5_1771881595033",
+    "email": "deleted_898d9a84-36bb-4880-b1eb-dc218cf7aed5_1771881595033@manifest.local",
+    "name": "nangonzisharifah3@gmail.com"
+  },
+  {
+    "id": "bbf9017c-2244-4847-8c1c-e93b6ec3f003",
+    "username": null,
+    "email": "elizabethabuo023@gmail.com",
+    "name": "elizabethabuo023@gmail.com"
+  },
+  {
+    "id": "fe9a0983-677a-4421-b93d-b4e8ecb17900",
+    "username": null,
+    "email": "marvinsenior75@gmail.com",
+    "name": "marvinsenior75@gmail.com"
+  },
+  {
+    "id": "d9aa6ff2-8d10-4664-be3c-d22fb4daf950",
+    "username": null,
+    "email": "meltonjim74@gmail.com",
+    "name": "meltonjim74@gmail.com"
+  },
+  {
+    "id": "c097fe17-7c9e-4c89-92ea-af078cd38db8",
+    "username": "deleted_c097fe17-7c9e-4c89-92ea-af078cd38db8_1771881738619",
+    "email": "deleted_c097fe17-7c9e-4c89-92ea-af078cd38db8_1771881738619@manifest.local",
+    "name": "godfrekit852@gmail.com"
+  },
+  {
+    "id": "d2d2de65-f09c-43bf-838d-b62549c91349",
+    "username": null,
+    "email": "ckazibwe38@gmail.com",
+    "name": "Collins Kazibwe"
+  },
+  {
+    "id": "e888312a-3084-4492-b32b-c9da95a4955c",
+    "username": null,
+    "email": "manifestentebbe@gmail.com",
+    "name": "Entebbe Manifest"
+  },
+  {
+    "id": "8397ad78-07ed-411c-a779-1a1c4fea3dc2",
+    "username": null,
+    "email": "acadriboderrick@gmail.com",
+    "name": "acadriboderrick@gmail.com"
+  },
+  {
+    "id": "bb36fcda-69f2-43c0-943f-d6b49ac30145",
+    "username": "tumweabra",
+    "email": "tumweabra@gmail.com",
+    "name": "Tumwesigye"
+  },
+  {
+    "id": "f96715eb-5094-4ad4-95e1-6d17e364315d",
+    "username": "ebbmanifestaine2@gmail.com",
+    "email": "ebbmanifestaine2@gmail.com",
+    "name": "Aine Francis"
+  }
+]

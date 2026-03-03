@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNotification } from './ui/NotificationSystem';
 import { User, MinistryEvent, SchoolOutreachReport, ModalType, Passenger } from '../types';
-import { SchoolsStore } from '../database/schoolsStore';
+import { SchoolsStore, mapSchoolReportFromDB } from '../database/schoolsStore';
 import { EventStore } from '../database/eventStore';
 import { ManifestStore } from '../database/manifestStore'; // Added ManifestStore
 import { supabase } from '../services/supabaseClient';
@@ -53,9 +53,15 @@ export const SchoolsDashboard: React.FC<SchoolsDashboardProps> = ({
         const channel = supabase.channel('schools-reports-live')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'school_outreach_reports' }, (payload) => {
                 const { eventType, new: newRecord, old: oldRecord } = payload;
-                if (eventType === 'INSERT') setReports(prev => [newRecord as SchoolOutreachReport, ...prev].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
-                else if (eventType === 'UPDATE') setReports(prev => prev.map(r => r.id === newRecord.id ? (newRecord as SchoolOutreachReport) : r).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
-                else if (eventType === 'DELETE') setReports(prev => prev.filter(r => r.id !== oldRecord.id));
+                if (eventType === 'INSERT') {
+                    const mapped = mapSchoolReportFromDB(newRecord);
+                    setReports(prev => [mapped, ...prev].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+                } else if (eventType === 'UPDATE') {
+                    const mapped = mapSchoolReportFromDB(newRecord);
+                    setReports(prev => prev.map(r => r.id === mapped.id ? mapped : r).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+                } else if (eventType === 'DELETE') {
+                    setReports(prev => prev.filter(r => r.id !== oldRecord.id));
+                }
             })
             .subscribe();
 

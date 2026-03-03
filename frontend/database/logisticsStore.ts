@@ -10,7 +10,7 @@ export interface ExtendedStation extends PickUpStation {
   coordinatorEmail?: string;
 }
 
-const mapStationFromDB = (s: any): ExtendedStation => ({
+export const mapStationFromDB = (s: any): ExtendedStation => ({
   id: s.id,
   name: s.name,
   location: s.location,

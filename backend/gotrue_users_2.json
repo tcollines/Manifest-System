@@ -1,0 +1,126 @@
+{
+  "aine": {
+    "id": "0f3526c4-f8b0-460a-b649-c435434f2ea4",
+    "aud": "authenticated",
+    "role": "authenticated",
+    "email": "aine@entebbemanifest.com",
+    "email_confirmed_at": "2026-02-24T17:09:55.764349Z",
+    "phone": "",
+    "confirmed_at": "2026-02-24T17:09:55.764349Z",
+    "last_sign_in_at": "2026-02-24T19:39:49.521375Z",
+    "app_metadata": {
+      "manifest_id": "593fbdbb-8211-44ca-b3e2-8d999c88680c",
+      "provider": "email",
+      "providers": [
+        "email"
+      ],
+      "role": "Administrator"
+    },
+    "user_metadata": {
+      "email_verified": true
+    },
+    "identities": [
+      {
+        "identity_id": "1bf37e6c-d12a-47a5-90b5-1aca3b13c133",
+        "id": "0f3526c4-f8b0-460a-b649-c435434f2ea4",
+        "user_id": "0f3526c4-f8b0-460a-b649-c435434f2ea4",
+        "identity_data": {
+          "email": "aine@entebbemanifest.com",
+          "email_verified": true,
+          "phone_verified": false,
+          "sub": "0f3526c4-f8b0-460a-b649-c435434f2ea4"
+        },
+        "provider": "email",
+        "last_sign_in_at": "2026-02-20T12:15:03.778763Z",
+        "created_at": "2026-02-20T12:15:03.778824Z",
+        "updated_at": "2026-02-20T12:15:03.778824Z",
+        "email": "aine@entebbemanifest.com"
+      }
+    ],
+    "created_at": "2026-02-20T12:15:03.777585Z",
+    "updated_at": "2026-02-24T19:39:49.525697Z",
+    "is_anonymous": false
+  },
+  "ebuflavia": {
+    "id": "d7d013ab-c518-4a38-82e6-528ab46a9cfe",
+    "aud": "authenticated",
+    "role": "authenticated",
+    "email": "ebuflavia@manifest.local",
+    "email_confirmed_at": "2026-02-20T12:15:04.941411Z",
+    "phone": "",
+    "confirmed_at": "2026-02-20T12:15:04.941411Z",
+    "app_metadata": {
+      "manifest_id": "593fbdbb-8211-44ca-b3e2-8d999c88680c",
+      "provider": "email",
+      "providers": [
+        "email"
+      ],
+      "role": "Administrator"
+    },
+    "user_metadata": {
+      "email_verified": true
+    },
+    "identities": [
+      {
+        "identity_id": "4c9db77f-9f2c-40a4-a308-8cc752e8f679",
+        "id": "d7d013ab-c518-4a38-82e6-528ab46a9cfe",
+        "user_id": "d7d013ab-c518-4a38-82e6-528ab46a9cfe",
+        "identity_data": {
+          "email": "ebuflavia@manifest.local",
+          "email_verified": false,
+          "phone_verified": false,
+          "sub": "d7d013ab-c518-4a38-82e6-528ab46a9cfe"
+        },
+        "provider": "email",
+        "last_sign_in_at": "2026-02-20T12:15:04.937537Z",
+        "created_at": "2026-02-20T12:15:04.937588Z",
+        "updated_at": "2026-02-20T12:15:04.937588Z",
+        "email": "ebuflavia@manifest.local"
+      }
+    ],
+    "created_at": "2026-02-20T12:15:04.935913Z",
+    "updated_at": "2026-02-20T12:15:04.942058Z",
+    "is_anonymous": false
+  },
+  "wilberforce": {
+    "id": "c98b24b4-c675-4827-8875-b9bee52d308a",
+    "aud": "authenticated",
+    "role": "authenticated",
+    "email": "kalulewilberforce7@manifest.local",
+    "email_confirmed_at": "2026-02-20T12:17:00.629617Z",
+    "phone": "",
+    "confirmed_at": "2026-02-20T12:17:00.629617Z",
+    "app_metadata": {
+      "manifest_id": "593fbdbb-8211-44ca-b3e2-8d999c88680c",
+      "provider": "email",
+      "providers": [
+        "email"
+      ],
+      "role": "Head of Dept"
+    },
+    "user_metadata": {
+      "email_verified": true
+    },
+    "identities": [
+      {
+        "identity_id": "c5f89dff-0bff-40ac-9764-4cbd9a5f6b71",
+        "id": "c98b24b4-c675-4827-8875-b9bee52d308a",
+        "user_id": "c98b24b4-c675-4827-8875-b9bee52d308a",
+        "identity_data": {
+          "email": "kalulewilberforce7@manifest.local",
+          "email_verified": false,
+          "phone_verified": false,
+          "sub": "c98b24b4-c675-4827-8875-b9bee52d308a"
+        },
+        "provider": "email",
+        "last_sign_in_at": "2026-02-20T12:17:00.627799Z",
+        "created_at": "2026-02-20T12:17:00.627849Z",
+        "updated_at": "2026-02-20T12:17:00.627849Z",
+        "email": "kalulewilberforce7@manifest.local"
+      }
+    ],
+    "created_at": "2026-02-20T12:17:00.626736Z",
+    "updated_at": "2026-02-20T12:17:00.630241Z",
+    "is_anonymous": false
+  }
+}

@@ -7,7 +7,7 @@ import { safeFetch } from '../services/safeFetch';
 const SESSION_KEY = 'ministry_user_session';
 
 // Helper to map DB snake_case to App camelCase
-const mapUserFromDB = (u: any): User => ({
+export const mapUserFromDB = (u: any): User => ({
   id: String(u.id),
   name: String(u.name || ''),
   role: String(u.role || 'Member') as any, // FORCE strictly derived scalar role
@@ -68,7 +68,7 @@ export const UserStore = {
       // Secure Backend Login Proxy
       let authResult;
       try {
-        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+        const apiUrl = (import.meta as any).env.VITE_API_URL || 'http://localhost:5000/api';
         const response = await fetch(`${apiUrl}/auth/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -158,7 +158,7 @@ export const UserStore = {
     } catch (e) { return null; }
   },
 
-  getAll: async (params?: { role?: string; eventId?: string; departmentId?: string }): Promise<ServiceResponse<User[]>> => {
+  getAll: async (params?: { role?: string; eventId?: string; departmentId?: string; stationId?: string }): Promise<ServiceResponse<User[]>> => {
     return safeFetch(
       () => {
         let url = '/users';
@@ -167,6 +167,7 @@ export const UserStore = {
           if (params.role) queryParams.append('role', params.role);
           if (params.eventId) queryParams.append('eventId', params.eventId);
           if (params.departmentId) queryParams.append('departmentId', params.departmentId);
+          if (params.stationId) queryParams.append('stationId', params.stationId);
           const queryString = queryParams.toString();
           if (queryString) url += `?${queryString}`;
         }

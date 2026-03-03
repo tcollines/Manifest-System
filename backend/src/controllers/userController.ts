@@ -8,6 +8,7 @@ export const getAllUsers = async (req: Request, res: Response) => {
     const role = req.query.role as string;
     const eventId = req.query.eventId as string;
     const departmentId = req.query.departmentId as string;
+    const stationId = req.query.stationId as string;
     const validEventId = (eventId && eventId !== 'undefined' && eventId !== 'null') ? eventId : null;
 
     try {
@@ -20,6 +21,7 @@ export const getAllUsers = async (req: Request, res: Response) => {
         if (role) query = query.eq('role', role);
         if (validEventId) query = query.eq('event_id', validEventId);
         if (departmentId) query = query.eq('department_id', departmentId);
+        if (stationId) query = query.eq('station_id', stationId);
 
         const { data, error } = await query;
         if (error) throw error;

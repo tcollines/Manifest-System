@@ -1,0 +1,52 @@
+[
+  {
+    "id": "0f3526c4-f8b0-460a-b649-c435434f2ea4",
+    "username": "aine",
+    "email": "aine@entebbemanifest.com",
+    "password": "123",
+    "role": "Administrator",
+    "department_id": "0b685c69-edb6-44b9-8f21-1a11878b6d7b",
+    "manifest_id": "593fbdbb-8211-44ca-b3e2-8d999c88680c",
+    "status": "Active"
+  },
+  {
+    "id": "5ed14837-4427-42d8-8496-8e7bbcf92ffd",
+    "username": "tl@entebbemanifest.com",
+    "email": "gmawanda307@gmail.com",
+    "password": "admin123",
+    "role": "TeamLeader",
+    "department_id": "0b685c69-edb6-44b9-8f21-1a11878b6d7b",
+    "manifest_id": "593fbdbb-8211-44ca-b3e2-8d999c88680c",
+    "status": "Active"
+  },
+  {
+    "id": "d7d013ab-c518-4a38-82e6-528ab46a9cfe",
+    "username": "Ebuflavia",
+    "email": "flaviamulen5@gmail.com",
+    "password": "adar208",
+    "role": "Administrator",
+    "department_id": "0b685c69-edb6-44b9-8f21-1a11878b6d7b",
+    "manifest_id": "593fbdbb-8211-44ca-b3e2-8d999c88680c",
+    "status": "Pending"
+  },
+  {
+    "id": "c98b24b4-c675-4827-8875-b9bee52d308a",
+    "username": "Wilberforce",
+    "email": "kalulewilberforce7@gmail.com",
+    "password": "Wilber@2026",
+    "role": "Head of Dept",
+    "department_id": "e680342f-72c7-4d10-b7cb-631725afe770",
+    "manifest_id": "593fbdbb-8211-44ca-b3e2-8d999c88680c",
+    "status": "Active"
+  },
+  {
+    "id": "bb36fcda-69f2-43c0-943f-d6b49ac30145",
+    "username": "tumweabra",
+    "email": "tumweabra@gmail.com",
+    "password": "Abraham@ta2",
+    "role": "Admin",
+    "department_id": "81b8b740-6663-4179-bcfb-e3dc7524d36c",
+    "manifest_id": "593fbdbb-8211-44ca-b3e2-8d999c88680c",
+    "status": "Active"
+  }
+]

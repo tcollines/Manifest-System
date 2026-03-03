@@ -1,0 +1,23 @@
+{
+  "publicUsers": [
+    {
+      "id": "6738fde0-08a1-4715-9f4a-f5e1f0d63fa7",
+      "email": "abratumwe@gmail.com",
+      "role": "Head of Dept",
+      "name": "Abraham"
+    },
+    {
+      "id": "bb36fcda-69f2-43c0-943f-d6b49ac30145",
+      "email": "tumweabra@gmail.com",
+      "role": "Admin",
+      "name": "Tumwesigye"
+    }
+  ],
+  "authUsers": [
+    {
+      "id": "bb36fcda-69f2-43c0-943f-d6b49ac30145",
+      "email": "tumweabra@gmail.com",
+      "identities": null
+    }
+  ]
+}

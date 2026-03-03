@@ -1,0 +1,10 @@
+error: Tenant or user not found
+    at parseErrorMessage (D:\Manifest System\backend\node_modules\pg-protocol\dist\parser.js:305:11)
+    at Parser.handlePacket (D:\Manifest System\backend\node_modules\pg-protocol\dist\parser.js:143:27)
+    at Parser.parse (D:\Manifest System\backend\node_modules\pg-protocol\dist\parser.js:37:38)
+    at TLSSocket.<anonymous> (D:\Manifest System\backend\node_modules\pg-protocol\dist\index.js:11:42)
+    at TLSSocket.emit (node:events:508:28)
+    at addChunk (node:internal/streams/readable:559:12)
+    at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+    at Readable.push (node:internal/streams/readable:390:5)
+    at TLSWrap.onStreamRead (node:internal/stream_base_commons:189:23)

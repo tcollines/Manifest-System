@@ -5,9 +5,9 @@ import { Child, MinistryEvent, ModalType, User, Soul } from '../types';
 import * as XLSX from 'xlsx';
 import { validateContact, isServiceClosed } from '../utils';
 import { EventStore } from '../database/eventStore';
-import { ChildStore } from '../database/childStore';
-import { SoulsStore } from '../database/soulsStore';
-import { NextGenSoulsStore, NextGenSoul } from '../database/nextGenSoulsStore';
+import { ChildStore, mapChildFromDB } from '../database/childStore';
+import { SoulsStore, mapSoulFromDB } from '../database/soulsStore';
+import { NextGenSoulsStore, NextGenSoul, mapNextGenSoulFromDB } from '../database/nextGenSoulsStore';
 import { supabase } from '../services/supabaseClient';
 import ConfirmationModal from './ConfirmationModal';
 import {
@@ -130,55 +130,12 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                 const newRecord = payload.new as any;
                 setChildren(prev => {
                     if (prev.find(c => c.id === newRecord.id)) return prev;
-                    const mapped: Child = {
-                        id: newRecord.id,
-                        name: newRecord.name,
-                        parentName: newRecord.parent_name,
-                        parentContact: newRecord.parent_contact,
-                        age: newRecord.age,
-                        gender: newRecord.gender,
-                        category: newRecord.category,
-                        residence: newRecord.residence,
-                        allergies: newRecord.allergies,
-                        status: newRecord.status,
-                        checkInTime: newRecord.check_in_time,
-                        checkOutTime: newRecord.check_out_time,
-                        attendedServiceIds: newRecord.attended_service_ids || [],
-                        followUpStatus: newRecord.follow_up_status,
-                        assignedTo: newRecord.assigned_to,
-                        salvationDate: newRecord.salvation_date,
-                        careNotes: newRecord.care_notes || [],
-                        joinedDate: newRecord.created_at?.split('T')[0] || new Date().toISOString().split('T')[0]
-                    };
-                    return [mapped, ...prev];
+                    return [mapChildFromDB(newRecord), ...prev];
                 });
             })
             .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'children' }, (payload) => {
-                const updated = payload.new as any;
-                setChildren(prev => prev.map(c => {
-                    if (c.id === updated.id) {
-                        return {
-                            ...c,
-                            name: updated.name,
-                            parentName: updated.parent_name,
-                            parentContact: updated.parent_contact,
-                            age: updated.age,
-                            gender: updated.gender,
-                            category: updated.category,
-                            residence: updated.residence,
-                            allergies: updated.allergies,
-                            status: updated.status,
-                            checkInTime: updated.check_in_time,
-                            checkOutTime: updated.check_out_time,
-                            attendedServiceIds: updated.attended_service_ids || [],
-                            followUpStatus: updated.follow_up_status,
-                            assignedTo: updated.assigned_to,
-                            salvationDate: updated.salvation_date,
-                            careNotes: updated.care_notes || []
-                        };
-                    }
-                    return c;
-                }));
+                const mapped = mapChildFromDB(payload.new);
+                setChildren(prev => prev.map(c => c.id === mapped.id ? mapped : c));
             })
             .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'children' }, (payload) => {
                 setChildren(prev => prev.filter(c => c.id !== payload.old.id));
@@ -186,35 +143,20 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
 
             // Souls: Granular Updates
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'next_gen_souls' }, (payload) => {
-                const newSoul = payload.new as any;
+                const mapped = mapNextGenSoulFromDB(payload.new);
                 // Add to list with idempotency guard
                 setNextGenSouls(prev => {
-                    if (prev.some(s => s.id === newSoul.id)) return prev;
-                    return [
-                        {
-                            id: newSoul.id,
-                            firstName: newSoul.first_name,
-                            lastName: newSoul.last_name,
-                            phone: newSoul.phone,
-                            age: newSoul.age,
-                            gender: newSoul.gender,
-                            residence: newSoul.residence,
-                            serviceId: newSoul.service_id,
-                            status: newSoul.status,
-                            capturedBy: newSoul.captured_by,
-                            notes: newSoul.notes,
-                            createdAt: newSoul.created_at
-                        },
-                        ...prev
-                    ];
+                    if (prev.some(s => s.id === mapped.id)) return prev;
+                    return [mapped, ...prev];
                 });
-
                 // Update Count if Service Matches AND it wasn't already counted
                 // (Using a functional update logic to ensure we don't double count is harder here as state is separate, 
                 // but checking the list before adding is the primary guard)
+                // Update Count if Service Matches AND it wasn't already counted
                 setNextGenSouls(prev => {
-                    const alreadyExisted = prev.some(s => s.id === newSoul.id);
-                    if (!alreadyExisted && selectedServiceRef.current && newSoul.service_id === selectedServiceRef.current.id) {
+                    const mapped = mapNextGenSoulFromDB(payload.new);
+                    const alreadyExisted = prev.some(s => s.id === mapped.id);
+                    if (!alreadyExisted && selectedServiceRef.current && mapped.serviceId === selectedServiceRef.current.id) {
                         setSoulsWonCount(c => c + 1);
                     }
                     return prev;

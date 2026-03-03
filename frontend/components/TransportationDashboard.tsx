@@ -6,7 +6,7 @@ import { MOCK_EVENTS, PICKUP_STATIONS } from '../constants';
 import { MinistryEvent, Vehicle, User, Passenger, JourneyStage, ModalType, Soul } from '../types';
 import EventDetailsModal from './EventDetailsModal';
 import { VehicleStore, mapPassengerFromDB, mapVehicleFromDB } from '../database/vehicleStore';
-import { UserStore } from '../database/userStore';
+import { UserStore, mapUserFromDB } from '../database/userStore';
 import { LogisticsStore, ExtendedStation } from '../database/logisticsStore';
 import { SoulsStore } from '../database/soulsStore';
 import { supabase } from '../services/supabaseClient';
@@ -311,7 +311,8 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
                 setPassengers(passengerRes.status === 'success' ? passengerRes.data : []);
 
                 // 5. Coordinators (Server-filtered + Derived from Vehicles)
-                let coords = userRes.status === 'success' ? userRes.data : [];
+                let allUsers = userRes.status === 'success' ? userRes.data : [];
+                let coords = allUsers.filter(u => ['Vehicle Coordinator', 'Stage Coordinator', 'Coordinator'].includes(u.role));
 
                 // Fallback: If a vehicle has a coordinator not in the list, add a visual placeholder
                 const vehicleCoordinatorNames = Array.from(new Set(eventVehicles.map(v => v.coordinator).filter(Boolean)));
@@ -370,23 +371,38 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
                 if (eventType === 'INSERT') {
                     setVehicles(prev => {
                         if (prev.some(v => v.id === newRecord.id)) return prev;
-                        return [...prev, newRecord as TrackedVehicle];
+                        return [...prev, mapVehicleFromDB(newRecord) as TrackedVehicle];
                     });
                 }
                 else if (eventType === 'UPDATE') {
-                    setVehicles(prev => prev.map(v => v.id === newRecord.id ? (newRecord as TrackedVehicle) : v));
-                    if (myVehicle?.id === newRecord.id) setMyVehicle(newRecord as Vehicle);
+                    const mapped = mapVehicleFromDB(newRecord);
+                    setVehicles(prev => prev.map(v => v.id === mapped.id ? (mapped as TrackedVehicle) : v));
+                    if (myVehicle?.id === mapped.id) setMyVehicle(mapped as Vehicle);
                 } else if (eventType === 'DELETE') setVehicles(prev => prev.filter(v => v.id !== oldRecord.id));
             })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, (payload) => {
                 const { eventType, new: newRecord, old: oldRecord } = payload;
                 if (eventType === 'INSERT') {
+                    const mapped = mapUserFromDB(newRecord);
+                    if (!['Vehicle Coordinator', 'Stage Coordinator', 'Coordinator'].includes(mapped.role)) return;
+                    if (mapped.eventId && mapped.eventId !== selectedEventId) return;
                     setCoordinators(prev => {
-                        if (prev.some(u => u.id === newRecord.id)) return prev;
-                        return [...prev, newRecord as User];
+                        if (prev.some(u => u.id === mapped.id)) return prev;
+                        return [...prev, mapped];
                     });
                 }
-                else if (eventType === 'UPDATE') setCoordinators(prev => prev.map(u => u.id === newRecord.id ? (newRecord as User) : u));
+                else if (eventType === 'UPDATE') {
+                    const mapped = mapUserFromDB(newRecord);
+                    if (!['Vehicle Coordinator', 'Stage Coordinator', 'Coordinator'].includes(mapped.role)) {
+                        setCoordinators(prev => prev.filter(u => u.id !== mapped.id));
+                        return;
+                    }
+                    setCoordinators(prev => {
+                        if (prev.some(u => u.id === mapped.id)) return prev.map(u => u.id === mapped.id ? mapped : u);
+                        if (!mapped.eventId || mapped.eventId === selectedEventId) return [...prev, mapped];
+                        return prev;
+                    });
+                }
                 else if (eventType === 'DELETE') setCoordinators(prev => prev.filter(u => u.id !== oldRecord.id));
             })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'passengers', filter: `event_id=eq.${selectedEventId}` }, (payload) => {
@@ -394,10 +410,13 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
                 if (eventType === 'INSERT') {
                     setPassengers(prev => {
                         if (prev.some(p => p.id === newRecord.id)) return prev;
-                        return [...prev, newRecord as Passenger];
+                        return [...prev, mapPassengerFromDB(newRecord)];
                     });
                 }
-                else if (eventType === 'UPDATE') setPassengers(prev => prev.map(p => p.id === newRecord.id ? (newRecord as Passenger) : p));
+                else if (eventType === 'UPDATE') {
+                    const mapped = mapPassengerFromDB(newRecord);
+                    setPassengers(prev => prev.map(p => p.id === mapped.id ? mapped : p));
+                }
                 else if (eventType === 'DELETE') setPassengers(prev => prev.filter(p => p.id !== oldRecord.id));
             })
             .subscribe();
@@ -1279,7 +1298,7 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
                             }`}
                     >
                         <Users className={`w-4 h-4 ${activeTab === 'coordinators' ? 'text-ministry-neon' : ''}`} />
-                        <span>Vehicle Coordinators</span>
+                        <span>Coordinators</span>
                     </button>
                     <button
                         onClick={() => setActiveTab('stages')}

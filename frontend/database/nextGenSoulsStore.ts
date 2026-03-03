@@ -15,7 +15,7 @@ export interface NextGenSoul {
     createdAt: string;
 }
 
-const mapFromDB = (s: any): NextGenSoul => ({
+export const mapNextGenSoulFromDB = (s: any): NextGenSoul => ({
     id: s.id,
     firstName: s.first_name,
     lastName: s.last_name,
@@ -58,7 +58,7 @@ export const NextGenSoulsStore = {
     getAll: async (): Promise<NextGenSoul[]> => {
         try {
             const data = await apiFetch('/souls/nextgen');
-            return data.map(mapFromDB);
+            return data.map(mapNextGenSoulFromDB);
         } catch (error) {
             return [];
         }
@@ -75,7 +75,7 @@ export const NextGenSoulsStore = {
     getByService: async (serviceId: string): Promise<NextGenSoul[]> => {
         try {
             const data = await apiFetch(`/souls/nextgen?serviceId=${serviceId}`);
-            return data.map(mapFromDB);
+            return data.map(mapNextGenSoulFromDB);
         } catch (error) {
             return [];
         }

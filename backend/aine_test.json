@@ -1,0 +1,22 @@
+[
+  {
+    "db_username": "aine",
+    "db_email": "aine@entebbemanifest.com",
+    "auth_email": "aine@entebbemanifest.com",
+    "auth_confirmed": true,
+    "has_password": false,
+    "identities": [
+      "email"
+    ]
+  },
+  {
+    "db_username": "tumweabra",
+    "db_email": "tumweabra@gmail.com",
+    "auth_email": "tumweabra@gmail.com",
+    "auth_confirmed": true,
+    "has_password": false,
+    "identities": [
+      "google"
+    ]
+  }
+]

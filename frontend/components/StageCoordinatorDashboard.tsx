@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { User, MinistryEvent, Vehicle, ModalType, Passenger } from '../types';
 import { UserStore } from '../database/userStore';
-import { VehicleStore, mapPassengerFromDB } from '../database/vehicleStore';
+import { VehicleStore, mapPassengerFromDB, mapVehicleFromDB } from '../database/vehicleStore';
 import { LogisticsStore, ExtendedStation } from '../database/logisticsStore';
 import { supabase } from '../services/supabaseClient';
 import { useNotification } from './ui/NotificationSystem';
@@ -103,10 +103,28 @@ const StageCoordinatorDashboard: React.FC<StageCoordinatorDashboardProps> = ({ c
             });
             setVehicles(trackedVehicles);
 
-            // 3. Get Staff for this event/station (Server-scoped)
-            const userRes = await UserStore.getAll({ eventId: myStation.eventId });
+            // 3. Get Staff for this event (Server-scoped)
+            // We fetch ALL users and filter locally because:
+            // a) Data Entrants might only have a stationId, but no eventId
+            // b) Vehicle Coordinators might have an eventId, but no stationId
+            const userRes = await UserStore.getAll();
             const allUsers = userRes.status === 'success' ? userRes.data : [];
-            setStaff(allUsers.filter(u => u.stationId === currentUser.stationId && u.id !== currentUser.id));
+
+            // A staff member is shown if:
+            // 1. They are officially assigned to this station (excluding current user)
+            // 2. OR they are a Vehicle Coordinator assigned to a vehicle that is currently at this station
+            const stationStaff = allUsers.filter(u => {
+                if (u.id === currentUser.id) return false;
+                if (u.stationId === currentUser.stationId) return true;
+
+                // If they are a vehicle coordinator, check if any vehicle at this station belongs to them
+                if (u.role === 'Vehicle Coordinator') {
+                    return myVehicles.some(v => v.coordinatorUid === u.id || v.coordinator === u.name);
+                }
+                return false;
+            });
+
+            setStaff(stationStaff);
             setAllCoordinators(allUsers.filter(u =>
                 u.role === 'Vehicle Coordinator' ||
                 u.role === 'Stage Coordinator' ||
@@ -169,6 +187,17 @@ const StageCoordinatorDashboard: React.FC<StageCoordinatorDashboardProps> = ({ c
                     // But the main user complaint is "Check/Uncheck" flickering (UPDATES).
                 }
             )
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'vehicles' },
+                (payload) => {
+                    const { eventType, new: newRecord } = payload;
+                    if (eventType === 'UPDATE') {
+                        const mapped = mapVehicleFromDB(newRecord);
+                        setVehicles(prev => prev.map(v => v.id === mapped.id ? { ...v, ...mapped } as any : v));
+                    }
+                }
+            )
             .subscribe();
 
         return () => {
@@ -208,13 +237,14 @@ const StageCoordinatorDashboard: React.FC<StageCoordinatorDashboardProps> = ({ c
                 role: newUser.role as 'Vehicle Coordinator' | 'Stage Coordinator' | 'Coordinator' | 'Logistics',
                 departmentId: '4630e48a-f97e-48fd-a901-864b591c282f', // Transportation default (UUID)
                 stationId: currentUser.stationId, // Link to this stage
+                eventId: station?.eventId || currentUser?.eventId, // Link to the operation
                 email: '',
                 status: 'Active'
             };
 
             if (newUser.role === 'Data Entrant') {
                 userToAdd.role = 'Logistics';
-                userToAdd.departmentId = 'd1';
+                userToAdd.departmentId = '81b8b740-6663-4179-bcfb-e3dc7524d36c'; // Registration department UUID
             }
 
             await UserStore.add(userToAdd);
@@ -262,6 +292,12 @@ const StageCoordinatorDashboard: React.FC<StageCoordinatorDashboardProps> = ({ c
                         <p className="text-xs text-blue-600 font-bold uppercase">Passenger Count</p>
                         <p className="text-2xl font-black text-blue-600">{passengers.length}</p>
                     </div>
+                    <div className="bg-purple-50 px-4 py-2 rounded-2xl border border-purple-100">
+                        <p className="text-xs text-purple-600 font-bold uppercase">Total Children</p>
+                        <p className="text-2xl font-black text-purple-600">
+                            {vehicles.reduce((sum, v) => sum + (v.childrenCount || 0), 0)}
+                        </p>
+                    </div>
                 </div>
             </div>
 
@@ -299,22 +335,71 @@ const StageCoordinatorDashboard: React.FC<StageCoordinatorDashboardProps> = ({ c
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {/* Quick Status Cards */}
                         <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
-                            <h3 className="font-bold text-gray-700 mb-4 flex items-center">
-                                <Activity className="w-5 h-5 mr-2 text-green-500" />
-                                Operation Status
-                            </h3>
+                            <div className="flex justify-between items-end mb-4">
+                                <h3 className="font-bold text-gray-700 flex items-center mb-0">
+                                    <Activity className="w-5 h-5 mr-2 text-green-500" />
+                                    Operation Status
+                                </h3>
+                                <div className="flex items-center gap-4 text-xs pr-3">
+                                    <span className="text-gray-400 font-bold text-[10px] uppercase min-w-[50px] text-center">Ongoing</span>
+                                    <div className="w-px"></div>
+                                    <span className="text-gray-400 font-bold text-[10px] uppercase min-w-[50px] text-center">Return</span>
+                                </div>
+                            </div>
                             <div className="space-y-4">
                                 <div className="flex justify-between items-center p-3 bg-gray-50 rounded-xl">
-                                    <span className="text-sm text-gray-600">Pending Vehicles</span>
-                                    <span className="font-bold text-orange-600">{vehicles.filter(v => v.status === 'Pending').length}</span>
+                                    <span className="text-sm text-gray-800 font-bold">Pending Vehicles</span>
+                                    <div className="flex items-center gap-4 text-xs">
+                                        <div className="flex flex-col items-center min-w-[50px]">
+                                            {(() => {
+                                                const count = vehicles.filter(v => (v.journeyDirection === 'Ongoing' || !v.journeyDirection) && (v.status === 'Pending' || ['Registration', 'RegApproval', 'FinanceApproval'].includes(v.currentStage))).length;
+                                                return <span className={`font-bold text-sm ${count > 0 ? 'text-orange-600' : 'text-blue-600'}`}>{count}</span>;
+                                            })()}
+                                        </div>
+                                        <div className="w-px h-6 bg-gray-200"></div>
+                                        <div className="flex flex-col items-center min-w-[50px]">
+                                            {(() => {
+                                                const count = vehicles.filter(v => v.journeyDirection === 'Return' && (v.status === 'Pending' || ['Registration', 'RegApproval', 'FinanceApproval'].includes(v.currentStage))).length;
+                                                return <span className={`font-bold text-sm ${count > 0 ? 'text-purple-600' : 'text-purple-600'}`}>{count}</span>;
+                                            })()}
+                                        </div>
+                                    </div>
                                 </div>
                                 <div className="flex justify-between items-center p-3 bg-gray-50 rounded-xl">
-                                    <span className="text-sm text-gray-600">En Route</span>
-                                    <span className="font-bold text-blue-600">{vehicles.filter(v => v.status === 'En Route').length}</span>
+                                    <span className="text-sm text-gray-800 font-bold">En Route</span>
+                                    <div className="flex items-center gap-4 text-xs">
+                                        <div className="flex flex-col items-center min-w-[50px]">
+                                            {(() => {
+                                                const count = vehicles.filter(v => (v.journeyDirection === 'Ongoing' || !v.journeyDirection) && (v.status === 'En Route' || v.currentStage === 'Transit')).length;
+                                                return <span className={`font-bold text-sm ${count > 0 ? 'text-blue-600' : 'text-blue-600'}`}>{count}</span>;
+                                            })()}
+                                        </div>
+                                        <div className="w-px h-6 bg-gray-200"></div>
+                                        <div className="flex flex-col items-center min-w-[50px]">
+                                            {(() => {
+                                                const count = vehicles.filter(v => v.journeyDirection === 'Return' && (v.status === 'En Route' || v.currentStage === 'Transit')).length;
+                                                return <span className={`font-bold text-sm ${count > 0 ? 'text-blue-600' : 'text-blue-600'}`}>{count}</span>;
+                                            })()}
+                                        </div>
+                                    </div>
                                 </div>
                                 <div className="flex justify-between items-center p-3 bg-gray-50 rounded-xl">
-                                    <span className="text-sm text-gray-600">Arrived</span>
-                                    <span className="font-bold text-green-600">{vehicles.filter(v => v.status === 'Arrived').length}</span>
+                                    <span className="text-sm text-gray-800 font-bold">Arrived</span>
+                                    <div className="flex items-center gap-4 text-xs">
+                                        <div className="flex flex-col items-center min-w-[50px]">
+                                            {(() => {
+                                                const count = vehicles.filter(v => (v.journeyDirection === 'Ongoing' || !v.journeyDirection) && (v.status === 'Arrived' || ['Arrived', 'Completed'].includes(v.currentStage))).length;
+                                                return <span className={`font-bold text-sm ${count > 0 ? 'text-green-600' : 'text-green-600'}`}>{count}</span>;
+                                            })()}
+                                        </div>
+                                        <div className="w-px h-6 bg-gray-200"></div>
+                                        <div className="flex flex-col items-center min-w-[50px]">
+                                            {(() => {
+                                                const count = vehicles.filter(v => v.journeyDirection === 'Return' && (v.status === 'Arrived' || ['Arrived', 'Completed'].includes(v.currentStage))).length;
+                                                return <span className={`font-bold text-sm ${count > 0 ? 'text-green-600' : 'text-green-600'}`}>{count}</span>;
+                                            })()}
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -396,10 +481,18 @@ const StageCoordinatorDashboard: React.FC<StageCoordinatorDashboardProps> = ({ c
                                             key={v.id}
                                             position={{ lat: v.location.lat, lng: v.location.lng }}
                                             title={`${v.number_plate} (${v.driverName})`}
+                                            label={{
+                                                text: `${v.coordinator || 'Unassigned'}`,
+                                                color: "white",
+                                                fontWeight: "bold",
+                                                fontSize: "12px",
+                                                className: "bg-gray-800 px-2 py-1 rounded shadow-md"
+                                            }}
                                             icon={{
                                                 url: v.status === 'Arrived' ? "http://maps.google.com/mapfiles/ms/icons/green-dot.png" :
                                                     v.status === 'En Route' ? "http://maps.google.com/mapfiles/ms/icons/blue-dot.png" :
-                                                        "http://maps.google.com/mapfiles/ms/icons/red-dot.png"
+                                                        "http://maps.google.com/mapfiles/ms/icons/red-dot.png",
+                                                labelOrigin: (window as any).google ? new (window as any).google.maps.Point(16, -20) : undefined
                                             }}
                                         />
                                     )
@@ -438,7 +531,6 @@ const StageCoordinatorDashboard: React.FC<StageCoordinatorDashboardProps> = ({ c
                                             className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 outline-none focus:border-ministry-orange"
                                         >
                                             <option value="Vehicle Coordinator">Vehicle Coordinator</option>
-                                            <option value="Stage Coordinator">Stage Coordinator</option>
                                             <option value="Data Entrant">Data Entrant</option>
                                         </select>
                                     </div>
@@ -561,28 +653,37 @@ const StageCoordinatorDashboard: React.FC<StageCoordinatorDashboardProps> = ({ c
                                         </div>
 
                                         <div className="grid grid-cols-2 gap-4 mb-4">
-                                            <div className="bg-gray-50 p-3 rounded-xl">
-                                                <p className="text-xs text-gray-400 font-bold uppercase mb-1">Onboarded</p>
-                                                <p className="text-2xl font-black text-gray-800">
-                                                    {(vehicle.passengerCount || 0) + (vehicle.childrenCount || 0)}
-                                                </p>
+                                            <div className="flex flex-col gap-4">
+                                                <div className="bg-gray-50 p-3 rounded-xl">
+                                                    <p className="text-xs text-gray-400 font-bold uppercase mb-1">Onboarded</p>
+                                                    <p className="text-2xl font-black text-gray-800">
+                                                        {passengers.filter(p => p.vehicleId === vehicle.id).length}
+                                                    </p>
+                                                </div>
+                                                <div className="bg-gray-50 p-3 rounded-xl">
+                                                    <p className="text-xs text-gray-400 font-bold uppercase mb-1">Children</p>
+                                                    <p className="text-lg font-bold text-gray-800">
+                                                        {vehicle.childrenCount || 0}
+                                                    </p>
+                                                </div>
                                             </div>
-                                            <div className="bg-gray-50 p-3 rounded-xl">
-                                                <p className="text-xs text-gray-400 font-bold uppercase mb-1">Coordinator</p>
-                                                <p className="text-sm font-bold text-gray-800 truncate">{vehicle.coordinator}</p>
-                                                <p className="text-xs text-gray-500 flex items-center mt-1">
-                                                    <Phone className="w-3 h-3 mr-1" />
-                                                    {getCoordinatorContact(vehicle.coordinator)}
-                                                </p>
+                                            <div className="flex flex-col gap-4">
+                                                <div className="bg-gray-50 p-3 rounded-xl">
+                                                    <p className="text-xs text-gray-400 font-bold uppercase mb-1">Coordinator</p>
+                                                    <p className="text-sm font-bold text-gray-800 truncate">{vehicle.coordinator}</p>
+                                                    <p className="text-xs text-gray-500 flex items-center mt-1">
+                                                        <Phone className="w-3 h-3 mr-1" />
+                                                        {getCoordinatorContact(vehicle.coordinator)}
+                                                    </p>
+                                                </div>
+                                                <div className="bg-gray-50 p-3 rounded-xl flex-grow">
+                                                    <div className="flex justify-between items-center mb-1">
+                                                        <p className="text-xs text-gray-400 font-bold uppercase">Driver</p>
+                                                        <p className="text-xs text-gray-500 font-mono">{vehicle.driverContact}</p>
+                                                    </div>
+                                                    <p className="text-sm font-bold text-gray-800">{vehicle.driverName}</p>
+                                                </div>
                                             </div>
-                                        </div>
-
-                                        <div className="bg-gray-50 p-3 rounded-xl">
-                                            <div className="flex justify-between items-center mb-1">
-                                                <p className="text-xs text-gray-400 font-bold uppercase">Driver</p>
-                                                <p className="text-xs text-gray-500 font-mono">{vehicle.driverContact}</p>
-                                            </div>
-                                            <p className="text-sm font-bold text-gray-800">{vehicle.driverName}</p>
                                         </div>
 
                                         {vehicle.status === 'Pending' && (

@@ -4,10 +4,10 @@ import { useNotification } from './ui/NotificationSystem';
 import { isEventLocked, isServiceClosed, validatePlate, validateContact, validateDriverIdentity } from '../utils';
 import { VEHICLE_TYPES } from '../constants';
 import { ModalType, MinistryEvent, User, Vehicle, Passenger, PickUpStation, PersonalVehicle, Member, ServiceResponse } from '../types';
-import { VehicleStore } from '../database/vehicleStore';
-import { UserStore } from '../database/userStore';
+import { VehicleStore, mapVehicleFromDB, mapPassengerFromDB, mapPersonalVehicleFromDB } from '../database/vehicleStore';
+import { UserStore, mapUserFromDB } from '../database/userStore';
 import { MemberStore } from '../database/memberStore';
-import { LogisticsStore, ExtendedStation } from '../database/logisticsStore';
+import { LogisticsStore, ExtendedStation, mapStationFromDB } from '../database/logisticsStore';
 import { ManifestStore } from '../database/manifestStore';
 import { EventStore } from '../database/eventStore';
 import { SoulsStore } from '../database/soulsStore';
@@ -634,22 +634,14 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
       if (eventType === 'INSERT') {
         setStations(prev => {
           if (prev.find(s => s.id === newRecord.id)) return prev;
-          const mapped: ExtendedStation = {
-            ...newRecord,
-            eventId: newRecord.event_id,
-            coordinatorName: newRecord.coordinator_name || '',
-            coordinatorContact: newRecord.coordinator_contact || '',
-            totalPassengers: 0,
-            vehicles: []
-          } as ExtendedStation;
+          const mapped = mapStationFromDB(newRecord);
           return [mapped, ...prev];
         });
       } else if (eventType === 'UPDATE') {
-        const updated = newRecord as any;
-        setStations(prev => prev.map(s => s.id === updated.id ? {
+        const mapped = mapStationFromDB(newRecord);
+        setStations(prev => prev.map(s => s.id === mapped.id ? {
           ...s,
-          ...updated,
-          eventId: updated.event_id // Map snake_case to camelCase
+          ...mapped
         } : s));
       } else if (eventType === 'DELETE') {
         setStations(prev => prev.filter(s => s.id !== oldRecord.id));
@@ -661,12 +653,13 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
       if (eventType === 'INSERT') {
         setVehicles(prev => {
           if (prev.find(v => v.id === newRecord.id)) return prev;
-          return [newRecord as Vehicle, ...prev];
+          return [mapVehicleFromDB(newRecord), ...prev];
         });
       } else if (eventType === 'UPDATE') {
-        setVehicles(prev => prev.map(v => v.id === newRecord.id ? (newRecord as Vehicle) : v));
-        if (selectedVehicle?.id === newRecord.id) {
-          setSelectedVehicle(newRecord as Vehicle);
+        const mapped = mapVehicleFromDB(newRecord);
+        setVehicles(prev => prev.map(v => v.id === mapped.id ? mapped : v));
+        if (selectedVehicle?.id === mapped.id) {
+          setSelectedVehicle(mapped);
         }
       } else if (eventType === 'DELETE') {
         setVehicles(prev => prev.filter(v => v.id !== oldRecord.id));
@@ -679,10 +672,11 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
       if (eventType === 'INSERT') {
         setPassengers(prev => {
           if (prev.find(p => p.id === newRecord.id)) return prev;
-          return [newRecord as Passenger, ...prev];
+          return [mapPassengerFromDB(newRecord), ...prev];
         });
       } else if (eventType === 'UPDATE') {
-        setPassengers(prev => prev.map(p => p.id === newRecord.id ? (newRecord as Passenger) : p));
+        const mapped = mapPassengerFromDB(newRecord);
+        setPassengers(prev => prev.map(p => p.id === mapped.id ? mapped : p));
       } else if (eventType === 'DELETE') {
         setPassengers(prev => prev.filter(p => p.id !== oldRecord.id));
       }
@@ -694,18 +688,10 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
         // Only track coordinators
         if (newRecord.role !== 'Vehicle Coordinator' && newRecord.role !== 'Coordinator') return;
 
+        const mappedUser = mapUserFromDB(newRecord);
         setCoordinators(prev => {
-          const exists = prev.find(u => u.id === newRecord.id);
-          const mappedUser = {
-            id: newRecord.id,
-            name: newRecord.name,
-            role: newRecord.role,
-            eventId: newRecord.event_id,
-            stationId: newRecord.station_id,
-            departmentId: newRecord.department_id
-          } as User;
-
-          if (exists) return prev.map(u => u.id === newRecord.id ? mappedUser : u);
+          const exists = prev.find(u => u.id === mappedUser.id);
+          if (exists) return prev.map(u => u.id === mappedUser.id ? mappedUser : u);
           return [mappedUser, ...prev];
         });
       } else if (eventType === 'DELETE') {
@@ -722,10 +708,13 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
         if (eventType === 'INSERT') {
           setPersonalVehicles(prev => {
             if (prev.some(v => v.id === newRecord.id)) return prev;
-            return [newRecord as PersonalVehicle, ...prev];
+            return [mapPersonalVehicleFromDB(newRecord), ...prev];
           });
         }
-        else if (eventType === 'UPDATE') setPersonalVehicles(prev => prev.map(v => v.id === newRecord.id ? (newRecord as PersonalVehicle) : v));
+        else if (eventType === 'UPDATE') {
+          const mapped = mapPersonalVehicleFromDB(newRecord);
+          setPersonalVehicles(prev => prev.map(v => v.id === mapped.id ? mapped : v));
+        }
         else if (eventType === 'DELETE') setPersonalVehicles(prev => prev.filter(v => v.id !== oldRecord.id));
       })
       .subscribe();
@@ -1995,7 +1984,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
       } else {
         // CREATE MODE
         await VehicleStore.addPassenger(payload);
-        setPassengers([...passengers, payload]);
+        setPassengers(prev => [...prev, payload]);
         showToast("Passenger added successfully", 'success');
       }
 

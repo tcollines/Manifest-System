@@ -4,7 +4,7 @@ import { MOCK_MEMBERS } from '../constants';
 import { v4 as uuidv4 } from 'uuid';
 import { safeFetch } from '../services/safeFetch';
 
-const mapMemberFromDB = (m: any): Member => ({
+export const mapMemberFromDB = (m: any): Member => ({
   id: m.id,
   name: m.name,
   category: m.category,

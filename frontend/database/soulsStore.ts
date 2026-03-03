@@ -2,7 +2,7 @@ import { Soul } from '../types';
 import { apiFetch } from '../services/api';
 import { NextGenSoulsStore } from './nextGenSoulsStore';
 
-const mapSoulFromDB = (s: any): Soul => ({
+export const mapSoulFromDB = (s: any): Soul => ({
     id: s.id,
     firstName: s.first_name,
     lastName: s.last_name,

@@ -4,7 +4,7 @@ import { apiFetch } from '../services/api';
 import { MOCK_CHILDREN } from '../constants';
 import { safeFetch } from '../services/safeFetch';
 
-const mapChildFromDB = (c: any): Child => ({
+export const mapChildFromDB = (c: any): Child => ({
   id: c.id,
 
   name: c.name,

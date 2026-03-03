@@ -47,6 +47,18 @@ export const mapPassengerFromDB = (p: any): Passenger => ({
     soulWon: p.soul_won
 });
 
+export const mapPersonalVehicleFromDB = (v: any): any => ({
+    id: v.id,
+    number_plate: v.number_plate,
+    driverName: v.driver_name,
+    driverContact: v.driver_contact,
+    status: v.status,
+    checkInTime: v.check_in_time,
+    checkOutTime: v.check_out_time,
+    currentServiceId: v.current_service_id,
+    registeredDate: v.registered_date
+});
+
 export const VehicleStore = {
     getVehicles: async (params?: { coordinator?: string; coordinatorUid?: string; eventId?: string }): Promise<ServiceResponse<Vehicle[]>> => {
         return safeFetch(
@@ -295,17 +307,7 @@ export const VehicleStore = {
         return safeFetch(
             () => apiFetch('/vehicles/personal'),
             'Failed to fetch personal vehicles',
-            (data: any[]) => data ? data.map((v: any) => ({
-                id: v.id,
-                number_plate: v.number_plate,
-                driverName: v.driver_name,
-                driverContact: v.driver_contact,
-                status: v.status,
-                checkInTime: v.check_in_time,
-                checkOutTime: v.check_out_time,
-                currentServiceId: v.current_service_id,
-                registeredDate: v.registered_date
-            })) : []
+            (data: any[]) => data ? data.map(mapPersonalVehicleFromDB) : []
         );
     },
 

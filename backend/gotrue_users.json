@@ -1,0 +1,85 @@
+{
+  "tl": {
+    "id": "5ed14837-4427-42d8-8496-8e7bbcf92ffd",
+    "aud": "authenticated",
+    "role": "authenticated",
+    "email": "tl_entebbemanifest.com@manifest.local",
+    "email_confirmed_at": "2026-02-20T12:20:36.902865Z",
+    "phone": "",
+    "confirmed_at": "2026-02-20T12:20:36.902865Z",
+    "last_sign_in_at": "2026-02-23T05:02:10.768425Z",
+    "app_metadata": {
+      "manifest_id": "593fbdbb-8211-44ca-b3e2-8d999c88680c",
+      "provider": "email",
+      "providers": [
+        "email"
+      ],
+      "role": "TeamLeader"
+    },
+    "user_metadata": {
+      "email_verified": true
+    },
+    "identities": [
+      {
+        "identity_id": "a560cc0b-8ce4-4a85-bcdb-064063aa3dd9",
+        "id": "5ed14837-4427-42d8-8496-8e7bbcf92ffd",
+        "user_id": "5ed14837-4427-42d8-8496-8e7bbcf92ffd",
+        "identity_data": {
+          "email": "tl_entebbemanifest.com@manifest.local",
+          "email_verified": false,
+          "phone_verified": false,
+          "sub": "5ed14837-4427-42d8-8496-8e7bbcf92ffd"
+        },
+        "provider": "email",
+        "last_sign_in_at": "2026-02-20T12:20:36.900887Z",
+        "created_at": "2026-02-20T12:20:36.900931Z",
+        "updated_at": "2026-02-20T12:20:36.900931Z",
+        "email": "tl_entebbemanifest.com@manifest.local"
+      }
+    ],
+    "created_at": "2026-02-20T12:20:36.899922Z",
+    "updated_at": "2026-02-23T08:27:26.53252Z",
+    "is_anonymous": false
+  },
+  "ebuflavia": {
+    "id": "d7d013ab-c518-4a38-82e6-528ab46a9cfe",
+    "aud": "authenticated",
+    "role": "authenticated",
+    "email": "ebuflavia@manifest.local",
+    "email_confirmed_at": "2026-02-20T12:15:04.941411Z",
+    "phone": "",
+    "confirmed_at": "2026-02-20T12:15:04.941411Z",
+    "app_metadata": {
+      "manifest_id": "593fbdbb-8211-44ca-b3e2-8d999c88680c",
+      "provider": "email",
+      "providers": [
+        "email"
+      ],
+      "role": "Administrator"
+    },
+    "user_metadata": {
+      "email_verified": true
+    },
+    "identities": [
+      {
+        "identity_id": "4c9db77f-9f2c-40a4-a308-8cc752e8f679",
+        "id": "d7d013ab-c518-4a38-82e6-528ab46a9cfe",
+        "user_id": "d7d013ab-c518-4a38-82e6-528ab46a9cfe",
+        "identity_data": {
+          "email": "ebuflavia@manifest.local",
+          "email_verified": false,
+          "phone_verified": false,
+          "sub": "d7d013ab-c518-4a38-82e6-528ab46a9cfe"
+        },
+        "provider": "email",
+        "last_sign_in_at": "2026-02-20T12:15:04.937537Z",
+        "created_at": "2026-02-20T12:15:04.937588Z",
+        "updated_at": "2026-02-20T12:15:04.937588Z",
+        "email": "ebuflavia@manifest.local"
+      }
+    ],
+    "created_at": "2026-02-20T12:15:04.935913Z",
+    "updated_at": "2026-02-20T12:15:04.942058Z",
+    "is_anonymous": false
+  }
+}

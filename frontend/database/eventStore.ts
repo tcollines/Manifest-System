@@ -3,7 +3,7 @@ import { MinistryEvent, ServiceResponse } from '../types';
 import { apiFetch } from '../services/api';
 import { safeFetch } from '../services/safeFetch';
 
-const mapEventFromDB = (e: any): MinistryEvent => ({
+export const mapEventFromDB = (e: any): MinistryEvent => ({
   id: e.id,
   title: e.title,
   type: e.type,

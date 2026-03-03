@@ -6,7 +6,7 @@ export const SchoolsStore = {
     async getAllReports(): Promise<SchoolOutreachReport[]> {
         try {
             const data = await apiFetch('/schools/reports');
-            return data.map(mapDBToReport);
+            return data.map(mapSchoolReportFromDB);
         } catch (error) {
             console.error('Error fetching school reports:', error);
             return [];
@@ -21,7 +21,7 @@ export const SchoolsStore = {
                 method: 'POST',
                 body: JSON.stringify(dbReport)
             });
-            return mapDBToReport(data);
+            return mapSchoolReportFromDB(data);
         } catch (error) {
             console.error('Error adding school report:', error);
             throw error;
@@ -45,7 +45,7 @@ const mapReportToDB = (report: Partial<SchoolOutreachReport>) => ({
     submitted_by: report.submittedBy
 });
 
-const mapDBToReport = (db: any): SchoolOutreachReport => ({
+export const mapSchoolReportFromDB = (db: any): SchoolOutreachReport => ({
     id: db.id,
     date: db.date,
     centreName: db.centre_name,

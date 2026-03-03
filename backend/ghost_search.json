@@ -1,0 +1,151 @@
+{
+  "totalAuthUsers": 102,
+  "ghostEbuf": [
+    {
+      "id": "2eb7be58-3534-4ad4-a3f3-dcfb256f6dcc",
+      "aud": "authenticated",
+      "role": "authenticated",
+      "email": "flaviamulen5@gmail.com",
+      "email_confirmed_at": "2026-01-24T09:26:06.659062Z",
+      "phone": "",
+      "confirmed_at": "2026-01-24T09:26:06.659062Z",
+      "last_sign_in_at": "2026-01-24T09:37:16.422342Z",
+      "app_metadata": {
+        "provider": "email",
+        "providers": [
+          "email"
+        ]
+      },
+      "user_metadata": {
+        "email": "flaviamulen5@gmail.com",
+        "email_verified": true,
+        "phone_verified": false,
+        "sub": "2eb7be58-3534-4ad4-a3f3-dcfb256f6dcc"
+      },
+      "identities": null,
+      "created_at": "2026-01-24T09:26:06.614895Z",
+      "updated_at": "2026-01-29T11:31:27.088558Z",
+      "is_anonymous": false
+    }
+  ],
+  "ghostWilber": [
+    {
+      "id": "99db09f9-99e5-434d-91ae-e94ad1818b07",
+      "aud": "authenticated",
+      "role": "authenticated",
+      "email": "kalulewilberforce7@gmail.com",
+      "email_confirmed_at": "2026-02-22T11:48:47.642366Z",
+      "phone": "",
+      "confirmed_at": "2026-02-22T11:48:47.642366Z",
+      "last_sign_in_at": "2026-02-22T11:53:23.234866Z",
+      "app_metadata": {
+        "provider": "google",
+        "providers": [
+          "google"
+        ]
+      },
+      "user_metadata": {
+        "avatar_url": "https://lh3.googleusercontent.com/a/ACg8ocLmvfzCi3L8JjGY8N0AIMJilhuLrb4rcnkw3KTB-L4t95GlIA=s96-c",
+        "email": "kalulewilberforce7@gmail.com",
+        "email_verified": true,
+        "full_name": "lab technologist kalule Wilberforce",
+        "iss": "https://accounts.google.com",
+        "name": "lab technologist kalule Wilberforce",
+        "phone_verified": false,
+        "picture": "https://lh3.googleusercontent.com/a/ACg8ocLmvfzCi3L8JjGY8N0AIMJilhuLrb4rcnkw3KTB-L4t95GlIA=s96-c",
+        "provider_id": "104103199057725766965",
+        "sub": "104103199057725766965"
+      },
+      "identities": null,
+      "created_at": "2026-02-22T11:48:47.598296Z",
+      "updated_at": "2026-02-22T11:58:17.81436Z",
+      "is_anonymous": false
+    }
+  ],
+  "ghostTl": [
+    {
+      "id": "ce6708e8-8662-48cd-b34c-5577a81d6a60",
+      "aud": "authenticated",
+      "role": "authenticated",
+      "email": "gmawanda307@gmail.com",
+      "email_confirmed_at": "2026-02-22T15:20:23.210558Z",
+      "phone": "",
+      "confirmed_at": "2026-02-22T15:20:23.210558Z",
+      "last_sign_in_at": "2026-02-22T15:20:23.219103Z",
+      "app_metadata": {
+        "provider": "google",
+        "providers": [
+          "google"
+        ]
+      },
+      "user_metadata": {
+        "avatar_url": "https://lh3.googleusercontent.com/a/ACg8ocJ6-NaPPEVd-vAdcwsJ53ryuf_8rX2gGzNJ2wFXBrPslAWVM9vL=s96-c",
+        "email": "gmawanda307@gmail.com",
+        "email_verified": true,
+        "full_name": "Gerald Mawanda",
+        "iss": "https://accounts.google.com",
+        "name": "Gerald Mawanda",
+        "phone_verified": false,
+        "picture": "https://lh3.googleusercontent.com/a/ACg8ocJ6-NaPPEVd-vAdcwsJ53ryuf_8rX2gGzNJ2wFXBrPslAWVM9vL=s96-c",
+        "provider_id": "111403417132006613534",
+        "sub": "111403417132006613534"
+      },
+      "identities": null,
+      "created_at": "2026-02-22T15:20:23.188368Z",
+      "updated_at": "2026-02-22T15:20:23.221675Z",
+      "is_anonymous": false
+    }
+  ],
+  "legacyEbuf": [
+    {
+      "id": "d7d013ab-c518-4a38-82e6-528ab46a9cfe",
+      "aud": "authenticated",
+      "role": "authenticated",
+      "email": "ebuflavia@manifest.local",
+      "email_confirmed_at": "2026-02-20T12:15:04.941411Z",
+      "phone": "",
+      "confirmed_at": "2026-02-20T12:15:04.941411Z",
+      "app_metadata": {
+        "manifest_id": "593fbdbb-8211-44ca-b3e2-8d999c88680c",
+        "provider": "email",
+        "providers": [
+          "email"
+        ],
+        "role": "Administrator"
+      },
+      "user_metadata": {
+        "email_verified": true
+      },
+      "identities": null,
+      "created_at": "2026-02-20T12:15:04.935913Z",
+      "updated_at": "2026-02-20T12:15:04.942058Z",
+      "is_anonymous": false
+    }
+  ],
+  "legacyWilber": [
+    {
+      "id": "c98b24b4-c675-4827-8875-b9bee52d308a",
+      "aud": "authenticated",
+      "role": "authenticated",
+      "email": "kalulewilberforce7@manifest.local",
+      "email_confirmed_at": "2026-02-20T12:17:00.629617Z",
+      "phone": "",
+      "confirmed_at": "2026-02-20T12:17:00.629617Z",
+      "app_metadata": {
+        "manifest_id": "593fbdbb-8211-44ca-b3e2-8d999c88680c",
+        "provider": "email",
+        "providers": [
+          "email"
+        ],
+        "role": "Head of Dept"
+      },
+      "user_metadata": {
+        "email_verified": true
+      },
+      "identities": null,
+      "created_at": "2026-02-20T12:17:00.626736Z",
+      "updated_at": "2026-02-20T12:17:00.630241Z",
+      "is_anonymous": false
+    }
+  ]
+}

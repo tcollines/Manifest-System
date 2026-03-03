@@ -5,8 +5,8 @@ import { supabase } from '../services/supabaseClient';
 import { Users, Calendar, Database, Plus, Search, Link as LinkIcon, Share2, Copy, Check, Filter, ChevronLeft, ChevronRight, X, Trash2, Pencil } from 'lucide-react';
 import { MinistryEvent, Soul, Member, ModalType, User } from '../types';
 import { isEventLocked, isServiceClosed } from '../utils';
-import { EventStore } from '../database/eventStore';
-import { SoulsStore } from '../database/soulsStore';
+import { EventStore, mapEventFromDB } from '../database/eventStore';
+import { SoulsStore, mapSoulFromDB } from '../database/soulsStore';
 import { MemberStore } from '../database/memberStore';
 import SoulEntryForm from './SoulEntryForm';
 import MemberSearchInput from './MemberSearchInput';
@@ -85,11 +85,11 @@ const FollowUpDashboard: React.FC<FollowUpDashboardProps> = ({ onOpenModal, curr
             .on('postgres_changes', { event: '*', schema: 'public', table: 'ministry_events' }, (payload) => {
                 const { eventType, new: newRecord, old: oldRecord } = payload;
                 if (eventType === 'INSERT') {
-                    const mapped = newRecord as MinistryEvent;
+                    const mapped = mapEventFromDB(newRecord);
                     if (mapped.type === 'Service') setServices(prev => [mapped, ...prev]);
                     else setEvents(prev => [mapped, ...prev]);
                 } else if (eventType === 'UPDATE') {
-                    const mapped = newRecord as MinistryEvent;
+                    const mapped = mapEventFromDB(newRecord);
                     setServices(prev => prev.map(s => s.id === mapped.id ? mapped : s));
                     setEvents(prev => prev.map(e => e.id === mapped.id ? mapped : e));
                 } else if (eventType === 'DELETE') {
@@ -120,12 +120,14 @@ const FollowUpDashboard: React.FC<FollowUpDashboardProps> = ({ onOpenModal, curr
             }, (payload) => {
                 const { eventType, new: newRecord, old: oldRecord } = payload;
                 if (eventType === 'INSERT') {
+                    const mapped = mapSoulFromDB(newRecord);
                     setSouls(prev => {
-                        if (prev.some(s => s.id === newRecord.id)) return prev;
-                        return [newRecord as Soul, ...prev];
+                        if (prev.some(s => s.id === mapped.id)) return prev;
+                        return [mapped, ...prev];
                     });
                 } else if (eventType === 'UPDATE') {
-                    setSouls(prev => prev.map(s => s.id === newRecord.id ? (newRecord as Soul) : s));
+                    const mapped = mapSoulFromDB(newRecord);
+                    setSouls(prev => prev.map(s => s.id === mapped.id ? mapped : s));
                 } else if (eventType === 'DELETE') {
                     setSouls(prev => prev.filter(s => s.id !== oldRecord.id));
                 }
