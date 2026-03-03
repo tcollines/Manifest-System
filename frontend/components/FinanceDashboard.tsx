@@ -91,6 +91,16 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, events
     const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
     const [financeForm, setFinanceForm] = useState({ dispatch: '', balance: '' });
 
+    // Sync selectedVehicle with realtime updates from vehicles array
+    useEffect(() => {
+        if (selectedVehicle) {
+            const updatedVehicle = vehicles.find(v => v.id === selectedVehicle.id);
+            if (updatedVehicle && JSON.stringify(updatedVehicle) !== JSON.stringify(selectedVehicle)) {
+                setSelectedVehicle(updatedVehicle);
+            }
+        }
+    }, [vehicles, selectedVehicle]);
+
     // Transaction Form State
     const [showTransModal, setShowTransModal] = useState(false);
     const [transForm, setTransForm] = useState({
