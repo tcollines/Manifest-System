@@ -1403,6 +1403,12 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, events
                                                 <h3 className="text-3xl font-bold font-mono text-ministry-text">{selectedVehicle.number_plate}</h3>
                                                 <p className="text-lg text-gray-700 font-medium">{selectedVehicle.type} • {selectedVehicle.driverName}</p>
                                                 <p className="text-sm text-gray-500">{selectedVehicle.driverContact}</p>
+                                                <div className="mt-2 pt-2 border-t border-gray-100">
+                                                    <p className="text-sm font-bold text-gray-700">Coord: {selectedVehicle.coordinator || 'N/A'}</p>
+                                                    {selectedVehicle.coordinatorContact && (
+                                                        <p className="text-xs text-gray-500">{selectedVehicle.coordinatorContact}</p>
+                                                    )}
+                                                </div>
                                             </div>
                                             {/* Stats Block */}
                                             <div className="text-right">
