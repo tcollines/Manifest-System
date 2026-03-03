@@ -1156,8 +1156,15 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
                                             <div className="pt-4 flex justify-end">
                                                 {myVehicle.currentStage === 'Onboarding' ? (
                                                     <button
-                                                        onClick={() => handleStageUpdate('Verifying')}
-                                                        className="bg-ministry-text text-white px-6 py-3 rounded-xl font-bold flex items-center hover:bg-gray-800 transition-all"
+                                                        onClick={() => {
+                                                            if (passengers.length === 0) {
+                                                                showToast("Cannot approve empty vehicle. Please add passengers.", "error");
+                                                                return;
+                                                            }
+                                                            handleStageUpdate('Verifying');
+                                                        }}
+                                                        className={`bg-ministry-text text-white px-6 py-3 rounded-xl font-bold flex items-center hover:bg-gray-800 transition-all ${passengers.length === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                        disabled={passengers.length === 0}
                                                     >
                                                         <ThumbsUp className="w-4 h-4 mr-2" />
                                                         Approve Onboarding
@@ -1165,6 +1172,10 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
                                                 ) : (
                                                     <button
                                                         onClick={async () => {
+                                                            if (passengers.length === 0) {
+                                                                showToast("Cannot approve empty vehicle. Please add passengers.", "error");
+                                                                return;
+                                                            }
                                                             const unverifiedCount = passengers.filter(p => !p.verified).length;
                                                             if (activeJourneyTab === 'Return' && unverifiedCount > 0) {
                                                                 const verifiedCount = passengers.length - unverifiedCount;
@@ -1185,8 +1196,8 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
                                                                 handleStageUpdate(activeJourneyTab === 'Ongoing' ? 'RegApproval' : 'FinanceApproval');
                                                             }
                                                         }}
-                                                        className={`bg-ministry-orange text-white px-6 py-3 rounded-xl font-bold flex items-center hover:bg-orange-600 shadow-lg transition-all ${activeJourneyTab === 'Ongoing' && passengers.some(p => !p.verified) ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                                        disabled={activeJourneyTab === 'Ongoing' && passengers.some(p => !p.verified)}
+                                                        className={`bg-ministry-orange text-white px-6 py-3 rounded-xl font-bold flex items-center shadow-lg transition-all ${passengers.length === 0 || (activeJourneyTab === 'Ongoing' && passengers.some(p => !p.verified)) ? 'opacity-50 cursor-not-allowed hover:bg-orange-600' : 'hover:bg-orange-600'}`}
+                                                        disabled={passengers.length === 0 || (activeJourneyTab === 'Ongoing' && passengers.some(p => !p.verified))}
                                                     >
                                                         <ShieldAlert className="w-4 h-4 mr-2" />
                                                         Approve Verification
