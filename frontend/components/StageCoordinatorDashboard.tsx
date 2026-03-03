@@ -27,7 +27,7 @@ interface StageCoordinatorDashboardProps {
     onOpenModal?: (type: ModalType) => void;
 }
 
-import { GoogleMap, useJsApiLoader, Marker, MarkerClusterer } from '@react-google-maps/api';
+import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
 
 const mapContainerStyle = {
     width: '100%',
@@ -475,35 +475,28 @@ const StageCoordinatorDashboard: React.FC<StageCoordinatorDashboardProps> = ({ c
                                 />
 
                                 {/* Vehicle Markers */}
-                                <MarkerClusterer>
-                                    {(clusterer) => (
-                                        <>
-                                            {vehicles.map(v => (
-                                                v.location && (
-                                                    <Marker
-                                                        key={v.id}
-                                                        position={{ lat: v.location.lat, lng: v.location.lng }}
-                                                        title={`${v.number_plate} (${v.driverName})`}
-                                                        clusterer={clusterer}
-                                                        label={{
-                                                            text: `${v.coordinator || 'Unassigned'}`,
-                                                            color: "white",
-                                                            fontWeight: "bold",
-                                                            fontSize: "12px",
-                                                            className: "bg-gray-800 px-2 py-1 rounded shadow-md"
-                                                        }}
-                                                        icon={{
-                                                            url: v.status === 'Arrived' ? "http://maps.google.com/mapfiles/ms/icons/green-dot.png" :
-                                                                v.status === 'En Route' ? "http://maps.google.com/mapfiles/ms/icons/blue-dot.png" :
-                                                                    "http://maps.google.com/mapfiles/ms/icons/red-dot.png",
-                                                            labelOrigin: (window as any).google ? new (window as any).google.maps.Point(16, -20) : undefined
-                                                        }}
-                                                    />
-                                                )
-                                            ))}
-                                        </>
-                                    )}
-                                </MarkerClusterer>
+                                {vehicles.map(v => (
+                                    v.location && (
+                                        <Marker
+                                            key={v.id}
+                                            position={{ lat: v.location.lat, lng: v.location.lng }}
+                                            title={`${v.number_plate} (${v.driverName})`}
+                                            label={{
+                                                text: `${v.coordinator || 'Unassigned'}`,
+                                                color: "white",
+                                                fontWeight: "bold",
+                                                fontSize: "12px",
+                                                className: "bg-gray-800 px-2 py-1 rounded shadow-md"
+                                            }}
+                                            icon={{
+                                                url: v.status === 'Arrived' ? "http://maps.google.com/mapfiles/ms/icons/green-dot.png" :
+                                                    v.status === 'En Route' ? "http://maps.google.com/mapfiles/ms/icons/blue-dot.png" :
+                                                        "http://maps.google.com/mapfiles/ms/icons/red-dot.png",
+                                                labelOrigin: (window as any).google ? new (window as any).google.maps.Point(16, -20) : undefined
+                                            }}
+                                        />
+                                    )
+                                ))}
                             </GoogleMap>
                         ) : (
                             <div className="h-[500px] bg-gray-100 rounded-xl flex items-center justify-center">
