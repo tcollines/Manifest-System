@@ -375,9 +375,22 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
                     });
                 }
                 else if (eventType === 'UPDATE') {
-                    const mapped = mapVehicleFromDB(newRecord);
-                    setVehicles(prev => prev.map(v => v.id === mapped.id ? (mapped as TrackedVehicle) : v));
-                    setMyVehicle(prev => prev?.id === mapped.id ? (mapped as Vehicle) : prev);
+                    setVehicles(prev => prev.map(v => {
+                        if (v.id === newRecord.id) {
+                            const mapped = mapVehicleFromDB(newRecord);
+                            const changes = Object.fromEntries(Object.entries(mapped).filter(([_, val]) => val !== undefined));
+                            return { ...v, ...changes } as TrackedVehicle;
+                        }
+                        return v;
+                    }));
+                    setMyVehicle(prev => {
+                        if (prev?.id === newRecord.id) {
+                            const mapped = mapVehicleFromDB(newRecord);
+                            const changes = Object.fromEntries(Object.entries(mapped).filter(([_, val]) => val !== undefined));
+                            return { ...prev, ...changes } as Vehicle;
+                        }
+                        return prev;
+                    });
                 } else if (eventType === 'DELETE') setVehicles(prev => prev.filter(v => v.id !== oldRecord.id));
             })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, (payload) => {
