@@ -1,30 +1,27 @@
-const { Pool } = require('pg');
+const { Client } = require('pg');
+const fs = require('fs');
 require('dotenv').config();
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-async function check() {
+
+const client = new Client({
+    connectionString: process.env.DATABASE_URL,
+});
+
+async function runSQL() {
+    await client.connect();
+    console.log("Connected to DB to extract Trigger logic.");
+
     try {
-        const { rows } = await pool.query(`
-      SELECT pg_get_triggerdef(t.oid) AS ddl
-      FROM pg_trigger t
-      JOIN pg_class c ON t.tgrelid = c.oid
-      WHERE c.relname = 'vehicles';
-    `);
-        console.log("Triggers on vehicles table:");
-        rows.forEach(r => console.log(r.ddl));
-
-        // Check functions that check tenant
-        const { rows: funcs } = await pool.query(`
-      SELECT proname, prosrc 
-      FROM pg_proc 
-      WHERE prosrc ILIKE '%Tenant or user not defined%';
-    `);
-        console.log("\nFunctions throwing the error:");
-        funcs.forEach(f => console.log(f.proname, ":", f.prosrc.substring(0, 100)));
-
+        const { rows } = await client.query(`
+            SELECT pg_get_functiondef(pg_proc.oid) AS trigger_source
+            FROM pg_proc
+            WHERE proname = 'on_auth_user_created' OR proname = 'handle_new_user'
+        `);
+        console.log("Trigger Defs:", rows.map(r => r.trigger_source).join('\n\n'));
     } catch (e) {
-        console.error(e);
+        console.error("Query failed:", e);
     } finally {
-        pool.end();
+        await client.end();
     }
 }
-check();
+
+runSQL();
