@@ -178,13 +178,47 @@ export const authenticate = (req: Request, res: Response, next: NextFunction) =>
                 }
 
                 // 🚨 STRICT RLS ALIGNMENT
-                const manifestId = decoded.manifest_id;
+                // Look in top-level FIRST (legacy), then app_metadata (Supabase Auth Hook standard)
+                let manifestId = decoded.manifest_id || decoded.app_metadata?.manifest_id;
 
                 if (!manifestId) {
-                    console.error(`[AUTH FATAL] Missing top-level manifest_id for ${decoded.email}`);
-                    return res.status(401).json({
-                        error: 'Unauthorized: Missing manifest_id claim (top-level required)'
-                    });
+                    console.warn(`[AUTH FIX] Missing manifest_id in JWT for ${decoded.email}. Attempting auto-recovery for SSO user...`);
+
+                    // The Express middleware is stateless but we can afford a DB lookup for first-time Google SSO users
+                    // who just got their Auth account created without the custom auth hook populating it yet.
+                    const { createClient } = require('@supabase/supabase-js');
+                    const adminClient = createClient(process.env.SUPABASE_URL as string, process.env.SUPABASE_SERVICE_ROLE_KEY as string);
+
+                    adminClient.from('users').select('manifest_id, id').eq('email', decoded.email).single()
+                        .then(({ data, error }: any) => {
+                            if (error || !data) {
+                                console.error(`[AUTH REDIRECT] No public.users record found to sync against for ${decoded.email}`);
+                                // Do not return 401 yet, since the frontend `/users/profile` will 404 cleanly and redirect to setup-account
+                                // We mock a safe manifestId or drop through to let the endpoint decide? No, we MUST have a manifestId.
+                                // However, if they don't exist in DB, they can't belong to a tenant.
+                                // We can't next() if we don't have a manifestId.
+                                return res.status(401).json({ error: 'Unauthorized: Missing manifest_id claim and no DB profile found.' });
+                            }
+
+                            console.log(`[AUTH SYNC] Binding Google SSO User ${decoded.email} to tenant ${data.manifest_id}`);
+
+                            // Patch the GoTrue Identity for future tokens
+                            adminClient.auth.admin.updateUserById(decoded.sub, {
+                                app_metadata: { ...decoded.app_metadata, manifest_id: data.manifest_id }
+                            }).catch((e: any) => console.error("Failed to patch auth user:", e));
+
+                            // Proceed natively
+                            req.user = {
+                                id: data.id, // Overwrite with public DB ID to fix auth ID desync
+                                email: decoded.email,
+                                role: decoded.role,
+                                app_metadata: { ...decoded.app_metadata, manifest_id: data.manifest_id },
+                                user_metadata: decoded.user_metadata || {}
+                            };
+                            req.manifestId = data.manifest_id;
+                            next();
+                        });
+                    return; // Pause execution for async branch
                 }
 
                 const user = {

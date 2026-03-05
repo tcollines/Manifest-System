@@ -2146,9 +2146,30 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
 
   const confirmDelete = async () => {
     // 1. Password Check
-    if (deletePassword !== currentUser.password) {
-      showToast("Incorrect Password", 'error');
-      return;
+    const apiUrl = (import.meta as any).env.VITE_API_URL || 'http://localhost:5000/api';
+    try {
+      const response = await fetch(`${apiUrl}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: currentUser.username || currentUser.email,
+          password: deletePassword
+        })
+      });
+
+      if (!response.ok) {
+        // Fallback check against local DB cache just in case the server is unreachable 
+        // or user exists solely in the legacy table state
+        if (deletePassword !== currentUser.password) {
+          showToast("Incorrect Password", 'error');
+          return;
+        }
+      }
+    } catch (err) {
+      if (deletePassword !== currentUser.password) {
+        showToast("Incorrect Password", 'error');
+        return;
+      }
     }
 
     // 2. Handle Event/Service Deletion

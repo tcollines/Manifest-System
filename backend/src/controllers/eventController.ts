@@ -103,81 +103,22 @@ export const deleteEvent = async (req: Request, res: Response) => {
     const { id } = req.params;
     try {
         const eventUuid = toUUID(id);
-        const { data: event } = await supabase
-            .from('ministry_events')
-            .select('id')
-            .eq('manifest_id', manifestId) // Tenant Isolation
-            .eq('id', eventUuid)
-            .single();
 
-        if (!event) {
-            return res.status(404).json({ error: "Event not found" });
-        }
+        // Execute the fast, fully-transactional cascading delete RPC on the database directly
+        const { error } = await supabase.rpc('delete_event_cascade', {
+            p_manifest_id: manifestId,
+            p_event_id: eventUuid
+        });
 
-        const targetId = event.id;
-
-        const { data: stations } = await supabase.from('pickup_stations').select('id')
-            .eq('manifest_id', manifestId).eq('event_id', targetId);
-
-        if (stations && stations.length > 0) {
-            const stationIds = stations.map(s => s.id);
-
-            await supabase.from('users').delete().eq('manifest_id', manifestId).in('station_id', stationIds);
-
-            for (const station of stations) {
-                const { data: vehicles } = await supabase.from('vehicles').select('id').eq('manifest_id', manifestId).eq('station_id', station.id);
-                if (vehicles && vehicles.length > 0) {
-                    const vIds = vehicles.map(v => v.id);
-                    await supabase.from('passengers').delete().eq('manifest_id', manifestId).in('vehicle_id', vIds);
-                    await supabase.from('vehicles').delete().eq('manifest_id', manifestId).in('id', vIds);
-                }
-                await supabase.from('pickup_stations').delete().eq('manifest_id', manifestId).eq('id', station.id);
+        if (error) {
+            console.error("[deleteEvent] RPC Error:", error);
+            if (error.message.includes('Event not found')) {
+                return res.status(404).json({ error: "Event not found or unauthorized" });
             }
+            throw error;
         }
 
-        await supabase.from('users').delete().eq('manifest_id', manifestId).eq('event_id', targetId).eq('role', 'Coordinator');
-
-        const { data: members } = await supabase.from('members').select('id, attended_service_ids')
-            .eq('manifest_id', manifestId)
-            .contains('attended_service_ids', [targetId]);
-        if (members && members.length > 0) {
-            for (const m of members) {
-                const newIds = (m.attended_service_ids || []).filter((i: string) => i !== targetId);
-                await supabase.from('members').update({ attended_service_ids: newIds }).eq('manifest_id', manifestId).eq('id', m.id);
-            }
-        }
-
-        const { data: children } = await supabase.from('children').select('id, attended_service_ids')
-            .eq('manifest_id', manifestId)
-            .contains('attended_service_ids', [targetId]);
-        if (children && children.length > 0) {
-            for (const c of children) {
-                const newIds = (c.attended_service_ids || []).filter((i: string) => i !== targetId);
-                await supabase.from('children').update({ attended_service_ids: newIds }).eq('manifest_id', manifestId).eq('id', c.id);
-            }
-        }
-
-        const { data: pCars } = await supabase.from('personal_vehicles').select('id, attended_service_ids')
-            .eq('manifest_id', manifestId)
-            .contains('attended_service_ids', [targetId]);
-        if (pCars && pCars.length > 0) {
-            for (const c of pCars) {
-                const newIds = (c.attended_service_ids || []).filter((i: string) => i !== targetId);
-                await supabase.from('personal_vehicles').update({ attended_service_ids: newIds }).eq('manifest_id', manifestId).eq('id', c.id);
-            }
-        }
-
-        await supabase.from('incidents').delete().eq('manifest_id', manifestId).eq('service_id', targetId);
-        await supabase.from('souls').delete().eq('manifest_id', manifestId).eq('event_id', targetId);
-        await supabase.from('volunteer_attendance').delete().eq('manifest_id', manifestId).eq('service_id', targetId);
-        await supabase.from('personal_vehicles').update({ current_service_id: null }).eq('manifest_id', manifestId).eq('current_service_id', targetId);
-        await supabase.from('transactions').delete().eq('manifest_id', manifestId).eq('event_id', targetId);
-        await supabase.from('next_gen_souls').delete().eq('manifest_id', manifestId).eq('service_id', targetId);
-
-        const { error } = await supabase.from('ministry_events').delete().eq('manifest_id', manifestId).eq('id', targetId);
-        if (error) throw error;
-
-        res.json({ message: 'Event and related data deleted' });
+        res.json({ message: 'Event and related data deleted instantaneously via database cascading RPC' });
     } catch (error: any) {
         res.status(500).json({ error: error.message });
     }
