@@ -116,7 +116,7 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
     const [filterStatus, setFilterStatus] = useState<'All' | 'Pending' | 'En Route' | 'Arrived' | 'Completed'>('All');
 
     const [coordinators, setCoordinators] = useState<User[]>([]);
-    const [newCoordinator, setNewCoordinator] = useState({ name: '', username: '', password: '', contact: '', stationId: '' });
+    const [newCoordinator, setNewCoordinator] = useState({ firstName: '', lastName: '', username: '', password: '', contact: '', stationId: '' });
     const [formRoleType, setFormRoleType] = useState<'vehicle' | 'stage'>('vehicle');
 
 
@@ -744,7 +744,7 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
 
     const handleAddCoordinator = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!newCoordinator.name || !newCoordinator.username || !newCoordinator.password) return;
+        if (!newCoordinator.firstName || !newCoordinator.lastName || !newCoordinator.username || !newCoordinator.password) return;
 
         // Contact Confirmation
         if (!newCoordinator.contact || newCoordinator.contact === '256' || newCoordinator.contact.length <= 3) {
@@ -755,7 +755,7 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
 
         const newUser: User = {
             id: crypto.randomUUID(),
-            name: newCoordinator.name.trim(),
+            name: `${newCoordinator.firstName.trim()} ${newCoordinator.lastName.trim()}`,
             role: formRoleType === 'vehicle' ? 'Vehicle Coordinator' : 'Stage Coordinator',
             username: newCoordinator.username,
             password: newCoordinator.password,
@@ -780,7 +780,7 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
                 }
             }
 
-            setNewCoordinator({ name: '', username: '', password: '', contact: '', stationId: '' });
+            setNewCoordinator({ firstName: '', lastName: '', username: '', password: '', contact: '', stationId: '' });
             setFormRoleType('vehicle');
             // refreshData(selectedEventId); // Removed in favor of Realtime
             showToast(`Coordinator ${newUser.name} created successfully.`, 'success');
@@ -1863,14 +1863,25 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
                                     </div>
                                 )}
 
-                                <div className="space-y-2">
-                                    <label className="text-sm font-bold text-gray-700">Full Name</label>
-                                    <input
-                                        required
-                                        value={newCoordinator.name}
-                                        onChange={e => setNewCoordinator({ ...newCoordinator, name: e.target.value })}
-                                        className="w-full p-3 bg-white border border-gray-200 rounded-xl focus:border-ministry-orange outline-none"
-                                    />
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-bold text-gray-700">First Name</label>
+                                        <input
+                                            required
+                                            value={newCoordinator.firstName}
+                                            onChange={e => setNewCoordinator({ ...newCoordinator, firstName: e.target.value })}
+                                            className="w-full p-3 bg-white border border-gray-200 rounded-xl focus:border-ministry-orange outline-none"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-bold text-gray-700">Last Name</label>
+                                        <input
+                                            required
+                                            value={newCoordinator.lastName}
+                                            onChange={e => setNewCoordinator({ ...newCoordinator, lastName: e.target.value })}
+                                            className="w-full p-3 bg-white border border-gray-200 rounded-xl focus:border-ministry-orange outline-none"
+                                        />
+                                    </div>
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-4">

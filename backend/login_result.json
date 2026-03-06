@@ -1,0 +1,13 @@
+{
+  "usersData": [
+    {
+      "id": "af96650e-0c78-4881-84bd-383c4635789d",
+      "username": "checkpayload123",
+      "email": "checkpayload123@manifest.local",
+      "password": "password123"
+    }
+  ],
+  "targetEmail": "checkpayload123@manifest.local",
+  "authSession": true,
+  "authError": null
+}

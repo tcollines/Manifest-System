@@ -1855,14 +1855,17 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
           stationId: stationId,
           departmentId: '4630e48a-f97e-48fd-a901-864b591c282f' // Transportation UUID
         };
-        await UserStore.add(newEntrant);
+        const addRes = await UserStore.add(newEntrant);
+        if (addRes.status === 'error') {
+          throw new Error(`Station created, but Entrant failed: ${addRes.message}`);
+        }
       }
       setStations([...stations, newStation]);
       setIsAddStationOpen(false);
       setStationForm(initialStationForm);
       showToast("Station created successfully.", 'success');
     } catch (err: any) {
-      showToast("Error creating station: " + err.message, 'error');
+      showToast(err.message || "Error creating station", 'error');
     }
   };
 
@@ -1888,7 +1891,8 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
     };
 
     try {
-      await UserStore.add(newUser);
+      const res = await UserStore.add(newUser);
+      if (res.status === 'error') throw new Error(res.message);
       setIsAddEntrantOpen(false);
       setNewEntrant({ name: '', username: '', password: '' });
       showToast("Data entrant added successfully.", 'success');
@@ -3799,7 +3803,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
                   </div>
                 </div>
                 <div className="flex justify-end pt-4 gap-3">
-                  <button type="button" onClick={() => setIsAddStationOpen(false)} className="px-4 py-2 text-gray-600 font-bold">Cancel</button>
+                  <button type="button" onClick={() => { setIsAddStationOpen(false); setStationForm(initialStationForm); }} className="px-4 py-2 text-gray-600 font-bold">Cancel</button>
                   <button type="submit" className="px-6 py-2 bg-ministry-text text-white font-bold rounded-xl hover:bg-ministry-orange">
                     {stationForm.id ? 'Update Station & User' : 'Create Station & User'}
                   </button>
@@ -3856,7 +3860,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
               <div className="flex justify-end pt-4 gap-3">
                 <button
                   type="button"
-                  onClick={() => setIsAddEntrantOpen(false)}
+                  onClick={() => { setIsAddEntrantOpen(false); setNewEntrant({ name: '', username: '', password: '' }); }}
                   className="px-4 py-2 text-gray-600 font-bold hover:bg-gray-100 rounded-lg transition-colors"
                 >
                   Cancel

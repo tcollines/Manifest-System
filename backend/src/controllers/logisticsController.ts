@@ -110,9 +110,22 @@ export const deleteStation = async (req: Request, res: Response) => {
             if (vError) throw vError;
         }
 
+        // Pre-fetch users to delete their Auth identities explicitly
+        const { data: usersToDelete } = await supabase.from('users').select('id')
+            .eq('manifest_id', manifestId).eq('station_id', id);
+
         const { error: uError } = await supabase.from('users').delete()
             .eq('manifest_id', manifestId).eq('station_id', id);
         if (uError) throw uError;
+
+        // Clean up Auth identities for the station's Data Entrants
+        if (usersToDelete && usersToDelete.length > 0) {
+            for (const user of usersToDelete) {
+                await supabase.auth.admin.deleteUser(user.id).catch(e => {
+                    console.warn(`[deleteStation] Failed to delete Auth Identity for ${user.id}:`, e.message);
+                });
+            }
+        }
 
         const { error } = await supabase.from('pickup_stations').delete()
             .eq('manifest_id', manifestId) // Tenant Isolation

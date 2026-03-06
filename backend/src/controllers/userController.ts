@@ -117,13 +117,15 @@ export const createUser = async (req: Request, res: Response) => {
         // --- NEW: Auto-Provision Auth Identity ---
         let authUserId = null;
         if (payload.username && payload.password) {
-            // Generate synthetic email if none provided
-            const targetEmail = payload.email || `${payload.username.toLowerCase().replace(/\s+/g, '')}@manifest.local`;
+            // Generate unique synthetic email if none provided to prevent collisions with soft-deleted users
+            const synthSuffix = Date.now().toString(36) + Math.random().toString(36).substring(2, 6);
+            const targetEmail = payload.email || `${payload.username.toLowerCase().replace(/\s+/g, '')}_${synthSuffix}@manifest.local`;
 
             const { data: authData, error: authError } = await supabase.auth.admin.createUser({
                 email: targetEmail,
                 password: payload.password,
-                email_confirm: true // Auto-confirm to allow immediate login
+                email_confirm: true, // Auto-confirm to allow immediate login
+                user_metadata: { manifest_id: manifestId }
             });
 
             if (authError) {
@@ -133,6 +135,12 @@ export const createUser = async (req: Request, res: Response) => {
 
             if (authData.user) {
                 authUserId = authData.user.id;
+
+                // 🚨 CRITICAL FIX: Bake manifest_id into app_metadata immediately so the first login JWT contains the tenant claim
+                await supabase.auth.admin.updateUserById(authUserId, {
+                    app_metadata: { manifest_id: manifestId }
+                }).catch(e => console.error("[createUser] Failed to bake app_metadata:", e));
+
                 payload.id = authUserId; // Bind the public profile exactly to the new Auth ID
                 payload.email = targetEmail; // Save the synthetic or real email to profile
             }
@@ -256,6 +264,13 @@ export const updateUser = async (req: Request, res: Response) => {
         if (!data || data.length === 0) {
             console.error('[CRITICAL] User update failed: 0 rows affected', { payloadId: id, authUser: authUser.id });
             throw new Error('User update failed: 0 rows affected. Possible UUID mismatch or RLS block.');
+        }
+
+        // --- NEW: Auth Clean-up for Soft Deletes ---
+        if (payload.status === 'Deleted') {
+            await supabase.auth.admin.deleteUser(id).catch(e => {
+                console.warn(`[updateUser] Failed to delete Auth Identity for soft-deleted user ${id}:`, e.message);
+            });
         }
 
         // ==========================================

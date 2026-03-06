@@ -58,7 +58,13 @@ const RoleRedirect: React.FC<RoleRedirectProps> = ({ user }) => {
         }
 
         // Default fallback if no specific role or department rule applies
-        navigate('/dashboard');
+        // SECURITY FIX: Never default unknown roles to a protected dashboard.
+        if (!user.role || user.role === 'undefined' || user.role === 'null') {
+            console.warn(`[ROLE REDIRECT SECURITY] User ${user.email} has no valid role. Restricting to /setup-account.`);
+            navigate('/setup-account', { replace: true });
+        } else {
+            navigate('/dashboard');
+        }
 
     }, [user, navigate]);
 

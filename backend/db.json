@@ -1,0 +1,37 @@
+[
+  {
+    "id": "af96650e-0c78-4881-84bd-383c4635789d",
+    "name": "Check Payload",
+    "role": "Vehicle Coordinator",
+    "username": "checkpayload123",
+    "event_id": "163f08ad-a151-4579-9519-f6a6da3e3269"
+  },
+  {
+    "id": "f63ac25a-0b69-4d10-8e7c-5511a3cf7085",
+    "name": "Mirembe Ruth",
+    "role": "Vehicle Coordinator",
+    "username": "ruth",
+    "event_id": "163f08ad-a151-4579-9519-f6a6da3e3269"
+  },
+  {
+    "id": "3c219cbf-939f-467d-ad3d-eb07df0baad9",
+    "name": "Test Bug",
+    "role": "Vehicle Coordinator",
+    "username": "testbug123",
+    "event_id": "163f08ad-a151-4579-9519-f6a6da3e3269"
+  },
+  {
+    "id": "bc9a2fd5-dbfd-43e7-8ba5-f1e219056d14",
+    "name": "Monicah",
+    "role": "Logistics",
+    "username": "monicah",
+    "event_id": null
+  },
+  {
+    "id": "5cedfd77-9c13-4a6d-a5f6-4ef9ed7d791d",
+    "name": "Nyakato Cherry",
+    "role": "Logistics",
+    "username": "cherry",
+    "event_id": null
+  }
+]

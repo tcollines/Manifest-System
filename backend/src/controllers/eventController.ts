@@ -104,6 +104,32 @@ export const deleteEvent = async (req: Request, res: Response) => {
     try {
         const eventUuid = toUUID(id);
 
+        // --- NEW: Pre-fetch & Delete Auth Identities before Cascade ---
+        // 1. Get all stations for this event
+        const { data: stations } = await supabase.from('pickup_stations').select('id')
+            .eq('manifest_id', manifestId).eq('event_id', eventUuid);
+        const stationIds = stations?.map(s => s.id) || [];
+
+        // 2. Get all users tied either directly to the event OR to its stations
+        let userQueryStr = `event_id.eq.${eventUuid}`;
+        if (stationIds.length > 0) {
+            userQueryStr += `,station_id.in.(${stationIds.join(',')})`;
+        }
+
+        const { data: usersToDelete } = await supabase.from('users').select('id')
+            .eq('manifest_id', manifestId)
+            .or(userQueryStr);
+
+        if (usersToDelete && usersToDelete.length > 0) {
+            console.log(`[deleteEvent] Found ${usersToDelete.length} Auth identities to sweep before cascade.`);
+            for (const user of usersToDelete) {
+                await supabase.auth.admin.deleteUser(user.id).catch(e => {
+                    console.warn(`[deleteEvent] Failed to delete Auth Identity for ${user.id}:`, e.message);
+                });
+            }
+        }
+        // --- END ---
+
         // Execute the fast, fully-transactional cascading delete RPC on the database directly
         const { error } = await supabase.rpc('delete_event_cascade', {
             p_manifest_id: manifestId,
