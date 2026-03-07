@@ -78,9 +78,9 @@ DECLARE
 BEGIN
     UPDATE public.vehicles
     SET 
-        current_stage = p_new_stage::public.journey_stage,
+        current_stage = p_new_stage,
         approvals = p_approvals,
-        status = COALESCE((p_update_fields->>'status')::public.vehicle_status, status),
+        status = COALESCE(p_update_fields->>'status', status),
         ongoing_start_time = COALESCE(p_update_fields->>'ongoingStartTime', ongoing_start_time),
         return_start_time = COALESCE(p_update_fields->>'returnStartTime', return_start_time),
         ongoing_arrival_time = COALESCE(p_update_fields->>'ongoingArrivalTime', ongoing_arrival_time),

@@ -41,7 +41,7 @@ app.post('/api/admin/sql', async (req, res) => {
         const poolUrl = process.env.DATABASE_URL || '';
         const match = poolUrl.match(/:([^:@]+)@/);
         const password = match ? match[1] : '';
-        const directUrl = `postgres://postgres:${password}@db.poazorjmzswectxvakzl.supabase.co:5432/postgres`;
+        const directUrl = `postgres://postgres.poazorjmzswectxvakzl:${password}@aws-0-us-east-1.pooler.supabase.com:6543/postgres?options=project%3Dpoazorjmzswectxvakzl`;
 
         const client = new Client({
             connectionString: directUrl,

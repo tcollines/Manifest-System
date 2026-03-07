@@ -12,7 +12,7 @@ async function checkLogin() {
     const { data: usersData, error } = await supabase
         .from('users')
         .select('id, username, email, password')
-        .or(`username.ilike.${inputIdentifier},email.ilike.${inputIdentifier}`)
+        .or(`username.eq.${inputIdentifier},email.ilike.${inputIdentifier}`)
         .neq('status', 'Deleted')
         .limit(1);
 

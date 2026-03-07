@@ -59,6 +59,27 @@ export const getVehicles = async (req: Request, res: Response) => {
     }
 };
 
+export const getVehicle = async (req: Request, res: Response) => {
+    const manifestId = (req as any).manifestId;
+    if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
+
+    const { id } = req.params;
+    try {
+        const { data, error } = await supabase.from('vehicles')
+            .select('*')
+            .eq('manifest_id', manifestId)
+            .eq('id', id)
+            .maybeSingle();
+
+        if (error) throw error;
+        if (!data) return res.status(404).json({ error: 'Vehicle not found' });
+
+        res.json({ vehicle: data });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
 export const addVehicle = async (req: Request, res: Response) => {
     const manifestId = (req as any).manifestId;
     if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
@@ -120,12 +141,16 @@ export const addVehicle = async (req: Request, res: Response) => {
             coordinator_uid,
             id: req.body.id ? toUUID(req.body.id) : uuidv4(),
             station_id: toUUID(station_id),
-            event_id: toUUID(event_id)
+            event_id: toUUID(event_id),
+            current_stage: req.body.currentStage || 'Onboarding',
+            journey_direction: req.body.journeyDirection || 'Ongoing'
         };
+        delete payload.currentStage;
+        delete payload.journeyDirection;
 
-        const { error } = await supabase.from('vehicles').insert([payload]);
+        const { data, error } = await supabase.from('vehicles').insert([payload]).select('*').maybeSingle();
         if (error) throw error;
-        res.status(201).json({ message: 'Vehicle added' });
+        res.status(201).json({ message: 'Vehicle added', vehicle: data });
     } catch (error: any) {
         console.error("Add Vehicle Error:", error);
         res.status(500).json({ error: error.message });
@@ -204,10 +229,10 @@ export const updateVehicle = async (req: Request, res: Response) => {
         }
 
         const expectedVersion = payload.version;
-        delete payload.version; // DO NOT SEND VERSION IN PAYLOAD, TRIGGER HANDLES INCREMENT
+        delete payload.version; // Override trigger expectation
 
         let query = supabase.from('vehicles')
-            .update(payload)
+            .update({ ...payload, version: expectedVersion !== undefined ? expectedVersion + 1 : undefined })
             .eq('manifest_id', manifestId) // Tenant Isolation
             .eq('id', idUuid);
 
@@ -215,7 +240,7 @@ export const updateVehicle = async (req: Request, res: Response) => {
             query = query.eq('version', expectedVersion);
         }
 
-        const { data, error } = await query.select('id').maybeSingle();
+        const { data, error } = await query.select('*').maybeSingle();
         if (error) throw error;
 
         // Optimistic Locking Conflict Check
@@ -223,7 +248,7 @@ export const updateVehicle = async (req: Request, res: Response) => {
             return res.status(409).json({ error: 'Conflict: This vehicle has been modified by another coordinator. Please refresh to get the latest version.' });
         }
 
-        res.json({ message: 'Vehicle updated' });
+        res.json({ message: 'Vehicle updated', vehicle: data });
     } catch (error: any) {
         res.status(500).json({ error: error.message });
     }
@@ -251,24 +276,28 @@ export const updateVehicleStage = async (req: Request, res: Response) => {
             .select('id').eq('manifest_id', manifestId).eq('id', id).maybeSingle();
         if (vErr || !vRecord) return res.status(404).json({ error: 'Vehicle not found' });
 
-        const { data, error } = await supabase.rpc('rpc_update_vehicle_stage', {
-            p_vehicle_id: id,
-            p_new_stage: payload.current_stage || null,
-            p_approvals: payload.approvals || null,
-            p_update_fields: {
-                status: payload.status,
-                ongoingStartTime: payload.ongoing_start_time,
-                returnStartTime: payload.return_start_time,
-                ongoingArrivalTime: payload.ongoing_arrival_time,
-                returnArrivalTime: payload.return_arrival_time
-            },
-            p_expected_version: version !== undefined ? version : null
-        });
+        // Optimistic Locking Requirement Removed for Reversion
+        // Version increments are now handled manually or ignored for simplicity.
 
-        // Optimistic Locking Conflict Check
-        if (error && error.message && error.message.includes('Concurrency Conflict')) {
-            return res.status(409).json({ error: 'Conflict: This vehicle state has been modified by another coordinator. Please refresh.' });
-        }
+        // Direct Update
+        const { data, error } = await supabase.from('vehicles')
+            .update({
+                current_stage: payload.current_stage,
+                approvals: payload.approvals,
+                status: payload.status,
+                ongoing_start_time: payload.ongoing_start_time,
+                return_start_time: payload.return_start_time,
+                ongoing_arrival_time: payload.ongoing_arrival_time,
+                return_arrival_time: payload.return_arrival_time,
+                version: (version || 0) + 1 // Basic increment without enforcement
+            })
+            .eq('manifest_id', manifestId)
+            .eq('id', id)
+            .select('*')
+            .maybeSingle();
+
+        if (error) throw error;
+        if (!data) return res.status(404).json({ error: 'Vehicle not found during update' });
         if (error) throw error;
 
         res.json({ message: 'Vehicle stage updated', vehicle: data });
@@ -288,21 +317,35 @@ export const startReturnJourney = async (req: Request, res: Response) => {
             .select('id').eq('manifest_id', manifestId).eq('id', id).maybeSingle();
         if (vErr || !vRecord) return res.status(404).json({ error: 'Vehicle not found' });
 
-        const { data, error } = await supabase.rpc('rpc_start_return_journey', {
-            p_vehicle_id: id,
-            p_expected_version: version !== undefined ? version : null
-        });
+        // 1. Reset all passengers linked to this vehicle
+        const { error: pResetErr } = await supabase.from('passengers')
+            .update({ verified: false })
+            .eq('manifest_id', manifestId)
+            .eq('vehicle_id', id);
+        if (pResetErr) throw pResetErr;
 
-        if (error && error.message && error.message.includes('Concurrency Conflict')) {
-            return res.status(409).json({ error: 'Conflict: This vehicle has been modified by another coordinator. Please refresh.' });
-        }
+        // 2. Update the vehicle to Return defaults
+        const { data, error } = await supabase.from('vehicles')
+            .update({
+                journey_direction: 'Return',
+                current_stage: 'Onboarding',
+                approvals: { registration: 'Pending', finance: 'Pending' },
+                version: (version || 0) + 1
+            })
+            .eq('manifest_id', manifestId)
+            .eq('id', id)
+            .select('*')
+            .maybeSingle();
+
         if (error) throw error;
+        if (!data) return res.status(404).json({ error: 'Vehicle not found' });
 
         res.json({ message: 'Return journey started', vehicle: data });
     } catch (error: any) {
         res.status(500).json({ error: error.message });
     }
 };
+
 
 export const updateVehicleFinance = async (req: Request, res: Response) => {
     const manifestId = (req as any).manifestId;
@@ -320,14 +363,14 @@ export const updateVehicleFinance = async (req: Request, res: Response) => {
         if (return_start_time !== undefined) payload.return_start_time = return_start_time;
 
         let query = supabase.from('vehicles')
-            .update(payload)
+            .update({ ...payload, version: version !== undefined ? version + 1 : undefined })
             .eq('manifest_id', manifestId).eq('id', id);
 
         if (version !== undefined) {
             query = query.eq('version', version);
         }
 
-        const { data, error } = await query.select('id').maybeSingle();
+        const { data, error } = await query.select('*').maybeSingle();
         if (error) throw error;
 
         // Optimistic Locking Conflict Check
@@ -335,7 +378,7 @@ export const updateVehicleFinance = async (req: Request, res: Response) => {
             return res.status(409).json({ error: 'Conflict: This vehicle has been financially updated by another coordinator. Please refresh.' });
         }
 
-        res.json({ message: 'Vehicle finance updated' });
+        res.json({ message: 'Vehicle finance updated', vehicle: data });
     } catch (error: any) {
         res.status(500).json({ error: error.message });
     }
@@ -444,9 +487,9 @@ export const addPassenger = async (req: Request, res: Response) => {
             is_first_time: req.body.is_first_time || req.body.isFirstTime || 'No',
             station_id: toUUID(req.body.station_id)
         };
-        const { error } = await supabase.from('passengers').insert([payload]);
+        const { data, error } = await supabase.from('passengers').insert([payload]).select('*').maybeSingle();
         if (error) throw error;
-        res.status(201).json({ message: 'Passenger added' });
+        res.status(201).json({ message: 'Passenger added', passenger: data });
     } catch (error: any) {
         res.status(500).json({ error: error.message, details: error.details });
     }
@@ -509,13 +552,16 @@ export const checkinPassenger = async (req: Request, res: Response) => {
             .select('id').eq('manifest_id', manifestId).eq('id', idUuid).maybeSingle();
         if (pErr || !pRecord) return res.status(404).json({ error: 'Passenger not found' });
 
-        const { data, error } = await supabase.rpc('rpc_checkin_passenger', {
-            p_passenger_id: idUuid,
-            p_is_verified: isVerified,
-            p_expected_version: version !== undefined ? version : null
-        });
+        // Direct Update Replacement for RPC
+        const { data, error } = await supabase.from('passengers')
+            .update({ verified: isVerified })
+            .eq('manifest_id', manifestId)
+            .eq('id', idUuid)
+            .eq('version', version !== undefined ? version : -1)
+            .select('*')
+            .maybeSingle();
 
-        if (error && error.message && error.message.includes('Concurrency Conflict')) {
+        if (!data && version !== undefined) {
             return res.status(409).json({ error: 'Conflict: Passenger state changed concurrently. Please refresh.' });
         }
         if (error) throw error;

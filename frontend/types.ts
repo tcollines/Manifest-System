@@ -191,6 +191,7 @@ export interface Vehicle {
   returnStartTime?: string;
   returnArrivalTime?: string;
   childrenCount?: number;
+  cognito_submitted_at?: string; // Track Cognito Form Submission
   version?: number;
 }
 

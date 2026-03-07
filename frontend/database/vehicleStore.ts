@@ -19,7 +19,7 @@ export const mapVehicleFromDB = (v: any): Vehicle => ({
     timeArrival: v.time_arrival,
     status: v.status,
     journeyDirection: v.journey_direction,
-    currentStage: v.current_stage,
+    currentStage: (v.current_stage === 'Registration' ? 'Onboarding' : v.current_stage),
     approvals: v.approvals,
     financeDetails: v.finance_details,
     location: v.location,
@@ -27,7 +27,8 @@ export const mapVehicleFromDB = (v: any): Vehicle => ({
     ongoingArrivalTime: v.ongoing_arrival_time,
     returnStartTime: v.return_start_time,
     returnArrivalTime: v.return_arrival_time,
-    childrenCount: v.children
+    childrenCount: v.children,
+    version: v.version
 });
 
 export const mapPassengerFromDB = (p: any): Passenger => ({
@@ -44,7 +45,8 @@ export const mapPassengerFromDB = (p: any): Passenger => ({
     boardingType: p.boarding_type,
     gender: p.gender,
     parentContact: p.parent_contact,
-    soulWon: p.soul_won
+    soulWon: p.soul_won,
+    version: p.version
 });
 
 export const mapPersonalVehicleFromDB = (v: any): any => ({
@@ -79,7 +81,15 @@ export const VehicleStore = {
         );
     },
 
-    addVehicle: async (vehicle: Vehicle): Promise<ServiceResponse<void>> => {
+    getVehicle: async (id: string): Promise<ServiceResponse<Vehicle | null>> => {
+        return safeFetch(
+            () => apiFetch(`/vehicles/${id}?_t=${Date.now()}`),
+            'Failed to fetch vehicle',
+            (res: any) => res.vehicle ? mapVehicleFromDB(res.vehicle) : null
+        );
+    },
+
+    addVehicle: async (vehicle: Vehicle): Promise<ServiceResponse<Vehicle | null>> => {
         const payload = {
             id: vehicle.id,
             station_id: vehicle.stationId,
@@ -101,7 +111,7 @@ export const VehicleStore = {
             ongoing_start_time: vehicle.ongoingStartTime,
             ongoing_arrival_time: vehicle.ongoingArrivalTime,
             return_start_time: vehicle.returnStartTime,
-            return_arrival_time: vehicle.returnArrivalTime,
+            return_arrivalTime: vehicle.returnArrivalTime,
             children: vehicle.childrenCount
         };
         return safeFetch(
@@ -109,11 +119,12 @@ export const VehicleStore = {
                 method: 'POST',
                 body: JSON.stringify(payload)
             }),
-            'Error adding vehicle'
+            'Error adding vehicle',
+            (res: any) => res.vehicle ? mapVehicleFromDB(res.vehicle) : null
         );
     },
 
-    updateVehicle: async (vehicle: Partial<Vehicle> & { id: string }): Promise<void> => {
+    updateVehicle: async (vehicle: Partial<Vehicle> & { id: string }): Promise<Vehicle> => {
         // Construct payload dynamically to allow pure PATCH updates (no overwrites)
         const payload: Record<string, any> = {};
 
@@ -132,10 +143,11 @@ export const VehicleStore = {
         if (vehicle.version !== undefined) payload.version = vehicle.version; // For optimistic locking
 
         try {
-            await apiFetch(`/vehicles/${vehicle.id}`, {
+            const res = await apiFetch(`/vehicles/${vehicle.id}`, {
                 method: 'PATCH',
                 body: JSON.stringify(payload)
             });
+            return mapVehicleFromDB(res.vehicle);
         } catch (e: any) {
             console.error('Unexpected error updating vehicle:', e.message || e);
             throw e;
@@ -143,9 +155,11 @@ export const VehicleStore = {
     },
 
     // Targeted update for approvals to avoid overwriting other fields
-    updateVehicleStage: async (id: string, stage: string, approvals: any, options?: { status?: string, journeyDirection?: string, ongoingArrivalTime?: string, returnArrivalTime?: string, ongoingStartTime?: string, returnStartTime?: string, version?: number }): Promise<void> => {
+    updateVehicleStage: async (id: string, stage: string, approvals: any, options?: { status?: string, journeyDirection?: string, ongoingArrivalTime?: string, returnArrivalTime?: string, ongoingStartTime?: string, returnStartTime?: string, version?: number }): Promise<Vehicle> => {
+        console.log("updateVehicleStage called from:", new Error().stack);
+        console.log("Stage update payload:", { id, stage, version: options?.version });
         try {
-            await apiFetch(`/vehicles/${id}/stage`, {
+            const res = await apiFetch(`/vehicles/${id}/stage`, {
                 method: 'PATCH',
                 body: JSON.stringify({
                     stage,
@@ -155,15 +169,16 @@ export const VehicleStore = {
                     ongoing_arrival_time: options?.ongoingArrivalTime,
                     return_arrival_time: options?.returnArrivalTime,
                     ongoing_start_time: options?.ongoingStartTime,
-                    return_start_time: options?.returnStartTime,
-                    version: options?.version
+                    return_start_time: options?.returnStartTime
                 })
             });
+            return mapVehicleFromDB(res.vehicle);
         } catch (e: any) {
             console.error('Error updating vehicle stage:', e.message || e);
             throw e;
         }
     },
+
 
     startReturnJourney: async (id: string, version?: number): Promise<void> => {
         try {
@@ -177,9 +192,9 @@ export const VehicleStore = {
         }
     },
 
-    updateVehicleFinance: async (id: string, financeDetails: any, currentStage?: string, approvals?: any, journeyDirection?: string, ongoingStartTime?: string, returnStartTime?: string, version?: number): Promise<void> => {
+    updateVehicleFinance: async (id: string, financeDetails: any, currentStage?: string, approvals?: any, journeyDirection?: string, ongoingStartTime?: string, returnStartTime?: string, version?: number): Promise<Vehicle> => {
         try {
-            await apiFetch(`/vehicles/${id}/finance`, {
+            const res = await apiFetch(`/vehicles/${id}/finance`, {
                 method: 'PATCH',
                 body: JSON.stringify({
                     finance_details: financeDetails,
@@ -191,6 +206,7 @@ export const VehicleStore = {
                     version: version
                 })
             });
+            return mapVehicleFromDB(res.vehicle);
         } catch (e: any) {
             console.error('Error updating vehicle finance:', e.message || e);
             throw e;
@@ -259,7 +275,7 @@ export const VehicleStore = {
         );
     },
 
-    addPassenger: async (passenger: Passenger): Promise<void> => {
+    addPassenger: async (passenger: Passenger): Promise<ServiceResponse<Passenger | null>> => {
         const payload = {
             id: passenger.id,
             vehicle_id: passenger.vehicleId,
@@ -278,15 +294,14 @@ export const VehicleStore = {
             event_id: passenger.eventId, // Added field
             station_id: passenger.stationId // Added field
         };
-        try {
-            await apiFetch('/vehicles/passengers', {
+        return safeFetch(
+            () => apiFetch('/vehicles/passengers', {
                 method: 'POST',
                 body: JSON.stringify(payload)
-            });
-        } catch (e: any) {
-            console.error('Unexpected error adding passenger:', e.message || e);
-            throw e;
-        }
+            }),
+            'Error adding passenger',
+            (res: any) => res.passenger ? mapPassengerFromDB(res.passenger) : null
+        );
     },
 
     updatePassenger: async (passenger: Partial<Passenger> & { id: string }): Promise<void> => {

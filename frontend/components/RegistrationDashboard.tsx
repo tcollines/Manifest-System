@@ -1471,7 +1471,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
         eventId: selectedStation.eventId,
         coordinator: vehicleForm.coordinator || currentUser.name,
         approvals: { registration: 'Pending', finance: 'Pending' } as any,
-        currentStage: 'Registration' as any
+        currentStage: 'Onboarding' as any
       };
 
       const res = await VehicleStore.addVehicle(newVeh);
@@ -1480,7 +1480,8 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
         throw new Error(res.message || "Failed to add vehicle");
       }
 
-      setVehicles(prev => [...prev, newVeh]);
+      const createdVeh = res.data || newVeh;
+      setVehicles(prev => [...prev, createdVeh]);
       showToast("Vehicle Added Successfully", 'success');
       setIsAddVehicleOpen(false);
       setVehicleForm({
@@ -2000,8 +2001,9 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
         showToast("Passenger updated successfully", 'success');
       } else {
         // CREATE MODE
-        await VehicleStore.addPassenger(payload);
-        setPassengers(prev => [...prev, payload]);
+        const res = await VehicleStore.addPassenger(payload);
+        const createdPassenger = (res.status === 'success' && res.data) ? res.data : payload;
+        setPassengers(prev => [...prev, createdPassenger]);
         showToast("Passenger added successfully", 'success');
       }
 
@@ -2074,11 +2076,14 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
         };
 
         // Targeted Update in DB (Safer than full update)
-        await VehicleStore.updateVehicleStage(selectedVehicle.id, nextStage, updatedApprovals);
+        const updatedFromDB = await VehicleStore.updateVehicleStage(selectedVehicle.id, nextStage, updatedApprovals, {
+          version: selectedVehicle.version
+        });
 
-        // Construct updated object for local state
+        // Construct updated object for local state (Using server response is best)
         const updatedVehicle: Vehicle = {
           ...selectedVehicle,
+          ...updatedFromDB, // Sync all server-side changes including new version
           currentStage: nextStage as any,
           approvals: updatedApprovals as any
         };

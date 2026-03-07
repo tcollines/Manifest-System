@@ -40,7 +40,9 @@ import {
     Activity,
     Heart,
     Phone,
-    Package
+    Package,
+    Loader2,
+    ExternalLink
 } from 'lucide-react';
 import { StageDetailsTab } from './StageDetailsTab';
 
@@ -59,6 +61,8 @@ const center = {
     lat: 0.3476,
     lng: 32.5825
 };
+
+const COGNITO_FORM_URL = "https://www.cognitoforms.com/Phaneroo3/MENGATHERTransportedPrecapture";
 
 
 interface TransportationDashboardProps {
@@ -137,6 +141,7 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
         residence: ''
     });
     const lastLocationUpdate = useRef(0);
+    const isSubmittingRef = useRef(false);
     const [dbStations, setDbStations] = useState<ExtendedStation[]>([]);
 
     // --- HEAD OF DEPT DETAIL VIEW STATE ---
@@ -152,6 +157,7 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
 
     // Force re-render state
     const [, forceUpdate] = useState(0);
+    const [submittingStage, setSubmittingStage] = useState<string | null>(null);
 
     const refreshData = async (targetEventId: string = selectedEventId) => {
         const isCoord = isCoordinatorView && currentUser;
@@ -185,10 +191,12 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
                 if (mine) {
                     let updated = mine;
                     if (!mine.currentStage || !mine.journeyDirection) {
-                        updated = { ...mine, currentStage: 'Onboarding', journeyDirection: 'Ongoing', approvals: { registration: 'Pending', finance: 'Pending' } };
-                        VehicleStore.updateVehicleStage(updated.id, updated.currentStage, updated.approvals, {
-                            journeyDirection: updated.journeyDirection
-                        });
+                        updated = {
+                            ...mine,
+                            currentStage: mine.currentStage || 'Onboarding',
+                            journeyDirection: mine.journeyDirection || 'Ongoing',
+                            approvals: mine.approvals || { registration: 'Pending', finance: 'Pending' }
+                        };
                     }
                     setMyVehicle(updated);
                     if (updated.journeyDirection) setActiveJourneyTab(updated.journeyDirection);
@@ -495,56 +503,59 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
 
 
 
-    const handleStageUpdate = (newStage: JourneyStage) => {
-        if (!myVehicle) return;
-        const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const handleStageUpdate = async (newStage: JourneyStage) => {
+        if (!myVehicle || isSubmittingRef.current) return;
+        isSubmittingRef.current = true;
+        setSubmittingStage(newStage);
 
-        let updated = { ...myVehicle, currentStage: newStage };
+        try {
+            const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            let updated = { ...myVehicle, currentStage: newStage };
 
-        // Capture Timestamps (Capture if not already set by Finance)
-        if (newStage === 'Transit') {
-            if (activeJourneyTab === 'Ongoing' && !updated.ongoingStartTime) updated.ongoingStartTime = now;
-            else if (activeJourneyTab === 'Return' && !updated.returnStartTime) updated.returnStartTime = now;
-        }
-
-        if (newStage === 'Arrived') {
-            if (activeJourneyTab === 'Ongoing') {
-                updated.ongoingArrivalTime = now;
-                // Update DB and state before switching
-                VehicleStore.updateVehicleStage(updated.id, updated.currentStage, updated.approvals, {
-                    ongoingArrivalTime: updated.ongoingArrivalTime,
-                    status: updated.status,
-                    ongoingStartTime: updated.ongoingStartTime
-                });
-                setMyVehicle(updated);
-
-                showToast("Ongoing Journey Completed. Switching to Return...", "success");
-
-                // Auto switch to return journey using the updated object
-                setTimeout(() => {
-                    switchJourneyTab('Return', updated);
-                }, 1500); // Increased delay slightly for toast visibility
-                return; // Prevent double update below
-            } else {
-                updated.returnArrivalTime = now;
-                updated.status = 'Completed';
-                updated.currentStage = 'Completed';
-                showToast("Return Journey Completed!", "success");
+            // Prep metadata updates
+            if (newStage === 'Transit') {
+                if (activeJourneyTab === 'Ongoing' && !updated.ongoingStartTime) updated.ongoingStartTime = now;
+                else if (activeJourneyTab === 'Return' && !updated.returnStartTime) updated.returnStartTime = now;
             }
+
+            if (newStage === 'Arrived') {
+                if (activeJourneyTab === 'Ongoing') updated.ongoingArrivalTime = now;
+                else {
+                    updated.returnArrivalTime = now;
+                    updated.status = 'Completed';
+                }
+            }
+
+            if (newStage === 'RegApproval') updated.approvals = { ...updated.approvals, registration: 'Pending', finance: 'Pending' };
+            if (newStage === 'FinanceApproval') updated.approvals = { ...updated.approvals!, registration: 'Approved', finance: 'Pending' };
+            if (newStage === 'Transit') updated.approvals = { ...updated.approvals!, finance: 'Approved', registration: 'Approved' };
+
+            // Simple direct update
+            const confirmedVehicle = await VehicleStore.updateVehicleStage(updated.id, updated.currentStage, updated.approvals, {
+                status: updated.status,
+                ongoingStartTime: updated.ongoingStartTime,
+                returnStartTime: updated.returnStartTime,
+                ongoingArrivalTime: updated.ongoingArrivalTime,
+                returnArrivalTime: updated.returnArrivalTime,
+                version: myVehicle.version
+            });
+
+            // Finalize UI State
+            setMyVehicle(confirmedVehicle);
+
+            if (newStage === 'Arrived' && activeJourneyTab === 'Ongoing') {
+                showToast("Ongoing Journey Completed. Switching to Return...", "success");
+                setTimeout(() => {
+                    switchJourneyTab('Return', confirmedVehicle);
+                }, 1500);
+            }
+        } catch (err: any) {
+            console.error(`[StageUpdate] Error:`, err);
+            showToast(err.message || `Failed to transition to ${newStage}`, "error");
+        } finally {
+            setSubmittingStage(null);
+            isSubmittingRef.current = false;
         }
-
-        if (newStage === 'RegApproval') updated.approvals = { ...updated.approvals, registration: 'Pending', finance: 'Pending' };
-        if (newStage === 'FinanceApproval') updated.approvals = { ...updated.approvals!, registration: 'Approved', finance: 'Pending' };
-        if (newStage === 'Transit') updated.approvals = { ...updated.approvals!, finance: 'Approved', registration: 'Approved' };
-
-        VehicleStore.updateVehicleStage(updated.id, updated.currentStage, updated.approvals, {
-            status: updated.status,
-            ongoingStartTime: updated.ongoingStartTime,
-            returnStartTime: updated.returnStartTime,
-            ongoingArrivalTime: updated.ongoingArrivalTime,
-            returnArrivalTime: updated.returnArrivalTime
-        });
-        setMyVehicle(updated);
     };
 
     const isReturnAvailable = !!myVehicle?.ongoingArrivalTime;
@@ -615,18 +626,15 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
         };
 
         if (tab === 'Return') {
-            // Use the ATOMIC Postgres RPC to avoid N+1 requests
             try {
                 await VehicleStore.startReturnJourney(updated.id, vehicleToUpdate.version);
-                const resetPassengers = passengers.map(p => ({ ...p, verified: false }));
-                setPassengers(resetPassengers);
+                setPassengers(prev => prev.map(p => ({ ...p, verified: false })));
                 setMyVehicle(updated);
             } catch (error) {
-                console.error("Failed to start return journey via RPC:", error);
+                console.error("Failed to start return journey:", error);
                 showToast("Failed to start return journey", "error");
             }
         } else {
-            // Normal fallback
             VehicleStore.updateVehicleStage(updated.id, updated.currentStage, updated.approvals, {
                 journeyDirection: updated.journeyDirection
             });
@@ -1074,10 +1082,15 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
                                         {myVehicle.currentStage === 'Transit' && (
                                             <button
                                                 onClick={() => handleStageUpdate('Arrived')}
-                                                className="bg-green-500 hover:bg-green-600 text-white px-8 py-3 rounded-full font-bold text-lg shadow-xl flex items-center transform hover:scale-105 transition-all"
+                                                disabled={!!submittingStage}
+                                                className={`bg-green-500 hover:bg-green-600 text-white px-8 py-3 rounded-full font-bold text-lg shadow-xl flex items-center transform hover:scale-105 transition-all ${submittingStage ? 'opacity-50 cursor-not-allowed' : ''}`}
                                             >
-                                                <MapPin className="w-5 h-5 mr-2" />
-                                                Confirm Arrival
+                                                {submittingStage === 'Arrived' ? (
+                                                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                                                ) : (
+                                                    <MapPin className="w-5 h-5 mr-2" />
+                                                )}
+                                                {submittingStage === 'Arrived' ? 'Processing...' : 'Confirm Arrival'}
                                             </button>
                                         )}
 
@@ -1091,10 +1104,15 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
                                         {myVehicle.currentStage === 'Arrived' && activeJourneyTab === 'Return' && !myVehicle.returnArrivalTime && (
                                             <button
                                                 onClick={() => handleStageUpdate('Onboarding')}
-                                                className="bg-black text-ministry-neon px-8 py-3 rounded-full font-bold text-lg shadow-xl flex items-center transform hover:scale-105 transition-all"
+                                                disabled={!!submittingStage}
+                                                className={`bg-black text-ministry-neon px-8 py-3 rounded-full font-bold text-lg shadow-xl flex items-center transform hover:scale-105 transition-all ${submittingStage ? 'opacity-50 cursor-not-allowed' : ''}`}
                                             >
-                                                <ChevronRight className="w-5 h-5 mr-2" />
-                                                Start Return Journey
+                                                {submittingStage === 'Onboarding' ? (
+                                                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                                                ) : (
+                                                    <ChevronRight className="w-5 h-5 mr-2" />
+                                                )}
+                                                {submittingStage === 'Onboarding' ? 'Processing...' : 'Start Return Journey'}
                                             </button>
                                         )}
                                     </div>
@@ -1179,32 +1197,45 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
                                             )}
 
                                             <div className="pt-4 flex justify-end">
-                                                {myVehicle.currentStage === 'Onboarding' ? (
+                                                {myVehicle.currentStage === 'Onboarding' && (
                                                     <button
-                                                        onClick={() => {
-                                                            if (passengers.length === 0) {
-                                                                showToast("Cannot approve empty vehicle. Please add passengers.", "error");
-                                                                return;
-                                                            }
-                                                            handleStageUpdate('Verifying');
-                                                        }}
-                                                        className={`bg-ministry-text text-white px-6 py-3 rounded-xl font-bold flex items-center hover:bg-gray-800 transition-all ${passengers.length === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                                        disabled={passengers.length === 0}
+                                                        onClick={() => handleStageUpdate('Verifying')}
+                                                        disabled={passengers.length === 0 || !!submittingStage}
+                                                        className={`bg-ministry-text text-white px-6 py-3 rounded-xl font-bold flex items-center hover:bg-gray-800 transition-all ${(passengers.length === 0 || !!submittingStage) ? 'opacity-50 cursor-not-allowed' : ''}`}
                                                     >
-                                                        <ThumbsUp className="w-4 h-4 mr-2" />
-                                                        Approve Onboarding
+                                                        {submittingStage === 'Verifying' ? (
+                                                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                                        ) : (
+                                                            <ThumbsUp className="w-4 h-4 mr-2" />
+                                                        )}
+                                                        {submittingStage === 'Verifying' ? 'Processing...' : 'Approve Onboarding'}
                                                     </button>
-                                                ) : (
+                                                )}
+
+                                                {myVehicle.currentStage === 'Verifying' && (
                                                     <button
                                                         onClick={async () => {
+                                                            if (isSubmittingRef.current || !myVehicle) return;
                                                             if (passengers.length === 0) {
                                                                 showToast("Cannot approve empty vehicle. Please add passengers.", "error");
                                                                 return;
                                                             }
+
+                                                            // 1. Passenger Limit Validation
+                                                            if (passengers.length > 80) {
+                                                                showToast("Manifest exceeds safe submission limits. Please split the manifest.", "error");
+                                                                return;
+                                                            }
+
+                                                            // 2. Completeness Validation
+                                                            if (!myVehicle.number_plate || !myVehicle.coordinator) {
+                                                                showToast("Vehicle number plate or coordinator name is missing.", "error");
+                                                                return;
+                                                            }
+
                                                             const unverifiedCount = passengers.filter(p => !p.verified).length;
                                                             if (activeJourneyTab === 'Return' && unverifiedCount > 0) {
                                                                 const verifiedCount = passengers.length - unverifiedCount;
-                                                                // Use custom confirm implementation
                                                                 const confirmed = await askConfirm(
                                                                     <span>You have confirmed <strong>{verifiedCount}/{passengers.length}</strong> members. Are you sure you want to continue?</span>,
                                                                     {
@@ -1215,17 +1246,30 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
                                                                 );
 
                                                                 if (confirmed) {
-                                                                    handleStageUpdate('FinanceApproval');
+                                                                    setSubmittingStage('FinanceApproval');
+                                                                    try {
+                                                                        await handleStageUpdate('FinanceApproval');
+                                                                    } finally {
+                                                                        setSubmittingStage(null);
+                                                                    }
                                                                 }
                                                             } else {
-                                                                handleStageUpdate(activeJourneyTab === 'Ongoing' ? 'RegApproval' : 'FinanceApproval');
+                                                                if (activeJourneyTab === 'Ongoing') {
+                                                                    window.location.href = COGNITO_FORM_URL;
+                                                                } else {
+                                                                    handleStageUpdate('FinanceApproval');
+                                                                }
                                                             }
                                                         }}
-                                                        className={`bg-ministry-orange text-white px-6 py-3 rounded-xl font-bold flex items-center shadow-lg transition-all ${passengers.length === 0 || (activeJourneyTab === 'Ongoing' && passengers.some(p => !p.verified)) ? 'opacity-50 cursor-not-allowed hover:bg-orange-600' : 'hover:bg-orange-600'}`}
-                                                        disabled={passengers.length === 0 || (activeJourneyTab === 'Ongoing' && passengers.some(p => !p.verified))}
+                                                        disabled={passengers.length === 0 || !!submittingStage}
+                                                        className={`bg-ministry-orange text-white px-6 py-3 rounded-xl font-bold flex items-center shadow-lg transition-all ${passengers.length === 0 || (activeJourneyTab === 'Ongoing' && passengers.some(p => !p.verified)) || !!submittingStage ? 'opacity-50 cursor-not-allowed hover:bg-orange-600' : 'hover:bg-orange-600'}`}
                                                     >
-                                                        <ShieldAlert className="w-4 h-4 mr-2" />
-                                                        Approve Verification
+                                                        {submittingStage === 'FinanceApproval' ? (
+                                                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                                        ) : (
+                                                            activeJourneyTab === 'Return' ? <ThumbsUp className="w-4 h-4 mr-2" /> : <ExternalLink className="w-4 h-4 mr-2" />
+                                                        )}
+                                                        {submittingStage ? 'Processing...' : (activeJourneyTab === 'Return' ? 'Approve Verification' : 'Open Passenger Registration Form')}
                                                     </button>
                                                 )}
                                             </div>
@@ -1244,12 +1288,23 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
                                             <p className="text-gray-500 max-w-sm mb-6">
                                                 The central team is reviewing your vehicle manifest. Please wait for approval to proceed.
                                             </p>
-                                            <button
-                                                onClick={() => refreshData(selectedEventId)}
-                                                className="flex items-center text-ministry-orange hover:underline font-bold"
-                                            >
-                                                <RefreshCw className="w-4 h-4 mr-2" /> Refresh Status
-                                            </button>
+                                            <div className="flex flex-col gap-3 items-center">
+                                                {activeJourneyTab === 'Ongoing' && (
+                                                    <button
+                                                        onClick={() => window.location.href = COGNITO_FORM_URL}
+                                                        className="bg-ministry-orange text-white px-6 py-2 rounded-lg font-bold hover:bg-orange-600 transition-colors flex items-center shadow"
+                                                    >
+                                                        <ExternalLink className="w-4 h-4 mr-2" /> Open Passenger Registration Form
+                                                    </button>
+                                                )}
+
+                                                <button
+                                                    onClick={() => refreshData(selectedEventId)}
+                                                    className="flex items-center text-gray-500 hover:text-ministry-orange transition-colors text-sm font-medium"
+                                                >
+                                                    <RefreshCw className="w-4 h-4 mr-2" /> Refresh Status
+                                                </button>
+                                            </div>
 
                                         </div>
                                     )}
