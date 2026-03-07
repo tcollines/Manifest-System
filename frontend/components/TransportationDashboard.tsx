@@ -177,7 +177,7 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
             if (isVehicleCoord) {
                 // VEHICLE COORDINATOR VIEW: Parallelize My Vehicle and My Passengers
                 const [vehicleRes, passengerRes] = await Promise.all([
-                    VehicleStore.getVehicles({ coordinatorUid: currentUser.id, coordinator: currentUser.name }), // Use both ID and name for robust search
+                    VehicleStore.getVehicles({ coordinatorUid: currentUser.id, coordinator: currentUser.name, eventId: targetEventId }), // Use both ID and name for robust search
                     Promise.resolve({ status: 'success', data: [] })
                 ]);
 
@@ -201,10 +201,7 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
                     setMyVehicle(updated);
                     if (updated.journeyDirection) setActiveJourneyTab(updated.journeyDirection);
 
-                    // FIX: Ensure real-time subscription listens to the correct event channel
-                    if (updated.eventId && updated.eventId !== selectedEventId) {
-                        setTimeout(() => setSelectedEventId(updated.eventId!), 0);
-                    }
+                    // Re-fetch passengers specifically for this vehicle to be sure
 
                     // Re-fetch passengers specifically for this vehicle to be sure
                     const pRes = await VehicleStore.getPassengers(mine.id);

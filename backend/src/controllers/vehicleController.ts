@@ -26,6 +26,7 @@ export const getVehicles = async (req: Request, res: Response) => {
         }
 
         let query = supabase.from('vehicles').select('*').eq('manifest_id', manifestId); // Tenant Isolation
+        query = query.order('created_at', { ascending: false });
 
         const validUid = coordinatorUid ? toUUID(coordinatorUid) : null;
 
