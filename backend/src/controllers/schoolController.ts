@@ -6,11 +6,17 @@ export const getSchoolReports = async (req: Request, res: Response) => {
     if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
 
     try {
-        const { data, error } = await supabase
+        const { eventId } = req.query;
+        let query = supabase
             .from('school_outreach_reports')
             .select('*')
-            .eq('manifest_id', manifestId) // Tenant Isolation
-            .order('date', { ascending: false });
+            .eq('manifest_id', manifestId); // Tenant Isolation
+
+        if (eventId) {
+            query = query.eq('event_id', eventId);
+        }
+
+        const { data, error } = await query.order('date', { ascending: false });
         if (error) throw error;
         res.json(data);
     } catch (error: any) {
@@ -23,7 +29,8 @@ export const addSchoolReport = async (req: Request, res: Response) => {
     if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
 
     try {
-        const payload = { ...req.body, manifest_id: manifestId };
+        const { event_id, ...rest } = req.body;
+        const payload = { ...rest, event_id, manifest_id: manifestId };
         const { data, error } = await supabase
             .from('school_outreach_reports')
             .insert([payload])

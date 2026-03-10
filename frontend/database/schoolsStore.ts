@@ -3,9 +3,10 @@ import { SchoolOutreachReport } from '../types';
 
 export const SchoolsStore = {
     // Fetch all reports
-    async getAllReports(): Promise<SchoolOutreachReport[]> {
+    async getAllReports(eventId?: string): Promise<SchoolOutreachReport[]> {
         try {
-            const data = await apiFetch('/schools/reports');
+            const url = eventId ? `/schools/reports?eventId=${eventId}` : '/schools/reports';
+            const data = await apiFetch(url);
             return data.map(mapSchoolReportFromDB);
         } catch (error) {
             console.error('Error fetching school reports:', error);
@@ -42,6 +43,7 @@ const mapReportToDB = (report: Partial<SchoolOutreachReport>) => ({
     sermon_title: report.sermonTitle,
     scripture_references: report.scriptureReferences,
     notes: report.notes,
+    event_id: report.eventId,
     submitted_by: report.submittedBy
 });
 
@@ -58,6 +60,7 @@ export const mapSchoolReportFromDB = (db: any): SchoolOutreachReport => ({
     sermonTitle: db.sermon_title,
     scriptureReferences: db.scripture_references,
     notes: db.notes,
+    eventId: db.event_id,
     submittedBy: db.submitted_by,
     submittedAt: db.submitted_at
 });

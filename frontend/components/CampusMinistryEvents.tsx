@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { MinistryEvent } from '../types';
-import { supabase } from '../services/supabaseClient';
 import * as XLSX from 'xlsx';
 import html2pdf from 'html2pdf.js';
+import { apiFetch } from '../services/api';
 
 interface CampusMinistryEventsProps {
     events: MinistryEvent[];
@@ -23,73 +23,14 @@ export default function CampusMinistryEvents({ events }: CampusMinistryEventsPro
         setSelectedEvent(event);
         setIsLoadingEvent(true);
         try {
-            // 1. Get Stations
-            const { data: stations, error: stationError } = await supabase
-                .from('pickup_stations')
-                .select('id, name')
-                .eq('event_id', event.id);
-
-            if (stationError) throw stationError;
-            const stationIds = stations?.map(s => s.id) || [];
-            const stationMap = new Map(stations?.map(s => [s.id, s.name]) || []);
-
-            if (stationIds.length === 0) {
-                setEventPassengers([]);
-                setIsLoadingEvent(false);
-                return;
-            }
-
-            // 2. Get Vehicles
-            const { data: vehicles, error: vehicleError } = await supabase
-                .from('vehicles')
-                .select('id, number_plate, driver_name, driver_contact, coordinator, station_id')
-                .in('station_id', stationIds);
-
-            if (vehicleError) throw vehicleError;
-            const vehicleIds = vehicles?.map(v => v.id) || [];
-            const vehicleMap = new Map(vehicles?.map(v => [v.id, v]) || []);
-
-            if (vehicleIds.length === 0) {
-                setEventPassengers([]);
-                setIsLoadingEvent(false);
-                return;
-            }
-
-            // 3. Get Passengers (Institution ONLY)
-            const { data: passengers, error: passengerError } = await supabase
-                .from('passengers')
-                .select('*')
-                .in('vehicle_id', vehicleIds)
-                .eq('category', 'Institution');
-
-            if (passengerError) throw passengerError;
-
-            // Map Coordinators easily
-            const { data: usersData } = await supabase.from('users').select('name, contact').eq('role', 'Coordinator');
-            const coordinatorMap = new Map(usersData?.map(u => [u.name?.trim().toLowerCase(), u.contact]) || []);
-
-            const mapped = passengers?.map(p => {
-                const vehicle = vehicleMap.get(p.vehicle_id);
-                const coordName = vehicle?.coordinator || '';
-                const stationName = vehicle?.station_id ? stationMap.get(vehicle.station_id) : 'Unknown Station';
-
-                return {
-                    ...p,
-                    isFirstTime: p.is_first_time,
-                    soulWon: p.soul_won,
-                    vehicleNumberPlate: vehicle?.number_plate,
-                    vehicleDriver: vehicle?.driver_name,
-                    vehicleCoordinator: coordName,
-                    vehicleStationName: stationName
-                };
-            }) || [];
-
-            // Sort passengers: latest at the top
-            mapped.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-
-            setEventPassengers(mapped);
+            // Use backend API instead of direct Supabase queries.
+            // Direct Supabase queries are blocked by RLS policies for the anon key
+            // on pickup_stations and vehicles tables.
+            const passengers = await apiFetch(`/events/${event.id}/passengers?category=Institution`);
+            setEventPassengers(Array.isArray(passengers) ? passengers : []);
         } catch (error) {
             console.error("Error fetching event details:", error);
+            setEventPassengers([]);
         } finally {
             setIsLoadingEvent(false);
         }

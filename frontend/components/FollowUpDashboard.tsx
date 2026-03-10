@@ -41,6 +41,7 @@ const FollowUpDashboard: React.FC<FollowUpDashboardProps> = ({ onOpenModal, curr
 
     // Search & Edit State
     const [searchQuery, setSearchQuery] = useState('');
+    const [dbEventFilter, setDbEventFilter] = useState<string>(''); // For Database tab filtering
     const [editingSoul, setEditingSoul] = useState<Soul | null>(null);
 
     // Member Search State
@@ -149,7 +150,7 @@ const FollowUpDashboard: React.FC<FollowUpDashboardProps> = ({ onOpenModal, curr
             setEvents(allEvents.filter(e => e.type === 'Event'));
             setServices(allEvents.filter(e => e.type === 'Service'));
 
-            const allSouls = await SoulsStore.getAll();
+            const allSouls = await SoulsStore.getAll(dbEventFilter);
             setSouls(allSouls);
         } catch (e) {
             console.error("Failed to load dashboard data", e);
@@ -157,6 +158,12 @@ const FollowUpDashboard: React.FC<FollowUpDashboardProps> = ({ onOpenModal, curr
             setIsLoading(false);
         }
     };
+
+    useEffect(() => {
+        if (activeTab === 'database') {
+            loadData();
+        }
+    }, [dbEventFilter, activeTab]);
 
     const handleCopyLink = (eventId: string) => {
         const link = `${window.location.origin}/collect-souls/${eventId}`; // Public Route
@@ -257,9 +264,11 @@ const FollowUpDashboard: React.FC<FollowUpDashboardProps> = ({ onOpenModal, curr
         const soulsWon = eventSouls.filter(s => s.status !== 'Confirmed');
         const confirmations = eventSouls.filter(s => s.status === 'Confirmed');
 
-        const [viewTab, setViewTab] = useState<'souls' | 'confirmations' | 'attendees'>('souls');
-        const [attendees, setAttendees] = useState<Member[]>([]);
+        const [viewTab, setViewTab] = useState<'souls' | 'confirmations' | 'attendees' | 'firstTimers'>('souls');
+        const [attendees, setAttendees] = useState<any[]>([]);
         const [loadingAttendees, setLoadingAttendees] = useState(false);
+
+        const firstTimers = attendees.filter(a => a.isFirstTime);
 
         // Load Attendees on load
         useEffect(() => {
@@ -346,7 +355,7 @@ const FollowUpDashboard: React.FC<FollowUpDashboardProps> = ({ onOpenModal, curr
                 </div>
 
                 {/* Stats Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div className="bg-ministry-text text-white p-5 rounded-xl shadow-sm">
                         <p className="text-xs uppercase font-bold text-gray-400 mb-1">Total Souls Won</p>
                         <p className="text-3xl font-black">{soulsWon.length}</p>
@@ -355,7 +364,10 @@ const FollowUpDashboard: React.FC<FollowUpDashboardProps> = ({ onOpenModal, curr
                         <p className="text-xs uppercase font-bold text-gray-500 mb-1">Confirmations</p>
                         <p className="text-3xl font-black text-blue-600">{confirmations.length}</p>
                     </div>
-                    {/* New Attendees Card */}
+                    <div className="bg-white border border-gray-200 p-5 rounded-xl shadow-sm">
+                        <p className="text-xs uppercase font-bold text-gray-500 mb-1">First Timers</p>
+                        <p className="text-3xl font-black text-purple-600">{firstTimers.length > 0 ? firstTimers.length : '-'}</p>
+                    </div>
                     <div className="bg-white border border-gray-200 p-5 rounded-xl shadow-sm">
                         <p className="text-xs uppercase font-bold text-gray-500 mb-1">Total Attendees</p>
                         <p className="text-3xl font-black text-green-600">{attendees.length > 0 ? attendees.length : '-'}</p>
@@ -364,24 +376,30 @@ const FollowUpDashboard: React.FC<FollowUpDashboardProps> = ({ onOpenModal, curr
 
                 {/* Tabs */}
                 <div className="flex justify-between items-center">
-                    <div className="flex space-x-1 bg-gray-100 p-1 rounded-xl w-fit">
+                    <div className="flex space-x-1 bg-gray-100 p-1 rounded-xl w-fit overflow-x-auto">
                         <button
                             onClick={() => setViewTab('souls')}
-                            className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${viewTab === 'souls' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+                            className={`px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${viewTab === 'souls' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
                         >
                             Souls Won
                         </button>
                         <button
                             onClick={() => setViewTab('confirmations')}
-                            className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${viewTab === 'confirmations' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+                            className={`px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${viewTab === 'confirmations' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
                         >
                             Confirmations
                         </button>
                         <button
-                            onClick={() => setViewTab('attendees')}
-                            className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${viewTab === 'attendees' ? 'bg-white shadow-sm text-green-600' : 'text-gray-500 hover:text-gray-700'}`}
+                            onClick={() => setViewTab('firstTimers')}
+                            className={`px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${viewTab === 'firstTimers' ? 'bg-white shadow-sm text-purple-600' : 'text-gray-500 hover:text-gray-700'}`}
                         >
-                            Attendees
+                            First Timers
+                        </button>
+                        <button
+                            onClick={() => setViewTab('attendees')}
+                            className={`px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${viewTab === 'attendees' ? 'bg-white shadow-sm text-green-600' : 'text-gray-500 hover:text-gray-700'}`}
+                        >
+                            All Attendees
                         </button>
                     </div>
 
@@ -399,7 +417,7 @@ const FollowUpDashboard: React.FC<FollowUpDashboardProps> = ({ onOpenModal, curr
                 <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
                     <table className="w-full text-left text-sm">
                         <thead className="bg-white text-gray-500 font-bold border-b border-gray-100 uppercase text-xs">
-                            {viewTab === 'attendees' ? (
+                            {viewTab === 'attendees' || viewTab === 'firstTimers' ? (
                                 <tr>
                                     <th className="px-6 py-3">Name</th>
                                     <th className="px-6 py-3">Phone</th>
@@ -418,23 +436,35 @@ const FollowUpDashboard: React.FC<FollowUpDashboardProps> = ({ onOpenModal, curr
                             )}
                         </thead>
                         <tbody className="divide-y divide-gray-50">
-                            {viewTab === 'attendees' ? (
+                            {viewTab === 'attendees' || viewTab === 'firstTimers' ? (
                                 loadingAttendees ? (
                                     <tr><td colSpan={5} className="px-6 py-8 text-center text-gray-400">Loading attendees...</td></tr>
                                 ) :
-                                    attendees.map(member => (
+                                    (viewTab === 'firstTimers' ? firstTimers : attendees).map((member: any) => (
                                         <tr key={member.id} className="hover:bg-gray-50 transition-colors">
                                             <td className="px-6 py-3 font-bold text-gray-900">{member.name}</td>
                                             <td className="px-6 py-3 text-gray-600 font-mono">{member.phone}</td>
                                             <td className="px-6 py-3 text-gray-600">{member.residency}</td>
                                             <td className="px-6 py-3 text-gray-600">{member.gender}</td>
                                             <td className="px-6 py-3 text-gray-500">
-                                                <span className={`px-2 py-0.5 rounded text-xs font-bold ${member.category === 'Student' ? 'bg-indigo-100 text-indigo-700' :
-                                                    member.category === 'Institution' ? 'bg-cyan-100 text-cyan-700' :
-                                                        'bg-gray-100 text-gray-700'
-                                                    }`}>
-                                                    {member.category}
-                                                </span>
+                                                <div className="flex flex-wrap gap-1">
+                                                    <span className={`px-2 py-0.5 rounded text-xs font-bold ${member.category === 'Student' ? 'bg-indigo-100 text-indigo-700' :
+                                                        member.category === 'Institution' ? 'bg-cyan-100 text-cyan-700' :
+                                                            'bg-gray-100 text-gray-700'
+                                                        }`}>
+                                                        {member.category}
+                                                    </span>
+                                                    {member.isFirstTime && (
+                                                        <span className="bg-purple-100 text-purple-700 px-2 py-0.5 rounded text-xs font-bold">
+                                                            First Timer
+                                                        </span>
+                                                    )}
+                                                    {member.soulWon && (
+                                                        <span className="bg-ministry-text text-white px-2 py-0.5 rounded text-xs font-bold">
+                                                            Soul Won
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </td>
                                         </tr>
                                     ))
@@ -477,14 +507,14 @@ const FollowUpDashboard: React.FC<FollowUpDashboardProps> = ({ onOpenModal, curr
                             }
 
                             {/* Empty States */}
-                            {viewTab === 'attendees' && !loadingAttendees && attendees.length === 0 && (
+                            {(viewTab === 'attendees' || viewTab === 'firstTimers') && !loadingAttendees && (viewTab === 'firstTimers' ? firstTimers : attendees).length === 0 && (
                                 <tr>
                                     <td colSpan={5} className="px-6 py-10 text-center text-gray-400">
-                                        No attendees recorded yet.
+                                        No {viewTab === 'firstTimers' ? 'first timers' : 'attendees'} recorded yet.
                                     </td>
                                 </tr>
                             )}
-                            {(viewTab !== 'attendees' && (viewTab === 'souls' ? soulsWon : confirmations).length === 0) && (
+                            {(viewTab === 'souls' || viewTab === 'confirmations') && (viewTab === 'souls' ? soulsWon : confirmations).length === 0 && (
                                 <tr>
                                     <td colSpan={5} className="px-6 py-10 text-center text-gray-400">
                                         No {viewTab} recorded yet.
@@ -563,6 +593,22 @@ const FollowUpDashboard: React.FC<FollowUpDashboardProps> = ({ onOpenModal, curr
                     All Souls
                     <span className="ml-3 bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-xs">{souls.filter(s => s.status !== 'Confirmed').length}</span>
                 </h2>
+                <div className="flex items-center space-x-2">
+                    <Calendar className="w-4 h-4 text-gray-400" />
+                    <select
+                        value={dbEventFilter}
+                        onChange={(e) => setDbEventFilter(e.target.value)}
+                        className="text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ministry-orange bg-white min-w-[200px]"
+                    >
+                        <option value="">All Events & Services</option>
+                        <optgroup label="Services">
+                            {services.map(s => <option key={s.id} value={s.id}>{s.title}</option>)}
+                        </optgroup>
+                        <optgroup label="Events">
+                            {events.map(e => <option key={e.id} value={e.id}>{e.title}</option>)}
+                        </optgroup>
+                    </select>
+                </div>
             </div>
 
             <div className="overflow-x-auto">

@@ -9,11 +9,17 @@ router.get('/activities', async (req, res) => {
         const manifestId = (req as any).manifestId;
         if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
 
-        const { data, error } = await supabase
+        const { eventId } = req.query;
+        let query = supabase
             .from('campus_activities')
             .select('*')
-            .eq('manifest_id', manifestId)
-            .order('date', { ascending: false });
+            .eq('manifest_id', manifestId);
+
+        if (eventId) {
+            query = query.eq('event_id', eventId);
+        }
+
+        const { data, error } = await query.order('date', { ascending: false });
 
         if (error) throw error;
 
@@ -26,6 +32,7 @@ router.get('/activities', async (req, res) => {
             soulsWon: item.souls_won,
             contactsCollected: item.contacts_collected,
             notes: item.notes,
+            eventId: item.event_id,
             createdAt: item.created_at,
             createdBy: item.created_by
         }));
@@ -42,7 +49,7 @@ router.post('/activities', async (req, res) => {
         const manifestId = (req as any).manifestId;
         if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
 
-        const { category, title, date, location, soulsWon, contactsCollected, notes, createdBy } = req.body;
+        const { category, title, date, location, soulsWon, contactsCollected, notes, createdBy, eventId } = req.body;
 
         const { data, error } = await supabase
             .from('campus_activities')
@@ -55,6 +62,7 @@ router.post('/activities', async (req, res) => {
                 souls_won: soulsWon || 0,
                 contacts_collected: contactsCollected || 0,
                 notes,
+                event_id: eventId,
                 created_by: createdBy
             }])
             .select()
@@ -201,15 +209,22 @@ router.get('/finance', async (req, res) => {
         const manifestId = (req as any).manifestId;
         if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
 
-        const { data, error } = await supabase
+        const { eventId } = req.query;
+        let query = supabase
             .from('campus_finance_records')
             .select('*')
-            .eq('manifest_id', manifestId)
-            .order('date', { ascending: false });
+            .eq('manifest_id', manifestId);
+
+        if (eventId) {
+            query = query.eq('event_id', eventId);
+        }
+
+        const { data, error } = await query.order('date', { ascending: false });
 
         if (error) throw error;
         res.json(data.map((d: any) => ({
             ...d,
+            eventId: d.event_id,
             recordedBy: d.recorded_by
         })));
     } catch (error: any) {
@@ -223,7 +238,7 @@ router.post('/finance', async (req, res) => {
         const manifestId = (req as any).manifestId;
         if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
 
-        const { type, category, amount, description, date, method, recordedBy } = req.body;
+        const { type, category, amount, description, date, method, recordedBy, eventId } = req.body;
 
         const { data, error } = await supabase
             .from('campus_finance_records')
@@ -235,6 +250,7 @@ router.post('/finance', async (req, res) => {
                 description,
                 date,
                 method,
+                event_id: eventId,
                 recorded_by: recordedBy
             }])
             .select()

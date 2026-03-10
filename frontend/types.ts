@@ -113,6 +113,8 @@ export interface Member {
   attendedServiceIds?: string[];
   currentServiceId?: string;
   firstTimerServiceId?: string;
+  isFirstTime?: boolean;
+  soulWon?: boolean;
 }
 
 export interface Child {
@@ -317,6 +319,7 @@ export interface CampusActivity {
   soulsWon: number;
   contactsCollected: number;
   notes?: string;
+  eventId?: string;
   createdAt?: string;
   createdBy?: string;
 }
@@ -342,6 +345,7 @@ export interface CampusFinance {
   description: string;
   date: string;
   method: 'Cash' | 'Mobile Money' | 'Bank';
+  eventId?: string;
   recordedBy?: string;
   createdAt?: string;
 }
@@ -413,6 +417,7 @@ export interface SchoolOutreachReport {
   sermonTitle: string;
   scriptureReferences: string;
   notes?: string;
+  eventId?: string;
   submittedBy: string; // User ID
   submittedAt: string;
 }

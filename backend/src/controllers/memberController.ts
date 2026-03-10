@@ -452,31 +452,61 @@ export const getEventAttendees = async (req: Request, res: Response) => {
     try {
         const idUuid = toUUID(id);
 
-        // --- STEP 3: O(N*M) ELIMINATION & POSTGRESQL JOIN PERFORMANCE ---
-        // Instead of fetching all passengers and all direct attendees into Node.js 
-        // to manually match strings (`O(N * M)`), we delegate this entirely to the DB.
-
-        let targetEventId = idUuid;
-
-        if (!targetEventId) {
+        if (!idUuid) {
             return res.status(400).json({ error: 'Invalid UUID for event/service' });
         }
 
-        const { data: unifiedAttendees, error: rpcError } = await supabase.rpc('get_event_attendees_unified', {
-            target_event_id: targetEventId,
-            target_manifest_id: manifestId
-        });
+        // Step 1: Check service_attendance (used for regular services/check-in flows)
+        const { data: attendance, error: attError } = await supabase
+            .from('service_attendance')
+            .select('member_id')
+            .eq('manifest_id', manifestId)
+            .eq('service_id', idUuid);
 
-        if (rpcError) {
-            console.error("[RPC ERROR] Target get_event_attendees_unified failed:", rpcError);
-            throw rpcError;
+        if (attError) throw attError;
+
+        const memberIds = (attendance || []).map(a => a.member_id).filter(Boolean);
+
+        if (memberIds.length > 0) {
+            // Regular service path: fetch member records
+            const { data: members, error: memError } = await supabase
+                .from('members')
+                .select('id, name, phone, gender, residency, category, status, check_in_time')
+                .eq('manifest_id', manifestId)
+                .in('id', memberIds);
+
+            if (memError) throw memError;
+            return res.json(members || []);
         }
 
-        const allAttendees = unifiedAttendees || [];
+        // Step 2: Fallback — Ministry Events use passengers as attendees
+        // (e.g. Men Gather, Return Journey events where check-in is via vehicles/transport)
+        const { data: passengers, error: passError } = await supabase
+            .from('passengers')
+            .select('id, name, created_at, gender, residence, contact, is_first_time, soul_won')
+            .eq('manifest_id', manifestId)
+            .eq('event_id', idUuid);
 
-        res.json(allAttendees);
+        if (passError) throw passError;
+
+        // Map passengers to the same shape as members for frontend compatibility
+        const mapped = (passengers || []).map(p => ({
+            id: p.id,
+            name: p.name,
+            phone: p.contact || '',
+            gender: p.gender || '',
+            residency: p.residence || '',
+            category: 'Passenger',
+            status: 'Checked In',
+            check_in_time: p.created_at,
+            isFirstTime: p.is_first_time === 'Yes' || p.is_first_time === true,
+            soulWon: p.soul_won === true
+        }));
+
+        res.json(mapped);
 
     } catch (error: any) {
+        console.error('[GET ATTENDEES ERROR]', error);
         res.status(500).json({ error: error.message });
     }
 }

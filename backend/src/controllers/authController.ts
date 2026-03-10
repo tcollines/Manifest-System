@@ -14,14 +14,26 @@ export const login = async (req: Request, res: Response) => {
         let inputIdentifier = username.trim();
         let targetEmail = inputIdentifier;
 
-        // Search by either exact username OR exact email lookup case-insensitively
-        // STRICT: We MUST exclude deleted users to prevent identity collisions
-        const { data: usersData, error } = await supabase
+        // Search by either exact username OR exact email lookup
+        // Priority 1: Exact Case-Sensitive Match
+        let { data: usersData, error } = await supabase
             .from('users')
             .select('email')
-            .or(`username.ilike."${inputIdentifier}",email.ilike."${inputIdentifier}"`)
+            .or(`username.eq."${inputIdentifier}",email.eq."${inputIdentifier}"`)
             .neq('status', 'Deleted')
             .limit(1);
+
+        // Priority 2: Fallback to case-insensitive match (only if no exact match found)
+        if (!usersData || usersData.length === 0) {
+            const fallbackResult = await supabase
+                .from('users')
+                .select('email')
+                .or(`username.ilike."${inputIdentifier}",email.ilike."${inputIdentifier}"`)
+                .neq('status', 'Deleted')
+                .limit(1);
+            usersData = fallbackResult.data;
+            error = fallbackResult.error;
+        }
 
         const data = usersData?.[0];
 

@@ -598,6 +598,7 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
             id: crypto.randomUUID(),
             vehicleId: myVehicle.id,
             eventId: myVehicle.eventId || selectedEventId, // Robust Fallback
+            stationId: myVehicle.stationId, // Added station linkage
             name: returnPassengerForm.name,
             contact: returnPassengerForm.contact,
             residence: returnPassengerForm.residence,
@@ -646,9 +647,8 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
         if (!p || !myVehicle) return;
 
         // RESOLVE EVENT ID:
-        // Coordinators might be in "My Vehicle" view without a globally selected event.
-        // We must fallback to the vehicle's linked event ID.
-        const effectiveEventId = selectedEventId || myVehicle.eventId;
+        // Prioritize the vehicle's specific event. Fallback to globally selected event if missing.
+        const effectiveEventId = myVehicle.eventId || selectedEventId;
 
         if (!effectiveEventId) {
             showToast("System Error: Could not link this soul to an active event. Please refresh.", "error");
@@ -1252,7 +1252,7 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
                                                                 }
                                                             } else {
                                                                 if (activeJourneyTab === 'Ongoing') {
-                                                                    window.location.href = COGNITO_FORM_URL;
+                                                                    handleStageUpdate('RegApproval');
                                                                 } else {
                                                                     handleStageUpdate('FinanceApproval');
                                                                 }
@@ -1261,12 +1261,12 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
                                                         disabled={passengers.length === 0 || !!submittingStage}
                                                         className={`bg-ministry-orange text-white px-6 py-3 rounded-xl font-bold flex items-center shadow-lg transition-all ${passengers.length === 0 || (activeJourneyTab === 'Ongoing' && passengers.some(p => !p.verified)) || !!submittingStage ? 'opacity-50 cursor-not-allowed hover:bg-orange-600' : 'hover:bg-orange-600'}`}
                                                     >
-                                                        {submittingStage === 'FinanceApproval' ? (
+                                                        {submittingStage === 'FinanceApproval' || submittingStage === 'RegApproval' ? (
                                                             <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                                                         ) : (
-                                                            activeJourneyTab === 'Return' ? <ThumbsUp className="w-4 h-4 mr-2" /> : <ExternalLink className="w-4 h-4 mr-2" />
+                                                            <ThumbsUp className="w-4 h-4 mr-2" />
                                                         )}
-                                                        {submittingStage ? 'Processing...' : (activeJourneyTab === 'Return' ? 'Approve Verification' : 'Open Passenger Registration Form')}
+                                                        {submittingStage ? 'Processing...' : 'Approve Onboarding'}
                                                     </button>
                                                 )}
                                             </div>

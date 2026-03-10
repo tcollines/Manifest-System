@@ -6,6 +6,8 @@ import { SchoolsStore, mapSchoolReportFromDB } from '../database/schoolsStore';
 import { EventStore } from '../database/eventStore';
 import { ManifestStore } from '../database/manifestStore'; // Added ManifestStore
 import { supabase } from '../services/supabaseClient';
+import { apiFetch } from '../services/api';
+
 import * as XLSX from 'xlsx';
 import {
     ClipboardCheck,
@@ -45,21 +47,28 @@ export const SchoolsDashboard: React.FC<SchoolsDashboardProps> = ({
     });
 
     const [selectedEvent, setSelectedEvent] = useState<MinistryEvent | null>(null);
+    const [reportEventId, setReportEventId] = useState<string>(''); // For filtering reports
     const [eventPassengers, setEventPassengers] = useState<Passenger[]>([]);
     const [eventFilter, setEventFilter] = useState<'all' | 'first-timers' | 'souls-won'>('all');
 
     useEffect(() => {
-        loadReports();
+        loadReports(reportEventId);
 
         const channel = supabase.channel('schools-reports-live')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'school_outreach_reports' }, (payload) => {
                 const { eventType, new: newRecord, old: oldRecord } = payload;
                 if (eventType === 'INSERT') {
                     const mapped = mapSchoolReportFromDB(newRecord);
-                    setReports(prev => [mapped, ...prev].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+                    if (!reportEventId || mapped.eventId === reportEventId) {
+                        setReports(prev => [mapped, ...prev].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+                    }
                 } else if (eventType === 'UPDATE') {
                     const mapped = mapSchoolReportFromDB(newRecord);
-                    setReports(prev => prev.map(r => r.id === mapped.id ? mapped : r).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+                    if (!reportEventId || mapped.eventId === reportEventId) {
+                        setReports(prev => prev.map(r => r.id === mapped.id ? mapped : r).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+                    } else {
+                        setReports(prev => prev.filter(r => r.id !== mapped.id));
+                    }
                 } else if (eventType === 'DELETE') {
                     setReports(prev => prev.filter(r => r.id !== oldRecord.id));
                 }
@@ -69,10 +78,10 @@ export const SchoolsDashboard: React.FC<SchoolsDashboardProps> = ({
         return () => {
             supabase.removeChannel(channel);
         };
-    }, []);
+    }, [reportEventId]);
 
-    const loadReports = async () => {
-        const data = await SchoolsStore.getAllReports();
+    const loadReports = async (eventId?: string) => {
+        const data = await SchoolsStore.getAllReports(eventId);
         setReports(data.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
     };
 
@@ -97,6 +106,7 @@ export const SchoolsDashboard: React.FC<SchoolsDashboardProps> = ({
 
             await SchoolsStore.addReport({
                 ...newReport,
+                eventId: newReport.eventId || reportEventId,
                 submittedBy: currentUser.name,
                 submittedAt: new Date().toISOString()
             } as Omit<SchoolOutreachReport, 'id'>);
@@ -104,7 +114,7 @@ export const SchoolsDashboard: React.FC<SchoolsDashboardProps> = ({
             showToast("Report submitted successfully");
             setIsAddingReport(false);
             setNewReport({ date: new Date().toISOString().split('T')[0], labourers: [] });
-            loadReports();
+            loadReports(reportEventId);
         } catch (error) {
             console.error("Error submitting report:", error);
             showToast("Failed to submit report", 'error');
@@ -114,104 +124,15 @@ export const SchoolsDashboard: React.FC<SchoolsDashboardProps> = ({
     const handleViewEvent = async (event: MinistryEvent) => {
         setSelectedEvent(event);
         try {
-            // Need to fetch passengers linked to this event via vehicles?
-            // "Student" passengers might be linked to a vehicle which is linked to a station which is linked to this event.
-            // Or passengers might be directly linked? 
-            // In this schema, passengers -> vehicle -> station -> event.
-
-            // 1. Get Stations for this Event
-            const { data: stations, error: stationError } = await supabase
-                .from('pickup_stations')
-                .select('id, name')
-                .eq('event_id', event.id);
-
-            if (stationError) throw stationError;
-            const stationIds = stations.map(s => s.id);
-            const stationMap = new Map(stations.map(s => [s.id, s.name]));
-
-            if (stationIds.length === 0) {
-                setEventPassengers([]);
-                return;
-            }
-
-            // 2. Get Vehicles for these Stations
-            const { data: vehicles, error: vehicleError } = await supabase
-                .from('vehicles')
-                .select('id, number_plate, driver_name, driver_contact, coordinator, station_id')
-                .in('station_id', stationIds);
-
-            if (vehicleError) throw vehicleError;
-            const vehicleIds = vehicles.map(v => v.id);
-            const vehicleMap = new Map(vehicles.map(v => [v.id, v]));
-
-            if (vehicleIds.length === 0) {
-                setEventPassengers([]);
-                return;
-            }
-
-            // 3. Get Passengers for these Vehicles (Students only, or First Timers who are students)
-            const { data: passengers, error: passengerError } = await supabase
-                .from('passengers')
-                .select('*')
-                .in('vehicle_id', vehicleIds)
-                .in('category', ['Student', 'First Timer']);
-
-            if (passengerError) throw passengerError;
-
-            // 3b. Fetch Coordinators to map contacts
-            const { data: usersData } = await supabase.from('users').select('name, contact').eq('role', 'Coordinator');
-            const coordinatorMap = new Map(usersData?.map(u => [u.name?.trim().toLowerCase(), u.contact]) || []);
-
-            // 4. Merge Data and Filter
-            // We want to show all Students.
-            // For "First Timers", we only show them if they seem to be students (have school/class info)
-            // or if the user explicitly wants all First Timers here.
-            // Given "first timers should also be students", we'll verify if they have student-like attributes 
-            // OR if we should just trust the bus manifest content for this event. 
-            // Use 'school' or 'student_class' presence as a heuristic for First Timers.
-            const mappedPassengers = passengers
-                .filter((p: any) => {
-                    // Logic: Must be Student or First Timer
-                    // AND must NOT be an Institution (unless we treat institution students as individual students? User said "not institution")
-                    if (p.category === 'Institution') return false;
-
-                    if (p.category === 'Student') return true;
-                    if (p.category === 'First Timer') {
-                        // Include if has school info (Student First Timer)
-                        return p.school || p.student_class;
-                    }
-                    // Fallback: If they are on a school bus and have school info, include them even if category is 'Member'
-                    if (p.school || p.student_class) return true;
-
-                    return false;
-                })
-                .map((p: any) => {
-                    const vehicle = vehicleMap.get(p.vehicle_id);
-                    const coordName = vehicle?.coordinator || '';
-                    const coordContact = coordinatorMap.get(coordName.trim().toLowerCase()) || 'N/A';
-                    const stationName = vehicle?.station_id ? stationMap.get(vehicle.station_id) : 'Unknown Station';
-
-                    return {
-                        ...p,
-                        // Map snake_case to camelCase
-                        isFirstTime: p.is_first_time,
-                        soulWon: p.soul_won,
-                        studentClass: p.student_class,
-
-                        vehicleNumberPlate: vehicle?.number_plate,
-                        vehicleDriver: vehicle?.driver_name,
-                        vehicleContact: vehicle?.driver_contact,
-                        vehicleCoordinator: coordName, // Mapped coordinator name
-                        vehicleCoordinatorContact: coordContact, // Mapped coordinator contact
-                        vehicleStationName: stationName
-                    };
-                });
-
-            setEventPassengers(mappedPassengers);
-
+            // Use backend API instead of direct Supabase queries.
+            // Direct Supabase queries are blocked by RLS policies for the anon key
+            // on pickup_stations and vehicles tables.
+            const passengers = await apiFetch(`/events/${event.id}/passengers?category=Student`);
+            setEventPassengers(Array.isArray(passengers) ? passengers : []);
         } catch (error) {
             console.error("Error fetching event details:", error);
             showToast("Failed to load student list. Please try again.", 'error');
+            setEventPassengers([]);
         }
     };
 
@@ -513,11 +434,23 @@ export const SchoolsDashboard: React.FC<SchoolsDashboardProps> = ({
                     <div className="space-y-6">
                         {!isAddingReport ? (
                             <>
-                                <div className="flex justify-between items-center">
-                                    <h3 className="text-lg font-bold text-gray-800">Recent Reports</h3>
+                                <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+                                    <div className="flex items-center space-x-4 w-full md:w-auto">
+                                        <h3 className="text-lg font-bold text-gray-800 whitespace-nowrap">Recent Reports</h3>
+                                        <select
+                                            value={reportEventId}
+                                            onChange={(e) => setReportEventId(e.target.value)}
+                                            className="p-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-ministry-orange w-full md:w-64"
+                                        >
+                                            <option value="">All Events</option>
+                                            {events.map(event => (
+                                                <option key={event.id} value={event.id}>{event.title} ({event.date})</option>
+                                            ))}
+                                        </select>
+                                    </div>
                                     <button
                                         onClick={() => setIsAddingReport(true)}
-                                        className="flex items-center space-x-2 bg-ministry-text text-white px-4 py-2 rounded-lg hover:bg-ministry-orange transition-colors"
+                                        className="flex items-center space-x-2 bg-ministry-text text-white px-4 py-2 rounded-lg hover:bg-ministry-orange transition-colors w-full md:w-auto justify-center"
                                     >
                                         <Plus className="w-4 h-4" />
                                         <span>New Report</span>
@@ -577,6 +510,20 @@ export const SchoolsDashboard: React.FC<SchoolsDashboardProps> = ({
                                     <div className="space-y-2">
                                         <label className="text-sm font-bold text-gray-700">Date</label>
                                         <input type="date" required value={newReport.date} onChange={e => setNewReport({ ...newReport, date: e.target.value })} className="w-full p-3 border rounded-xl" />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-bold text-gray-700">Event Scoping</label>
+                                        <select
+                                            required
+                                            value={newReport.eventId || reportEventId || ''}
+                                            onChange={e => setNewReport({ ...newReport, eventId: e.target.value })}
+                                            className="w-full p-3 border rounded-xl"
+                                        >
+                                            <option value="">Select Event...</option>
+                                            {events.map(event => (
+                                                <option key={event.id} value={event.id}>{event.title} ({event.date})</option>
+                                            ))}
+                                        </select>
                                     </div>
                                     <div className="space-y-2">
                                         <label className="text-sm font-bold text-gray-700">Outreach Centre</label>

@@ -257,6 +257,123 @@ export const getEventHighlights = async (req: Request, res: Response) => {
     }
 };
 
+/**
+ * GET /events/:id/passengers?category=Institution|Student|FirstTimer|All
+ *
+ * Returns passengers for an event filtered by category.
+ * This MUST go through the backend because pickup_stations and vehicles
+ * have RLS that blocks direct frontend (anon key) queries. The backend
+ * uses the service role key which bypasses RLS.
+ */
+export const getEventPassengers = async (req: Request, res: Response) => {
+    const manifestId = (req as any).manifestId;
+    if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
+
+    try {
+        const eventId = req.params.id;
+        const category = req.query.category as string || 'All';
+
+        // 1. Get Stations for this event (bypasses RLS via service role key)
+        const { data: stations, error: stErr } = await supabase
+            .from('pickup_stations')
+            .select('id, name')
+            .eq('manifest_id', manifestId)
+            .eq('event_id', eventId);
+
+        if (stErr) throw stErr;
+        if (!stations || stations.length === 0) {
+            return res.json([]);
+        }
+
+        const stationIds = stations.map(s => s.id);
+        const stationMap = Object.fromEntries(stations.map(s => [s.id, s.name]));
+
+        // 2. Get Vehicles linked to those stations
+        const { data: vehicles, error: vehErr } = await supabase
+            .from('vehicles')
+            .select('id, number_plate, driver_name, driver_contact, coordinator, station_id')
+            .eq('manifest_id', manifestId)
+            .in('station_id', stationIds);
+
+        if (vehErr) throw vehErr;
+        if (!vehicles || vehicles.length === 0) {
+            return res.json([]);
+        }
+
+        const vehicleIds = vehicles.map(v => v.id);
+        const vehicleMap = Object.fromEntries(vehicles.map(v => [v.id, v]));
+
+        // 3. Get Passengers scoped to this event and vehicle list
+        let passQuery = supabase
+            .from('passengers')
+            .select('*')
+            .eq('manifest_id', manifestId)
+            .eq('event_id', eventId)
+            .in('vehicle_id', vehicleIds);
+
+        if (category === 'Institution') {
+            passQuery = passQuery.eq('category', 'Institution');
+        } else if (category === 'Student') {
+            // Include Students + anyone flagged as First Timer (even if category='Member')
+            passQuery = passQuery.or('category.in.(Student,First Timer),is_first_time.eq.Yes,is_first_time.eq.true');
+        }
+        // If category === 'All', no additional filter
+
+        const { data: passengers, error: passErr } = await passQuery;
+        if (passErr) throw passErr;
+
+        // 4. Get coordinators for contact mapping
+        const { data: usersData } = await supabase
+            .from('users')
+            .select('name, contact')
+            .eq('manifest_id', manifestId)
+            .eq('role', 'Coordinator');
+        const coordinatorMap = Object.fromEntries(
+            (usersData || []).map(u => [u.name?.trim().toLowerCase(), u.contact])
+        );
+
+        // 5. Map and enrich passenger data
+        const mapped = (passengers || []).map(p => {
+            const vehicle = vehicleMap[p.vehicle_id];
+            const stationName = vehicle?.station_id ? stationMap[vehicle.station_id] : 'Unknown Station';
+            const coordName = vehicle?.coordinator || '';
+            const coordContact = coordinatorMap[coordName.trim().toLowerCase()] || 'N/A';
+
+            return {
+                ...p,
+                isFirstTime: p.is_first_time === 'Yes' || p.is_first_time === true,
+                soulWon: p.soul_won === true,
+                studentClass: p.student_class,
+                vehicleNumberPlate: vehicle?.number_plate,
+                vehicleDriver: vehicle?.driver_name,
+                vehicleContact: vehicle?.driver_contact,
+                vehicleCoordinator: coordName,
+                vehicleCoordinatorContact: coordContact,
+                vehicleStationName: stationName
+            };
+        });
+
+        // Filter for Student category on frontend-side logic
+        const filtered = category === 'Student'
+            ? mapped.filter(p => {
+                if (p.category === 'Institution') return false;
+                if (p.category === 'Student') return true;
+                if (p.isFirstTime) return true;
+                if (p.school || p.student_class) return true;
+                return false;
+            })
+            : mapped;
+
+        // Sort newest first
+        filtered.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+        res.json(filtered);
+    } catch (error: any) {
+        console.error('[getEventPassengers] Error:', error);
+        res.status(500).json({ error: error.message });
+    }
+};
+
 export const cleanupPastEvents = async () => {
     try {
         const now = new Date();

@@ -1969,6 +1969,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
       id: passengerForm.id || uuidv4(), // Use existing ID if editing
       vehicleId: selectedVehicle.id,
       eventId: resolvedEventId,
+      stationId: selectedVehicle.stationId, // Added station linkage
       contact: sanitize(finalContact) || '256',
       parentContact: sanitize(finalParentContact),
       residence: sanitize(passengerForm.residence) || '',

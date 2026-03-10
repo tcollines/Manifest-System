@@ -21,8 +21,12 @@ export const mapMemberFromDB = (m: any): Member => ({
   joinedDate: m.joined_date,
   attendedServiceIds: m.attended_service_ids || [],
   firstTimerServiceId: m.first_timer_service_id,
-  createdAt: m.created_at
+  createdAt: m.created_at,
+  // Passenger-specific flags returned by getEventAttendees for ministry events
+  isFirstTime: m.isFirstTime ?? false,
+  soulWon: m.soulWon ?? false,
 });
+
 
 const mapMemberToDB = (m: Member) => ({
   id: m.id,

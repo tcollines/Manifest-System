@@ -21,7 +21,8 @@ export const mapSoulFromDB = (s: any): Soul => ({
     age: s.age,
     occupation: s.occupation,
     invitedBy: s.invited_by,
-    ministry: s.ministry
+    ministry: s.ministry,
+    eventId: s.event_id
 });
 
 const mapSoulToDB = (s: Soul) => ({
@@ -49,9 +50,10 @@ const mapSoulToDB = (s: Soul) => ({
 });
 
 export const SoulsStore = {
-    getAll: async (): Promise<Soul[]> => {
+    getAll: async (eventId?: string): Promise<Soul[]> => {
         try {
-            const data = await apiFetch('/souls');
+            const url = eventId ? `/souls?sourceId=${eventId}` : '/souls';
+            const data = await apiFetch(url);
             return data.map(mapSoulFromDB);
         } catch (e) {
             console.error('Failed to fetch souls', e);

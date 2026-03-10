@@ -1,22 +1,20 @@
-
 import { createClient } from '@supabase/supabase-js';
 import * as dotenv from 'dotenv';
-import * as path from 'path';
+import path from 'path';
 
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
-const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabase = createClient(supabaseUrl!, supabaseKey!);
 
-async function backfill() {
-    console.log("Starting backfill of passenger station_ids...");
+async function backfillPassengerStations() {
+    console.log("Fetching passengers with missing station_id...");
 
-    // 1. Fetch passengers with missing station_id
-    // We get vehicle_id to lookup the station
     const { data: passengers, error: pError } = await supabase
         .from('passengers')
-        .select('id, vehicle_id')
-        .is('station_id', null)
-        .not('vehicle_id', 'is', null);
+        .select('id, vehicle_id, station_id')
+        .is('station_id', null);
 
     if (pError) {
         console.error("Error fetching passengers:", pError);
@@ -24,19 +22,25 @@ async function backfill() {
     }
 
     if (!passengers || passengers.length === 0) {
-        console.log("No passengers found needing backfill.");
+        console.log("No passengers missing station_id.");
         return;
     }
 
-    console.log(`Found ${passengers.length} passengers to update.`);
+    console.log(`Found ${passengers.length} passengers missing station_id.`);
 
-    // 2. Fetch distinct vehicle IDs from this set
-    const vehicleIds = [...new Set(passengers.map(p => p.vehicle_id))];
+    // Get unique vehicle IDs
+    const vehicleIds = [...new Set(passengers.map(p => p.vehicle_id).filter(Boolean))];
+    console.log(`Associated with ${vehicleIds.length} unique vehicles.`);
 
-    // 3. Fetch those vehicles to get their station_id
+    if (vehicleIds.length === 0) {
+        console.log("No associated vehicle IDs found.");
+        return;
+    }
+
+    // Fetch vehicles to get their station_ids
     const { data: vehicles, error: vError } = await supabase
         .from('vehicles')
-        .select('id, station_id, legacy_station_id')
+        .select('id, station_id, event_id')
         .in('id', vehicleIds);
 
     if (vError) {
@@ -44,52 +48,37 @@ async function backfill() {
         return;
     }
 
-    const vehicleMap = new Map();
-    vehicles?.forEach(v => {
-        vehicleMap.set(v.id, v);
-    });
+    const vehicleMap = new Map(vehicles.map(v => [v.id, { station_id: v.station_id, event_id: v.event_id }]));
 
-    // 4. Update passengers in batches
     let updatedCount = 0;
     let errorCount = 0;
 
-    // Process in chunks of 50 to avoid rate limits/timeouts if strictly sequential
-    // For simplicity, sequential here is fine given expected scale, or Promise.all in chunks.
-    const chunk_size = 20;
-    for (let i = 0; i < passengers.length; i += chunk_size) {
-        const chunk = passengers.slice(i, i + chunk_size);
-        const updates = chunk.map(async (p) => {
-            const vehicle = vehicleMap.get(p.vehicle_id);
-            if (!vehicle) {
-                console.warn(`Passenger ${p.id} has vehicle ${p.vehicle_id} which was not found.`);
-                return;
-            }
-            if (!vehicle.station_id) {
-                // console.warn(`Vehicle ${vehicle.id} has no station_id.`);
-                return;
-            }
+    for (const p of passengers) {
+        if (!p.vehicle_id) continue;
 
-            const { error: uError } = await supabase
+        const vehicleInfo = vehicleMap.get(p.vehicle_id);
+        if (vehicleInfo && vehicleInfo.station_id) {
+            const { error: updateError } = await supabase
                 .from('passengers')
                 .update({
-                    station_id: vehicle.station_id,
-                    legacy_station_id: vehicle.legacy_station_id
+                    station_id: vehicleInfo.station_id,
+                    event_id: vehicleInfo.event_id // also backfill event_id just in case
                 })
                 .eq('id', p.id);
 
-            if (uError) {
-                console.error(`Failed to update passenger ${p.id}:`, uError);
+            if (updateError) {
+                console.error(`Error updating passenger ${p.id}:`, updateError);
                 errorCount++;
             } else {
                 updatedCount++;
+                if (updatedCount % 50 === 0) {
+                    console.log(`Updated ${updatedCount} passengers...`);
+                }
             }
-        });
-
-        await Promise.all(updates);
-        console.log(`Processed ${Math.min(i + chunk_size, passengers.length)}/${passengers.length}`);
+        }
     }
 
-    console.log(`Backfill Complete. updated: ${updatedCount}, errors: ${errorCount}`);
+    console.log(`Finished! Successfully updated ${updatedCount} passengers. Errors: ${errorCount}`);
 }
 
-backfill();
+backfillPassengerStations();

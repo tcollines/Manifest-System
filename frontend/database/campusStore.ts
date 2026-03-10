@@ -3,8 +3,9 @@ import { CampusActivity, CampusActivityAttendant, CampusFinance } from '../types
 
 export const CampusStore = {
     // Activities
-    getActivities: async (): Promise<CampusActivity[]> => {
-        return await apiFetch('/campus/activities');
+    getActivities: async (eventId?: string): Promise<CampusActivity[]> => {
+        const url = eventId ? `/campus/activities?eventId=${eventId}` : '/campus/activities';
+        return await apiFetch(url);
     },
 
     createActivity: async (payload: Partial<CampusActivity>): Promise<CampusActivity> => {
@@ -46,8 +47,9 @@ export const CampusStore = {
     },
 
     // Finance
-    getFinanceRecords: async (): Promise<CampusFinance[]> => {
-        return await apiFetch('/campus/finance');
+    getFinanceRecords: async (eventId?: string): Promise<CampusFinance[]> => {
+        const url = eventId ? `/campus/finance?eventId=${eventId}` : '/campus/finance';
+        return await apiFetch(url);
     },
 
     createFinanceRecord: async (payload: Partial<CampusFinance>): Promise<CampusFinance> => {

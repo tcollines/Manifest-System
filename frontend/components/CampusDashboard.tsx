@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, MinistryEvent, ModalType, CampusActivity } from '../types';
+import { User, MinistryEvent, ModalType, CampusActivity, CampusFinance } from '../types';
 import { Building2, Users, HeartHandshake, GraduationCap, DollarSign, Calendar, Shield, Package, FileText, Plus, X, Save, Edit2, Trash2 } from 'lucide-react';
 import { CampusStore } from '../database/campusStore';
 import { SoulsStore } from '../database/soulsStore';
@@ -62,6 +62,7 @@ interface CampusDashboardProps {
 export default function CampusDashboard({ currentUser, events, onOpenModal }: CampusDashboardProps) {
     const { showToast } = useNotification();
     const [activeTab, setActiveTab] = useState<'families' | 'evangelism' | 'vacists' | 'alumni' | 'finance'>('families');
+    const [selectedEventId, setSelectedEventId] = useState<string>(''); // For filtering
 
     // Modal State
     const [isAddingActivity, setIsAddingActivity] = useState(false);
@@ -82,14 +83,15 @@ export default function CampusDashboard({ currentUser, events, onOpenModal }: Ca
     const [totalFamilies, setTotalFamilies] = useState(0);
     const [totalEvangelisms, setTotalEvangelisms] = useState(0);
     const [totalAlumni, setTotalAlumni] = useState(0);
+    const [financeRecords, setFinanceRecords] = useState<CampusFinance[]>([]);
 
     useEffect(() => {
         fetchStats();
-    }, []);
+    }, [selectedEventId]);
 
     const fetchStats = async () => {
         try {
-            const fetchedActivities = await CampusStore.getActivities();
+            const fetchedActivities = await CampusStore.getActivities(selectedEventId);
             if (fetchedActivities) {
                 setActivities(fetchedActivities);
                 setTotalFamilies(fetchedActivities.filter(a => a.category === 'Family').length);
@@ -99,6 +101,11 @@ export default function CampusDashboard({ currentUser, events, onOpenModal }: Ca
                 // Calculate total souls won from the activities
                 const total = fetchedActivities.reduce((acc, current) => acc + (current.soulsWon || 0), 0);
                 setTotalSouls(total);
+            }
+
+            const fetchedFinance = await CampusStore.getFinanceRecords(selectedEventId);
+            if (fetchedFinance) {
+                setFinanceRecords(fetchedFinance);
             }
         } catch (e) {
             console.error('Failed to fetch campus data', e);
@@ -131,7 +138,8 @@ export default function CampusDashboard({ currentUser, events, onOpenModal }: Ca
                 soulsWon: newSouls.length > 0 ? newSouls.length : newActivity.soulsWon || 0,
                 contactsCollected: (newContacts.length || newAttendants.length) > 0 ? (newContacts.length + newAttendants.length) : newActivity.contactsCollected || 0,
                 notes: structuredNotes.trim() || undefined,
-                createdBy: currentUser.name
+                createdBy: currentUser.name,
+                eventId: newActivity.eventId || selectedEventId || undefined
             };
 
             if (newActivity.id) {
@@ -312,7 +320,8 @@ export default function CampusDashboard({ currentUser, events, onOpenModal }: Ca
         { id: 'families', label: 'Families', icon: Users },
         { id: 'evangelism', label: 'Evangelism', icon: HeartHandshake },
         { id: 'vacists', label: 'Vacists Fellowship', icon: GraduationCap },
-        { id: 'alumni', label: 'Alumni Fellowship', icon: Building2 }
+        { id: 'alumni', label: 'Alumni Fellowship', icon: Building2 },
+        { id: 'finance', label: 'Finance', icon: DollarSign }
     ];
 
     return (
@@ -321,6 +330,21 @@ export default function CampusDashboard({ currentUser, events, onOpenModal }: Ca
                 <div>
                     <h1 className="text-3xl font-bold text-ministry-text">Campus & Institutions</h1>
                     <p className="text-ministry-muted mt-2">Manage campus fellowships, evangelism, and related activities</p>
+                </div>
+                <div className="flex items-center space-x-4">
+                    <div className="relative">
+                        <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                        <select
+                            value={selectedEventId}
+                            onChange={(e) => setSelectedEventId(e.target.value)}
+                            className="pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-ministry-orange transition-all shadow-sm"
+                        >
+                            <option value="">All Events</option>
+                            {events.map(event => (
+                                <option key={event.id} value={event.id}>{event.title}</option>
+                            ))}
+                        </select>
+                    </div>
                 </div>
             </div>
 
@@ -355,6 +379,56 @@ export default function CampusDashboard({ currentUser, events, onOpenModal }: Ca
                 {activeTab === 'evangelism' && renderActivityTable('Evangelism')}
                 {activeTab === 'vacists' && renderActivityTable('Vacists')}
                 {activeTab === 'alumni' && renderActivityTable('Alumni')}
+                {activeTab === 'finance' && (
+                    <div className="space-y-6">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-lg font-bold text-ministry-text">Finance Records</h3>
+                            <button
+                                onClick={() => {
+                                    // Add finance logic could go here if needed, 
+                                    // but for now let's just show records.
+                                    showToast("Finance entry managed via Finance Department", 'info');
+                                }}
+                                className="flex items-center space-x-2 bg-ministry-text text-white px-4 py-2 rounded font-medium hover:bg-ministry-orange transition-colors"
+                            >
+                                <Plus size={16} />
+                                <span>Request Entry</span>
+                            </button>
+                        </div>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left border-collapse">
+                                <thead>
+                                    <tr className="bg-gray-50 text-gray-500 text-sm border-b border-gray-100">
+                                        <th className="p-4 font-medium">Date</th>
+                                        <th className="p-4 font-medium">Category</th>
+                                        <th className="p-4 font-medium">Description</th>
+                                        <th className="p-4 font-medium text-right">Amount</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="text-sm">
+                                    {financeRecords.map(rec => (
+                                        <tr key={rec.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
+                                            <td className="p-4">{new Date(rec.date).toLocaleDateString()}</td>
+                                            <td className="p-4">
+                                                <span className={`px-2 py-1 rounded-full text-xs font-bold ${rec.type === 'Income' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                                                    }`}>
+                                                    {rec.category}
+                                                </span>
+                                            </td>
+                                            <td className="p-4 text-gray-600">{rec.description}</td>
+                                            <td className="p-4 text-right font-bold text-gray-900">
+                                                {rec.type === 'Expense' ? '-' : '+'}{Number(rec.amount).toLocaleString()}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {financeRecords.length === 0 && (
+                                        <tr><td colSpan={4} className="text-center py-10 text-gray-400">No finance records found for this scope.</td></tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Modals */}
@@ -367,6 +441,19 @@ export default function CampusDashboard({ currentUser, events, onOpenModal }: Ca
                         </div>
                         <form onSubmit={handleSubmitActivity} className="p-6 space-y-4 overflow-y-auto">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="space-y-1">
+                                    <label className="text-sm font-bold text-gray-700">Event Scoping</label>
+                                    <select
+                                        value={newActivity.eventId || selectedEventId || ''}
+                                        onChange={e => setNewActivity({ ...newActivity, eventId: e.target.value })}
+                                        className="w-full p-2.5 border border-gray-300 rounded-lg text-sm bg-white"
+                                    >
+                                        <option value="">No specific event</option>
+                                        {events.map(event => (
+                                            <option key={event.id} value={event.id}>{event.title} ({event.date})</option>
+                                        ))}
+                                    </select>
+                                </div>
                                 <div className="space-y-1">
                                     <label className="text-sm font-bold text-gray-700">Date {newActivity.category === 'Family' ? 'of meeting' : newActivity.category === 'Evangelism' ? 'of evangelism' : 'of activity'}</label>
                                     <input type="date" required value={newActivity.date || ''} onChange={e => setNewActivity({ ...newActivity, date: e.target.value })} className="w-full p-2.5 border border-gray-300 rounded-lg text-sm" />
