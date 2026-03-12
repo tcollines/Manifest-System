@@ -156,7 +156,7 @@ const AnalyticsCharts: React.FC = () => {
           </ResponsiveContainer>
           <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-[calc(50%+20px)] text-center">
             <span className="text-3xl font-bold text-ministry-text">
-              {totalSouls > 0 ? (totalSouls > 1000 ? (totalSouls / 1000).toFixed(1) + 'K' : totalSouls) : '1.5K'}
+              {totalSouls > 1000 ? (totalSouls / 1000).toFixed(1) + 'K' : totalSouls}
             </span>
             <p className="text-xs text-gray-500">Total Souls</p>
           </div>

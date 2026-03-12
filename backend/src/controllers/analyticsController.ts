@@ -58,22 +58,48 @@ export const getServiceAttendance = async (req: Request, res: Response) => {
 };
 
 export const getSoulsWon = async (req: Request, res: Response) => {
+    const manifestId = (req as any).manifestId;
+    if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
+
     try {
-        // Fetch all souls to aggregate by source type
-        const { data: souls, error } = await supabase
+        const counts: Record<string, number> = {
+            'Public Entry': 0,
+            'Events & Services': 0,
+            'Residency Outreach': 0
+        };
+
+        // 1. Fetch individual souls from public.souls
+        const { data: individualSouls, error: soulsError } = await supabase
             .from('souls')
-            .select('source_type');
+            .select('id')
+            .eq('manifest_id', manifestId);
 
-        if (error) throw error;
+        if (!soulsError && individualSouls) {
+            counts['Public Entry'] += individualSouls.length;
+        }
 
-        // Aggregate counts
-        const counts: Record<string, number> = {};
+        // 2. Fetch souls_won from passengers (representing souls won during services/events)
+        const { data: passengers, error: passengersError } = await supabase
+            .from('passengers')
+            .select('id')
+            .eq('manifest_id', manifestId)
+            .eq('soul_won', true);
 
-        souls?.forEach((soul: any) => {
-            const type = soul.source_type || 'Other';
-            counts[type] = (counts[type] || 0) + 1;
-        });
+        if (!passengersError && passengers) {
+            counts['Events & Services'] = passengers.length;
+        }
 
+        // 3. Fetch souls_won from residence_outreach_reports
+        const { data: reports, error: reportsError } = await supabase
+            .from('residence_outreach_reports')
+            .select('souls_won')
+            .eq('manifest_id', manifestId);
+
+        if (!reportsError && reports) {
+            counts['Residency Outreach'] = reports.reduce((sum: number, report: any) => sum + (report.souls_won || 0), 0);
+        }
+
+        // Format for Recharts
         const chartData = Object.keys(counts).map(key => ({
             name: key,
             value: counts[key]
@@ -81,6 +107,7 @@ export const getSoulsWon = async (req: Request, res: Response) => {
 
         res.json(chartData);
     } catch (error: any) {
+        console.error('[ANALYTICS] Failed to fetch aggregate souls won:', error);
         res.status(500).json({ error: error.message });
     }
 };

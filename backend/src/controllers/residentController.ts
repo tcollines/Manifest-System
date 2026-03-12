@@ -1,0 +1,200 @@
+import { Request, Response } from 'express';
+import { supabase } from '../supabase';
+
+// Residences
+
+export const getResidences = async (req: Request, res: Response) => {
+    const manifestId = (req as any).manifestId;
+    if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
+
+    try {
+        const { data, error } = await supabase
+            .from('residences')
+            .select('*')
+            .eq('manifest_id', manifestId)
+            .order('name', { ascending: true });
+
+        if (error) throw error;
+        res.json(data);
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+export const addResidence = async (req: Request, res: Response) => {
+    const manifestId = (req as any).manifestId;
+    if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
+
+    try {
+        const payload = { ...req.body, manifest_id: manifestId };
+
+        // --- NEW: Auto-Create User for Residence Coordinator ---
+        const { coordinator_email, coordinator_name, coordinator_contact } = payload;
+
+        if (coordinator_email && coordinator_name) {
+            // Check if user already exists
+            const { data: existingUser } = await supabase
+                .from('users')
+                .select('id')
+                .eq('email', coordinator_email)
+                .eq('manifest_id', manifestId)
+                .maybeSingle();
+
+            if (!existingUser) {
+                // Insert public profile only
+                const newProfile = {
+                    manifest_id: manifestId,
+                    name: coordinator_name,
+                    email: coordinator_email,
+                    username: coordinator_email.split('@')[0],
+                    contact: coordinator_contact || null,
+                    role: 'Resident Coordinator',
+                    status: 'Active'
+                };
+
+                const { error: dbError } = await supabase.from('users').insert([newProfile]);
+
+                if (dbError) {
+                    console.error("[addResidence] DB Insert failed for coordinator", dbError);
+                    throw dbError;
+                }
+            }
+        }
+
+        // Insert the Residence
+        const { data, error } = await supabase
+            .from('residences')
+            .insert([payload])
+            .select()
+            .single();
+
+        if (error) throw error;
+        res.status(201).json(data);
+    } catch (error: any) {
+        console.error('[addResidence Error]:', error);
+        res.status(500).json({ error: error.message });
+    }
+};
+
+export const deleteResidence = async (req: Request, res: Response) => {
+    const manifestId = (req as any).manifestId;
+    if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
+
+    const { id } = req.params;
+
+    try {
+        // 1. Get the Residence Details so we know the coordinator's email and residence name
+        const { data: residence, error: fetchError } = await supabase
+            .from('residences')
+            .select('name, coordinator_email')
+            .eq('id', id)
+            .eq('manifest_id', manifestId)
+            .single();
+
+        if (fetchError || !residence) throw new Error('Could not fetch residence details for deletion');
+
+        // 2. Clear out the residency from all assigned members
+        const { error: memberError } = await supabase
+            .from('members')
+            .update({ residency: null })
+            .eq('residency', residence.name)
+            .eq('manifest_id', manifestId);
+
+        if (memberError) console.error("[deleteResidence] Member Reset Error:", memberError);
+
+        // 3. Delete the specific Resident Coordinator from the users table
+        if (residence.coordinator_email) {
+            const { error: userError } = await supabase
+                .from('users')
+                .delete()
+                .eq('email', residence.coordinator_email)
+                .eq('role', 'Resident Coordinator')
+                .eq('manifest_id', manifestId);
+
+            if (userError) console.error("[deleteResidence] User Deletion Error:", userError);
+        }
+
+        // 4. Finally, delete the Residence from the DB (outreach reports will cascade delete automatically)
+        const { error } = await supabase
+            .from('residences')
+            .delete()
+            .eq('id', id)
+            .eq('manifest_id', manifestId);
+
+        if (error) throw error;
+        res.json({ message: 'Residence and all associated info deleted successfully' });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+export const getResidenceMembers = async (req: Request, res: Response) => {
+    const manifestId = (req as any).manifestId;
+    if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
+
+    const { id } = req.params;
+
+    try {
+        // First get the residence name
+        const { data: residence, error: resError } = await supabase
+            .from('residences')
+            .select('name')
+            .eq('id', id)
+            .eq('manifest_id', manifestId)
+            .single();
+
+        if (resError) throw resError;
+        if (!residence) return res.status(404).json({ error: 'Residence not found' });
+
+        // Now find exact members
+        const { data: members, error: memError } = await supabase
+            .from('members')
+            .select('*')
+            .eq('manifest_id', manifestId)
+            .eq('residency', residence.name);
+
+        if (memError) throw memError;
+        res.json(members);
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+// Outreach Reports
+
+export const getResidentReports = async (req: Request, res: Response) => {
+    const manifestId = (req as any).manifestId;
+    if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
+
+    try {
+        const { data, error } = await supabase
+            .from('residence_outreach_reports')
+            .select('*, residences(name)')
+            .eq('manifest_id', manifestId)
+            .order('date', { ascending: false });
+
+        if (error) throw error;
+        res.json(data);
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+export const addResidentReport = async (req: Request, res: Response) => {
+    const manifestId = (req as any).manifestId;
+    if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
+
+    try {
+        const payload = { ...req.body, manifest_id: manifestId };
+        const { data, error } = await supabase
+            .from('residence_outreach_reports')
+            .insert([payload])
+            .select()
+            .single();
+
+        if (error) throw error;
+        res.status(201).json(data);
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+};

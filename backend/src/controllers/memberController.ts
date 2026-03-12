@@ -15,7 +15,7 @@ export const getMembers = async (req: Request, res: Response) => {
     const searchQuery = req.query.search as string || '';
 
     try {
-        let query = supabase.from('members').select('id, name, category, phone, status, check_in_time, gender, residency, born_again, joined_date, created_at', { count: 'exact' })
+        let query = supabase.from('members').select('id, name, category, phone, status, check_in_time, gender, residency, born_again, joined_date, attended_service_ids, created_at', { count: 'exact' })
             .eq('manifest_id', manifestId); // Tenant Isolation
 
         if (searchQuery) {
@@ -553,6 +553,137 @@ export const getMemberById = async (req: Request, res: Response) => {
         if (error) throw error;
         res.json(data || null);
     } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+// Helper function for fuzzy string matching (Sørensen–Dice coefficient)
+function calculateSimilarity(str1: string, str2: string): number {
+    if (!str1 || !str2) return 0;
+    const s1 = str1.toLowerCase().trim();
+    const s2 = str2.toLowerCase().trim();
+    if (s1 === s2) return 1;
+    if (s1.length < 2 || s2.length < 2) {
+        return s1.includes(s2) || s2.includes(s1) ? 0.5 : 0;
+    }
+
+    const bigrams1 = [];
+    for (let i = 0; i < s1.length - 1; i++) bigrams1.push(s1.substring(i, i + 2));
+    const bigrams2 = [];
+    for (let i = 0; i < s2.length - 1; i++) bigrams2.push(s2.substring(i, i + 2));
+
+    bigrams1.sort();
+    bigrams2.sort();
+
+    let intersection = 0;
+    let i = 0;
+    let j = 0;
+
+    while (i < bigrams1.length && j < bigrams2.length) {
+        if (bigrams1[i] === bigrams2[j]) {
+            intersection++;
+            i++;
+            j++;
+        } else if (bigrams1[i] < bigrams2[j]) {
+            i++;
+        } else {
+            j++;
+        }
+    }
+
+    return (2.0 * intersection) / (bigrams1.length + bigrams2.length);
+}
+
+export const searchMembersByResidency = async (req: Request, res: Response) => {
+    const manifestId = (req as any).manifestId;
+    if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
+
+    const residencySearch = req.query.residency as string || '';
+    if (!residencySearch) {
+        return res.json([]);
+    }
+
+    try {
+        // Find ALL members with a residency to compute string similarity (since we need fuzzy matching)
+        // Bypassing Supabase's default 1000-row limit by using pagination
+        let allMembers: any[] = [];
+        let page = 0;
+        const limit = 1000;
+        let hasMore = true;
+
+        while (hasMore) {
+            const { data: members, error: memError } = await supabase
+                .from('members')
+                .select('*')
+                .eq('manifest_id', manifestId)
+                .not('residency', 'is', null)
+                .neq('residency', '')
+                .range(page * limit, (page + 1) * limit - 1);
+
+            if (memError) throw memError;
+
+            if (!members || members.length === 0) {
+                hasMore = false;
+            } else {
+                allMembers = allMembers.concat(members);
+                if (members.length < limit) {
+                    hasMore = false;
+                } else {
+                    page++;
+                }
+            }
+        }
+
+        if (allMembers.length === 0) return res.json([]);
+
+        // Filter based on 50% similarity or substring match
+        const matchingMembers = allMembers.filter((m: any) => {
+            const residency = m.residency || '';
+            // Treat exact substring as a valid match just in case
+            if (residency.toLowerCase().includes(residencySearch.toLowerCase())) {
+                return true;
+            }
+
+            // Calculate similarity (>= 50% match)
+            const similarity = calculateSimilarity(residencySearch, residency);
+            return similarity >= 0.5;
+        });
+
+        // Return all matching members
+        res.json(matchingMembers);
+    } catch (error: any) {
+        console.error('searchMembersByResidency Error:', error);
+        res.status(500).json({ error: error.message });
+    }
+};
+
+export const bulkUpdateResidency = async (req: Request, res: Response) => {
+    const manifestId = (req as any).manifestId;
+    if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
+
+    const { memberIds, residencyName } = req.body;
+
+    if (!memberIds || !Array.isArray(memberIds) || !residencyName) {
+        return res.status(400).json({ error: 'Missing memberIds or residencyName' });
+    }
+
+    try {
+        const uuidIds = memberIds.map(toUUID).filter(Boolean);
+        if (uuidIds.length === 0) {
+            return res.json({ message: 'No valid UUIDs provided for bulk update.' });
+        }
+
+        const { error } = await supabase
+            .from('members')
+            .update({ residency: residencyName })
+            .eq('manifest_id', manifestId)
+            .in('id', uuidIds);
+
+        if (error) throw error;
+
+        res.json({ message: 'Members residencies mapped successfully' });
+    } catch (error: any) {
+        console.error('bulkUpdateResidency Error:', error);
         res.status(500).json({ error: error.message });
     }
 };

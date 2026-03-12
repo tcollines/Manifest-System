@@ -365,7 +365,7 @@ const ActionPanel: React.FC<ActionPanelProps> = ({ modalType, closeModal, onSave
                     >
                       {/* Dynamic Role Options based on Permissions */}
                       {(() => {
-                        const allRoles = ['Dept Admin', 'Member', 'Head of Dept', 'Administrator', 'TeamLeader', 'Logistics', 'Coordinator'];
+                        const allRoles = ['Dept Admin', 'Member', 'Head of Dept', 'Administrator', 'TeamLeader', 'Logistics', 'Coordinator', 'Resident Coordinator'];
                         let allowedRoles = allRoles;
 
                         if (isAdmin || isTeamLeader) {

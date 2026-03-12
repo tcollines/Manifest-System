@@ -154,6 +154,7 @@ export const getDashboardForUser = (user: User): string => {
     if (user.role === 'Logistics') return '/registration';
     if (user.role === 'Vehicle Coordinator') return '/transportation';
     if (user.role === 'Stage Coordinator') return '/stage-dashboard';
+    if (user.role === 'Resident Coordinator') return '/my-residency';
     if (user.role === 'Coordinator') {
         if (user.stationId) return '/stage-dashboard';
         return '/transportation';

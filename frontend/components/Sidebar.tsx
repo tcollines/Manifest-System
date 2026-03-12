@@ -76,6 +76,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, onLogout, isOpen, onClos
   const isFollowUpHead = (currentUser.role === 'Head of Dept' || currentUser.role === 'Dept Admin') && checkDept('follow-up');
   const isFollowUpMember = currentUser.role === 'Member' && checkDept('follow-up');
   const isCampusHead = (currentUser.role === 'Head of Dept' || currentUser.role === 'Dept Admin') && (checkDept('campus') || checkDept('campus and institutions'));
+  const isResidentCoordinator = currentUser.role === 'Resident Coordinator';
 
   let menuItems: any[] = [];
 
@@ -179,6 +180,10 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, onLogout, isOpen, onClos
     menuItems = [
       { id: 'stage-dashboard', label: 'Stage Dashboard', icon: Bus },
     ];
+  } else if (isResidentCoordinator) {
+    menuItems = [
+      { id: 'residents', label: 'Residents Dashboard', icon: Building2 },
+    ];
   } else if (isVehicleCoordinator) {
     menuItems = [
       { id: 'transportation', label: 'Vehicle Dashboard', icon: Bus },
@@ -263,6 +268,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, onLogout, isOpen, onClos
       case 'campus-events': return '/campus/events';
       case 'campus-finance': return '/campus/finance';
       case 'stage-dashboard': return '/stage-dashboard';
+      case 'residents': return '/residents';
       default: return '/dashboard';
     }
   }

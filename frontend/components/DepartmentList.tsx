@@ -2,7 +2,7 @@
 import React from 'react';
 import { useNotification } from './ui/NotificationSystem';
 import { DEPARTMENTS } from '../constants';
-import { MoreHorizontal, Users, Car, CreditCard, ClipboardCheck, Phone, Bus, BookOpen, Heart, Building2 } from 'lucide-react';
+import { MoreHorizontal, Users, Car, CreditCard, ClipboardCheck, Phone, Bus, BookOpen, Heart, Building2, Home } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 
 interface DepartmentListProps {
@@ -21,6 +21,7 @@ const getIcon = (name: string) => {
     case 'healing': return Heart;
     case 'campus and institutions':
     case 'campus': return Building2;
+    case 'residents': return Home;
     default: return Users;
   }
 }
@@ -48,6 +49,8 @@ const DepartmentList: React.FC<DepartmentListProps> = () => {
       navigate('/healing');
     } else if (deptName.toLowerCase() === 'campus and institutions' || deptName.toLowerCase() === 'campus') {
       navigate('/campus');
+    } else if (deptName.toLowerCase() === 'residents') {
+      navigate('/residents');
     } else {
       showToast(`Navigating to ${deptName} Dashboard... (Module under construction)`, 'info');
     }

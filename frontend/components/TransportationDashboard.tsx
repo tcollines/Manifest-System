@@ -647,7 +647,8 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
         if (!p || !myVehicle) return;
 
         // RESOLVE EVENT ID:
-        // Prioritize the vehicle's specific event. Fallback to globally selected event if missing.
+        // Prioritize the vehicle's historical event ID over the active global event.
+        // This ensures souls captured the day AFTER an event remain associated with the correct event.
         const effectiveEventId = myVehicle.eventId || selectedEventId;
 
         if (!effectiveEventId) {
@@ -676,6 +677,9 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
             const firstName = nameParts[0];
             const lastName = nameParts.slice(1).join(' ') || 'Unknown';
 
+            const activeEventObj = allEvents.find(e => e.id === effectiveEventId);
+            const resolvedSourceType = activeEventObj?.type || 'Service';
+
             const newSoul: Soul = {
                 id: soulId, // Deterministic Link
                 firstName,
@@ -684,7 +688,7 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
                 gender: p.gender || 'Male',
                 residence: p.residence,
                 status: 'New',
-                sourceType: 'Event',
+                sourceType: resolvedSourceType,
                 sourceId: effectiveEventId,
                 capturedBy: currentUser?.id || '00000000-0000-0000-0000-000000000000',
                 createdAt: new Date().toISOString(),
@@ -1252,6 +1256,7 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
                                                                 }
                                                             } else {
                                                                 if (activeJourneyTab === 'Ongoing') {
+                                                                    window.open(COGNITO_FORM_URL, '_blank');
                                                                     handleStageUpdate('RegApproval');
                                                                 } else {
                                                                     handleStageUpdate('FinanceApproval');
@@ -1288,7 +1293,7 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
                                             <div className="flex flex-col gap-3 items-center">
                                                 {activeJourneyTab === 'Ongoing' && (
                                                     <button
-                                                        onClick={() => window.location.href = COGNITO_FORM_URL}
+                                                        onClick={() => window.open(COGNITO_FORM_URL, '_blank')}
                                                         className="bg-ministry-orange text-white px-6 py-2 rounded-lg font-bold hover:bg-orange-600 transition-colors flex items-center shadow"
                                                     >
                                                         <ExternalLink className="w-4 h-4 mr-2" /> Open Passenger Registration Form

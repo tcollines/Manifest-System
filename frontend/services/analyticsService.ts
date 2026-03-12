@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient';
+import { apiFetch } from '../utils';
 import { SOUL_WINNING_DATA, ATTENDANCE_DATA } from '../constants';
 
 export const analyticsService = {
@@ -9,7 +10,12 @@ export const analyticsService = {
     },
 
     fetchSoulWinningAnalytics: async () => {
-        // Return soul winning chart breakdown data
-        return SOUL_WINNING_DATA;
+        try {
+            const data = await apiFetch('/analytics/souls');
+            return data;
+        } catch (error) {
+            console.error('Error fetching soul winning analytics:', error);
+            return SOUL_WINNING_DATA; // Fallback entirely to mock if backend fails
+        }
     }
 };

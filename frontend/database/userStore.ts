@@ -108,8 +108,9 @@ export const UserStore = {
       let profileData = null;
       try {
         profileData = await apiFetch('/users/profile', { token: authResult.data.session.access_token });
-      } catch (e) {
+      } catch (e: any) {
         console.error(`[USERSTORE] API Profile Fetch Failed:`, e);
+        return { status: 'error', message: e.message || 'Server connection failed while fetching profile.' };
       }
 
       if (!profileData) {

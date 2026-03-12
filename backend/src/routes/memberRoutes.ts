@@ -10,7 +10,9 @@ import {
     searchMembersWithStatus,
     getEventAttendees,
     getMemberById,
-    getMembersByIds
+    getMembersByIds,
+    searchMembersByResidency,
+    bulkUpdateResidency
 } from '../controllers/memberController';
 
 const router = Router();
@@ -24,6 +26,8 @@ router.get('/stats/:serviceId', getServiceStats);
 router.get('/:id/details', getMemberDetails);
 router.get('/search-status/:serviceId', searchMembersWithStatus);
 router.get('/attendees/:id', getEventAttendees);
+router.get('/search-by-residency', searchMembersByResidency);
+router.post('/bulk-update-residency', bulkUpdateResidency);
 router.get('/:id', getMemberById);
 
 export default router;

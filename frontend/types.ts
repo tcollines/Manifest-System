@@ -117,6 +117,30 @@ export interface Member {
   soulWon?: boolean;
 }
 
+export interface Residence {
+  id: string;
+  name: string;
+  coordinatorName: string;
+  coordinatorEmail?: string;
+  coordinatorContact?: string;
+  createdAt?: string;
+}
+
+export interface ResidenceOutreachReport {
+  id: string;
+  residenceId: string;
+  date: string;
+  purpose: string;
+  totalAttendance: number;
+  soulsWon: number;
+  sermonTitle?: string;
+  notes?: string;
+  submittedBy?: string;
+  submittedAt?: string;
+  // Computed field for UI
+  residenceName?: string;
+}
+
 export interface Child {
   id: string;
   name: string;

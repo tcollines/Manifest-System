@@ -207,5 +207,29 @@ export const MemberStore = {
       console.error("Error fetching attendees:", e);
       return [];
     }
+  },
+
+  searchMembersByResidency: async (residencySearch: string): Promise<Member[]> => {
+    try {
+      if (!residencySearch) return [];
+      const data = await apiFetch(`/members/search-by-residency?residency=${encodeURIComponent(residencySearch)}`);
+      return data ? data.map(mapMemberFromDB) : [];
+    } catch (e) {
+      console.error("Error searching members by residency:", e);
+      return [];
+    }
+  },
+
+  bulkUpdateResidency: async (memberIds: string[], residencyName: string): Promise<void> => {
+    try {
+      if (!memberIds.length || !residencyName) return;
+      await apiFetch('/members/bulk-update-residency', {
+        method: 'POST',
+        body: JSON.stringify({ memberIds, residencyName })
+      });
+    } catch (e) {
+      console.error('Error bulk updating residency:', e);
+      throw e;
+    }
   }
 };

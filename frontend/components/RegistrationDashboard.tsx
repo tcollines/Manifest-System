@@ -1894,9 +1894,19 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
     try {
       const res = await UserStore.add(newUser);
       if (res.status === 'error') throw new Error(res.message);
+
       setIsAddEntrantOpen(false);
       setNewEntrant({ name: '', username: '', password: '' });
       showToast("Data entrant added successfully.", 'success');
+
+      // Update local state so it appears immediately
+      const result = await UserStore.getAll();
+      if (result.status === 'success') {
+        setStationEntrants(result.data.filter(u => u.role === 'Logistics' && u.stationId === selectedStation.id));
+      } else {
+        // Fallback if getAll fails
+        setStationEntrants(prev => [...prev, newUser]);
+      }
     } catch (error: any) {
       showToast("Error adding entrant: " + error.message, 'error');
     }

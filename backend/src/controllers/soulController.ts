@@ -128,11 +128,14 @@ export const getSoulServiceStats = async (req: Request, res: Response) => {
         let query = supabase
             .from('souls')
             .select('*', { count: 'exact', head: true })
-            .eq('manifest_id', manifestId) // Tenant Isolation
-            .eq('source_type', 'Service');
+            .eq('manifest_id', manifestId); // Tenant Isolation
 
         if (idUuid) {
             query = query.eq('event_id', idUuid);
+        } else {
+            // Fallback for extreme cases where event_id is absent but we still want to count Service souls globally? 
+            // Usually this endpoint is strictly tied to a service ID.
+            query = query.eq('source_type', 'Service');
         }
 
         const { count: mainCount, error } = await query;

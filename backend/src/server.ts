@@ -78,6 +78,7 @@ import healingRoutes from './routes/healingRoutes';
 import reportRoutes from './routes/reportRoutes';
 import departmentRoutes from './routes/departmentRoutes';
 import campusRoutes from './routes/campusRoutes';
+import residentRoutes from './routes/residentRoutes';
 import { Client } from 'pg';
 
 app.use('/api/users', userRoutes);
@@ -96,9 +97,9 @@ app.use('/api/logistics', logisticsRoutes);
 app.use('/api/parking', parkingRoutes);
 app.use('/api/manifest', manifestRoutes);
 app.use('/api/healing', healingRoutes);
-app.use('/api/reports', reportRoutes);
 app.use('/api/departments', departmentRoutes);
 app.use('/api/campus', campusRoutes);
+app.use('/api/residents', residentRoutes);
 
 
 app.listen(PORT, async () => {

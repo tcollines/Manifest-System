@@ -9,8 +9,6 @@ export const login = async (req: Request, res: Response) => {
     }
 
     try {
-        // Step 1: Lookup real email by username if it doesn't look like an email
-        // We use the regular `supabase` (service role) to query `public.users` safely
         let inputIdentifier = username.trim();
         let targetEmail = inputIdentifier;
 
@@ -18,7 +16,7 @@ export const login = async (req: Request, res: Response) => {
         // Priority 1: Exact Case-Sensitive Match
         let { data: usersData, error } = await supabase
             .from('users')
-            .select('email')
+            .select('id, email, password, role')
             .or(`username.eq."${inputIdentifier}",email.eq."${inputIdentifier}"`)
             .neq('status', 'Deleted')
             .limit(1);
@@ -27,7 +25,7 @@ export const login = async (req: Request, res: Response) => {
         if (!usersData || usersData.length === 0) {
             const fallbackResult = await supabase
                 .from('users')
-                .select('email')
+                .select('id, email, password, role') // MATCH THE COLUMNS REQUESTED ABOVE
                 .or(`username.ilike."${inputIdentifier}",email.ilike."${inputIdentifier}"`)
                 .neq('status', 'Deleted')
                 .limit(1);
@@ -47,9 +45,26 @@ export const login = async (req: Request, res: Response) => {
             return res.status(401).json({ error: 'Invalid login credentials' });
         }
 
-        // Use true email if it exists, otherwise reconstruct the synthetic .local identity
-        // used to provision Coordinators and Data Entrants.
-        targetEmail = data.email || `${inputIdentifier.toLowerCase().replace(/\s+/g, '')}@manifest.local`;
+        // --- NEW: SYNTHETIC EMAIL FALLBACK ---
+        // For roles that don't traditionally have emails, public.users.email might be out of sync
+        // with the true identity provisioned in auth.users.
+        // To guarantee success, we fetch the exact email registered in GoTrue for this user ID.
+        let verifiedAuthEmail = data.email;
+
+        if (['Logistics', 'Stage Coordinator', 'Vehicle Coordinator', 'Coordinator', 'Resident Coordinator'].includes(data.role)) {
+            try {
+                const { data: authUser, error: authError } = await supabase.auth.admin.getUserById(data.id);
+                if (authUser?.user?.email) {
+                    verifiedAuthEmail = authUser.user.email;
+                    console.log(`[LOGIN SYNC] Resolved GoTrue email ${verifiedAuthEmail} for ${inputIdentifier}`);
+                }
+            } catch (e: any) {
+                console.warn(`[LOGIN SYNC WARNING] Failed to fetch GoTrue identity for ${data.id}:`, e.message);
+            }
+        }
+
+        // Use verified email if found, otherwise reconstruct the synthetic .local identity fallback
+        targetEmail = verifiedAuthEmail || `${inputIdentifier.toLowerCase().replace(/\s+/g, '')}@manifest.local`;
 
         // Step 2: Authenticate securely with the real email
         // MUST use Anon Client, Service Role cannot generate sessions.

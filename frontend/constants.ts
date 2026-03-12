@@ -30,6 +30,7 @@ export const DEPARTMENTS: Department[] = [
   { id: '4d99940e-58ec-40ba-92bd-4a65651bf23a', code: 'd7', slug: 'schools', uuid: '4d99940e-58ec-40ba-92bd-4a65651bf23a', name: 'Schools', head: 'Schools Coordinator', members: 10, status: 'Active' },
   { id: 'f1a0d749-d681-4150-9764-aecfeac8b0ca', code: 'd8', slug: 'healing', uuid: 'f1a0d749-d681-4150-9764-aecfeac8b0ca', name: 'Healing', head: 'Healing Coordinator', members: 5, status: 'Active' },
   { id: 'b2c1d3e4-f5a6-7890-bcde-1234567890ab', code: 'd9', slug: 'campus', uuid: 'b2c1d3e4-f5a6-7890-bcde-1234567890ab', name: 'Campus and Institutions', head: 'Campus Coordinator', members: 10, status: 'Active' },
+  { id: 'c1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d', code: 'd10', slug: 'residents', uuid: 'c1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d', name: 'Residents', head: 'Resident Coordinator', members: 0, status: 'Active' },
 ];
 
 // Replaced by DB data, keeping empty arrays or minimal fallbacks if strictly necessary for type safety in some old components, but aiming to use stores.
