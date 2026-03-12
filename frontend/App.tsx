@@ -42,6 +42,8 @@ import { getDashboardForUser } from './utils';
 import RoleRedirect from './components/RoleRedirect';
 import ProtectedRoute from './components/ProtectedRoute';
 import StageCoordinatorDashboard from './components/StageCoordinatorDashboard';
+import ResidentDashboard from './components/ResidentDashboard';
+import CoordinatorResidencyDashboard from './components/CoordinatorResidencyDashboard';
 
 const App: React.FC = () => {
   const { showToast } = useNotification();
@@ -157,18 +159,10 @@ const App: React.FC = () => {
             UserStore.saveSession(matchingUser);
             refreshData(); // Fetch events now that we are authenticated
 
-            // Check if new user needs to setup account
-            if (!matchingUser.username || matchingUser.username.trim() === '') {
-              // FORCE setup account
-              if (location.pathname !== '/setup-account') {
-                navigate('/setup-account', { replace: true });
-              }
-            } else {
-              // If we are strictly at / or /login, redirect. Else stay.
-              if (location.pathname === '/' || location.pathname === '/login') {
-                const target = getDashboardForUser(matchingUser);
-                navigate(target, { replace: true });
-              }
+            // If we are strictly at an auth-related route, redirect to the user's dashboard. Else stay.
+            if (location.pathname === '/' || location.pathname === '/login' || location.pathname === '/setup-account') {
+              const target = getDashboardForUser(matchingUser);
+              navigate(target, { replace: true });
             }
             setLoginError(null);
           } else if (matchingUser && !matchingUser.name) {
@@ -212,11 +206,6 @@ const App: React.FC = () => {
         UserStore.saveSession(user);
         refreshData(); // Fetch events now that we are authenticated
 
-        if (!user.username || user.username.trim() === '') {
-          navigate('/setup-account', { replace: true });
-          return;
-        }
-
         const targetTab = getDashboardForUser(user);
         navigate(targetTab);
         setLoginError(null);
@@ -248,9 +237,9 @@ const App: React.FC = () => {
         token: token,
       });
 
-      if (authError || !authData.session) {
+      if (authError || !authData?.session) {
         console.error("Supabase ID Token Auth Failed:", authError);
-        setLoginError('Authentication failed. Please try again.');
+        setLoginError(`Authentication failed: ${authError?.message || 'Missing session data'}`);
         return;
       }
 
@@ -270,11 +259,6 @@ const App: React.FC = () => {
         setCurrentUser(user);
         UserStore.saveSession(user);
         refreshData(); // Fetch events now that we are authenticated
-
-        if (!user.username || user.username.trim() === '') {
-          navigate('/setup-account', { replace: true });
-          return;
-        }
 
         const targetTab = getDashboardForUser(user);
         navigate(targetTab);
@@ -551,6 +535,15 @@ const App: React.FC = () => {
             {/* Schools (d7) */}
             <Route element={<ProtectedRoute currentUser={currentUser} allowedDepartments={['d7']} />}>
               <Route path="schools" element={<SchoolsDashboard currentUser={currentUser} events={events} onOpenModal={setModalType} />} />
+            </Route>
+
+            {/* Residents (d10 - assuming new code) */}
+            <Route element={<ProtectedRoute currentUser={currentUser} allowedRoles={['Administrator', 'Super Admin']} />}>
+              <Route path="residents" element={<ResidentDashboard currentUser={currentUser} events={events} onOpenModal={setModalType} />} />
+            </Route>
+
+            <Route element={<ProtectedRoute currentUser={currentUser} allowedRoles={['Resident Coordinator']} />}>
+              <Route path="my-residency" element={<CoordinatorResidencyDashboard currentUser={currentUser} />} />
             </Route>
 
             {/* Campus and Institutions (d9) */}
