@@ -1,0 +1,24 @@
+[
+  {
+    "input": "Harriet",
+    "type": "EXACT",
+    "username": "Harriet",
+    "email": "harriet_mmftdkog7q2y@manifest.local"
+  },
+  {
+    "input": "harriet",
+    "type": "EXACT",
+    "username": "harriet",
+    "email": "harriet_mmenipwg9olm@manifest.local"
+  },
+  {
+    "input": "francism",
+    "type": "FALLBACK",
+    "username": "FrancisM",
+    "email": "francism_mmfwsm5poq2t@manifest.local"
+  },
+  {
+    "input": "Francis",
+    "type": "NONE"
+  }
+]

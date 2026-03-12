@@ -1318,6 +1318,76 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
     }
   };
 
+  const handleUndoCheckInMember = async (memberId: string) => {
+    if (!selectedService) return;
+
+    // Check elevated permissions
+    const elevatedRoles = ['Administrator', 'Head of Dept', 'Department Head', 'Dept Admin', 'Reg. Admin', 'Registration Admin', 'Registration Head'];
+    if (!elevatedRoles.includes(currentUser.role)) {
+      showToast("You do not have permission to undo check-ins.", "warning");
+      return;
+    }
+
+    // Must confirm undo checkin
+    if (!(await askConfirm("Undo Check-In?", "Are you sure you want to remove this member's check-in record for this service?"))) {
+      return;
+    }
+
+    try {
+      // 1. Optimistic UI Updates
+      setCheckedInIds(prev => {
+        const next = new Set(prev);
+        next.delete(memberId);
+        return next;
+      });
+
+      setCheckInStats(prev => ({
+        ...prev,
+        total: Math.max(0, prev.total - 1)
+      }));
+
+      setMembers(prev => prev.map(m => m.id === memberId ? {
+        ...m,
+        status: 'Member',
+        checkInTime: undefined
+      } : m));
+
+      // 2. Platform Request
+      await MemberStore.undoCheckIn(memberId, selectedService.id);
+      showToast("Check-In reversed successfully", "success");
+
+      // Auto-refresh stats to ensure FirstTimer counts also sync perfectly
+      try {
+        const stats = await MemberStore.getServiceStats(selectedService.id, selectedService.date);
+        const childrenCount = selectedService.stats?.manualChildrenCount || 0;
+        setCheckInStats({ total: stats.total + childrenCount, firstTimers: stats.firstTimers });
+      } catch (e) {
+        // silent fail on auto-refresh
+      }
+
+    } catch (error: any) {
+      console.error("Undo Check-in Error:", error);
+
+      // Rollback UI
+      setCheckedInIds(prev => {
+        const next = new Set(prev);
+        next.add(memberId);
+        return next;
+      });
+      setCheckInStats(prev => ({
+        ...prev,
+        total: prev.total + 1
+      }));
+      setMembers(prev => prev.map(m => m.id === memberId ? {
+        ...m,
+        status: 'Checked In',
+        checkInTime: new Date().toLocaleTimeString()
+      } : m));
+
+      showToast(error.message || "Failed to undo check-in", "error");
+    }
+  };
+
   // --- MEMBER DETAILS & EDIT ---
   const handleViewMember = async (memberId: string) => {
     try {
@@ -1523,68 +1593,77 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
   const handleBulkMemberImport = async (e: React.FormEvent) => {
     e.preventDefault();
     const lines = bulkMemberText.split('\n');
-    let count = 0;
+    const membersToImport: Member[] = [];
+    const seenMembers = new Set<string>(); // For deduplication
 
-    const newMembers: Member[] = [];
     setIsImporting(true);
     setImportProgress(0);
 
-    // 1. Parse Logic
+    // 1. Parse Logic and Deduplicate
     for (const line of lines) {
       if (!line.trim()) continue;
 
-      // Support Excel (Tab) or CSV (Comma)
       const delimiter = line.includes('\t') ? '\t' : ',';
       const parts = line.split(delimiter);
 
       if (parts.length >= 2) {
-        // Updated Format: Name, Residence, Contact, Gender
         const name = parts[0].trim();
         const residence = parts[1]?.trim() || '';
         const phone = parts[2]?.trim() || '';
         const genderRaw = parts[3]?.trim() || 'Male';
 
-        // Normalize Gender
         const gender = (genderRaw.toLowerCase().startsWith('f') ? 'Female' : 'Male') as 'Male' | 'Female';
 
         if (name) {
+          const uniqueKey = `${name.toLowerCase()}-${phone.replace(/\D/g, '')}`; // Name + cleaned phone for uniqueness
+          if (seenMembers.has(uniqueKey)) {
+            console.warn(`Skipping duplicate member: ${name} (${phone})`);
+            continue;
+          }
+          seenMembers.add(uniqueKey);
+
           const newMember: Member = {
-            id: uuidv4(),
+            id: uuidv4(), // Client-side ID, will be replaced by server if server generates
             name,
             phone,
-            category: 'Member', // Forced as requested
+            category: 'Member',
             residency: residence,
             gender: gender,
             status: 'Absent',
             joinedDate: new Date().toISOString().split('T')[0],
             attendedServiceIds: [],
-            bornAgain: 'No', // Default
-            isPhanerooMember: 'Yes' // Implied
+            bornAgain: 'No',
+            isPhanerooMember: 'Yes'
           };
-          newMembers.push(newMember);
-          // Removed duplicate MemberStore.add(newMember) call here
+          membersToImport.push(newMember);
         }
       }
     }
 
     // 2. Upload in Batches
     const BATCH_SIZE = 50;
-    if (newMembers.length > 0) {
+    if (membersToImport.length > 0) {
       try {
         let processed = 0;
-        const total = newMembers.length;
+        const total = membersToImport.length;
 
         for (let i = 0; i < total; i += BATCH_SIZE) {
-          const batch = newMembers.slice(i, i + BATCH_SIZE);
+          const batch = membersToImport.slice(i, i + BATCH_SIZE);
           await Promise.all(batch.map(m => MemberStore.add(m)));
 
           processed += batch.length;
           setImportProgress(Math.round((processed / total) * 100));
-          // Small delay to allow UI to update if needed, though React batching usually handles it
           await new Promise(resolve => setTimeout(resolve, 10));
         }
 
-        setMembers(prev => [...prev, ...newMembers]); // Optimistic update or fetch fresh? Appending is faster.
+        // Refresh members from the server after successful import
+        const fetchedMembers = await MemberStore.getAll();
+        if (fetchedMembers.status === 'success') {
+          setMembers(fetchedMembers.data);
+        } else {
+          throw new Error(fetchedMembers.message || "Failed to fetch members after import.");
+        }
+
         setBulkMemberText('');
         setIsImporting(false);
         showToast(`${processed} members imported successfully.`, 'success');
@@ -1596,7 +1675,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
       }
     } else {
       setIsImporting(false);
-      showToast("No valid records found. Please check format.", 'error');
+      showToast("No valid or unique records found to import. Please check format.", 'error');
     }
   };
 
@@ -2725,7 +2804,19 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
                             </div>
                             <div>
                               {checkedInIds.has(m.id) ? (
-                                <span className="text-green-600 font-bold text-sm flex items-center"><CheckCircle className="w-4 h-4 mr-1" /> Checked In</span>
+                                ['Administrator', 'Head of Dept', 'Department Head', 'Dept Admin', 'Reg. Admin', 'Registration Admin', 'Registration Head'].includes(currentUser.role) ? (
+                                  <button
+                                    onClick={() => handleUndoCheckInMember(m.id)}
+                                    className="text-green-600 font-bold text-sm flex items-center hover:text-red-500 transition-colors group"
+                                    title="Click to Undo Check-In"
+                                  >
+                                    <CheckCircle className="w-4 h-4 mr-1 group-hover:hidden" /> 
+                                    <span className="group-hover:hidden">Checked In</span>
+                                    <span className="hidden group-hover:inline text-red-500">Undo Check-In</span>
+                                  </button>
+                                ) : (
+                                  <span className="text-green-600 font-bold text-sm flex items-center"><CheckCircle className="w-4 h-4 mr-1" /> Checked In</span>
+                                )
                               ) : (
                                 <button
                                   onClick={() => handleCheckInMember(m.id)}

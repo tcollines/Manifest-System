@@ -709,7 +709,7 @@ export const SchoolsDashboard: React.FC<SchoolsDashboardProps> = ({
                                                     <td className="px-6 py-4 text-gray-900">
                                                         <div className="flex flex-col">
                                                             <span className="font-bold">{(p as any).vehicleCoordinator || 'N/A'}</span>
-                                                            <span className="text-xs text-gray-500 font-medium">{(p as any).vehicleCoordinatorContact || '-'}</span>
+                                                            <span className="text-xs text-gray-500 font-medium">{(p as any).vehicleStationName || '-'}</span>
                                                         </div>
                                                     </td>
                                                     <td className="px-6 py-4 text-center">

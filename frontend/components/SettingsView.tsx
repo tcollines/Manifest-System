@@ -452,7 +452,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ users = [], openModal, onDe
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-sm font-bold text-gray-700">Username</label>
-                                    <input value={profileUsername} onChange={e => setProfileUsername(e.target.value)} className="w-full p-3 bg-white border border-gray-200 rounded-xl" />
+                                    <input value={profileUsername} onChange={e => setProfileUsername(e.target.value.replace(/\s+/g, ''))} className="w-full p-3 bg-white border border-gray-200 rounded-xl" />
                                 </div>
                                 <div className="space-y-2 md:col-span-2">
                                     <label className="text-sm font-bold text-gray-700">Email</label>

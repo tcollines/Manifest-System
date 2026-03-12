@@ -12,7 +12,8 @@ import {
     getMemberById,
     getMembersByIds,
     searchMembersByResidency,
-    bulkUpdateResidency
+    bulkUpdateResidency,
+    uncheckInMember
 } from '../controllers/memberController';
 
 const router = Router();
@@ -22,6 +23,7 @@ router.post('/', addMember);
 router.put('/:id', updateMember);
 router.post('/delete', deleteMember); // Using POST for bulk delete with body
 router.post('/check-in', checkInMember);
+router.post('/uncheck-in', uncheckInMember);
 router.get('/stats/:serviceId', getServiceStats);
 router.get('/:id/details', getMemberDetails);
 router.get('/search-status/:serviceId', searchMembersWithStatus);

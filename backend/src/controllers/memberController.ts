@@ -130,6 +130,21 @@ export const updateMember = async (req: Request, res: Response) => {
     }
 
     try {
+        // [FIX] Administrative Correction: If shifting a First Timer to Member, explicitly clear First Timer flags
+        if (m.category !== undefined) {
+            const { data: oldRecord } = await supabase
+                .from('members')
+                .select('category')
+                .eq('manifest_id', manifestId)
+                .eq('id', toUUID(id))
+                .single();
+
+            if (oldRecord && oldRecord.category === 'First Timer' && m.category === 'Member') {
+                updates.is_first_timer = false;
+                updates.first_timer_service_id = null;
+                updates.first_timer_date = null;
+            }
+        }
         const { error } = await supabase.from('members')
             .update(updates)
             .eq('manifest_id', manifestId) // Tenant Isolation
@@ -264,6 +279,74 @@ export const checkInMember = async (req: Request, res: Response) => {
     }
 };
 
+export const uncheckInMember = async (req: Request, res: Response) => {
+    const manifestId = (req as any).manifestId;
+    if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
+
+    const { memberId, serviceId } = req.body;
+    
+    if (!memberId || !serviceId) {
+        return res.status(400).json({ error: 'memberId and serviceId are required' });
+    }
+
+    try {
+        const uuidMemberId = toUUID(memberId);
+        const uuidServiceId = toUUID(serviceId);
+
+        if (!uuidMemberId || !uuidServiceId) {
+            throw new Error("Invalid UUIDs provided");
+        }
+
+        // 1. Delete from service_attendance
+        const { error: deleteError } = await supabase
+            .from('service_attendance')
+            .delete()
+            .eq('manifest_id', manifestId) // Tenant Isolation
+            .eq('member_id', uuidMemberId)
+            .eq('service_id', uuidServiceId);
+
+        if (deleteError) throw deleteError;
+
+        // 2. Safely Update the members table cache arrays and first timer flags
+        const { data: member } = await supabase.from('members')
+            .select('attended_service_ids, first_timer_service_id')
+            .eq('manifest_id', manifestId) // Tenant Isolation
+            .eq('id', uuidMemberId)
+            .single();
+
+        if (member) {
+            const currentIds = member.attended_service_ids || [];
+            const newIds = currentIds.filter((id: string) => toUUID(id) !== uuidServiceId);
+
+            const updatePayload: any = {
+                attended_service_ids: newIds
+            };
+
+            // If this exact service triggered their First Timer status, revoke it
+            // So they can be cleanly flagged as a First Timer at the correct service next time
+            if (member.first_timer_service_id === uuidServiceId) {
+                updatePayload.first_timer_service_id = null;
+                updatePayload.legacy_first_timer_service_id = null;
+                updatePayload.is_first_timer = false;
+                updatePayload.first_timer_date = null;
+            }
+
+            const { error: updateError } = await supabase.from('members')
+                .update(updatePayload)
+                .eq('manifest_id', manifestId) // Tenant Isolation
+                .eq('id', uuidMemberId);
+
+            if (updateError) throw updateError;
+        }
+
+        res.json({ message: 'Undo Check-in processed successfully' });
+
+    } catch (error: any) {
+        console.error('[UNCHECK-IN ERROR]', error);
+        res.status(500).json({ error: error.message });
+    }
+};
+
 export const getServiceStats = async (req: Request, res: Response) => {
     const manifestId = (req as any).manifestId;
     if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
@@ -306,7 +389,9 @@ export const getServiceStats = async (req: Request, res: Response) => {
 
         const firstTimerCount = (members || []).filter(m => {
             const joinedDate = m.joined_date ? m.joined_date.split('T')[0].split(' ')[0] : null;
-            if (joinedDate === serviceDate) return true;
+            // Only count them as a First Timer if they were actually registered as a First Timer
+            if (m.category === 'First Timer' && joinedDate === serviceDate) return true;
+            // Or if their first timer origin event is this exact service
             if (m.first_timer_service_id === toUUID(serviceId)) return true;
             return false;
         }).length;

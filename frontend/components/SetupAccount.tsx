@@ -23,7 +23,11 @@ const SetupAccount: React.FC<SetupAccountProps> = ({ currentUser, onComplete, on
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setFormData({ ...formData, [e.target.name]: e.target.value });
+        let value = e.target.value;
+        if (e.target.name === 'username') {
+            value = value.replace(/\s+/g, '');
+        }
+        setFormData({ ...formData, [e.target.name]: value });
         setError(null);
     };
 

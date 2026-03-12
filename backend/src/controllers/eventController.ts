@@ -327,7 +327,7 @@ export const getEventPassengers = async (req: Request, res: Response) => {
             .from('users')
             .select('name, contact')
             .eq('manifest_id', manifestId)
-            .eq('role', 'Coordinator');
+            .in('role', ['Coordinator', 'Vehicle Coordinator', 'Stage Coordinator']);
         const coordinatorMap = Object.fromEntries(
             (usersData || []).map(u => [u.name?.trim().toLowerCase(), u.contact])
         );

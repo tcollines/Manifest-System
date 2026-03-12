@@ -167,6 +167,18 @@ export const MemberStore = {
     }
   },
 
+  undoCheckIn: async (memberId: string, serviceId: string): Promise<any> => {
+    try {
+      return await apiFetch('/members/uncheck-in', {
+        method: 'POST',
+        body: JSON.stringify({ memberId, serviceId })
+      });
+    } catch (e: any) {
+      console.error('Undo Check-in failed:', e.message);
+      throw e;
+    }
+  },
+
   getServiceStats: async (serviceId: string, serviceDate: string): Promise<{ total: number, firstTimers: number, memberIds: string[] }> => {
     try {
       return await apiFetch(`/members/stats/${serviceId}?date=${serviceDate}`);

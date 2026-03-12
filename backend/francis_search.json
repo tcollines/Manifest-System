@@ -1,0 +1,20 @@
+[
+  {
+    "id": "6087c139-9fc7-436c-b218-ecd432ae6432",
+    "name": "Francis Mayega",
+    "role": "Vehicle Coordinator",
+    "department_id": "4630e48a-f97e-48fd-a901-864b591c282f",
+    "username": "FrancisM",
+    "password": "123456",
+    "contact": "+256703682180",
+    "email": "francism_mmfwsm5poq2t@manifest.local",
+    "station_id": null,
+    "event_id": "163f08ad-a151-4579-9519-f6a6da3e3269",
+    "created_at": "2026-03-07T05:54:57.515872+00:00",
+    "invitation_token": null,
+    "status": "Active",
+    "created_by": null,
+    "department_uid": null,
+    "manifest_id": "593fbdbb-8211-44ca-b3e2-8d999c88680c"
+  }
+]

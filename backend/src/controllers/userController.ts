@@ -17,7 +17,10 @@ export const getAllUsers = async (req: Request, res: Response) => {
             return res.json([]);
         }
 
-        let query = supabase.from('users').select('*').eq('manifest_id', manifestId).neq('status', 'Deleted'); // Tenant Isolation + Filter Deleted
+        let query = supabase.from('users').select('*')
+            .eq('manifest_id', manifestId)
+            .neq('status', 'Deleted')
+            .neq('status', 'Inactive'); // Filter out event-ended inactive users
         if (role) query = query.eq('role', role);
         if (validEventId) query = query.eq('event_id', validEventId);
         if (departmentId) query = query.eq('department_id', departmentId);
@@ -99,6 +102,10 @@ export const createUser = async (req: Request, res: Response) => {
         delete payload.departmentId;
         delete payload.stationId;
         delete payload.eventId;
+
+        if (payload.username) {
+            payload.username = payload.username.replace(/\s+/g, '');
+        }
 
         // Prevent Duplicate Usernames natively at the API level
         if (payload.username) {
@@ -191,6 +198,10 @@ export const updateUser = async (req: Request, res: Response) => {
         delete payload.departmentId;
         delete payload.stationId;
         delete payload.eventId;
+
+        if (payload.username) {
+            payload.username = payload.username.replace(/\s+/g, '');
+        }
 
         // Role Escalation & Invariant Protection
         let oldRole = null;

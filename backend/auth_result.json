@@ -1,0 +1,51 @@
+[
+  {
+    "id": "86313802-dc77-4632-b851-2317935460be",
+    "aud": "authenticated",
+    "role": "authenticated",
+    "email": "harriet_mmftdkog7q2y@manifest.local",
+    "email_confirmed_at": "2026-03-07T04:19:16.553891Z",
+    "phone": "",
+    "confirmed_at": "2026-03-07T04:19:16.553891Z",
+    "app_metadata": {
+      "manifest_id": "593fbdbb-8211-44ca-b3e2-8d999c88680c",
+      "provider": "email",
+      "providers": [
+        "email"
+      ]
+    },
+    "user_metadata": {
+      "email_verified": true,
+      "manifest_id": "593fbdbb-8211-44ca-b3e2-8d999c88680c"
+    },
+    "identities": null,
+    "created_at": "2026-03-07T04:19:16.542707Z",
+    "updated_at": "2026-03-07T04:19:16.758714Z",
+    "is_anonymous": false
+  },
+  {
+    "id": "90266af3-ae0d-4975-955a-8f2a552e57ee",
+    "aud": "authenticated",
+    "role": "authenticated",
+    "email": "harriet_mmenipwg9olm@manifest.local",
+    "email_confirmed_at": "2026-03-06T08:47:32.759717Z",
+    "phone": "",
+    "confirmed_at": "2026-03-06T08:47:32.759717Z",
+    "last_sign_in_at": "2026-03-06T12:47:02.571924Z",
+    "app_metadata": {
+      "manifest_id": "593fbdbb-8211-44ca-b3e2-8d999c88680c",
+      "provider": "email",
+      "providers": [
+        "email"
+      ]
+    },
+    "user_metadata": {
+      "email_verified": true,
+      "manifest_id": "593fbdbb-8211-44ca-b3e2-8d999c88680c"
+    },
+    "identities": null,
+    "created_at": "2026-03-06T08:47:32.751957Z",
+    "updated_at": "2026-03-06T21:48:59.558552Z",
+    "is_anonymous": false
+  }
+]
