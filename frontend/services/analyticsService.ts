@@ -1,5 +1,5 @@
 import { supabase } from './supabaseClient';
-import { apiFetch } from '../utils';
+import { apiFetch } from './api';
 import { SOUL_WINNING_DATA, ATTENDANCE_DATA } from '../constants';
 
 export const analyticsService = {
