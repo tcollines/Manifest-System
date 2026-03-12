@@ -101,13 +101,6 @@ export const checkInPersonalVehicle = async (req: Request, res: Response) => {
 
         if (updateError) throw updateError;
 
-        await supabase.from('vehicle_attendance').insert({
-            manifest_id: manifestId, // INJECT TENANT ID
-            vehicle_id: vehicle.id,
-            service_id: serviceId,
-            check_in_time: new Date().toISOString()
-        });
-
         res.json({ message: 'Vehicle checked in' });
     } catch (error: any) {
         res.status(500).json({ error: error.message });
@@ -137,13 +130,6 @@ export const checkOutPersonalVehicle = async (req: Request, res: Response) => {
         }).eq('manifest_id', manifestId).eq('id', vehicle.id);
 
         if (updateError) throw updateError;
-
-        await supabase
-            .from('vehicle_attendance')
-            .update({ check_out_time: new Date().toISOString() })
-            .eq('manifest_id', manifestId) // Tenant Isolation
-            .eq('vehicle_id', vehicle.id)
-            .is('check_out_time', null);
 
         res.json({ message: 'Vehicle checked out' });
     } catch (error: any) {
