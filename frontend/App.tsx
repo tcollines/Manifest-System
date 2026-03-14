@@ -172,9 +172,9 @@ const App: React.FC = () => {
             navigate('/');
           } else {
             console.warn("User authenticated but no profile found for:", session.user.email);
-            if (location.pathname === '/setup-account') {
-              // Handle setup flow
-            }
+            await supabase.auth.signOut();
+            setLoginError(`No Manifest account found for ${session.user.email}. Please ask an Administrator to add you.`);
+            navigate('/');
           }
         }
       } catch (e: any) {

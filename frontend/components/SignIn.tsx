@@ -1,17 +1,16 @@
 
-import React, { useState, useEffect } from 'react';
-import { Capacitor } from '@capacitor/core';
+import React, { useState } from 'react';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { ShieldCheck, Globe, Instagram, Facebook, Twitter, ArrowRight, KeyRound, ArrowLeft, Eye, EyeOff } from 'lucide-react';
 import { supabase } from '../services/supabaseClient';
 
 interface SignInProps {
   onLogin: (username: string, password: string) => Promise<void>;
-  onGoogleLogin: (email: string) => Promise<void>;
+  onGoogleLogin?: (email: string, token: string) => Promise<void>;
   error?: string | null;
 }
 
-const SignIn: React.FC<SignInProps> = ({ onLogin, onGoogleLogin, error }) => {
+const SignIn: React.FC<SignInProps> = ({ onLogin, error }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -57,95 +56,25 @@ const SignIn: React.FC<SignInProps> = ({ onLogin, onGoogleLogin, error }) => {
     }
   };
 
-  // Google Sign-In Integration
-  const googleButtonRef = React.useRef<HTMLDivElement>(null);
-  const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "447429474582-6eg9fs0p9eg8gvqprof08ola4ikfgfjp.apps.googleusercontent.com";
   const isOnline = useOnlineStatus();
+  const [googleLoading, setGoogleLoading] = useState(false);
 
-  React.useEffect(() => {
-    // Only attempt to load/render if online
-    // Only attempt to load/render if online AND not on native platform
-    if (!isOnline || Capacitor.isNativePlatform()) return;
-
-    // Dynamic Script Loading
-    const loadGoogleScript = () => {
-      const scriptId = 'google-gsi-script';
-      if (document.getElementById(scriptId)) {
-        // Script already exists, just initialize
-        if (window.google) initializeGoogleSignIn();
-        return;
-      }
-
-      const script = document.createElement('script');
-      script.id = scriptId;
-      script.src = "https://accounts.google.com/gsi/client";
-      script.async = true;
-      script.defer = true;
-      script.onload = () => initializeGoogleSignIn();
-      script.onerror = () => console.error("Failed to load Google Sign-In script");
-      document.body.appendChild(script);
-    };
-
-    const initializeGoogleSignIn = () => {
-      if (window.google && googleButtonRef.current) {
-        try {
-          window.google.accounts.id.initialize({
-            client_id: GOOGLE_CLIENT_ID,
-            callback: (response: any) => {
-              if (response.credential) {
-                const payload = decodeJwt(response.credential);
-                if (payload && payload.email) {
-                  // Pass BOTH the email and the raw Google JWT
-                  onGoogleLogin(payload.email, response.credential);
-                }
-              }
-            },
-          });
-          window.google.accounts.id.renderButton(
-            googleButtonRef.current,
-            { theme: 'outline', size: 'large', type: 'standard', shape: 'pill', width: '320' }
-          );
-        } catch (e) {
-          console.error("Error initializing Google Sign-In:", e);
-        }
-      }
-    };
-
-    // Helper to decode JWT
-    const decodeJwt = (token: string) => {
-      try {
-        const base64Url = token.split('.')[1];
-        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-        const jsonPayload = decodeURIComponent(window.atob(base64).split('').map(function (c) {
-          return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-        }).join(''));
-        return JSON.parse(jsonPayload);
-      } catch (e) {
-        console.error("Failed to decode Google token", e);
-        return null;
-      }
-    };
-
-    loadGoogleScript();
-
-    return () => {
-      // Cleanup? Usually not needed for the script itself, but maybe canceling intervals if we had them.
-    };
-  }, [onGoogleLogin, isOnline]);
-
-  const handleNativeGoogleLogin = async () => {
+  const handleGoogleSignIn = async () => {
+    setGoogleLoading(true);
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: 'manifestauth://google-auth',
-          skipBrowserRedirect: false,
-        }
+          redirectTo: window.location.origin + '/',
+        },
       });
-      if (error) throw error;
+      if (error) {
+        console.error('Google Sign-In Error:', error);
+      }
     } catch (e: any) {
-      console.error("Native Google Login Failed", e);
-      // We can callback with error if we want, or just log
+      console.error('Google Sign-In failed:', e);
+    } finally {
+      setGoogleLoading(false);
     }
   };
 
@@ -286,7 +215,27 @@ const SignIn: React.FC<SignInProps> = ({ onLogin, onGoogleLogin, error }) => {
                     <div className="flex flex-col items-center space-y-4">
                       {isOnline ? (
                         <>
-                          <div ref={googleButtonRef} className="w-full flex justify-center min-h-[40px]"></div>
+                          <button
+                            type="button"
+                            onClick={handleGoogleSignIn}
+                            disabled={googleLoading}
+                            className="w-full flex items-center justify-center gap-3 py-3 px-4 bg-white hover:bg-gray-50 text-gray-800 font-semibold rounded-full shadow-sm border border-gray-200 transition-all hover:shadow-md active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed"
+                          >
+                            {googleLoading ? (
+                              <svg className="animate-spin h-5 w-5 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                              </svg>
+                            ) : (
+                              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" className="w-5 h-5 flex-shrink-0">
+                                <path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8c-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C12.955 4 4 12.955 4 24s8.955 20 20 20s20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"/>
+                                <path fill="#FF3D00" d="m6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C16.318 4 9.656 8.337 6.306 14.691z"/>
+                                <path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.91 11.91 0 0 1 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"/>
+                                <path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002l6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z"/>
+                              </svg>
+                            )}
+                            <span>{googleLoading ? 'Redirecting...' : 'Sign in with Google'}</span>
+                          </button>
 
                           <div className="relative flex py-1 items-center w-full">
                             <div className="flex-grow border-t border-white/10"></div>
