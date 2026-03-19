@@ -6,8 +6,11 @@ export const apiFetch = async (endpoint: string, options: RequestInit & { token?
     // Dynamically retrieve the latest session token if not explicitly provided
     let token = options.token;
     if (!token) {
-        const { data: { session } } = await supabase.auth.getSession();
-        token = session?.access_token;
+        token = localStorage.getItem('google_sso_token') || undefined;
+        if (!token) {
+            const { data: { session } } = await supabase.auth.getSession();
+            token = session?.access_token;
+        }
     }
 
     const headers: Record<string, string> = {
@@ -41,6 +44,12 @@ export const apiFetch = async (endpoint: string, options: RequestInit & { token?
         if (!res.ok) {
             // Automatic Token Refresh / Retry Logic
             if (res.status === 401 && !options._retry) {
+                const isGoogleAuth = !!localStorage.getItem('google_sso_token');
+                if (isGoogleAuth) {
+                     console.error("[API FETCH 401] Google SSO token rejected or expired. Please sign in again.");
+                     throw new Error("Google Session Expired. Please sign in again.");
+                }
+
                 console.warn(`[API FETCH 401] Token rejected. Attempting background refresh for ${endpoint}...`);
                 const { data, error } = await supabase.auth.refreshSession();
                 

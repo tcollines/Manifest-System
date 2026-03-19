@@ -232,25 +232,16 @@ const App: React.FC = () => {
         }
       }
 
-      const { data: authData, error: authError } = await supabase.auth.signInWithIdToken({
-        provider: 'google',
-        token: token,
-      });
+      // Bypass Supabase Auth for Google
+      localStorage.setItem('google_sso_token', token);
 
-      if (authError || !authData?.session) {
-        console.error("Supabase ID Token Auth Failed:", authError);
-        setLoginError(`Authentication failed: ${authError?.message || 'Missing session data'}`);
-        return;
-      }
-
-      console.log(`[AUTH] Session established. Fetching Manifest profile for ${email}`);
+      console.log(`[AUTH] Valid Google token stored. Fetching Manifest profile for ${email}`);
 
       let user = null;
       let lastErr = null;
       try {
-        // Use recursive explicit token to bypass local session lookup races
-
-        user = await UserStore.getByEmail(email, authData.session.access_token);
+        // Pass the raw Google ID token to backend for bypass verification
+        user = await UserStore.getByEmail(email, token);
       } catch (e: any) {
         lastErr = e.message || 'Unknown profile error';
       }
@@ -292,6 +283,9 @@ const App: React.FC = () => {
     } catch (err) {
       console.warn("Ignored local sign out warning:", err);
     }
+    
+    // Clear the google override token
+    localStorage.removeItem('google_sso_token');
 
     clearTimeout(forceLogout);
     setCurrentUser(null);

@@ -2,8 +2,12 @@ import { Request, Response, NextFunction } from 'express';
 import jwt, { JwtHeader, SigningKeyCallback } from 'jsonwebtoken';
 import dotenv from 'dotenv';
 import crypto from 'crypto';
+import { OAuth2Client } from 'google-auth-library';
 
 dotenv.config();
+
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
 
 // ------------------------------------------------------------------------
 // Extend Express Request interface
@@ -139,7 +143,7 @@ function getKey(header: JwtHeader, callback: SigningKeyCallback) {
 // ------------------------------------------------------------------------
 // PURE ES256 STATELESS MIDDLEWARE
 // ------------------------------------------------------------------------
-export const authenticate = (req: Request, res: Response, next: NextFunction) => {
+export const authenticate = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const authHeader = req.headers.authorization;
 
@@ -148,6 +152,49 @@ export const authenticate = (req: Request, res: Response, next: NextFunction) =>
         }
 
         const token = authHeader.split(' ')[1];
+
+        // --- GOOGLE AUTH BYPASS ---
+        const decodedRaw = jwt.decode(token);
+        if (decodedRaw && typeof decodedRaw === 'object' && decodedRaw.iss && (decodedRaw.iss === 'https://accounts.google.com' || decodedRaw.iss === 'accounts.google.com')) {
+            try {
+                const ticket = await googleClient.verifyIdToken({
+                    idToken: token,
+                    audience: process.env.GOOGLE_CLIENT_ID, 
+                });
+                const payload = ticket.getPayload();
+                if (!payload || !payload.email) {
+                    return res.status(401).json({ error: 'Unauthorized: Invalid Google Token Claims' });
+                }
+
+                // Verify user exists in database and get manifestId
+                const { createClient } = require('@supabase/supabase-js');
+                const adminClient = createClient(process.env.SUPABASE_URL as string, process.env.SUPABASE_SERVICE_ROLE_KEY as string);
+
+                const { data, error } = await adminClient.from('users').select('id, role, manifest_id, email').eq('email', payload.email).single();
+
+                if (error || !data) {
+                    return res.status(403).json({ error: 'User not registered. Please ask an Administrator to add your Google email.' });
+                }
+
+                req.user = {
+                    id: data.id,
+                    email: data.email,
+                    role: data.role,
+                    app_metadata: { manifest_id: data.manifest_id },
+                    user_metadata: {}
+                };
+                req.manifestId = data.manifest_id;
+                
+                // CRITICAL: Call next() and return immediately to bypass the Supabase verification below
+                next();
+                return;
+            } catch (e: any) {
+                console.error('[AUTH GOOGLE BYPASS ERROR]', e.message);
+                return res.status(401).json({ error: `Unauthorized: Google Token Error: ${e.message}` });
+            }
+        }
+        // --- END GOOGLE AUTH BYPASS ---
+
         const supabaseUrl = process.env.SUPABASE_URL;
 
         if (!supabaseUrl) {
