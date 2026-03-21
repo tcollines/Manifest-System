@@ -41,8 +41,36 @@ export const addResidence = async (req: Request, res: Response) => {
                 .maybeSingle();
 
             if (!existingUser) {
-                // Insert public profile only
+                // --- NEW: Auto-Provision Auth Identity for SSO only (no password) ---
+                let authUserId = null;
+
+                // Create GoTrue user without a password (forces SSO/Magic Link)
+                const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+                    email: coordinator_email,
+                    email_confirm: true, // Auto-confirm to allow immediate login via Google
+                    user_metadata: { manifest_id: manifestId }
+                });
+
+                if (authError) {
+                    console.error("[addResidence] Auth Provisioning Error:", authError);
+                    // Do not fail the whole residence creation if auth fails, but log it.
+                    // If the user already exists in auth but not public.users, we can still link them.
+                    if (authError.message.includes('already been registered')) {
+                         console.log("User already exists in GoTrue auth, proceeding to create public profile.");
+                    } else {
+                         throw new Error('Failed to provision authentication credentials: ' + authError.message);
+                    }
+                } else if (authData.user) {
+                    authUserId = authData.user.id;
+                     // Bake manifest_id into app_metadata immediately
+                    await supabase.auth.admin.updateUserById(authUserId, {
+                        app_metadata: { manifest_id: manifestId }
+                    }).catch(e => console.error("[addResidence] Failed to bake app_metadata:", e));
+                }
+
+                // Insert public profile, linking ID if Auth was created
                 const newProfile = {
+                    id: authUserId || undefined, // undefined lets DB auto-generate if auth creation failed but we still want the profile
                     manifest_id: manifestId,
                     name: coordinator_name,
                     email: coordinator_email,
@@ -56,6 +84,10 @@ export const addResidence = async (req: Request, res: Response) => {
 
                 if (dbError) {
                     console.error("[addResidence] DB Insert failed for coordinator", dbError);
+                    // Rollback Auth if DB fails
+                    if (authUserId) {
+                        await supabase.auth.admin.deleteUser(authUserId);
+                    }
                     throw dbError;
                 }
             }

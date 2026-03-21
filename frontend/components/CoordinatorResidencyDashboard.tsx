@@ -1,8 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Home, Users, Search, Filter, FileText, ChevronRight, Phone, Target, TrendingUp, Calendar, MapPin, CheckCircle2, Circle, ClipboardList, Loader2 } from 'lucide-react';
+import { MemberStore } from '../database/memberStore';
+import { EventStore } from '../database/eventStore'; // Added to fetch active events
+import { VehicleStore } from '../database/vehicleStore'; // Added to store passenger confirmations
 import { useResidentStore } from '../database/residentStore';
-import { User, Residence, ResidenceOutreachReport, Member } from '../types';
-import { MapPin, Users, Calendar, Loader2, Home, ClipboardList } from 'lucide-react';
 import { useNotification } from './ui/NotificationSystem';
+import { Member, Residence, MinistryEvent, Passenger, User, ResidenceOutreachReport } from '../types';
 
 interface CoordinatorResidencyDashboardProps {
     currentUser: User | null;
@@ -11,9 +14,11 @@ interface CoordinatorResidencyDashboardProps {
 const CoordinatorResidencyDashboard: React.FC<CoordinatorResidencyDashboardProps> = ({ currentUser }) => {
     const { residences, fetchResidences, fetchResidenceMembers, addReport } = useResidentStore();
     const { showToast } = useNotification();
-    const [activeTab, setActiveTab] = useState<'reports' | 'members'>('reports');
-
     const [myResidence, setMyResidence] = useState<Residence | null>(null);
+    const [events, setEvents] = useState<MinistryEvent[]>([]); // New state for events
+    const [confirmedPassengers, setConfirmedPassengers] = useState<Passenger[]>([]); // New state for event confirmations
+    const [selectedEvent, setSelectedEvent] = useState<MinistryEvent | null>(null); // State for Custom Event view
+    const [activeTab, setActiveTab] = useState<'reports' | 'members' | 'events'>('reports'); // Added 'events' tab
     const [members, setMembers] = useState<Member[]>([]);
     const [isLoadingInit, setIsLoadingInit] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -49,13 +54,91 @@ const CoordinatorResidencyDashboard: React.FC<CoordinatorResidencyDashboardProps
     }, [residences, currentUser]);
 
     useEffect(() => {
-        // If we found their residency, load their members
+        // If we found their residency, load their members and events
         if (myResidence?.id) {
             fetchResidenceMembers(myResidence.id as string).then(data => {
                 setMembers(data || []);
             });
+            EventStore.getAll({ limit: 50 }).then(eventsResponse => {
+                if (eventsResponse.status === 'success') {
+                    const allEvents = eventsResponse.data || [];
+                    setEvents(allEvents.filter(e => e.type === 'Event'));
+                }
+            });
         }
     }, [myResidence, fetchResidenceMembers]);
+
+    // Load confirmed passengers when a specific event is selected
+    useEffect(() => {
+        if (!selectedEvent) return;
+
+        const loadConfirmations = async () => {
+            try {
+                const response = await VehicleStore.getPassengers({ eventId: selectedEvent.id });
+                if (response.status === 'success') {
+                    const residencyConfirmations = response.data.filter(
+                         p => p.residence?.toLowerCase() === myResidence?.name.toLowerCase()
+                    );
+                    setConfirmedPassengers(residencyConfirmations);
+                }
+            } catch (e) {
+                console.error("Failed to load confirmed passengers:", e);
+            }
+        };
+        loadConfirmations();
+    }, [selectedEvent, myResidence]);
+
+    const handleConfirmToggle = async (member: Member) => {
+        if (!selectedEvent || !myResidence) return;
+
+        const isConfirmed = confirmedPassengers.some(p => p.name === member.name);
+
+        if (isConfirmed) {
+            // Find the passenger record to delete
+            const passengerToDelete = confirmedPassengers.find(p => p.name === member.name);
+            if (passengerToDelete && passengerToDelete.id) {
+                try {
+                    await VehicleStore.deletePassenger(passengerToDelete.id);
+                    setConfirmedPassengers(prev => prev.filter(p => p.id !== passengerToDelete.id));
+                } catch (e) {
+                    console.error("Failed to unconfirm:", e);
+                }
+            }
+        } else {
+            // Add member as new passenger for this event
+            const newPassenger: Passenger = {
+                id: '', // let backend generate
+                name: member.name,
+                contact: member.phone || '',
+                category: (() => {
+                    const validCategories = ['Member', 'Student', 'Institution'] as const;
+                    type ValidCategory = typeof validCategories[number];
+                    return (validCategories.includes(member.category as any) ? member.category : 'Member') as ValidCategory;
+                })(),
+                residence: myResidence.name,
+                eventId: selectedEvent.id, // Target the selected event!
+                vehicleId: '', // Empty vehicleId for initial confirmation
+                isFirstTime: 'No',
+                verified: false,
+                gender: (() => {
+                    const validGenders = ['Male', 'Female'] as const;
+                    type ValidGender = typeof validGenders[number];
+                    return (validGenders.includes(member.gender as any) ? member.gender : 'Male') as ValidGender;
+                })(),
+                boardingType: 'Day',
+                soulWon: false
+            };
+
+            try {
+                const response = await VehicleStore.addPassenger(newPassenger);
+                if (response.status === 'success' && response.data) {
+                    setConfirmedPassengers(prev => [...prev, response.data!]);
+                }
+            } catch (e) {
+                console.error("Failed to confirm:", e);
+            }
+        }
+    };
 
     const handleAddReport = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -104,7 +187,7 @@ const CoordinatorResidencyDashboard: React.FC<CoordinatorResidencyDashboardProps
     return (
         <div className="p-4 md:p-8 max-w-5xl mx-auto space-y-6">
             {/* Header Area */}
-            <div className="bg-gradient-to-r from-ministry-dark to-ministry-black rounded-2xl p-6 md:p-8 text-white shadow-xl relative overflow-hidden">
+            <div className="bg-gradient-to-r from-gray-900 to-black rounded-2xl p-6 md:p-8 text-white shadow-xl relative overflow-hidden">
                 {/* Decorative background element */}
                 <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none">
                     <Home className="w-48 h-48 transform rotate-12" />
@@ -141,12 +224,20 @@ const CoordinatorResidencyDashboard: React.FC<CoordinatorResidencyDashboardProps
                     <span>Outreach Reports</span>
                 </button>
                 <button
-                    onClick={() => setActiveTab('members')}
+                    onClick={() => { setActiveTab('members'); setSelectedEvent(null); }}
                     className={`flex items-center space-x-2 px-6 py-2.5 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${activeTab === 'members' ? 'bg-white text-gray-900 shadow-sm border border-gray-200' : 'text-gray-500 hover:text-gray-900'
                         }`}
                 >
                     <Users className={`w-4 h-4 ${activeTab === 'members' ? 'text-ministry-orange' : ''}`} />
                     <span>Community Members</span>
+                </button>
+                <button
+                    onClick={() => { setActiveTab('events'); setSelectedEvent(null); }}
+                    className={`flex items-center space-x-2 px-6 py-2.5 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${activeTab === 'events' ? 'bg-white text-gray-900 shadow-sm border border-gray-200' : 'text-gray-500 hover:text-gray-900'
+                        }`}
+                >
+                    <Calendar className={`w-4 h-4 ${activeTab === 'events' ? 'text-ministry-orange' : ''}`} />
+                    <span>Events</span>
                 </button>
             </div>
 
@@ -269,6 +360,155 @@ const CoordinatorResidencyDashboard: React.FC<CoordinatorResidencyDashboardProps
                                 <p className="text-gray-500 mt-2 max-w-sm mx-auto">
                                     Members assigned to {myResidence.name} by administrators will appear here.
                                 </p>
+                            </div>
+                        )}
+                    </div>
+                )}
+                {activeTab === 'events' && (
+                    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                        {!selectedEvent ? (
+                            <>
+                                <div className="flex items-center justify-between mb-4">
+                                    <h2 className="text-xl font-bold text-gray-900">Ministry Events</h2>
+                                    <p className="text-sm text-gray-500">Select an event to build your confirmed list</p>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    {events.map((event) => (
+                                        <div
+                                            key={event.id}
+                                            onClick={() => setSelectedEvent(event)}
+                                            className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 hover:border-blue-300 hover:shadow-md transition-all cursor-pointer group"
+                                        >
+                                            <div className="flex justify-between items-start mb-3">
+                                                <div className="p-2 bg-blue-50 text-blue-600 rounded-lg group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                                                    <Calendar className="w-5 h-5" />
+                                                </div>
+                                                <span className="text-xs font-medium px-2 py-1 bg-gray-100 text-gray-600 rounded-full">
+                                                    {event.type}
+                                                </span>
+                                            </div>
+                                            <h3 className="font-bold text-gray-900 mb-1">{event.title}</h3>
+                                            <div className="space-y-1 mt-3">
+                                                <div className="flex items-center text-sm text-gray-500">
+                                                    <Calendar className="w-4 h-4 mr-2 text-gray-400" />
+                                                    {event.date} {event.time && `• ${event.time}`}
+                                                </div>
+                                                {event.location && (
+                                                    <div className="flex items-center text-sm text-gray-500">
+                                                        <MapPin className="w-4 h-4 mr-2 text-gray-400" />
+                                                        {event.location}
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between">
+                                                <span className="text-sm font-medium text-blue-600 flex items-center group-hover:translate-x-1 transition-transform">
+                                                    Build List <ChevronRight className="w-4 h-4 ml-1" />
+                                                </span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                    {events.length === 0 && (
+                                        <div className="col-span-full py-12 text-center bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                                            <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                                            <h3 className="text-lg font-medium text-gray-900">No Events Found</h3>
+                                            <p className="text-sm text-gray-500 mt-1">There are no upcoming events currently listed.</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </>
+                        ) : (
+                            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                                {/* Selected Event Header */}
+                                <div className="bg-gradient-to-r from-gray-50 to-white px-6 py-5 border-b border-gray-200 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                    <div>
+                                        <button 
+                                            onClick={() => setSelectedEvent(null)}
+                                            className="text-sm text-blue-600 flex items-center hover:underline mb-2"
+                                        >
+                                            <ChevronRight className="w-4 h-4 rotate-180 mr-1" /> Back to Events
+                                        </button>
+                                        <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                                            <Target className="w-5 h-5 text-blue-500" />
+                                            Confirmed List: {selectedEvent.title}
+                                        </h2>
+                                        <p className="text-sm text-gray-500 mt-1">
+                                            {selectedEvent.date} • {myResidence.name}
+                                        </p>
+                                    </div>
+                                    <div className="flex flex-col items-end">
+                                        <div className="bg-white px-4 py-2 rounded-lg border border-gray-200 shadow-sm flex items-center gap-3">
+                                            <div className="text-right">
+                                                <div className="text-xs text-gray-500 font-medium uppercase tracking-wider">Confirmed</div>
+                                                <div className="text-xl font-bold text-gray-900 leading-none mt-1">
+                                                    {confirmedPassengers.length} <span className="text-sm text-gray-400 font-normal">/ {members.length}</span>
+                                                </div>
+                                            </div>
+                                            <div className="h-10 w-10 bg-green-50 rounded-full flex items-center justify-center relative">
+                                                <CheckCircle2 className="w-6 h-6 text-green-500" />
+                                                {confirmedPassengers.length > 0 && (
+                                                    <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                                                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                                                      <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Community Members List for Confirmation */}
+                                <div className="divide-y divide-gray-100">
+                                    {members.map((member) => {
+                                        const isConfirmed = confirmedPassengers.some(p => p.name === member.name);
+                                        return (
+                                            <div key={member.id} className={`p-4 sm:p-5 flex items-center justify-between transition-colors ${isConfirmed ? 'bg-green-50/30' : 'hover:bg-gray-50'}`}>
+                                                <div className="flex items-center gap-4">
+                                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${isConfirmed ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
+                                                        {member.name.substring(0, 2).toUpperCase()}
+                                                    </div>
+                                                    <div>
+                                                        <h3 className="font-medium text-gray-900 flex items-center gap-2">
+                                                            {member.name}
+                                                        </h3>
+                                                        <div className="flex items-center text-sm text-gray-500 mt-0.5 space-x-3">
+                                                            <span>{member.phone || 'No Phone'}</span>
+                                                            {member.gender && <span>• {member.gender}</span>}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <button
+                                                    onClick={() => handleConfirmToggle(member)}
+                                                    className={`
+                                                        px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 transition-all shadow-sm
+                                                        ${isConfirmed 
+                                                            ? 'bg-green-500 text-white hover:bg-green-600 border border-transparent' 
+                                                            : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 hover:border-gray-400'}
+                                                    `}
+                                                >
+                                                    {isConfirmed ? (
+                                                        <>
+                                                            <CheckCircle2 className="w-4 h-4" />
+                                                            Confirmed
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <Circle className="w-4 h-4 text-gray-400" />
+                                                            Confirm
+                                                        </>
+                                                    )}
+                                                </button>
+                                            </div>
+                                        );
+                                    })}
+                                    
+                                    {members.length === 0 && (
+                                        <div className="py-12 text-center">
+                                            <Users className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                                            <h3 className="text-lg font-medium text-gray-900">No Members Found</h3>
+                                            <p className="text-sm text-gray-500 mt-1">Add members to this residency first before building a confirmed list.</p>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         )}
                     </div>

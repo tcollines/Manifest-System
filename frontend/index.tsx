@@ -20,6 +20,8 @@ if ('serviceWorker' in navigator) {
   });
 }
 
+import { GoogleOAuthProvider } from '@react-oauth/google';
+
 const rootElement = document.getElementById('root');
 if (!rootElement) {
   throw new Error("Could not find root element to mount to");
@@ -28,6 +30,8 @@ if (!rootElement) {
 const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
-    <Root />
+    <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
+      <Root />
+    </GoogleOAuthProvider>
   </React.StrictMode>
 );
