@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useSafeAsync } from '../hooks/useSafeAsync';
 import { useNotification } from './ui/NotificationSystem';
 import { supabase } from '../services/supabaseClient';
+import * as XLSX from 'xlsx';
 import { Users, Calendar, Database, Plus, Search, Link as LinkIcon, Share2, Copy, Check, Filter, ChevronLeft, ChevronRight, X, Trash2, Pencil } from 'lucide-react';
 import { MinistryEvent, Soul, Member, ModalType, User } from '../types';
 import { isEventLocked, isServiceClosed } from '../utils';
@@ -12,7 +13,7 @@ import { SOURCE_TYPE_COLORS } from '../constants';
 import SoulEntryForm from './SoulEntryForm';
 import MemberSearchInput from './MemberSearchInput';
 
-type Tab = 'services' | 'events' | 'database';
+type Tab = 'services' | 'events' | 'database' | 'first-timers';
 
 
 interface FollowUpDashboardProps {
@@ -705,6 +706,119 @@ const FollowUpDashboard: React.FC<FollowUpDashboardProps> = ({ onOpenModal, curr
         </div >
     );
 
+    const FirstTimersView = () => {
+        const [subTab, setSubTab] = useState<'services' | 'events'>('services');
+        const [firstTimers, setFirstTimers] = useState<{ services: any[], events: any[] }>({ services: [], events: [] });
+        const [loadingFT, setLoadingFT] = useState(false);
+
+        useEffect(() => {
+            setLoadingFT(true);
+            MemberStore.getFirstTimers().then(data => {
+                setFirstTimers({
+                    services: [...data.services].sort((a, b) => new Date(b.check_in_time || 0).getTime() - new Date(a.check_in_time || 0).getTime()),
+                    events: [...data.events].sort((a, b) => new Date(b.check_in_time || 0).getTime() - new Date(a.check_in_time || 0).getTime())
+                });
+                setLoadingFT(false);
+            });
+        }, []);
+
+        const handleDownloadFT = () => {
+            const currentData = subTab === 'services' ? firstTimers.services : firstTimers.events;
+            
+            const exportData = currentData.map(ft => {
+                return {
+                    "Name": ft.name,
+                    "Phone": ft.phone,
+                    "Gender": ft.gender,
+                    "Residence": ft.residency,
+                    "Source Event Date": ft.check_in_time ? new Date(ft.check_in_time).toLocaleDateString() : 'Unknown',
+                    "Source Event Title": ft.source_event_title || 'Unknown Source'
+                };
+            });
+
+            const worksheet = XLSX.utils.json_to_sheet(exportData);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, `First Timers`);
+            XLSX.writeFile(workbook, `FirstTimers_${subTab}.xlsx`);
+        };
+
+        const currentData = subTab === 'services' ? firstTimers.services : firstTimers.events;
+
+        return (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                <div className="p-5 border-b border-gray-100 flex flex-col md:flex-row justify-between items-center gap-4">
+                    <h2 className="text-lg font-bold text-gray-800 flex items-center">
+                        <Users className="w-5 h-5 mr-2 text-gray-500" />
+                        First Timer Database
+                        <span className="ml-3 bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full text-xs">{currentData.length}</span>
+                    </h2>
+                    
+                    <div className="flex space-x-1 bg-gray-100 p-1 rounded-xl w-fit">
+                        <button
+                            onClick={() => setSubTab('services')}
+                            className={`px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${subTab === 'services' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+                        >
+                            Services
+                        </button>
+                        <button
+                            onClick={() => setSubTab('events')}
+                            className={`px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${subTab === 'events' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+                        >
+                            Events
+                        </button>
+                    </div>
+
+                    <button
+                        onClick={handleDownloadFT}
+                        disabled={loadingFT || currentData.length === 0}
+                        className="text-sm font-bold text-green-700 hover:bg-green-50 px-3 py-2 rounded-lg transition-colors flex items-center border border-green-200 disabled:opacity-50"
+                    >
+                        Download Excel
+                    </button>
+                </div>
+
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm">
+                        <thead className="bg-gray-50 text-gray-600 font-medium border-b border-gray-100">
+                            <tr>
+                                <th className="px-6 py-3">Name</th>
+                                <th className="px-6 py-3">Contact</th>
+                                <th className="px-6 py-3">Residence</th>
+                                <th className="px-6 py-3">Source Event</th>
+                                <th className="px-6 py-3">Date Recorded</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-50">
+                            {loadingFT ? (
+                                <tr>
+                                    <td colSpan={5} className="px-6 py-12 text-center text-gray-400">Loading database...</td>
+                                </tr>
+                            ) : currentData.length === 0 ? (
+                                <tr>
+                                    <td colSpan={5} className="px-6 py-12 text-center text-gray-400">No first timers found for {subTab}.</td>
+                                </tr>
+                            ) : (
+                                currentData.map(ft => (
+                                    <tr key={ft.id} className="hover:bg-gray-50/50 transition-colors">
+                                        <td className="px-6 py-4 font-bold text-gray-900">{ft.name}</td>
+                                        <td className="px-6 py-4 text-gray-600 font-mono">{ft.phone}</td>
+                                        <td className="px-6 py-4 text-gray-600">{ft.residency}</td>
+                                        <td className="px-6 py-4 text-gray-600">
+                                            {ft.source_event_title}
+                                        </td>
+                                        <td className="px-6 py-4 text-gray-500">
+                                            {ft.check_in_time ? new Date(ft.check_in_time).toLocaleDateString() : 'Unknown'}
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        );
+    };
+
     return (
         <div className="p-6 md:p-10 max-w-7xl mx-auto space-y-8 min-h-screen pb-24">
 
@@ -750,6 +864,18 @@ const FollowUpDashboard: React.FC<FollowUpDashboardProps> = ({ onOpenModal, curr
                     >
                         <Database className={`w-4 h-4 ${activeTab === 'database' ? 'text-ministry-neon' : ''}`} />
                         <span>Souls Database</span>
+                    </button>
+                )}
+                {canViewDatabase && (
+                    <button
+                        onClick={() => {
+                            setActiveTab('first-timers');
+                            setSelectedEventId(null);
+                        }}
+                        className={`flex items-center space-x-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${activeTab === 'first-timers' ? 'bg-black text-white shadow-md' : 'text-gray-500 hover:text-gray-900'}`}
+                    >
+                        <Users className={`w-4 h-4 ${activeTab === 'first-timers' ? 'text-ministry-neon' : ''}`} />
+                        <span>First Timer Database</span>
                     </button>
                 )}
             </div>
@@ -957,6 +1083,7 @@ const FollowUpDashboard: React.FC<FollowUpDashboardProps> = ({ onOpenModal, curr
                                 {activeTab === 'services' && <ServicesList />}
                                 {activeTab === 'events' && <EventsList />}
                                 {activeTab === 'database' && canViewDatabase && <SoulsDatabase />}
+                                {activeTab === 'first-timers' && canViewDatabase && <FirstTimersView />}
                             </>
                         )}
                     </>

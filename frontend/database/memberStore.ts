@@ -243,5 +243,14 @@ export const MemberStore = {
       console.error('Error bulk updating residency:', e);
       throw e;
     }
+  },
+
+  getFirstTimers: async (): Promise<{ services: any[], events: any[] }> => {
+    try {
+      return await apiFetch(`/members/lists/first-timers`);
+    } catch (e: any) {
+      console.error('Error fetching first timers:', e);
+      return { services: [], events: [] };
+    }
   }
 };

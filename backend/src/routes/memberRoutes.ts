@@ -13,11 +13,13 @@ import {
     getMembersByIds,
     searchMembersByResidency,
     bulkUpdateResidency,
-    uncheckInMember
+    uncheckInMember,
+    getFirstTimers
 } from '../controllers/memberController';
 
 const router = Router();
 router.get('/', getMembers);
+router.get('/lists/first-timers', getFirstTimers);
 router.post('/batch', getMembersByIds); // New batch retrieval endpoint
 router.post('/', addMember);
 router.put('/:id', updateMember);

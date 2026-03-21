@@ -772,3 +772,74 @@ export const bulkUpdateResidency = async (req: Request, res: Response) => {
         res.status(500).json({ error: error.message });
     }
 };
+
+export const getFirstTimers = async (req: Request, res: Response) => {
+    const manifestId = (req as any).manifestId;
+    if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
+
+    try {
+        const { data: membersData, error: memError } = await supabase
+            .from('members')
+            .select('id, name, phone, gender, residency, check_in_time, first_timer_service_id')
+            .eq('manifest_id', manifestId)
+            .or('category.eq.First Timer,first_timer_service_id.not.is.null');
+
+        if (memError) throw memError;
+
+        const { data: passengersData, error: passError } = await supabase
+            .from('passengers')
+            .select('id, name, contact, gender, residence, created_at, event_id')
+            .eq('manifest_id', manifestId)
+            .or('is_first_time.eq.Yes,is_first_time.eq.true');
+
+        if (passError) throw passError;
+
+        const eventIds = new Set<string>([
+            ...(membersData || []).map(m => m.first_timer_service_id).filter(Boolean),
+            ...(passengersData || []).map(p => p.event_id).filter(Boolean)
+        ]);
+
+        let eventTitles: Record<string, string> = {};
+        if (eventIds.size > 0) {
+            const { data: eventsData } = await supabase
+                .from('ministry_events')
+                .select('id, title')
+                .eq('manifest_id', manifestId)
+                .in('id', Array.from(eventIds));
+            
+            if (eventsData) {
+                eventsData.forEach(e => {
+                    eventTitles[e.id] = e.title;
+                });
+            }
+        }
+
+        const events = (passengersData || []).map(p => ({
+            id: p.id,
+            name: p.name,
+            phone: p.contact || '',
+            gender: p.gender || '',
+            residency: p.residence || '',
+            check_in_time: p.created_at,
+            source_event_id: p.event_id,
+            source_event_title: p.event_id ? (eventTitles[p.event_id] || 'Unknown Event') : 'Unknown Event'
+        }));
+
+        const services = (membersData || []).map(m => ({
+            id: m.id,
+            name: m.name,
+            phone: m.phone || '',
+            gender: m.gender || '',
+            residency: m.residency || '',
+            check_in_time: m.check_in_time,
+            source_event_id: m.first_timer_service_id,
+            source_event_title: m.first_timer_service_id ? (eventTitles[m.first_timer_service_id] || 'Unknown Service') : 'Unknown Service'
+        }));
+
+        res.json({ services, events });
+    } catch (error: any) {
+        console.error('getFirstTimers Error:', error);
+        res.status(500).json({ error: error.message });
+    }
+};
+
