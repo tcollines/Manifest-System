@@ -9,12 +9,8 @@ export const mapMemberFromDB = (m: any): Member => ({
   name: m.name,
   category: m.category,
   phone: m.phone,
-  status: m.status, // API now returns status logic if requested
-  checkInTime: m.check_in_time, // Keep eye on snake_case vs camelCase. 
-  // Wait, the API `getMembers` returns raw DB, snake_case.
-  // Frontend `mapMemberFromDB` expects these fields.
-  // The API controller does NOT map keys.
-  // So we need to match keys here.
+  status: m.status,
+  checkInTime: m.check_in_time,
   gender: m.gender,
   residency: m.residency,
   bornAgain: m.born_again,
@@ -22,6 +18,8 @@ export const mapMemberFromDB = (m: any): Member => ({
   attendedServiceIds: m.attended_service_ids || [],
   firstTimerServiceId: m.first_timer_service_id,
   createdAt: m.created_at,
+  occupation: m.occupation,
+  placeOfWork: m.place_of_work,
   // Passenger-specific flags returned by getEventAttendees for ministry events
   isFirstTime: m.isFirstTime ?? false,
   soulWon: m.soulWon ?? false,
@@ -40,7 +38,9 @@ const mapMemberToDB = (m: Member) => ({
   born_again: m.bornAgain,
   joined_date: m.joinedDate,
   attended_service_ids: m.attendedServiceIds,
-  currentServiceId: m.currentServiceId
+  currentServiceId: m.currentServiceId,
+  occupation: m.occupation,
+  place_of_work: m.placeOfWork,
 });
 
 const MEMBER_CACHE = new Map<string, { timestamp: number, data: ServiceResponse<Member[]> }>();

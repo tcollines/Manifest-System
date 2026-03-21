@@ -32,7 +32,8 @@ import {
     Heart,
     MessageSquare,
     ShieldCheck,
-    AlertCircle
+    AlertCircle,
+    Download
 } from 'lucide-react';
 
 interface NextGenDashboardProps {
@@ -585,6 +586,41 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
         }
     };
 
+    const handleExportToExcel = () => {
+        if (!children || children.length === 0) {
+            showToast("No children records available to export.", "error");
+            return;
+        }
+
+        const exportData = children.map(child => {
+            let rank = 'Nursery (<2)';
+            if (child.age > 12) rank = 'General (>12)';
+            else if (child.age > 9) rank = 'Captain (10-12)';
+            else if (child.age > 6) rank = 'Lieutenant (7-9)';
+            else if (child.age >= 2) rank = 'Sergeant (2-6)';
+
+            return {
+                "Child Name": child.name,
+                "Rank": rank,
+                "Age": child.age,
+                "Gender": child.gender,
+                "Parent Name": child.parentName,
+                "Parent Contact": child.parentContact,
+                "Residence": child.residence,
+                "Joined Date": child.joinedDate,
+                "How Heard": child.howHeard || '',
+                "Salvation Date": child.salvationDate || ''
+            };
+        });
+
+        const worksheet = XLSX.utils.json_to_sheet(exportData);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Children Database");
+
+        XLSX.writeFile(workbook, `NextGen_Children_Database_${new Date().toISOString().split('T')[0]}.xlsx`);
+        showToast("Database exported to Excel.", "success");
+    };
+
     // --- Render ---
 
     // Pagination Logic
@@ -912,6 +948,13 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                             <h3 className="text-lg font-bold text-gray-800">Children's Database</h3>
                             <div className="flex space-x-3 w-full md:w-auto">
+                                <button
+                                    onClick={handleExportToExcel}
+                                    className="flex-1 md:flex-none flex items-center justify-center space-x-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors shadow-sm font-medium"
+                                >
+                                    <Download className="w-4 h-4" />
+                                    <span className="hidden md:inline">Export Excel</span>
+                                </button>
                                 <button
                                     onClick={() => setViewMode('add-child')}
                                     className="flex-1 md:flex-none flex items-center justify-center space-x-2 bg-ministry-text text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors"

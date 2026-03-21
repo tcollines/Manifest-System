@@ -15,7 +15,7 @@ export const getMembers = async (req: Request, res: Response) => {
     const searchQuery = req.query.search as string || '';
 
     try {
-        let query = supabase.from('members').select('id, name, category, phone, status, check_in_time, gender, residency, born_again, joined_date, attended_service_ids, created_at', { count: 'exact' })
+        let query = supabase.from('members').select('id, name, category, phone, status, check_in_time, gender, residency, born_again, joined_date, attended_service_ids, created_at, occupation, place_of_work', { count: 'exact' })
             .eq('manifest_id', manifestId); // Tenant Isolation
 
         if (searchQuery) {
