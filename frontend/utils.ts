@@ -196,7 +196,7 @@ export const getDashboardForUser = (user: User): string => {
         case 'd7': return '/schools';
         case 'd8': return '/healing';
         case 'd9': return '/campus';
-        default: return '/setup-account'; // SECURITY FIX: Never default unknown users to TeamLeader
+        default: return '/dashboard'; // Safe fallback avoiding Account Setup loops
     }
 };
 
