@@ -94,12 +94,30 @@ export const SOUL_WINNING_DATA: ChartData[] = [
 ];
 
 export const ATTENDANCE_DATA: ChartData[] = [
-  { name: 'Jan', value: 400, secondaryValue: 850 },
-  { name: 'Feb', value: 300, secondaryValue: 900 },
-  { name: 'Mar', value: 550, secondaryValue: 1200 },
-  { name: 'Apr', value: 450, secondaryValue: 1100 },
-  { name: 'May', value: 600, secondaryValue: 1350 },
-  { name: 'Jun', value: 700, secondaryValue: 1500 },
+  { name: 'Jan W1', value: 380, secondaryValue: 820, title: 'Sunday Glory Service', description: 'Week 1' },
+  { name: 'Jan W2', value: 420, secondaryValue: 880, title: 'Power Thursday', description: 'Week 2' },
+  { name: 'Jan W3', value: 390, secondaryValue: 840, title: 'Sunday Glory Service', description: 'Week 3' },
+  { name: 'Jan W4', value: 410, secondaryValue: 860, title: 'Power Thursday', description: 'Week 4' },
+  { name: 'Feb W1', value: 290, secondaryValue: 870, title: 'Sunday Glory Service', description: 'Week 1' },
+  { name: 'Feb W2', value: 310, secondaryValue: 920, title: 'Power Thursday', description: 'Week 2' },
+  { name: 'Feb W3', value: 305, secondaryValue: 910, title: 'Sunday Glory Service', description: 'Week 3' },
+  { name: 'Feb W4', value: 295, secondaryValue: 900, title: 'Power Thursday', description: 'Week 4' },
+  { name: 'Mar W1', value: 520, secondaryValue: 1150, title: 'Sunday Glory Service', description: 'Week 1' },
+  { name: 'Mar W2', value: 540, secondaryValue: 1180, title: 'Power Thursday', description: 'Week 2' },
+  { name: 'Mar W3', value: 560, secondaryValue: 1220, title: 'Sunday Glory Service', description: 'Week 3' },
+  { name: 'Mar W4', value: 580, secondaryValue: 1250, title: 'Power Thursday', description: 'Week 4' },
+  { name: 'Apr W1', value: 440, secondaryValue: 1080, title: 'Sunday Glory Service', description: 'Week 1' },
+  { name: 'Apr W2', value: 460, secondaryValue: 1120, title: 'Power Thursday', description: 'Week 2' },
+  { name: 'Apr W3', value: 430, secondaryValue: 1070, title: 'Sunday Glory Service', description: 'Week 3' },
+  { name: 'Apr W4', value: 470, secondaryValue: 1130, title: 'Power Thursday', description: 'Week 4' },
+  { name: 'May W1', value: 590, secondaryValue: 1320, title: 'Sunday Glory Service', description: 'Week 1' },
+  { name: 'May W2', value: 610, secondaryValue: 1370, title: 'Power Thursday', description: 'Week 2' },
+  { name: 'May W3', value: 580, secondaryValue: 1300, title: 'Sunday Glory Service', description: 'Week 3' },
+  { name: 'May W4', value: 620, secondaryValue: 1410, title: 'Power Thursday', description: 'Week 4' },
+  { name: 'Jun W1', value: 680, secondaryValue: 1450, title: 'Sunday Glory Service', description: 'Week 1' },
+  { name: 'Jun W2', value: 710, secondaryValue: 1520, title: 'Power Thursday', description: 'Week 2' },
+  { name: 'Jun W3', value: 690, secondaryValue: 1480, title: 'Sunday Glory Service', description: 'Week 3' },
+  { name: 'Jun W4', value: 720, secondaryValue: 1550, title: 'Power Thursday', description: 'Week 4' },
 ];
 
 export const RECENT_ACTIVITY: ActivityLog[] = [

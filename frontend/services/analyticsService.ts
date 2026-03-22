@@ -4,9 +4,13 @@ import { SOUL_WINNING_DATA, ATTENDANCE_DATA } from '../constants';
 
 export const analyticsService = {
     fetchAttendanceAnalytics: async () => {
-        // In a real implementation, this would fetch from a database view or RPC.
-        // For now, returning the constant data expected by the chart fallback.
-        return ATTENDANCE_DATA;
+        try {
+            const data = await apiFetch('/analytics/attendance');
+            return data || [];
+        } catch (error) {
+            console.error('Error fetching attendance analytics:', error);
+            return [];
+        }
     },
 
     fetchSoulWinningAnalytics: async () => {
@@ -16,6 +20,26 @@ export const analyticsService = {
         } catch (error) {
             console.error('Error fetching soul winning analytics:', error);
             return SOUL_WINNING_DATA; // Fallback entirely to mock if backend fails
+        }
+    },
+
+    fetchDashboardKPIs: async () => {
+        try {
+            const data = await apiFetch('/analytics/dashboard');
+            return data;
+        } catch (error) {
+            console.error('Error fetching dashboard kpis:', error);
+            return null;
+        }
+    },
+
+    fetchFollowUpAnalysis: async () => {
+        try {
+            const data = await apiFetch('/analytics/followup');
+            return data || [];
+        } catch (error) {
+            console.error('Error fetching follow up analysis:', error);
+            return [];
         }
     }
 };

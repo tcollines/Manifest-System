@@ -1,54 +1,74 @@
 import { GoogleGenAI } from "@google/genai";
 import { KPIS, DEPARTMENTS } from "../constants";
 
-const getSystemInstruction = () => `
-You are an advanced Ministry AI Assistant for a church administration dashboard. 
-Your role is to analyze financial and operational data to provide strategic insights for church growth, soul winning, and financial stewardship.
-The tone should be professional, encouraging, and executive-level.
-Keep responses concise and actionable.
-`;
+export interface ChatMessage {
+  role: 'user' | 'model';
+  text: string;
+}
 
-export const generateMinistryInsights = async (): Promise<string> => {
-  const apiKey = process.env.API_KEY;
+export const generateMinistryChatResponse = async (
+  attendanceData: any[],
+  soulsData: any[],
+  history: ChatMessage[],
+  newMessage?: string
+): Promise<string> => {
+  const apiKey = (import.meta as any).env.VITE_GEMINI_API_KEY;
   if (!apiKey) {
     throw new Error("API Key not found in environment variables");
   }
 
   const ai = new GoogleGenAI({ apiKey });
 
-  const kpiSummary = KPIS.map(k => `${k.label}: ${k.value} (${k.trend === 'up' ? 'Increasing' : 'Decreasing'} by ${k.change})`).join('\n');
-  const deptSummary = DEPARTMENTS.map(d => `${d.name}: ${d.members} members`).join('\n');
+  const attendanceSummary = attendanceData.map(d => `${d.name}: ${d.value} attendees`).join('\n');
+  const soulsSummary = soulsData.map(d => `${d.name}: ${d.value} souls won`).join('\n');
 
-  const prompt = `
-    Based on the following real-time dashboard data, provide a 3-point executive summary and 1 strategic recommendation for the upcoming week.
-    
-    Current Financial & Operational KPIs:
-    ${kpiSummary}
+  const systemInstruction = `
+    You are an advanced Ministry AI Chatbot for a church administration dashboard.
+    Your role is to analyze financial and operational data to provide strategic insights for church growth, soul winning, and financial stewardship.
+    The tone should be professional, encouraging, and executive-level.
+    Keep responses concise and actionable. By default, provide a 3-point executive summary and 1 recommendation on the first interaction unless asking something specific.
 
-    Department Status:
-    ${deptSummary}
+    Here is the live real-time database metrics for context:
+    Service Attendance Metrics:
+    ${attendanceSummary || 'No attendance data yet.'}
 
-    Focus on resource allocation and areas needing attention.
+    Soul Winning Metrics:
+    ${soulsSummary || 'No soul winning data yet.'}
   `;
+
+  // Format array for Gemini
+  const contents = history.map(msg => ({
+    role: msg.role,
+    parts: [{ text: msg.text }]
+  }));
+
+  if (newMessage) {
+    contents.push({
+      role: 'user',
+      parts: [{ text: newMessage }]
+    });
+  } else if (history.length === 0) {
+    contents.push({
+      role: 'user',
+      parts: [{ text: "Provide a 3-point executive summary of my current dashboard metrics and 1 strategic recommendation." }]
+    });
+  }
 
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: prompt,
-      config: {
-        systemInstruction: getSystemInstruction(),
-      }
+      contents: contents,
+      config: { systemInstruction }
     });
-
     return response.text || "Unable to generate insights at this moment.";
   } catch (error) {
     console.error("Gemini API Error:", error);
-    return "Error generating insights. Please check your API configuration.";
+    throw error;
   }
 };
 
 export const generateSoulWinningTargetSuggestion = async (currentTotal: number): Promise<string> => {
-    const apiKey = process.env.API_KEY;
+    const apiKey = (import.meta as any).env.VITE_GEMINI_API_KEY;
     if (!apiKey) return "1000"; // Default fallback
 
     const ai = new GoogleGenAI({ apiKey });

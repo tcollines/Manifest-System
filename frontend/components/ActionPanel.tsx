@@ -6,6 +6,7 @@ import { ModalType, MinistryEvent, User } from '../types';
 import { X, Save, UserPlus, Calendar, Briefcase, Target, Lock, Phone, Mail, Loader2, Send } from 'lucide-react';
 import { DEPARTMENTS } from '../constants';
 import { supabase } from '../services/supabaseClient';
+import { ManifestStore } from '../database/manifestStore';
 
 interface ActionPanelProps {
   modalType: ModalType;
@@ -136,7 +137,18 @@ const ActionPanel: React.FC<ActionPanelProps> = ({ modalType, closeModal, onSave
       };
       if (onSave) onSave(newEvent);
     } else if (modalType === ModalType.SET_TARGETS) {
-      showToast(`Target set to: ${formData.targetCount}`, 'success');
+      setIsSubmitting(true);
+      try {
+        const manifest = await ManifestStore.get();
+        await ManifestStore.save({ ...manifest, soulsTarget: Number(formData.targetCount) });
+        showToast(`Souls won target updated to: ${formData.targetCount}`, 'success');
+        closeModal();
+      } catch (e: any) {
+        showToast("Failed to update target.", 'error');
+      } finally {
+        setIsSubmitting(false);
+      }
+      return;
     } else if (modalType === ModalType.CREATE_USER) {
       if (!formData.email) {
         showToast("Please enter an email address.", 'error');

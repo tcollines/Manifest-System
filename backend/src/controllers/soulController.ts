@@ -157,6 +157,88 @@ export const getSoulServiceStats = async (req: Request, res: Response) => {
 };
 
 
+export const getSoulDetails = async (req: Request, res: Response) => {
+    const manifestId = (req as any).manifestId;
+    if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
+
+    const { id } = req.params;
+    try {
+        const { data: soul, error: soulError } = await supabase
+            .from('souls')
+            .select('*')
+            .eq('manifest_id', manifestId) // Tenant Isolation
+            .eq('id', toUUID(id))
+            .single();
+
+        if (soulError || !soul) throw new Error("Soul not found");
+
+        const { data: attendance, error: attError } = await supabase
+            .from('service_attendance')
+            .select('service_id, check_in_time')
+            .eq('manifest_id', manifestId) // Tenant Isolation
+            .eq('member_id', toUUID(id))
+            .order('check_in_time', { ascending: false });
+
+        if (attError) throw attError;
+
+        const attendedServiceIds = attendance?.map(a => a.service_id) || [];
+
+        let history: any[] = [];
+        let serviceCount = 0;
+
+        if (attendedServiceIds.length > 0) {
+            const { data: events } = await supabase
+                .from('ministry_events')
+                .select('id, title, date, type')
+                .eq('manifest_id', manifestId) // Tenant Isolation
+                .in('id', attendedServiceIds);
+
+            history = (attendance || []).map(a => {
+                const evt = events?.find(e => e.id === a.service_id);
+                return {
+                    serviceId: a.service_id,
+                    date: evt?.date || new Date(a.check_in_time).toISOString().split('T')[0],
+                    title: evt?.title || 'Unknown Service',
+                    type: evt?.type || 'Service',
+                    checkInTime: new Date(a.check_in_time).toLocaleTimeString()
+                };
+            });
+
+            serviceCount = events?.filter(e => e.type === 'Service').length || 0;
+        }
+
+        const joinedDate = soul.created_at || new Date().toISOString();
+        const dateOnly = joinedDate.substring(0, 10);
+        const { count: totalServices } = await supabase
+            .from('ministry_events')
+            .select('*', { count: 'exact', head: true })
+            .eq('manifest_id', manifestId) // Tenant Isolation
+            .eq('type', 'Service')
+            .gte('date', dateOnly)
+            .lte('date', new Date().toISOString().substring(0, 10));
+
+        res.json({
+            member: {
+                id: soul.id,
+                name: `${soul.first_name} ${soul.last_name}`,
+                phone: soul.phone,
+                residency: soul.residence,
+                gender: soul.gender,
+                category: soul.source_type,
+                status: soul.status,
+                joinedDate: soul.created_at,
+                occupation: soul.occupation
+            },
+            attendedCount: serviceCount,
+            totalServices: totalServices || 0,
+            history: history
+        });
+
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
 // --- Next Gen Souls ---
 export const getNextGenSouls = async (req: Request, res: Response) => {
     const manifestId = (req as any).manifestId;

@@ -8,7 +8,8 @@ import {
     getNextGenSouls,
     addNextGenSoul,
     deleteNextGenSoul,
-    getNextGenSoulCount
+    getNextGenSoulCount,
+    getSoulDetails
 } from '../controllers/soulController';
 
 const router = Router();
@@ -19,6 +20,7 @@ router.post('/', addSoul);
 router.put('/:id', updateSoul);
 router.delete('/:id', deleteSoul);
 router.get('/stats/:serviceId', getSoulServiceStats);
+router.get('/:id/details', getSoulDetails);
 
 // Next Gen Souls
 router.get('/nextgen', getNextGenSouls);

@@ -128,6 +128,8 @@ export const updateMember = async (req: Request, res: Response) => {
     if (m.firstTimerServiceId !== undefined) {
         updates.first_timer_service_id = m.firstTimerServiceId ? toUUID(m.firstTimerServiceId) : null;
     }
+    if (m.followUpStatus !== undefined) updates.follow_up_status = m.followUpStatus;
+    if (m.followUpNotes !== undefined) updates.follow_up_notes = m.followUpNotes;
 
     try {
         // [FIX] Administrative Correction: If shifting a First Timer to Member, explicitly clear First Timer flags
@@ -459,13 +461,14 @@ export const getMemberDetails = async (req: Request, res: Response) => {
         }
 
         const joinedDate = member.joined_date || new Date().toISOString();
+        const dateOnly = joinedDate.substring(0, 10);
         const { count: totalServices } = await supabase
             .from('ministry_events')
             .select('*', { count: 'exact', head: true })
             .eq('manifest_id', manifestId) // Tenant Isolation
             .eq('type', 'Service')
-            .gte('date', joinedDate)
-            .lte('date', new Date().toISOString().split('T')[0]);
+            .gte('date', dateOnly)
+            .lte('date', new Date().toISOString().substring(0, 10));
 
         res.json({
             member: member,
@@ -839,6 +842,65 @@ export const getFirstTimers = async (req: Request, res: Response) => {
         res.json({ services, events });
     } catch (error: any) {
         console.error('getFirstTimers Error:', error);
+        res.status(500).json({ error: error.message });
+    }
+};
+
+export const getPassengerDetails = async (req: Request, res: Response) => {
+    const manifestId = (req as any).manifestId;
+    if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
+
+    const { id } = req.params;
+    try {
+        const { data: pass, error: passError } = await supabase
+            .from('passengers')
+            .select('*')
+            .eq('manifest_id', manifestId) // Tenant Isolation
+            .eq('id', toUUID(id))
+            .single();
+
+        if (passError || !pass) throw new Error("Passenger not found");
+
+        let history: any[] = [];
+        let serviceCount = 0;
+
+        if (pass.event_id) {
+            const { data: evt } = await supabase
+                .from('ministry_events')
+                .select('id, title, date, type')
+                .eq('manifest_id', manifestId)
+                .eq('id', pass.event_id)
+                .single();
+
+            if (evt) {
+                history = [{
+                    serviceId: evt.id,
+                    date: evt.date,
+                    title: evt.title,
+                    type: evt.type,
+                    checkInTime: new Date(pass.created_at).toLocaleTimeString()
+                }];
+                serviceCount = 1;
+            }
+        }
+
+        res.json({
+            member: {
+                id: pass.id,
+                name: pass.name,
+                phone: pass.contact,
+                residency: pass.residence,
+                gender: pass.gender,
+                category: 'Event First Timer',
+                status: 'Passenger',
+                joinedDate: pass.created_at
+            },
+            attendedCount: serviceCount,
+            totalServices: 1, // First timer via event only tracked for that event locally
+            history: history
+        });
+
+    } catch (error: any) {
         res.status(500).json({ error: error.message });
     }
 };

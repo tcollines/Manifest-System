@@ -115,6 +115,16 @@ export const SoulsStore = {
         }
     },
 
+    getSoulDetails: async (soulId: string): Promise<{ member: any, attendedCount: number, totalServices: number, history: any[] }> => {
+        try {
+            const data = await apiFetch(`/souls/${soulId}/details`);
+            return data;
+        } catch (e: any) {
+            console.error("Error fetching soul details:", e);
+            throw e;
+        }
+    },
+
     delete: async (id: string): Promise<void> => {
         try {
             await apiFetch(`/souls/${id}`, { method: 'DELETE' });

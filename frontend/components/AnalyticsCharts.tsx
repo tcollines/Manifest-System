@@ -5,7 +5,7 @@ import {
 } from 'recharts';
 import { SOUL_WINNING_DATA, ATTENDANCE_DATA } from '../constants';
 
-const COLORS = ['#ccff00', '#FF5722', '#00C853', '#2979FF'];
+const COLORS = ['#ccff00', '#FF5722', '#00C853', '#2979FF', '#FFB300', '#9C27B0', '#00BCD4', '#E91E63'];
 
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
@@ -38,7 +38,7 @@ const AnalyticsCharts: React.FC = () => {
         const attData = await analyticsService.fetchAttendanceAnalytics();
         const sData = await analyticsService.fetchSoulWinningAnalytics();
 
-        if (attData && attData.length > 0) {
+        if (attData) {
           setAttendanceData(attData);
 
           // Extract unique months from data (assuming name format "Jan 4", "Feb 1", etc. or fullDate)
@@ -65,7 +65,24 @@ const AnalyticsCharts: React.FC = () => {
   }, []);
 
   const filteredData = React.useMemo(() => {
-    if (selectedMonth === 'All') return attendanceData;
+    if (selectedMonth === 'All') {
+      const monthlyData: Record<string, { total: number, count: number }> = {};
+      attendanceData.forEach((item: any) => {
+        const month = item.name.split(' ')[0];
+        if (!monthlyData[month]) {
+          monthlyData[month] = { total: 0, count: 0 };
+        }
+        monthlyData[month].total += item.value;
+        monthlyData[month].count += 1;
+      });
+
+      return Object.entries(monthlyData).map(([month, data]) => ({
+        name: month,
+        value: Math.round(data.total / data.count),
+        title: `${month} Average`,
+        description: 'Monthly Average Attendance'
+      }));
+    }
     return attendanceData.filter((item: any) => item.name.startsWith(selectedMonth));
   }, [attendanceData, selectedMonth]);
 

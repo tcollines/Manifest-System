@@ -383,7 +383,7 @@ const App: React.FC = () => {
     return <SignIn onLogin={handleLogin} onGoogleLogin={handleGoogleLogin} error={loginError} />;
   }
 
-  if (location.pathname === '/setup-account' || !currentUser.username || currentUser.username.trim() === '') {
+  if (location.pathname === '/setup-account') {
     return <SetupAccount currentUser={currentUser} onComplete={handleSetupComplete} onLogout={handleLogout} />;
   }
 

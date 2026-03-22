@@ -26,6 +26,8 @@ export interface ChartData {
   name: string;
   value: number;
   secondaryValue?: number; // e.g. Thursday vs Sunday
+  title?: string;
+  description?: string;
 }
 
 export interface ActivityLog {
@@ -109,6 +111,8 @@ export interface Member {
   referralSource?: string;
   isPhanerooMember?: 'Yes' | 'No';
   // Analytics
+  followUpStatus?: string;
+  followUpNotes?: string;
   joinedDate?: string;
   attendedServiceIds?: string[];
   currentServiceId?: string;
@@ -296,6 +300,7 @@ export interface ManifestDetails {
   logoUrl?: string;
   coordinates?: { lat: number; lng: number };
   currency?: string;
+  soulsTarget?: number;
 }
 
 export interface Soul {

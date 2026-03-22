@@ -1,73 +1,50 @@
 import React, { useEffect, useState } from 'react';
-import { ModalType, MinistryEvent } from '../types';
-import { Plus, UserPlus, Target, FileText, Download, Sparkles, Map, Maximize2, Package } from 'lucide-react';
-import { useEventLifecycle } from '../hooks/useEventLifecycle';
-import { EventStore } from '../database/eventStore';
 import { KPI } from '../types';
-import { FinanceStore } from '../database/financeStore';
-import { ManifestStore } from '../database/manifestStore';
 import * as Icons from 'lucide-react';
 import { supabase } from '../services/supabaseClient';
+import { ManifestStore } from '../database/manifestStore';
+import { analyticsService } from '../services/analyticsService';
 
 interface KPIGridProps {
   eventId?: string;
 }
 
-console.log('ManifestStore Imported in KPIGrid:', ManifestStore);
-
 const KPIGrid: React.FC<KPIGridProps> = ({ eventId }) => {
   const [kpis, setKpis] = useState<KPI[]>([
-    { id: '1', label: 'Total Collections', value: '...', change: '0%', trend: 'neutral', icon: 'DollarSign' },
-    { id: '2', label: 'Monthly Expenses', value: '...', change: '0%', trend: 'neutral', icon: 'Activity' },
-    { id: '3', label: 'Total Offerings', value: '...', change: '0%', trend: 'neutral', icon: 'Heart' },
-    { id: '4', label: 'Partnerships', value: '...', change: '0%', trend: 'neutral', icon: 'Briefcase' },
-    { id: '5', label: 'PMI Giving', value: '...', change: '0%', trend: 'neutral', icon: 'TrendingUp' },
+    { id: '1', label: 'Active Members (>0% Attendance)', value: '...', change: '--', trend: 'neutral', icon: 'Users' },
+    { id: '2', label: 'Souls Won Percentage', value: '...', change: '--', trend: 'neutral', icon: 'Target' },
+    { id: '3', label: 'Next Gen Active Members', value: '...', change: '--', trend: 'neutral', icon: 'Baby' },
+    { id: '4', label: 'Total First Timers', value: '...', change: '--', trend: 'neutral', icon: 'UserPlus' },
+    { id: '5', label: 'Registered Residential Areas', value: '...', change: '--', trend: 'neutral', icon: 'MapPin' },
   ]);
 
   useEffect(() => {
-    const fetchData = async () => {
-      // Skip if eventId is required but not provided
-      if (!eventId) {
-        setKpis(prev => prev.map(k => ({ ...k, value: '...' })));
-        return;
-      }
-
-      // Prevent fetching if session is ending/cleared
+    const loadData = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
-      // 1. Get Currency
+
       const manifest = await ManifestStore.get();
-      const currency = manifest.currency || 'UGX';
+      const soulsTarget = manifest.soulsTarget || 1000;
 
-      // 2. Get Aggregated Summary (O(1) payload)
-      const summary = await FinanceStore.getEventSummary(eventId);
+      const stats = await analyticsService.fetchDashboardKPIs();
+      if (!stats) return;
 
-      // We still need raw transactions for partnerships and PMI giving since they aren't in the generic Postgres summary yet
-      let transactions = await FinanceStore.getTransactions(eventId);
-
-      // 3. Calculate Extra Totals (Consider moving these to RPC later)
-      const totalOfferings = transactions.filter(t => t.type === 'Income' && (t.category === 'Offerings' || t.category === 'Tithes')).reduce((sum, t) => sum + t.amount, 0);
-      const partnershipCount = transactions.filter(t => t.type === 'Income' && t.category === 'Partnership').length;
-      const pmiGiving = transactions.filter(t => t.type === 'Income' && t.category === 'PMI Giving').reduce((sum, t) => sum + t.amount, 0);
-
-      const formatMoney = (amount: number) => {
-        return new Intl.NumberFormat('en-US', { style: 'currency', currency: currency }).format(amount);
-      };
+      const percentageSouls = stats.totalSoulsWon > 0 ? Math.min(100, Number(((stats.totalSoulsWon / soulsTarget) * 100).toFixed(1))) : 0;
 
       setKpis([
-        { id: '1', label: 'Total Collections', value: formatMoney(summary.total_income), change: '+12%', trend: 'up', icon: 'DollarSign' },
-        { id: '2', label: 'Monthly Expenses', value: formatMoney(summary.total_expense), change: '-5%', trend: 'down', icon: 'Activity' },
-        { id: '3', label: 'Total Offerings', value: formatMoney(totalOfferings), change: '+8%', trend: 'up', icon: 'Heart' },
-        { id: '4', label: 'Partnerships (Count)', value: partnershipCount.toString(), change: '+24', trend: 'up', icon: 'Briefcase' },
-        { id: '5', label: 'PMI Giving', value: formatMoney(pmiGiving), change: '+15%', trend: 'up', icon: 'TrendingUp' },
+        { id: '1', label: 'Active Members (>0% Attendance)', value: stats.activeMembers.toLocaleString(), change: 'Metrics Live', trend: 'up', icon: 'Users' },
+        { id: '2', label: 'Souls Won Percentage', value: `${percentageSouls}%`, change: `${stats.totalSoulsWon} Souls`, trend: 'up', icon: 'Target' },
+        { id: '3', label: 'Next Gen Active Members', value: stats.nextGenActive.toLocaleString(), change: 'Metrics Live', trend: 'up', icon: 'Baby' },
+        { id: '4', label: 'Total First Timers', value: stats.totalFirstTimers.toLocaleString(), change: 'Metrics Live', trend: 'up', icon: 'UserPlus' },
+        { id: '5', label: 'Registered Residential Areas', value: stats.registeredResidences.toLocaleString(), change: 'Metrics Live', trend: 'up', icon: 'MapPin' },
       ]);
     };
-
-    fetchData();
-  }, [eventId]);
+    
+    loadData();
+  }, []);
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 md:gap-6 mb-8">
+    <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 md:gap-6 mb-8">
       {kpis.map((kpi) => {
         const IconComponent = (Icons as any)[kpi.icon] || Icons.Activity;
         return (
@@ -83,7 +60,7 @@ const KPIGrid: React.FC<KPIGridProps> = ({ eventId }) => {
               </span>
             </div>
             <div>
-              <p className="text-gray-500 text-sm mb-1">{kpi.label}</p>
+              <p className="text-gray-500 text-sm mb-1 line-clamp-1" title={kpi.label}>{kpi.label}</p>
               <h3 className="text-2xl font-bold text-ministry-text tracking-wide truncate">{kpi.value}</h3>
             </div>
           </div>

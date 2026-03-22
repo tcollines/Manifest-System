@@ -28,7 +28,7 @@ export const ManifestStore = {
             });
         } catch (error) {
             console.error('Error saving manifest:', error);
-            return details;
+            throw error;
         }
     }
 };

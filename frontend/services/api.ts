@@ -23,7 +23,7 @@ export const apiFetch = async (endpoint: string, options: RequestInit & { token?
     }
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout to allow heavy analytics aggregation
 
     try {
         const fetchOptions: RequestInit = {
