@@ -31,7 +31,7 @@ const FollowUpDashboard: React.FC<FollowUpDashboardProps> = ({ onOpenModal, curr
     const [isLoading, setIsLoading] = useState(true);
 
     const isMember = currentUser.role === 'Member';
-    const canViewDatabase = !isMember;
+    const canViewDatabase = true; // User requested all members in FollowUp see all tabs
 
     // Selection State
 
@@ -101,7 +101,6 @@ const FollowUpDashboard: React.FC<FollowUpDashboardProps> = ({ onOpenModal, curr
     }, [membersDbQuery]);
 
     // Analysis Tab State
-    const [memberSubTab, setMemberSubTab] = useState<'all' | 'needs-followup'>('all');
     const [analysisData, setAnalysisData] = useState<any[]>([]);
     const [isLoadingAnalysis, setIsLoadingAnalysis] = useState(false);
     const [analysisPage, setAnalysisPage] = useState(1);
@@ -111,7 +110,7 @@ const FollowUpDashboard: React.FC<FollowUpDashboardProps> = ({ onOpenModal, curr
     const paginatedAnalysisData = analysisData.slice((analysisPage - 1) * analysisItemsPerPage, analysisPage * analysisItemsPerPage);
 
     useEffect(() => {
-        if (activeTab === 'members' && memberSubTab === 'needs-followup') {
+        if (activeTab === 'analysis') {
             const loadAnalysis = async () => {
                 setIsLoadingAnalysis(true);
                 try {
@@ -1290,6 +1289,18 @@ const FollowUpDashboard: React.FC<FollowUpDashboardProps> = ({ onOpenModal, curr
                         <span>Member Database</span>
                     </button>
                 )}
+                {canViewDatabase && (
+                    <button
+                        onClick={() => {
+                            setActiveTab('analysis');
+                            setSelectedEventId(null);
+                        }}
+                        className={`flex items-center space-x-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${activeTab === 'analysis' ? 'bg-black text-white shadow-md' : 'text-gray-500 hover:text-gray-900'}`}
+                    >
+                        <Search className={`w-4 h-4 ${activeTab === 'analysis' ? 'text-ministry-neon' : ''}`} />
+                        <span>Needs Follow Up</span>
+                    </button>
+                )}
             </div>
 
             {/* Main Content Area */}
@@ -1499,28 +1510,9 @@ const FollowUpDashboard: React.FC<FollowUpDashboardProps> = ({ onOpenModal, curr
                                 
                                 {/* MEMBERS DB TAB */}
                                 {activeTab === 'members' && canViewDatabase && (
-                                    <div className="space-y-6">
-                                        <div className="flex space-x-2 bg-gray-100 p-1.5 rounded-xl w-fit mb-6">
-                                            <button
-                                                onClick={() => { setMemberSubTab('all'); setViewMode('list'); }}
-                                                className={`flex items-center space-x-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${memberSubTab === 'all' ? 'bg-black text-white shadow-md' : 'text-gray-500 hover:text-gray-900'}`}
-                                            >
-                                                <Database className={`w-4 h-4 ${memberSubTab === 'all' ? 'text-ministry-neon' : ''}`} />
-                                                <span>All Members</span>
-                                            </button>
-                                            <button
-                                                onClick={() => { setMemberSubTab('needs-followup'); setViewModeAnalysis('list'); }}
-                                                className={`flex items-center space-x-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${memberSubTab === 'needs-followup' ? 'bg-black text-white shadow-md' : 'text-gray-500 hover:text-gray-900'}`}
-                                            >
-                                                <Search className={`w-4 h-4 ${memberSubTab === 'needs-followup' ? 'text-ministry-neon' : ''}`} />
-                                                <span>Needs Follow Up</span>
-                                            </button>
-                                        </div>
-
-                                        {memberSubTab === 'all' ? (
-                                            viewMode === 'list' || viewMode === 'soul-detail' ? (
-                                                <div className="space-y-6 p-4 md:p-0">
-                                                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                                    viewMode === 'list' || viewMode === 'soul-detail' ? (
+                                        <div className="space-y-6 p-4 md:p-0">
+                                            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                                                 <h3 className="text-lg font-bold text-gray-800 flex items-center">
                                                     <Database className="w-5 h-5 mr-2 text-gray-500" />
                                                     Member Database Dashboard
@@ -1755,9 +1747,11 @@ const FollowUpDashboard: React.FC<FollowUpDashboardProps> = ({ onOpenModal, curr
                                             </div>
                                         </div>
                                     ) : null
-                                ) : memberSubTab === 'needs-followup' ? (
-                                    <div className="space-y-6">
-                                        <div className="flex justify-between items-center mb-6 border-b border-gray-100 pb-4">
+                                )}
+
+                        {activeTab === 'analysis' && (
+                            <div className="space-y-6">
+                                <div className="flex justify-between items-center mb-6 border-b border-gray-100 pb-4">
                                     <div>
                                         <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
                                             <Search className="w-6 h-6 text-ministry-blue" />
@@ -1950,9 +1944,7 @@ const FollowUpDashboard: React.FC<FollowUpDashboardProps> = ({ onOpenModal, curr
                                 </div>
                                 )}
                             </div>
-                        ) : null}
-                    </div>
-                )}
+                        )}
                             </>
                         )}
                     </>
