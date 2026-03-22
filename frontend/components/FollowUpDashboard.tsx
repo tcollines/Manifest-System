@@ -1784,21 +1784,39 @@ const FollowUpDashboard: React.FC<FollowUpDashboardProps> = ({ onOpenModal, curr
                                             </div>
                                         </div>
                                         
+                                        {/* Top Stats Cards */}
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 flex items-center gap-4">
+                                                <div className="p-3 bg-blue-50 rounded-full"><Users className="w-8 h-8 text-blue-600" /></div>
+                                                <div>
+                                                    <p className="text-xs uppercase font-bold text-gray-400">Total Attended</p>
+                                                    <p className="text-2xl font-black text-gray-900">{selectedAnalysisMember.attendedCount} Services</p>
+                                                </div>
+                                            </div>
+                                            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 flex items-center gap-4">
+                                                <div className="p-3 bg-purple-50 rounded-full"><Database className="w-8 h-8 text-purple-600" /></div>
+                                                <div>
+                                                    <p className="text-xs uppercase font-bold text-gray-400">Expected Services</p>
+                                                    <p className="text-2xl font-black text-gray-900">{selectedAnalysisMember.totalServices} Held</p>
+                                                    <p className="text-xs text-gray-500">Since Joined ({new Date(selectedAnalysisMember.member.joinedDate || '').toLocaleDateString()})</p>
+                                                </div>
+                                            </div>
+                                            <div className="bg-ministry-text text-white p-6 rounded-2xl shadow-lg flex items-center gap-4">
+                                                <div className="p-3 bg-white/10 rounded-full"><Calendar className="w-8 h-8 text-white" /></div>
+                                                <div>
+                                                    <p className="text-xs uppercase font-bold text-gray-400">Attendance Score</p>
+                                                    <p className="text-3xl font-black">
+                                                        {selectedAnalysisMember.totalServices > 0
+                                                        ? Math.round((selectedAnalysisMember.attendedCount / selectedAnalysisMember.totalServices) * 100)
+                                                        : 0}%
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+
                                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                                             {/* Left: Analytics & Form */}
                                             <div className="space-y-6">
-                                                <div className="bg-gradient-to-br from-ministry-blue/5 to-transparent border border-ministry-blue/10 rounded-xl p-6 shadow-sm">
-                                                    <p className="text-sm font-bold text-ministry-blue uppercase tracking-wider mb-2">Lifetime Attendance Score</p>
-                                                    <div className="flex items-end gap-3">
-                                                        <p className="text-4xl font-black text-gray-900">
-                                                            {selectedAnalysisMember.totalServices > 0
-                                                            ? Math.round((selectedAnalysisMember.attendedCount / selectedAnalysisMember.totalServices) * 100)
-                                                            : 0}%
-                                                        </p>
-                                                        <p className="text-gray-500 font-medium pb-1">({selectedAnalysisMember.attendedCount} of {selectedAnalysisMember.totalServices} services)</p>
-                                                    </div>
-                                                </div>
-                                                
                                                 <form onSubmit={handleSaveFollowUp} className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm space-y-5">
                                                     <div>
                                                         <label className="text-sm font-bold text-gray-700 block mb-2">Follow Up Status</label>
