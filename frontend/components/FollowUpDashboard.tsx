@@ -1948,7 +1948,6 @@ const FollowUpDashboard: React.FC<FollowUpDashboardProps> = ({ onOpenModal, curr
                                         </div>
                                     )}
                                 </div>
-                                </div>
                                 )}
                             </div>
                         ) : null}
