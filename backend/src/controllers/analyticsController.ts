@@ -177,130 +177,105 @@ export const getDashboardKPIs = async (req: Request, res: Response) => {
             .eq('manifest_id', manifestId);
         
         const validServiceIds = (allEvents || []).filter(e => e.type === 'Service').map(e => e.id);
-        const validServiceSet = new Set(validServiceIds);
 
-        let activeMembersCount = 0;
-        let totalFirstTimers = 0;
+        // 1. Active Members
+        const p_active = supabase
+            .from('members')
+            .select('attended_service_ids')
+            .eq('manifest_id', manifestId)
+            .neq('category', 'First Timer')
+            .neq('category', 'Guest')
+            .not('attended_service_ids', 'is', null);
 
-        // 1 & 4. Active Members + First Timers via Paginated Fetch to prevent OOM
-        let page = 0;
-        const limit = 1000;
-        let hasMore = true;
+        // 2 & 4. Total First Timers
+        const p_native = supabase
+            .from('members')
+            .select('*', { count: 'exact', head: true })
+            .eq('manifest_id', manifestId)
+            .eq('category', 'First Timer')
+            .is('first_timer_service_id', null);
 
-        while (hasMore) {
-            const { data, error } = await supabase
-                .from('members')
-                .select('category, attended_service_ids, first_timer_service_id')
-                .eq('manifest_id', manifestId)
-                .range(page * limit, (page + 1) * limit - 1);
-            
-            if (error) throw error;
-            if (!data || data.length === 0) {
-                hasMore = false;
-            } else {
-                activeMembersCount += data.filter(m => 
-                    m.category !== 'First Timer' && 
-                    m.category !== 'Guest' && 
-                    m.attended_service_ids && 
-                    m.attended_service_ids.length > 0
-                ).length;
+        const p_native_with_service = validServiceIds.length > 0 ? supabase
+            .from('members')
+            .select('*', { count: 'exact', head: true })
+            .eq('manifest_id', manifestId)
+            .in('first_timer_service_id', validServiceIds) : Promise.resolve({ count: 0, data: null, error: null });
 
-                totalFirstTimers += data.filter(m => {
-                    if (m.first_timer_service_id) {
-                        return validServiceSet.has(m.first_timer_service_id);
-                    }
-                    return m.category === 'First Timer';
-                }).length;
+        const p_passengers = validServiceIds.length > 0 ? supabase
+            .from('passengers')
+            .select('*', { count: 'exact', head: true })
+            .eq('manifest_id', manifestId)
+            .in('is_first_time', ['Yes', 'true'])
+            .in('event_id', validServiceIds) : Promise.resolve({ count: 0, data: null, error: null });
 
-                if (data.length < limit) hasMore = false;
-                else page++;
-            }
-        }
+        // 3. Next Gen Active
+        const p_nextGen = supabase
+            .from('children')
+            .select('attended_service_ids')
+            .eq('manifest_id', manifestId)
+            .not('attended_service_ids', 'is', null);
 
-        // Include Passengers for First Timers calculation ONLY for Services natively
-        let firstTimersPassengers = 0;
-        let passPage = 0;
-        let passHasMore = true;
-        while (passHasMore) {
-            const { data, error } = await supabase
-                .from('passengers')
-                .select('event_id, is_first_time')
-                .eq('manifest_id', manifestId)
-                .eq('is_first_time', 'Yes')
-                .range(passPage * limit, (passPage + 1) * limit - 1);
-            
-            if (error) throw error;
-            if (!data || data.length === 0) {
-                 passHasMore = false;
-            } else {
-                 firstTimersPassengers += data.filter(p => validServiceSet.has(p.event_id)).length;
-                 if (data.length < limit) passHasMore = false;
-                 else passPage++;
-            }
-        }
-        totalFirstTimers += firstTimersPassengers;
-
-        // 2. Souls Won (Simple fast count)
-        const { count: soulsCount } = await supabase
+        // 4. Souls Won
+        const p_souls = supabase
             .from('souls')
             .select('*', { count: 'exact', head: true })
             .eq('manifest_id', manifestId);
         
-        const { count: soulsPassengersCount } = await supabase
+        const p_passenger_souls = supabase
             .from('passengers')
             .select('*', { count: 'exact', head: true })
             .eq('manifest_id', manifestId)
             .eq('soul_won', true);
 
-        // We could aggregate department souls here, but since the user requested to strictly mirror the dashboard KPI which likely just wanted core souls table + passenger souls (or simply all of them).
-        // Let's grab the departments just in case
-        let departmentalSouls = 0;
+        // Departmental souls (run in parallel)
         const tables = ['residence_outreach_reports', 'school_outreach_reports', 'campus_activities'];
-        for (const table of tables) {
-            const { data } = await supabase.from(table).select('souls_won').eq('manifest_id', manifestId);
-            departmentalSouls += (data || []).reduce((sum: number, rep: any) => sum + (rep.souls_won || 0), 0);
-        }
-
-        const { data: healingData } = await supabase.from('healing_reports').select('souls_count').eq('manifest_id', manifestId);
-        departmentalSouls += (healingData || []).reduce((sum: number, rep: any) => sum + (rep.souls_count || 0), 0);
-
-        const totalSoulsWon = (soulsCount || 0) + (soulsPassengersCount || 0) + departmentalSouls;
-
-        // 3. Next Gen Active
-        let nextGenActiveCount = 0;
-        let cPage = 0;
-        let cHasMore = true;
-        while (cHasMore) {
-            const { data, error } = await supabase
-                .from('children')
-                .select('category, attended_service_ids')
-                .eq('manifest_id', manifestId)
-                .range(cPage * limit, (cPage + 1) * limit - 1);
-            if (error) throw error;
-            if (!data || data.length === 0) {
-                cHasMore = false;
-            } else {
-                nextGenActiveCount += data.filter(c => 
-                    c.attended_service_ids && 
-                    c.attended_service_ids.length > 0
-                ).length;
-                if (data.length < limit) cHasMore = false;
-                else cPage++;
-            }
-        }
+        const departmentPromises = tables.map(t => supabase.from(t).select('souls_won').eq('manifest_id', manifestId));
+        const healingPromise = supabase.from('healing_reports').select('souls_count').eq('manifest_id', manifestId);
 
         // 5. Registered Residential Areas
-        const { count: residentialCount } = await supabase
+        const p_residences = supabase
             .from('residences')
             .select('*', { count: 'exact', head: true })
             .eq('manifest_id', manifestId);
+
+        // Await all parallel execution
+        const allResponses = await Promise.all([
+            p_active, 
+            p_native, 
+            p_native_with_service, 
+            p_passengers, 
+            p_nextGen, 
+            p_souls, 
+            p_passenger_souls, 
+            p_residences,
+            ...departmentPromises, 
+            healingPromise
+        ]);
+
+        const [
+            res_active, res_native, res_native_svs, res_passengers, 
+            res_nextGen, res_souls, res_passenger_souls, res_residences,
+            res_dept1, res_dept2, res_dept3, res_healing
+        ] = allResponses;
+
+        const activeMembersCount = (res_active.data || []).filter(m => m.attended_service_ids && m.attended_service_ids.length > 0).length;
+        const nextGenActiveCount = (res_nextGen.data || []).filter(m => m.attended_service_ids && m.attended_service_ids.length > 0).length;
+        const totalFirstTimers = (res_native.count || 0) + (res_native_svs.count || 0) + (res_passengers.count || 0);
+        
+        let departmentalSouls = 0;
+        departmentalSouls += (res_dept1.data || []).reduce((sum: number, rep: any) => sum + (rep.souls_won || 0), 0);
+        departmentalSouls += (res_dept2.data || []).reduce((sum: number, rep: any) => sum + (rep.souls_won || 0), 0);
+        departmentalSouls += (res_dept3.data || []).reduce((sum: number, rep: any) => sum + (rep.souls_won || 0), 0);
+        departmentalSouls += (res_healing.data || []).reduce((sum: number, rep: any) => sum + (rep.souls_count || 0), 0);
+
+        const totalSoulsWon = (res_souls.count || 0) + (res_passenger_souls.count || 0) + departmentalSouls;
 
         return res.json({
             activeMembers: activeMembersCount,
             totalSoulsWon: totalSoulsWon,
             nextGenActive: nextGenActiveCount,
             totalFirstTimers: totalFirstTimers,
-            registeredResidences: residentialCount || 0
+            registeredResidences: res_residences.count || 0
         });
 
     } catch (error: any) {
