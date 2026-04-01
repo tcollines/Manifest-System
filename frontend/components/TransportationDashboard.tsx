@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useNotification } from './ui/NotificationSystem';
 import PhoneInput from './PhoneInput';
 import { MOCK_EVENTS, PICKUP_STATIONS } from '../constants';
@@ -91,7 +92,15 @@ const TransportationDashboard: React.FC<TransportationDashboardProps> = ({ curre
         localStorage.setItem('transportation_active_tab', activeTab);
     }, [activeTab]);
 
-    const [selectedEventId, setSelectedEventId] = useState<string>('');
+    const [searchParams, setSearchParams] = useSearchParams();
+    const selectedEventId = searchParams.get('eventId') || '';
+    const setSelectedEventId = (id: string) => {
+        setSearchParams(prev => {
+            if (id) prev.set('eventId', id);
+            else prev.delete('eventId');
+            return prev;
+        }, { replace: true });
+    };
 
     // Sync selectedEventId with events prop if not set
     // Sync selectedEventId with events prop if not set

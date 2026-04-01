@@ -1,0 +1,11 @@
+﻿components/HealingDashboard.tsx(322,38): error TS1127: Invalid character.
+components/HealingDashboard.tsx(323,25): error TS1381: Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+components/HealingDashboard.tsx(323,26): error TS1381: Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+components/HealingDashboard.tsx(326,21): error TS1382: Unexpected token. Did you mean `{'>'}` or `&gt;`?
+components/HealingDashboard.tsx(328,23): error TS17002: Expected corresponding JSX closing tag for 'div'.
+components/HealingDashboard.tsx(329,19): error TS1381: Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+components/HealingDashboard.tsx(332,13): error TS1005: ')' expected.
+components/HealingDashboard.tsx(490,9): error TS1128: Declaration or statement expected.
+components/HealingDashboard.tsx(491,5): error TS1109: Expression expected.
+components/HealingDashboard.tsx(492,1): error TS1128: Declaration or statement expected.
+mapbox-gl-csp-worker.js(1,1390): error TS1109: Expression expected.

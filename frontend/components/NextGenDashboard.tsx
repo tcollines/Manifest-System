@@ -3,11 +3,12 @@ import { useNotification } from './ui/NotificationSystem';
 import PhoneInput from './PhoneInput';
 import { Child, MinistryEvent, ModalType, User, Soul } from '../types';
 import * as XLSX from 'xlsx';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { validateContact, isServiceClosed } from '../utils';
 import { EventStore } from '../database/eventStore';
 import { ChildStore, mapChildFromDB } from '../database/childStore';
 import { SoulsStore, mapSoulFromDB } from '../database/soulsStore';
-import { NextGenSoulsStore, NextGenSoul, mapNextGenSoulFromDB } from '../database/nextGenSoulsStore';
+import { NextGenSoulsStore, NextGenSoul, mapNextGenSoulFromDB, useNextGenSoulsStore } from '../database/nextGenSoulsStore';
 import { supabase } from '../services/supabaseClient';
 import ConfirmationModal from './ConfirmationModal';
 import {
@@ -40,19 +41,51 @@ interface NextGenDashboardProps {
     events?: MinistryEvent[];
     onOpenModal?: (type: ModalType) => void;
     currentUser?: User | null;
+    // [PHASE E] URL driven tab prop mapped from Layout
+    urlTab?: Tab;
 }
 
 type Tab = 'checkin' | 'checkout' | 'database' | 'souls';
 type ViewMode = 'list' | 'service-active' | 'add-child' | 'bulk-import' | 'child-detail';
 
-const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpenModal, currentUser }) => {
+const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpenModal, currentUser, urlTab }) => {
     const { showToast } = useNotification();
-    const [activeTab, setActiveTab] = useState<Tab>('checkin');
-    const [viewMode, setViewMode] = useState<ViewMode>('list');
+    const navigate = useNavigate();
+    const [activeTab, setActiveTab] = useState<Tab>(urlTab || 'checkin');
+    
+    // [PHASE E] Sync local state when URL segment changes
+    useEffect(() => {
+        if (urlTab && urlTab !== activeTab) {
+            setActiveTab(urlTab);
+            setViewMode('list');
+        }
+    }, [urlTab]);
+    const [searchParams, setSearchParams] = useSearchParams();
+    const urlEventId = searchParams.get('eventId');
+    
+    const [viewMode, setViewMode] = useState<ViewMode>(urlEventId ? 'service-active' : 'list');
     const [children, setChildren] = useState<Child[]>([]);
-    const [nextGenSouls, setNextGenSouls] = useState<NextGenSoul[]>([]);
+    
+    // Zustand Hook for Souls
+    const { souls: nextGenSouls, fetchSouls: fetchNextGenSouls, subscribe: subscribeNextGenSouls, unsubscribe: unsubscribeNextGenSouls } = useNextGenSoulsStore();
+    
     const [searchQuery, setSearchQuery] = useState('');
-    const [selectedService, setSelectedService] = useState<MinistryEvent | null>(null);
+
+    const selectedService = events.find(e => e.id === urlEventId) || null;
+
+    const setSelectedService = (service: MinistryEvent | null) => {
+        if (service) {
+            setSearchParams(prev => {
+                prev.set('eventId', service.id);
+                return prev;
+            });
+        } else {
+            setSearchParams(prev => {
+                prev.delete('eventId');
+                return prev;
+            });
+        }
+    };
 
     // Stats Filter State
     const [activeStatsFilter, setActiveStatsFilter] = useState<'All' | 'CheckIn' | 'CheckedOut' | 'FirstTimer' | 'Souls'>('All');
@@ -79,8 +112,8 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
     const [selectedChild, setSelectedChild] = useState<Child | null>(null);
     const [isEditingChild, setIsEditingChild] = useState(false);
 
-    // Stats State
-    const [soulsWonCount, setSoulsWonCount] = useState(0);
+    // Derived Stats State
+    const soulsWonCount = nextGenSouls.filter(s => selectedService && s.serviceId === selectedService.id).length;
 
     // Pagination State
     const [currentPage, setCurrentPage] = useState(1);
@@ -94,25 +127,11 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
     const isRestrictedUser = currentUser?.role === 'Next Gen Member' || currentUser?.role === 'Member';
 
     const refreshData = async () => {
-        const [kids, souls] = await Promise.all([
-            ChildStore.getAll(),
-            NextGenSoulsStore.getAll()
-        ]);
+        const kids = await ChildStore.getAll();
         setChildren(kids);
-        setNextGenSouls(souls);
     };
 
-    // Fetch Souls Won for Service
-    useEffect(() => {
-        const fetchSouls = async () => {
-            if (selectedService) {
-                // Use NextGenSoulsStore for accurate filtering
-                const count = await NextGenSoulsStore.getCountByService(selectedService.id);
-                setSoulsWonCount(count);
-            }
-        };
-        fetchSouls();
-    }, [selectedService]);
+    // fetch Souls Won is now delegated to the Zustand store.
 
     const selectedServiceRef = React.useRef(selectedService);
     const isMountedRef = React.useRef(true);
@@ -123,6 +142,8 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
 
     useEffect(() => {
         refreshData();
+        fetchNextGenSouls();
+        subscribeNextGenSouls();
         isMountedRef.current = true;
 
         const channel = supabase.channel('nextgen-live')
@@ -142,42 +163,8 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                 setChildren(prev => prev.filter(c => c.id !== payload.old.id));
             })
 
-            // Souls: Granular Updates
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'next_gen_souls' }, (payload) => {
-                const mapped = mapNextGenSoulFromDB(payload.new);
-                // Add to list with idempotency guard
-                setNextGenSouls(prev => {
-                    if (prev.some(s => s.id === mapped.id)) return prev;
-                    return [mapped, ...prev];
-                });
-                // Update Count if Service Matches AND it wasn't already counted
-                // (Using a functional update logic to ensure we don't double count is harder here as state is separate, 
-                // but checking the list before adding is the primary guard)
-                // Update Count if Service Matches AND it wasn't already counted
-                setNextGenSouls(prev => {
-                    const mapped = mapNextGenSoulFromDB(payload.new);
-                    const alreadyExisted = prev.some(s => s.id === mapped.id);
-                    if (!alreadyExisted && selectedServiceRef.current && mapped.serviceId === selectedServiceRef.current.id) {
-                        setSoulsWonCount(c => c + 1);
-                    }
-                    return prev;
-                });
-            })
-            .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'next_gen_souls' }, (payload) => {
-                const deletedId = payload.old.id;
-                setNextGenSouls(prev => {
-                    const soulToDelete = prev.find(s => s.id === deletedId);
-                    if (soulToDelete) {
-                        // Check if it belongs to current service
-                        const matchesService = selectedServiceRef.current && soulToDelete.serviceId === selectedServiceRef.current.id;
+            // Ministry Events
 
-                        if (matchesService && isMountedRef.current) {
-                            setSoulsWonCount(c => Math.max(0, c - 1));
-                        }
-                    }
-                    return prev.filter(s => s.id !== deletedId);
-                });
-            })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'ministry_events' }, () => {
                 // Avoiding full page reload.
             })
@@ -186,34 +173,11 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
         return () => {
             isMountedRef.current = false;
             supabase.removeChannel(channel);
+            unsubscribeNextGenSouls();
         };
     }, []);
 
-    // Fetch Souls Won and Checked-in Children for selected service
-    useEffect(() => {
-        if (!selectedService) {
-            if (isMountedRef.current) {
-                setSoulsWonCount(0);
-            }
-            return;
-        }
-
-        const fetchServiceData = async () => {
-            try {
-                const soulsCount = await NextGenSoulsStore.getCountByService(selectedService.id);
-                // Since I cannot verify 'checkedInChildren' state existence, I will omit for now to fix syntax.
-                // I will just update soulsCount which is confirmed.
-
-                if (isMountedRef.current) {
-                    setSoulsWonCount(soulsCount);
-                }
-            } catch (e) {
-                console.error("Failed to fetch service-specific data:", e);
-            }
-        };
-
-        fetchServiceData();
-    }, [selectedService]);
+    // soulsWonCount derived state effectively replaces the second useEffect here.
 
     // New Child Form State
     const initialForm = {
@@ -416,8 +380,6 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                     await NextGenSoulsStore.add(newSoul);
 
                     refreshData();
-
-                    setSoulsWonCount(prev => prev + 1);
                     showToast(`${child.name} recorded as a soul!`, 'success');
                 } catch (e: any) {
                     console.error("Failed to add soul - Full Error:", e);
@@ -432,12 +394,6 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
 
         try {
             await NextGenSoulsStore.delete(soulId);
-            setNextGenSouls(prev => prev.filter(s => s.id !== soulId));
-
-            // Re-fetch aggregated count if needed or just decrement locally if we knew it was for this service
-            if (activeTab === 'followup' && selectedService) {
-                // simple refresh
-            }
             showToast('Soul record deleted.', 'success');
         } catch (e) {
             console.error('Delete failed', e);
@@ -755,7 +711,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
             {(viewMode === 'list' || viewMode === 'child-detail') && (
                 <div className="flex space-x-1 bg-gray-100 p-1.5 rounded-xl w-full md:w-fit overflow-x-auto scrollbar-hide">
                     <button
-                        onClick={() => { setActiveTab('checkin'); setViewMode('list'); }}
+                        onClick={() => { setActiveTab('checkin'); setViewMode('list'); navigate('/next-gen/checkin'); }}
                         className={`flex items-center space-x-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${activeTab === 'checkin'
                             ? 'bg-black text-white shadow-md'
                             : 'text-gray-500 hover:text-gray-900'
@@ -768,7 +724,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
 
                     {!isRestrictedUser && (
                         <button
-                            onClick={() => { setActiveTab('souls'); setViewMode('list'); }}
+                            onClick={() => { setActiveTab('souls'); setViewMode('list'); navigate('/next-gen/souls'); }}
                             className={`flex items-center space-x-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${activeTab === 'souls'
                                 ? 'bg-black text-white shadow-md'
                                 : 'text-gray-500 hover:text-gray-900'
@@ -780,7 +736,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                     )}
                     {!isRestrictedUser && (
                         <button
-                            onClick={() => { setActiveTab('database'); setViewMode('list'); }}
+                            onClick={() => { setActiveTab('database'); setViewMode('list'); navigate('/next-gen/database'); }}
                             className={`flex items-center space-x-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${activeTab === 'database'
                                 ? 'bg-black text-white shadow-md'
                                 : 'text-gray-500 hover:text-gray-900'

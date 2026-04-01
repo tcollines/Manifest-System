@@ -1,27 +1,38 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Users, Calendar, Activity, ArrowLeft, Save, Heart, Trash2, FileText, Edit2 } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { HealingStore, HealingReport, HealingTestimony } from '../database/HealingStore';
 import { Soul } from '../types';
 import PhoneInput from './PhoneInput';
 import { useNotification } from './ui/NotificationSystem';
 import { User } from '../types';
+import { OverviewTab } from './healing/OverviewTab';
+import { ReportsTab } from './healing/ReportsTab';
+import { SoulsTab } from './healing/SoulsTab';
+import { TestimoniesTab } from './healing/TestimoniesTab';
+import { NewReportTab } from './healing/NewReportTab';
 
 interface HealingDashboardProps {
     currentUser: User;
+    urlTab?: 'overview' | 'reports' | 'souls' | 'testimonies' | 'new';
 }
 
-const HealingDashboard: React.FC<HealingDashboardProps> = ({ currentUser }) => {
+const HealingDashboard: React.FC<HealingDashboardProps> = ({ currentUser, urlTab }) => {
     const navigate = useNavigate();
     const { showToast, confirm } = useNotification();
-    const [activeTab, setActiveTab] = useState<'overview' | 'reports' | 'souls' | 'testimonies' | 'new'>('overview');
+    const [activeTab, setActiveTab] = useState<'overview' | 'reports' | 'souls' | 'testimonies' | 'new'>(urlTab || 'overview');
+
+    useEffect(() => {
+        if (urlTab) setActiveTab(urlTab);
+    }, [urlTab]);
+
     const [loading, setLoading] = useState(false);
     const [reports, setReports] = useState<HealingReport[]>([]);
     const [allSouls, setAllSouls] = useState<Soul[]>([]);
     const [allTestimonies, setAllTestimonies] = useState<HealingTestimony[]>([]);
     const [stats, setStats] = useState({ totalReports: 0, totalTestimonies: 0, totalSouls: 0 });
 
-    // Form State
+    // Form State for NewReportTab
     const [formData, setFormData] = useState<{
         date: string;
         hospital_name: string;
@@ -36,11 +47,9 @@ const HealingDashboard: React.FC<HealingDashboardProps> = ({ currentUser }) => {
         notes: ''
     });
 
-    // Souls & Testimonies State for the Form
     const [soulsList, setSoulsList] = useState<Partial<Soul>[]>([]);
     const [testimoniesList, setTestimoniesList] = useState<{ content: string; testifier_name: string; testifier_contact: string }[]>([]);
 
-    // Temporary inputs
     const [tempSoul, setTempSoul] = useState({
         fullName: '',
         phone: '',
@@ -86,7 +95,6 @@ const HealingDashboard: React.FC<HealingDashboardProps> = ({ currentUser }) => {
             return;
         }
 
-        // Split name
         const nameParts = tempSoul.fullName.trim().split(' ');
         const firstName = nameParts[0];
         const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : 'Unknown';
@@ -127,11 +135,6 @@ const HealingDashboard: React.FC<HealingDashboardProps> = ({ currentUser }) => {
 
         try {
             setLoading(true);
-            // Check if we are updating (though logic for edit relies on editingReport state which isn't fully shown here but usually wraps this)
-            // Existing code showed distinct update logic or combined.
-            // Let's stick to the visible createReport call in the snippet I read, but wait, the previous tool failure message implies I should be careful.
-            // The VIEWED file lines 88-124 show a createReport call.
-            // I will update that call.
 
             if (editingReport && editingReport.id) {
                 await HealingStore.updateReport(editingReport.id, {
@@ -156,6 +159,7 @@ const HealingDashboard: React.FC<HealingDashboardProps> = ({ currentUser }) => {
             }
 
             setActiveTab('overview');
+            navigate('/healing/overview');
             setFormData({
                 date: new Date().toISOString().split('T')[0],
                 hospital_name: '',
@@ -165,7 +169,7 @@ const HealingDashboard: React.FC<HealingDashboardProps> = ({ currentUser }) => {
             });
             setSoulsList([]);
             setTestimoniesList([]);
-            loadData(); // Refresh data
+            loadData();
         } catch (error) {
             console.error(error);
             const errorMessage = error instanceof Error ? error.message : 'Failed to submit report';
@@ -178,13 +182,8 @@ const HealingDashboard: React.FC<HealingDashboardProps> = ({ currentUser }) => {
     const handleUpdateSoul = async () => {
         if (!editingSoul || !editingSoul.id) return;
         try {
-            // Map camelCase to snake_case for DB update if needed, or rely on store
-            // Note: Soul interface uses camelCase, but DB likely expects snake_case for direct updates via controller
-            // The controller uses req.body directly. So let's ensure we send snake_case if possible, 
-            // OR checks generic update mapping. 
-            // Let's assume generic update expects snake_case properties if using row level update.
             const payload = {
-                first_name: editingSoul.firstName || editingSoul.first_name, // Handle both if type confusion
+                first_name: editingSoul.firstName || editingSoul.first_name,
                 last_name: editingSoul.lastName || editingSoul.last_name,
                 phone: editingSoul.phone,
                 residence: editingSoul.residence,
@@ -249,14 +248,12 @@ const HealingDashboard: React.FC<HealingDashboardProps> = ({ currentUser }) => {
         );
 
         // Populate Souls
-        // Filter souls that belong to this report
         const reportSouls = allSouls.filter(s => (s as any).source_id === report.id || s.sourceId === report.id);
-        const mappedSouls = reportSouls.map(s => ({
-            ...s, // Keep original IDs to allow updating
-        }));
+        const mappedSouls = reportSouls.map(s => ({ ...s }));
         setSoulsList(mappedSouls);
 
         setActiveTab('new');
+        navigate('/healing/new');
     };
 
     const handleDeleteReport = async (id: string) => {
@@ -291,8 +288,6 @@ const HealingDashboard: React.FC<HealingDashboardProps> = ({ currentUser }) => {
         }
     };
 
-    // Obsolete handleUpdateReport removed as logic is now in handleSubmit
-
     return (
         <div className="p-8 space-y-8 animate-in fade-in duration-500 relative">
             {/* Header */}
@@ -302,10 +297,12 @@ const HealingDashboard: React.FC<HealingDashboardProps> = ({ currentUser }) => {
                     <p className="text-gray-500">Manage hospital outreaches, souls won, and testimonies.</p>
                 </div>
                 <div className="flex space-x-3">
-
                     {(activeTab === 'overview' || activeTab === 'reports') && (
                         <button
-                            onClick={() => setActiveTab('new')}
+                            onClick={() => {
+                                setActiveTab('new');
+                                navigate('/healing/new');
+                            }}
                             className="flex items-center space-x-2 bg-ministry-orange text-white px-5 py-2.5 rounded-xl hover:bg-orange-600 transition-colors font-bold shadow-lg shadow-orange-500/20"
                         >
                             <Plus size={18} />
@@ -320,7 +317,10 @@ const HealingDashboard: React.FC<HealingDashboardProps> = ({ currentUser }) => {
                 {(['overview', 'reports', 'souls', 'testimonies'] as const).map((tab) => (
                     <button
                         key={tab}
-                        onClick={() => setActiveTab(tab)}
+                        onClick={() => {
+                            setActiveTab(tab);
+                            navigate(`/healing/${tab}`);
+                        }}
                         className={`px-5 py-2.5 rounded-lg text-sm font-semibold transition-all capitalize ${activeTab === tab ? 'bg-white text-ministry-text shadow-sm' : 'text-gray-500 hover:text-gray-900'
                             }`}
                     >
@@ -330,439 +330,51 @@ const HealingDashboard: React.FC<HealingDashboardProps> = ({ currentUser }) => {
             </div>
 
             {/* Content Area */}
-            {activeTab === 'overview' && (
-                <div className="space-y-8">
-                    {/* Stats Cards */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
-                            <div className="flex items-center space-x-4 mb-2">
-                                <div className="p-3 bg-blue-50 text-blue-600 rounded-xl"><FileText size={24} /></div>
-                                <h3 className="text-gray-500 font-medium">Total Reports</h3>
-                            </div>
-                            <p className="text-3xl font-black text-gray-800">{stats.totalReports}</p>
-                        </div>
-                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
-                            <div className="flex items-center space-x-4 mb-2">
-                                <div className="p-3 bg-green-50 text-green-600 rounded-xl"><Heart size={24} /></div>
-                                <h3 className="text-gray-500 font-medium">Souls Won</h3>
-                            </div>
-                            <p className="text-3xl font-black text-gray-800">{stats.totalSouls}</p>
-                        </div>
-                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
-                            <div className="flex items-center space-x-4 mb-2">
-                                <div className="p-3 bg-purple-50 text-purple-600 rounded-xl"><Activity size={24} /></div>
-                                <h3 className="text-gray-500 font-medium">Testimonies</h3>
-                            </div>
-                            <p className="text-3xl font-black text-gray-800">{stats.totalTestimonies}</p>
-                        </div>
-                    </div>
-
-                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
-                        <h3 className="text-lg font-bold text-gray-800 mb-4">Recent Activity</h3>
-                        {reports.length === 0 ? (
-                            <div className="text-center py-10 text-gray-400">No reports yet.</div>
-                        ) : (
-                            <div className="space-y-4">
-                                {reports.slice(0, 5).map(r => (
-                                    <div key={r.id} className="flex justify-between items-center p-4 bg-gray-50 rounded-xl">
-                                        <div>
-                                            <h4 className="font-bold text-gray-800">{r.hospital_name}</h4>
-                                            <p className="text-sm text-gray-500">{new Date(r.date).toLocaleDateString()} • {r.labourers_count} Labourers</p>
-                                        </div>
-                                        <div className="flex items-center space-x-4">
-                                            <div className="text-right">
-                                                <span className="block text-lg font-bold text-green-600">{r.souls_count} Souls</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                </div>
-            )}
+            {activeTab === 'overview' && <OverviewTab stats={stats} reports={reports} />}
 
             {activeTab === 'souls' && (
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
-                    <h3 className="text-lg font-bold text-gray-800 mb-6">Souls Won via Healing Dept</h3>
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left">
-                            <thead className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
-                                <tr>
-                                    <th className="px-6 py-4 font-medium">Date Joined</th>
-                                    <th className="px-6 py-4 font-medium">Name</th>
-                                    <th className="px-6 py-4 font-medium">Phone</th>
-                                    <th className="px-6 py-4 font-medium">Gender</th>
-                                    <th className="px-6 py-4 font-medium">Hospital</th>
-                                    <th className="px-6 py-4 font-medium">Next of Kin</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-100">
-                                {allSouls.map((soul) => (
-                                    <tr key={soul.id} className="hover:bg-gray-50">
-                                        <td className="px-6 py-4 text-gray-600">{new Date(soul.created_at).toLocaleDateString()}</td>
-                                        <td className="px-6 py-4 font-semibold text-gray-900">{soul.first_name} {soul.last_name}</td>
-                                        <td className="px-6 py-4 text-gray-600 font-mono text-xs">{soul.phone}</td>
-                                        <td className="px-6 py-4 text-gray-600">{soul.gender}</td>
-                                        <td className="px-6 py-4 text-gray-500 text-sm italic">{soul.notes?.replace('Healing Outreach: ', '') || '-'}</td>
-                                        <td className="px-6 py-4 text-sm">
-                                            {soul.next_of_kin_name ? (
-                                                <div>
-                                                    <div className="font-medium text-gray-800">{soul.next_of_kin_name}</div>
-                                                    <div className="text-xs text-blue-600">{soul.next_of_kin_contact}</div>
-                                                </div>
-                                            ) : (
-                                                <span className="text-gray-400">-</span>
-                                            )}
-                                        </td>
-                                        <td className="px-6 py-4 flex space-x-2">
-                                            <button
-                                                onClick={() => setEditingSoul(soul as Soul)}
-                                                className="p-1 px-2 bg-blue-50 text-blue-600 rounded hover:bg-blue-100 transition-colors"
-                                                title="Edit"
-                                            >
-                                                <Edit2 size={16} />
-                                            </button>
-                                            <button
-                                                onClick={() => soul.id && handleDeleteSoul(soul.id)}
-                                                className="p-1 px-2 bg-red-50 text-red-600 rounded hover:bg-red-100 transition-colors"
-                                                title="Delete"
-                                            >
-                                                <Trash2 size={16} />
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))}
-                                {allSouls.length === 0 && (
-                                    <tr>
-                                        <td colSpan={5} className="px-6 py-8 text-center text-gray-400">No souls found.</td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+                <SoulsTab
+                    allSouls={allSouls}
+                    setEditingSoul={setEditingSoul}
+                    handleDeleteSoul={handleDeleteSoul}
+                />
             )}
 
             {activeTab === 'testimonies' && (
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
-                    <h3 className="text-lg font-bold text-gray-800 mb-6">Testimonies Database</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {allTestimonies.map((testimony) => (
-                            <div key={testimony.id} className="group relative p-6 bg-blue-50/50 border border-blue-100 rounded-2xl hover:shadow-md transition-shadow">
-                                <div className="flex items-start justify-between mb-3">
-                                    <div>
-                                        <h4 className="font-bold text-gray-900">{testimony.testifier_name || 'Anonymous'}</h4>
-                                        <p className="text-xs text-blue-600">{testimony.testifier_contact || 'No contact'}</p>
-                                    </div>
-                                    <div className="bg-white p-2 rounded-full text-blue-500 shadow-sm">
-                                        <Heart size={16} />
-                                    </div>
-                                </div>
-                                <p className="text-gray-700 text-sm mb-4 line-clamp-4 italic">"{testimony.content}"</p>
-                                <div className="text-xs text-gray-400 pt-3 border-t border-blue-100 flex justify-between">
-                                    <span>{new Date(testimony.created_at).toLocaleDateString()}</span>
-                                    {/* @ts-ignore */}
-                                    <span>{testimony.healing_reports?.hospital_name}</span>
-                                </div>
-                                <div className="absolute top-2 right-2 flex space-x-1">
-                                    <button
-                                        onClick={() => setEditingTestimony(testimony)}
-                                        className="p-1.5 bg-white text-blue-500 rounded-full shadow-sm hover:bg-blue-50"
-                                        title="Edit"
-                                    >
-                                        <Edit2 size={14} />
-                                    </button>
-                                    <button
-                                        onClick={() => testimony.id && handleDeleteTestimony(testimony.id)}
-                                        className="p-1.5 bg-white text-red-500 rounded-full shadow-sm hover:bg-red-50"
-                                        title="Delete"
-                                    >
-                                        <Trash2 size={14} />
-                                    </button>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                    {allTestimonies.length === 0 && (
-                        <div className="text-center py-10 text-gray-400 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
-                            No testimonies recorded yet.
-                        </div>
-                    )}
-                </div>
-            )
-            }
+                <TestimoniesTab
+                    allTestimonies={allTestimonies}
+                    setEditingTestimony={setEditingTestimony as any}
+                    handleDeleteTestimony={handleDeleteTestimony}
+                />
+            )}
 
-            {
-                activeTab === 'reports' && (
-                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
-                        <h3 className="text-lg font-bold text-gray-800 mb-6">All Outreach Reports</h3>
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left">
-                                <thead className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
-                                    <tr>
-                                        <th className="px-6 py-4 font-medium">Date</th>
-                                        <th className="px-6 py-4 font-medium">Hospital</th>
-                                        <th className="px-6 py-4 font-medium">Labourers</th>
-                                        <th className="px-6 py-4 font-medium">Souls Won</th>
-                                        <th className="px-6 py-4 font-medium">Testimonies</th>
-                                        <th className="px-6 py-4 font-medium">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-100">
-                                    {reports.map((report) => (
-                                        <tr key={report.id} className="hover:bg-gray-50">
-                                            <td className="px-6 py-4 text-gray-600">{new Date(report.date).toLocaleDateString()}</td>
-                                            <td className="px-6 py-4 font-semibold text-gray-900">{report.hospital_name}</td>
-                                            <td className="px-6 py-4 text-gray-600">{report.labourers_count}</td>
-                                            <td className="px-6 py-4 text-green-600 font-bold">{report.souls_count}</td>
-                                            <td className="px-6 py-4 text-gray-600">{report.healing_testimonies?.length || 0}</td>
-                                            <td className="px-6 py-4 flex space-x-2">
-                                                <button
-                                                    onClick={() => handleEditReport(report)}
-                                                    className="p-1 px-2 bg-blue-50 text-blue-600 rounded hover:bg-blue-100 transition-colors"
-                                                    title="Edit"
-                                                >
-                                                    <Edit2 size={16} />
-                                                </button>
-                                                <button
-                                                    onClick={() => handleDeleteReport(report.id)}
-                                                    className="p-1 px-2 bg-red-50 text-red-600 rounded hover:bg-red-100 transition-colors"
-                                                    title="Delete"
-                                                >
-                                                    <Trash2 size={16} />
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                )
-            }
+            {activeTab === 'reports' && (
+                <ReportsTab
+                    reports={reports}
+                    handleEditReport={handleEditReport}
+                    handleDeleteReport={handleDeleteReport}
+                />
+            )}
 
-            {
-                activeTab === 'new' && (
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                        {/* Main Form */}
-                        <div className="lg:col-span-2 space-y-6">
-                            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
-                                <h3 className="text-lg font-bold text-gray-800 mb-4">Outreach Details</h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
-                                        <input
-                                            type="date"
-                                            value={formData.date}
-                                            onChange={e => setFormData({ ...formData, date: e.target.value })}
-                                            className="w-full px-4 py-2 border rounded-xl focus:ring-2 focus:ring-ministry-orange"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Number of Labourers</label>
-                                        <input
-                                            type="number"
-                                            value={formData.labourers_count}
-                                            onChange={e => {
-                                                const val = e.target.value;
-                                                setFormData({
-                                                    ...formData,
-                                                    labourers_count: val === '' ? '' : parseInt(val)
-                                                });
-                                            }}
-                                            onKeyDown={(e) => ['ArrowUp', 'ArrowDown'].includes(e.key) && e.preventDefault()}
-                                            onWheel={(e) => e.currentTarget.blur()}
-                                            className="w-full px-4 py-2 border rounded-xl focus:ring-2 focus:ring-ministry-orange no-spinner"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">People Reached</label>
-                                        <input
-                                            type="number"
-                                            value={formData.people_reached}
-                                            onChange={e => {
-                                                const val = e.target.value;
-                                                setFormData({
-                                                    ...formData,
-                                                    people_reached: val === '' ? '' : parseInt(val)
-                                                });
-                                            }}
-                                            onKeyDown={(e) => ['ArrowUp', 'ArrowDown'].includes(e.key) && e.preventDefault()}
-                                            onWheel={(e) => e.currentTarget.blur()}
-                                            className="w-full px-4 py-2 border rounded-xl focus:ring-2 focus:ring-ministry-orange no-spinner"
-                                        />
-                                    </div>
-                                    <div className="md:col-span-2">
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Hospital Name</label>
-                                        <input
-                                            type="text"
-                                            value={formData.hospital_name}
-                                            onChange={e => setFormData({ ...formData, hospital_name: e.target.value })}
-                                            className="w-full px-4 py-2 border rounded-xl focus:ring-2 focus:ring-ministry-orange"
-                                            placeholder="e.g. Mulago Hospital"
-                                        />
-                                    </div>
-                                    <div className="md:col-span-2">
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
-                                        <textarea
-                                            value={formData.notes}
-                                            onChange={e => setFormData({ ...formData, notes: e.target.value })}
-                                            className="w-full px-4 py-2 border rounded-xl focus:ring-2 focus:ring-ministry-orange"
-                                            rows={3}
-                                        />
-                                    </div>
-                                </div>
-                            </div>
+            {activeTab === 'new' && (
+                <NewReportTab
+                    formData={formData}
+                    setFormData={setFormData}
+                    tempTestimony={tempTestimony}
+                    setTempTestimony={setTempTestimony}
+                    testimoniesList={testimoniesList}
+                    setTestimoniesList={setTestimoniesList}
+                    handleAddTestimony={handleAddTestimony}
+                    tempSoul={tempSoul}
+                    setTempSoul={setTempSoul}
+                    soulsList={soulsList}
+                    setSoulsList={setSoulsList}
+                    handleAddSoul={handleAddSoul}
+                    handleSubmit={handleSubmit}
+                    loading={loading}
+                />
+            )}
 
-                            {/* Testimonies Section */}
-                            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
-                                <h3 className="text-lg font-bold text-gray-800 mb-4">Testimonies</h3>
-                                <div className="flex flex-col gap-4 mb-4">
-                                    <input
-                                        type="text"
-                                        placeholder="Testifier Name (Optional)"
-                                        className="w-full px-4 py-2 border rounded-xl"
-                                        value={tempTestimony.testifier_name}
-                                        onChange={e => setTempTestimony({ ...tempTestimony, testifier_name: e.target.value })}
-                                    />
-                                    <div className="w-full">
-                                        <PhoneInput
-                                            value={tempTestimony.testifier_contact}
-                                            onChange={(val) => setTempTestimony({ ...tempTestimony, testifier_contact: val })}
-                                            placeholder="Phone"
-                                        />
-                                    </div>
-                                    <textarea
-                                        placeholder="Testimony..."
-                                        className="w-full px-4 py-2 border rounded-xl min-h-[100px]"
-                                        value={tempTestimony.content}
-                                        onChange={e => setTempTestimony({ ...tempTestimony, content: e.target.value })}
-                                    />
-                                    <button
-                                        onClick={handleAddTestimony}
-                                        className="w-full flex items-center justify-center space-x-2 bg-gray-100 p-3 rounded-xl hover:bg-gray-200 transition-colors font-semibold"
-                                    >
-                                        <Plus size={20} />
-                                        <span>Add Testimony</span>
-                                    </button>
-                                </div>
-                                <div className="space-y-2">
-                                    {testimoniesList.map((t, idx) => (
-                                        <div key={idx} className="flex justify-between items-center p-3 bg-blue-50 text-blue-800 rounded-lg">
-                                            <div className="text-sm">
-                                                <span className="font-bold">{t.testifier_name || 'Anonymous'}</span>
-                                                {t.testifier_contact && <span className="text-xs text-blue-600 ml-2">({t.testifier_contact})</span>}
-                                                <span className="mx-2">:</span>
-                                                <span>{t.content}</span>
-                                            </div>
-                                            <button
-                                                onClick={() => setTestimoniesList(list => list.filter((_, i) => i !== idx))}
-                                                className="text-red-500 hover:text-red-700"
-                                            >
-                                                <Trash2 size={16} />
-                                            </button>
-                                        </div>
-                                    ))}
-                                    {testimoniesList.length === 0 && <p className="text-sm text-gray-400 italic">No testimonies added.</p>}
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Sidebar: Souls Entry */}
-                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 h-fit">
-                            <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center justify-between">
-                                <span>Souls Won</span>
-                                <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded-full text-xs">{soulsList.length} Added</span>
-                            </h3>
-
-                            <div className="space-y-3 mb-6">
-                                <input
-                                    type="text"
-                                    placeholder="Full Name (First & Last)"
-                                    className="w-full px-4 py-2 border rounded-xl"
-                                    value={tempSoul.fullName}
-                                    onChange={e => setTempSoul({ ...tempSoul, fullName: e.target.value })}
-                                />
-                                <PhoneInput
-                                    value={tempSoul.phone}
-                                    onChange={(val) => setTempSoul({ ...tempSoul, phone: val })}
-                                    placeholder="Phone Number"
-                                />
-                                <select
-                                    className="w-full px-4 py-2 border rounded-xl"
-                                    value={tempSoul.gender}
-                                    onChange={e => setTempSoul({ ...tempSoul, gender: e.target.value })}
-                                >
-                                    <option value="Male">Male</option>
-                                    <option value="Female">Female</option>
-                                </select>
-                                <input
-                                    type="text"
-                                    placeholder="Place of Residence"
-                                    className="w-full px-4 py-2 border rounded-xl"
-                                    value={tempSoul.residence}
-                                    onChange={e => setTempSoul({ ...tempSoul, residence: e.target.value })}
-                                />
-                                <div className="pt-2 border-t border-gray-100">
-                                    <p className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wider">Next of Kin (Optional)</p>
-                                    <div className="space-y-2">
-                                        <input
-                                            type="text"
-                                            placeholder="NOK Name"
-                                            className="w-full px-4 py-2 border rounded-xl bg-gray-50"
-                                            value={tempSoul.nextOfKinName}
-                                            onChange={e => setTempSoul({ ...tempSoul, nextOfKinName: e.target.value })}
-                                        />
-                                        <PhoneInput
-                                            value={tempSoul.nextOfKinContact}
-                                            onChange={(val) => setTempSoul({ ...tempSoul, nextOfKinContact: val })}
-                                            placeholder="NOK Contact"
-                                        />
-                                    </div>
-                                </div>
-                                <button
-                                    onClick={handleAddSoul}
-                                    className="w-full flex items-center justify-center space-x-2 bg-green-500 hover:bg-green-600 text-white py-2.5 rounded-xl font-bold transition-colors"
-                                >
-                                    <Plus size={18} />
-                                    <span>Add Soul</span>
-                                </button>
-                            </div>
-
-                            <div className="space-y-2 max-h-60 overflow-y-auto">
-                                {soulsList.map((s, idx) => (
-                                    <div key={idx} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg border border-gray-100">
-                                        <div className="text-sm">
-                                            <div className="font-bold text-gray-800">{s.firstName} {s.lastName}</div>
-                                            <div className="text-xs text-gray-500">{s.phone}</div>
-                                        </div>
-                                        <button
-                                            onClick={() => setSoulsList(list => list.filter((_, i) => i !== idx))}
-                                            className="text-red-400 hover:text-red-600"
-                                        >
-                                            <Trash2 size={16} />
-                                        </button>
-                                    </div>
-                                ))}
-                                {soulsList.length === 0 && <p className="text-sm text-gray-400 text-center italic">No souls captured yet.</p>}
-                            </div>
-
-                            <hr className="my-6 border-gray-100" />
-
-                            <button
-                                onClick={handleSubmit}
-                                disabled={loading}
-                                className={`w-full flex items-center justify-center space-x-2 bg-ministry-orange text-white py-3 rounded-xl font-bold transition-all shadow-lg shadow-orange-500/20 ${loading ? 'opacity-75 cursor-not-allowed' : 'hover:bg-orange-600'
-                                    }`}
-                            >
-                                <Save size={18} />
-                                <span>{loading ? 'Submitting...' : 'Submit Report'}</span>
-                            </button>
-                        </div>
-                    </div>
-                )
-            }
             {/* Edit Soul Modal */}
             {editingSoul && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">

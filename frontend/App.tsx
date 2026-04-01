@@ -9,11 +9,52 @@ import EventsView from './components/EventsView';
 import ReportsView from './components/ReportsView';
 import SettingsView from './components/SettingsView';
 import RegistrationDashboard from './components/RegistrationDashboard';
+// [PHASE B] Registration module — URL-driven nested routing
+import RegistrationLayout from './modules/registration/RegistrationLayout';
+import CheckInPage from './modules/registration/CheckInPage';
+import EventsPage from './modules/registration/EventsPage';
+import DatabasePage from './modules/registration/DatabasePage';
+// [PHASE C] Finance module — URL-driven nested routing
+import FinanceLayout from './modules/finance/FinanceLayout';
+import IncomePage from './modules/finance/IncomePage';
+import ExpensesPage from './modules/finance/ExpensesPage';
+import FinanceRequisitionsPage from './modules/finance/FinanceRequisitionsPage';
+import FleetPage from './modules/finance/FleetPage';
+// [PHASE D] Transportation module
+import TransportationLayout from './modules/transportation/TransportationLayout';
+import OverviewPage from './modules/transportation/OverviewPage';
+import CoordinatorsPage from './modules/transportation/CoordinatorsPage';
+import StagesPage from './modules/transportation/StagesPage';
+// [PHASE D] FollowUp module
+import FollowUpLayout from './modules/follow-up/FollowUpLayout';
+import FollowUpServicesPage from './modules/follow-up/FollowUpServicesPage';
+import FollowUpEventsPage from './modules/follow-up/FollowUpEventsPage';
+import FollowUpDatabasePage from './modules/follow-up/FollowUpDatabasePage';
+import FollowUpFirstTimersPage from './modules/follow-up/FollowUpFirstTimersPage';
+import FollowUpMembersPage from './modules/follow-up/FollowUpMembersPage';
+import FollowUpAnalysisPage from './modules/follow-up/FollowUpAnalysisPage';
 import HealingDashboard from './components/HealingDashboard';
 import NextGenDashboard from './components/NextGenDashboard';
 import NextGenFollowUp from './components/NextGenFollowUp';
-import NextGenTeam from './components/NextGenTeam';
 import NextGenReports from './components/NextGenReports';
+import NextGenTeam from './components/NextGenTeam';
+// [PHASE E] NextGen
+import NextGenLayout from './modules/next-gen/NextGenLayout';
+import NextGenCheckInPage from './modules/next-gen/NextGenCheckInPage';
+import NextGenCheckOutPage from './modules/next-gen/NextGenCheckOutPage';
+import NextGenDatabasePage from './modules/next-gen/NextGenDatabasePage';
+import NextGenSoulsPage from './modules/next-gen/NextGenSoulsPage';
+// [PHASE E] Settings
+import SettingsLayout from './modules/settings/SettingsLayout';
+import SettingsUsersPage from './modules/settings/SettingsUsersPage';
+import SettingsMapPage from './modules/settings/SettingsMapPage';
+import SettingsProfilePage from './modules/settings/SettingsProfilePage';
+import SettingsManifestPage from './modules/settings/SettingsManifestPage';
+// [PHASE E] Residents
+import ResidentLayout from './modules/residents/ResidentLayout';
+import ResidentOverviewPage from './modules/residents/ResidentOverviewPage';
+import ResidentResidencesPage from './modules/residents/ResidentResidencesPage';
+import ResidentReportsPage from './modules/residents/ResidentReportsPage';
 import TransportationDashboard from './components/TransportationDashboard';
 import FinanceDashboard from './components/FinanceDashboard';
 import FollowUpDashboard from './components/FollowUpDashboard';
@@ -45,6 +86,31 @@ import StageCoordinatorDashboard from './components/StageCoordinatorDashboard';
 import ResidentDashboard from './components/ResidentDashboard';
 import CoordinatorResidencyDashboard from './components/CoordinatorResidencyDashboard';
 
+// [PHASE F] Parking
+import ParkingLayout from './modules/parking/ParkingLayout';
+import ParkingCheckInPage from './modules/parking/ParkingCheckinPage';
+import ParkingDatabasePage from './modules/parking/ParkingDatabasePage';
+
+// [PHASE F] Schools
+import SchoolsLayout from './modules/schools/SchoolsLayout';
+import SchoolsReportsPage from './modules/schools/SchoolsReportsPage';
+import SchoolsEventsPage from './modules/schools/SchoolsEventsPage';
+
+// [PHASE F] Campus
+import CampusLayout from './modules/campus/CampusLayout';
+import CampusFamiliesPage from './modules/campus/CampusFamiliesPage';
+import CampusEvangelismPage from './modules/campus/CampusEvangelismPage';
+import CampusVacistsPage from './modules/campus/CampusVacistsPage';
+import CampusAlumniPage from './modules/campus/CampusAlumniPage';
+
+// [PHASE F] Healing
+import HealingLayout from './modules/healing/HealingLayout';
+import HealingOverviewPage from './modules/healing/HealingOverviewPage';
+import HealingReportsPage from './modules/healing/HealingReportsPage';
+import HealingSoulsPage from './modules/healing/HealingSoulsPage';
+import HealingTestimoniesPage from './modules/healing/HealingTestimoniesPage';
+import HealingNewPage from './modules/healing/HealingNewPage';
+
 const App: React.FC = () => {
   const { showToast } = useNotification();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -54,9 +120,19 @@ const App: React.FC = () => {
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [targetUser, setTargetUser] = useState<User | null>(null);
+  const [isInitializingAuth, setIsInitializingAuth] = useState(true);
 
   const navigate = useNavigate();
   const location = useLocation();
+
+  // [FIX 1-A] Live location ref — always reflects current pathname inside stale closures
+  const locationRef = React.useRef(location);
+  useEffect(() => {
+    locationRef.current = location;
+  }, [location]);
+
+  // [FIX 1-B] Single-navigation guard — prevents token refresh events from re-triggering navigate()
+  const hasNavigatedRef = React.useRef(false);
 
   // Helper functions defined before effects to avoid hoisting issues logic-wise
   const refreshData = async () => {
@@ -87,15 +163,19 @@ const App: React.FC = () => {
   // 1. Initial Session Check (Standardize logic)
   useEffect(() => {
     const init = async () => {
-      // Restore Session from Supabase natively
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session && session.user) {
-        // Fetch or sync user profile
-        const profile = await UserStore.getByEmail(session.user.email || '');
-        if (profile) {
-          setCurrentUser(profile);
-          refreshData(); // Only fetch data if we have a session
+      try {
+        // Restore Session from Supabase natively
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session && session.user) {
+          // Fetch or sync user profile
+          const profile = await UserStore.getByEmail(session.user.email || '');
+          if (profile) {
+            setCurrentUser(profile);
+            refreshData(); // Only fetch data if we have a session
+          }
         }
+      } finally {
+        setIsInitializingAuth(false);
       }
     };
     init();
@@ -103,14 +183,10 @@ const App: React.FC = () => {
 
   // Auth & Realtime Data Listener
   useEffect(() => {
-    // Note: refreshData() removed from here, handled by init() and onAuthStateChange
-
     // Set up Realtime Subscription
     const subscription = supabase
       .channel('public:db_changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, (payload) => {
-        // Optional: Refresh only current user or specific cached users if we had a cache.
-        // For now, do nothing or just check if *current* user handle changed.
         if (currentUser) {
           UserStore.get(currentUser.id).then(res => {
             if (res.status === 'success' && res.data) {
@@ -134,77 +210,104 @@ const App: React.FC = () => {
           } else {
             return prev;
           }
-          // Maintain date-descending sort order
           return next.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
         });
       })
       .subscribe();
 
-    // Supabase Auth Listener
+    // [FIX 1] Supabase Auth Listener — stale closure eliminated via locationRef + hasNavigatedRef
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       try {
+        // [FIX 1-B, Adj 2] Authenticate realtime only when a real token exists
         if (session?.access_token) {
-          // 🚨 CRITICAL FIX: Authenticate the Realtime WebSocket connection with the backend JWT
-          // This allows Postgres RLS to read the 'manifest_id' claim and broadcast cross-device updates.
           await supabase.realtime.setAuth(session.access_token);
         }
 
-        if (event === 'SIGNED_IN' && session?.user?.email) {
+        // [Adj 6] Temporary debug log — remove after confirming fix is stable
+        console.log('[NAV]', {
+          source: 'authListener',
+          event,
+          hasToken: !!session?.access_token,
+          path: locationRef.current.pathname,  // live ref, not stale closure
+          hasNavigated: hasNavigatedRef.current
+        });
+
+        if (
+          event === 'SIGNED_IN' &&
+          session?.access_token &&          // [Adj 2] guard: real session, not ghost event
+          session?.user?.email &&
+          !hasNavigatedRef.current           // [Fix 1-B] guard: navigate only on real login, not token refresh
+        ) {
           console.log(`[AUTH] SIGNED_IN detected for ${session.user.email}. Fetching profile...`);
-          // Fetch specific user profile to ensure we get it even if RLS restricts 'getAll'
           const matchingUser = await UserStore.getByEmail(session.user.email, session.access_token);
 
-          if (matchingUser && matchingUser.name) {
+          // [GUARD 2] Null guard — prevents partial state navigation if profile fetch returns nothing
+          if (!matchingUser) {
+            console.warn(`[AUTH] Profile returned null for ${session.user.email}. Skipping navigation.`);
+            return;
+          }
+
+          if (matchingUser.name) {
             setCurrentUser(matchingUser);
             UserStore.saveSession(matchingUser);
-            refreshData(); // Fetch events now that we are authenticated
+            refreshData();
 
-            // If we are strictly at an auth-related route, redirect to the user's dashboard. Else stay.
-            if (location.pathname === '/' || location.pathname === '/login' || location.pathname === '/setup-account') {
+            // [FIX 1-A] Use locationRef.current — always the live pathname, never frozen at mount
+            const authPaths = ['/', '/login', '/setup-account'];
+            if (authPaths.includes(locationRef.current.pathname)) {
               const target = getDashboardForUser(matchingUser);
+              // [GUARD 4] Safe navigation fallback — skip if target is somehow undefined
+              if (!target) return;
+              hasNavigatedRef.current = true;  // [Fix 1-B] lock: prevent any further auto-navigation
               navigate(target, { replace: true });
             }
             setLoginError(null);
-          } else if (matchingUser && !matchingUser.name) {
+          } else {
             console.warn("User auto-created but not pre-invited:", session.user.email);
             await supabase.auth.signOut();
             setLoginError('Your Google email is not registered. Please ask an Administrator to add you.');
-            navigate('/');
-          } else {
-            console.warn("User authenticated but no profile found for:", session.user.email);
-            await supabase.auth.signOut();
-            setLoginError(`No Manifest account found for ${session.user.email}. Please ask an Administrator to add you.`);
             navigate('/');
           }
         }
       } catch (e: any) {
         console.error("[AUTH] Error in onAuthStateChange profile fetch:", e);
-        // Do not block the app, but maybe set an error state if on the login page
-        if (location.pathname === '/' || location.pathname === '/login') {
+        // [FIX 1-A] Use locationRef.current here too
+        if (locationRef.current.pathname === '/' || locationRef.current.pathname === '/login') {
           setLoginError(`Profile error: ${e.message || 'Unauthorized'}`);
         }
       }
+
+      // [Adj 5] SIGNED_OUT: only clear React state. handleLogout() is the single navigation authority.
       if (event === 'SIGNED_OUT') {
         setCurrentUser(null);
-        navigate('/');
+        // navigate('/') intentionally REMOVED — handleLogout() owns routing on logout
       }
     });
 
+    // [FIX 6] auth:force-logout — fired by api.ts on Google SSO 401 instead of window.location.href
+    const onForceLogout = () => handleLogout();
+    window.addEventListener('auth:force-logout', onForceLogout);
+
+    // [Adj 3] Explicit cleanup — prevents double-listener in React StrictMode dev remounts
     return () => {
-      authListener.subscription.unsubscribe();
+      authListener?.subscription?.unsubscribe();
       supabase.removeChannel(subscription);
+      window.removeEventListener('auth:force-logout', onForceLogout);
     };
   }, []);
 
   const handleLogin = async (username: string, password: string) => {
     try {
+      // [GUARD 1] Reset nav guard — allows re-login within same session to navigate correctly
+      hasNavigatedRef.current = false;
+
       const response = await UserStore.login(username, password);
 
       if (response.status === 'success' && response.data) {
         const user = response.data;
         setCurrentUser(user);
         UserStore.saveSession(user);
-        refreshData(); // Fetch events now that we are authenticated
+        refreshData();
 
         const targetTab = getDashboardForUser(user);
         navigate(targetTab);
@@ -222,15 +325,20 @@ const App: React.FC = () => {
 
   const handleGoogleLogin = async (email: string, token: string) => {
     try {
+      // [GUARD 1] Reset nav guard — allows re-login within same session to navigate correctly
+      hasNavigatedRef.current = false;
+
       console.log(`[AUTH] Setting up Supabase session with Google Identity Token for ${email}`);
 
-      // FORCE clear all persistent state from any previous login attempts or debugging
+      // [FIX 6] Collect then delete — safe iteration (no mutation during loop)
+      const keysToRemove: string[] = [];
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
         if (key && (key.startsWith('sb-') || key.includes('ministry_user_session'))) {
-          localStorage.removeItem(key);
+          keysToRemove.push(key);
         }
       }
+      keysToRemove.forEach(k => localStorage.removeItem(k));
 
       // Bypass Supabase Auth for Google
       localStorage.setItem('google_sso_token', token);
@@ -240,7 +348,6 @@ const App: React.FC = () => {
       let user = null;
       let lastErr = null;
       try {
-        // Pass the raw Google ID token to backend for bypass verification
         user = await UserStore.getByEmail(email, token);
       } catch (e: any) {
         lastErr = e.message || 'Unknown profile error';
@@ -249,13 +356,12 @@ const App: React.FC = () => {
       if (user && user.name) {
         setCurrentUser(user);
         UserStore.saveSession(user);
-        refreshData(); // Fetch events now that we are authenticated
+        refreshData();
 
         const targetTab = getDashboardForUser(user);
         navigate(targetTab);
         setLoginError(null);
       } else if (user && !user.name) {
-        // User was auto-created by the DB trigger but was never explicitly invited by an Admin.
         await supabase.auth.signOut();
         setLoginError('Your Google email is not registered in Manifest. Please ask an Administrator to add you.');
       } else {
@@ -268,13 +374,24 @@ const App: React.FC = () => {
     }
   };
 
+  // [GUARD 3] Idempotency flag — prevents double-logout from duplicate auth:force-logout events
+  const isLoggingOutRef = React.useRef(false);
+
   const handleLogout = async () => {
+    // [GUARD 3] Block duplicate concurrent logout triggers
+    if (isLoggingOutRef.current) return;
+    isLoggingOutRef.current = true;
+
+    // [Fix 1-B] Reset navigation guard so next login can navigate again
+    hasNavigatedRef.current = false;
+
     // Safety Force Logout if Supabase hangs
     const forceLogout = setTimeout(() => {
       console.warn("Sign out hanging? Forcing local state clear.");
       setCurrentUser(null);
       setLoginError(null);
       setIsSidebarOpen(false);
+      isLoggingOutRef.current = false;
       navigate('/');
     }, 2000);
 
@@ -283,15 +400,20 @@ const App: React.FC = () => {
     } catch (err) {
       console.warn("Ignored local sign out warning:", err);
     }
-    
-    // Clear the google override token
+
+    // [FIX 6] Complete storage cleanup — all session and UI state keys cleared on logout
     localStorage.removeItem('google_sso_token');
+    // finance_active_tab removed — URL is now source of truth (Phase C)
+    // registration_active_tab removed — URL is now source of truth (Phase B)
+    // transportation_active_tab removed — URL is now source of truth (Phase D)
+    UserStore.clearSession();
 
     clearTimeout(forceLogout);
     setCurrentUser(null);
     setLoginError(null);
     setIsSidebarOpen(false);
-    navigate('/');
+    isLoggingOutRef.current = false;  // reset so future logout works
+    navigate('/');  // [Adj 5] handleLogout() is the single navigation authority on logout
   };
 
   const handleSaveEvent = async (newEvent: MinistryEvent) => {
@@ -369,6 +491,21 @@ const App: React.FC = () => {
     const targetTab = getDashboardForUser(updatedUser);
     navigate(targetTab);
   };
+
+  // Auth Initialization Guard (prevents login flicker)
+  if (isInitializingAuth) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center fade-in">
+        <div className="flex flex-col items-center animate-pulse">
+          <div className="w-16 h-16 bg-ministry-orange rounded-2xl shadow-xl flex items-center justify-center transform rotate-12 mb-6">
+            <span className="text-white font-bold text-3xl -rotate-12">M</span>
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Manifest</h1>
+          <p className="text-sm text-gray-400 font-medium mt-2">Authenticating session...</p>
+        </div>
+      </div>
+    );
+  }
 
   // Auth Guard
   if (!currentUser) {
@@ -463,88 +600,170 @@ const App: React.FC = () => {
             {/* Public or Shared Routes */}
             <Route path="public-soul-entry" element={<PublicSoulEntry />} />
 
-            {/* SETTINGS: Protect? Usually accessible but maybe restricted features inside. Leaving open for now as SettingsView handles some internal logic, or wrap it if needed. */}
-            <Route path="settings" element={
-              <SettingsView
-                users={allUsers}
-                openModal={setModalType}
-                onDeleteUser={handleDeleteUser}
-                currentUser={currentUser}
-                onEditUser={(u) => { setTargetUser(u); setModalType(ModalType.EDIT_USER); }}
-              />
-            } />
+            {/* SETTINGS (Phase E Nested URL Routes) */}
+            <Route path="settings" element={<SettingsLayout />}>
+              <Route index element={<Navigate to="users" replace />} />
+              <Route path="users" element={<SettingsUsersPage users={allUsers} openModal={setModalType} onDeleteUser={handleDeleteUser} currentUser={currentUser} onEditUser={(u) => { setTargetUser(u); setModalType(ModalType.EDIT_USER); }} />} />
+              <Route path="map" element={<SettingsMapPage users={allUsers} openModal={setModalType} onDeleteUser={handleDeleteUser} currentUser={currentUser} onEditUser={(u) => { setTargetUser(u); setModalType(ModalType.EDIT_USER); }} />} />
+              <Route path="profile" element={<SettingsProfilePage users={allUsers} openModal={setModalType} onDeleteUser={handleDeleteUser} currentUser={currentUser} onEditUser={(u) => { setTargetUser(u); setModalType(ModalType.EDIT_USER); }} />} />
+              <Route path="manifest" element={<SettingsManifestPage users={allUsers} openModal={setModalType} onDeleteUser={handleDeleteUser} currentUser={currentUser} onEditUser={(u) => { setTargetUser(u); setModalType(ModalType.EDIT_USER); }} />} />
+            </Route>
 
-            <Route path="manifest-settings" element={
-              <SettingsView
-                users={allUsers}
-                openModal={setModalType}
-                onDeleteUser={handleDeleteUser}
-                currentUser={currentUser}
-                initialTab="manifest"
-                onEditUser={(u) => { setTargetUser(u); setModalType(ModalType.EDIT_USER); }}
-              />
-            } />
+            <Route path="manifest-settings" element={<Navigate to="/settings/manifest" replace />} />
 
             {/* --- DEPARTMENT SPECIFIC ROUTES --- */}
 
-            {/* Registration (d1) */}
+            {/* Registration (d1) — [PHASE B] Nested URL-driven routes */}
             <Route element={<ProtectedRoute currentUser={currentUser} allowedDepartments={['d1']} bypassRoles={['Logistics']} />}>
-              <Route path="registration" element={<RegistrationDashboard events={events} currentUser={currentUser} onOpenModal={setModalType} refreshParentData={refreshData} />} />
+              <Route
+                path="registration"
+                element={<RegistrationLayout currentUser={currentUser} />}
+              >
+                {/* Index — redirect to default tab based on role */}
+                <Route
+                  index
+                  element={<Navigate to={currentUser.role === 'Logistics' ? 'events' : 'check-in'} replace />}
+                />
+                <Route
+                  path="check-in"
+                  element={
+                    <CheckInPage
+                      events={events}
+                      currentUser={currentUser}
+                      onOpenModal={setModalType}
+                      refreshParentData={refreshData}
+                    />
+                  }
+                />
+                <Route
+                  path="events"
+                  element={
+                    <EventsPage
+                      events={events}
+                      currentUser={currentUser}
+                      onOpenModal={setModalType}
+                      refreshParentData={refreshData}
+                    />
+                  }
+                />
+                <Route
+                  path="database"
+                  element={
+                    <DatabasePage
+                      events={events}
+                      currentUser={currentUser}
+                      onOpenModal={setModalType}
+                      refreshParentData={refreshData}
+                    />
+                  }
+                />
+              </Route>
             </Route>
 
-            {/* Next Gen (d2) */}
+            {/* Next Gen (d2) — [PHASE E] Nested URL-driven routes */}
             <Route element={<ProtectedRoute currentUser={currentUser} allowedDepartments={['d2']} />}>
-              <Route path="next-gen" element={<NextGenDashboard events={events} currentUser={currentUser} onOpenModal={setModalType} />} />
+              <Route path="next-gen" element={<NextGenLayout />}>
+                <Route index element={<Navigate to="checkin" replace />} />
+                <Route path="checkin"  element={<NextGenCheckInPage events={events} currentUser={currentUser} onOpenModal={setModalType} />} />
+                <Route path="checkout" element={<NextGenCheckOutPage events={events} currentUser={currentUser} onOpenModal={setModalType} />} />
+                <Route path="database" element={<NextGenDatabasePage events={events} currentUser={currentUser} onOpenModal={setModalType} />} />
+                <Route path="souls"    element={<NextGenSoulsPage events={events} currentUser={currentUser} onOpenModal={setModalType} />} />
+              </Route>
               <Route path="next-gen-follow-up" element={<NextGenFollowUp currentUser={currentUser} events={events} />} />
               <Route path="next-gen-team" element={<NextGenTeam currentUser={currentUser} />} />
               <Route path="next-gen-reports" element={<NextGenReports />} />
             </Route>
 
-            {/* Parking (d3) */}
+            {/* Parking (d3) — [PHASE F] Nested URL-driven routes */}
             <Route element={<ProtectedRoute currentUser={currentUser} allowedDepartments={['d3']} />}>
-              <Route path="parking" element={<ParkingDashboard events={events} onOpenModal={setModalType} />} />
+              <Route path="parking" element={<ParkingLayout />}>
+                <Route index element={<Navigate to="checkin" replace />} />
+                <Route path="checkin" element={<ParkingCheckInPage currentUser={currentUser} events={events} onOpenModal={setModalType} />} />
+                <Route path="database" element={<ParkingDatabasePage currentUser={currentUser} events={events} onOpenModal={setModalType} />} />
+              </Route>
             </Route>
 
-            {/* Finance (d4) */}
+            {/* Finance (d4) — [PHASE C] Nested URL-driven routes */}
             <Route element={<ProtectedRoute currentUser={currentUser} allowedDepartments={['d4']} />}>
-              <Route path="finance" element={<FinanceDashboard currentUser={currentUser} events={events} onOpenModal={setModalType} />} />
+              <Route path="finance" element={<FinanceLayout currentUser={currentUser} />}>
+                <Route index element={<Navigate to="income" replace />} />
+                <Route path="income"       element={<IncomePage events={events} currentUser={currentUser} onOpenModal={setModalType} />} />
+                <Route path="expenses"     element={<ExpensesPage events={events} currentUser={currentUser} onOpenModal={setModalType} />} />
+                <Route path="requisitions" element={<FinanceRequisitionsPage events={events} currentUser={currentUser} onOpenModal={setModalType} />} />
+                <Route path="fleet"        element={<FleetPage events={events} currentUser={currentUser} onOpenModal={setModalType} />} />
+              </Route>
             </Route>
 
-            {/* Healing (d8) */}
+            {/* Healing (d8) — [PHASE F] Nested URL-driven routes */}
             <Route element={<ProtectedRoute currentUser={currentUser} allowedDepartments={['d8']} />}>
-              <Route path="healing" element={<HealingDashboard currentUser={currentUser} />} />
+              <Route path="healing" element={<HealingLayout />}>
+                <Route index element={<Navigate to="overview" replace />} />
+                <Route path="overview" element={<HealingOverviewPage currentUser={currentUser} events={events} onOpenModal={setModalType} />} />
+                <Route path="reports" element={<HealingReportsPage currentUser={currentUser} events={events} onOpenModal={setModalType} />} />
+                <Route path="souls" element={<HealingSoulsPage currentUser={currentUser} events={events} onOpenModal={setModalType} />} />
+                <Route path="testimonies" element={<HealingTestimoniesPage currentUser={currentUser} events={events} onOpenModal={setModalType} />} />
+                <Route path="new" element={<HealingNewPage currentUser={currentUser} events={events} onOpenModal={setModalType} />} />
+              </Route>
             </Route>
 
-            {/* Transportation (d5) */}
+            {/* Transportation (d5) — [PHASE D] Nested URL-driven routes */}
             <Route element={<ProtectedRoute currentUser={currentUser} allowedDepartments={['4630e48a-f97e-48fd-a901-864b591c282f', 'd5']} />}>
-              <Route path="transportation" element={<TransportationDashboard currentUser={currentUser} events={events} onOpenModal={setModalType} />} />
+              <Route path="transportation" element={<TransportationLayout />}>
+                <Route index element={<Navigate to="overview" replace />} />
+                <Route path="overview"     element={<OverviewPage events={events} currentUser={currentUser} onOpenModal={setModalType} />} />
+                <Route path="coordinators" element={<CoordinatorsPage events={events} currentUser={currentUser} onOpenModal={setModalType} />} />
+                <Route path="stages"       element={<StagesPage events={events} currentUser={currentUser} onOpenModal={setModalType} />} />
+              </Route>
               <Route path="stage-dashboard" element={<StageCoordinatorDashboard currentUser={currentUser} events={events} onOpenModal={setModalType} />} />
             </Route>
 
-            {/* Follow-Up (d6) */}
+            {/* Follow-Up (d6) — [PHASE D] Nested URL-driven routes */}
             <Route element={<ProtectedRoute currentUser={currentUser} allowedDepartments={['d6']} />}>
-              <Route path="follow-up" element={<FollowUpDashboard onOpenModal={setModalType} currentUser={currentUser} />} />
+              <Route path="follow-up" element={<FollowUpLayout />}>
+                <Route index element={<Navigate to="services" replace />} />
+                <Route path="services"     element={<FollowUpServicesPage currentUser={currentUser} onOpenModal={setModalType} />} />
+                <Route path="events"       element={<FollowUpEventsPage currentUser={currentUser} onOpenModal={setModalType} />} />
+                <Route path="database"     element={<FollowUpDatabasePage currentUser={currentUser} onOpenModal={setModalType} />} />
+                <Route path="first-timers" element={<FollowUpFirstTimersPage currentUser={currentUser} onOpenModal={setModalType} />} />
+                <Route path="members"      element={<FollowUpMembersPage currentUser={currentUser} onOpenModal={setModalType} />} />
+                <Route path="analysis"     element={<FollowUpAnalysisPage currentUser={currentUser} onOpenModal={setModalType} />} />
+              </Route>
             </Route>
 
-            {/* Schools (d7) */}
+            {/* Schools (d7) — [PHASE F] Nested URL-driven routes */}
             <Route element={<ProtectedRoute currentUser={currentUser} allowedDepartments={['d7']} />}>
-              <Route path="schools" element={<SchoolsDashboard currentUser={currentUser} events={events} onOpenModal={setModalType} />} />
+              <Route path="schools" element={<SchoolsLayout />}>
+                <Route index element={<Navigate to="reports" replace />} />
+                <Route path="reports" element={<SchoolsReportsPage currentUser={currentUser} events={events} onOpenModal={setModalType} />} />
+                <Route path="events" element={<SchoolsEventsPage currentUser={currentUser} events={events} onOpenModal={setModalType} />} />
+              </Route>
             </Route>
 
-            {/* Residents (d10 - assuming new code) */}
+            {/* Residents (d10) — [PHASE E] Nested URL-driven routes */}
             <Route element={<ProtectedRoute currentUser={currentUser} allowedRoles={['Administrator', 'Super Admin']} />}>
-              <Route path="residents" element={<ResidentDashboard currentUser={currentUser} events={events} onOpenModal={setModalType} />} />
+              <Route path="residents" element={<ResidentLayout />}>
+                <Route index element={<Navigate to="overview" replace />} />
+                <Route path="overview"   element={<ResidentOverviewPage events={events} currentUser={currentUser} onOpenModal={setModalType} />} />
+                <Route path="residences" element={<ResidentResidencesPage events={events} currentUser={currentUser} onOpenModal={setModalType} />} />
+                <Route path="reports"    element={<ResidentReportsPage events={events} currentUser={currentUser} onOpenModal={setModalType} />} />
+              </Route>
             </Route>
 
             <Route element={<ProtectedRoute currentUser={currentUser} allowedRoles={['Resident Coordinator']} />}>
               <Route path="my-residency" element={<CoordinatorResidencyDashboard currentUser={currentUser} />} />
             </Route>
 
-            {/* Campus and Institutions (d9) */}
+            {/* Campus and Institutions (d9) — [PHASE F] Nested URL-driven routes */}
             <Route element={<ProtectedRoute currentUser={currentUser} allowedDepartments={['d9']} />}>
-              <Route path="campus" element={<CampusDashboard currentUser={currentUser} events={events} onOpenModal={setModalType} />} />
+              <Route path="campus" element={<CampusLayout />}>
+                <Route index element={<Navigate to="families" replace />} />
+                <Route path="families" element={<CampusFamiliesPage currentUser={currentUser} events={events} onOpenModal={setModalType} />} />
+                <Route path="evangelism" element={<CampusEvangelismPage currentUser={currentUser} events={events} onOpenModal={setModalType} />} />
+                <Route path="vacists" element={<CampusVacistsPage currentUser={currentUser} events={events} onOpenModal={setModalType} />} />
+                <Route path="alumni" element={<CampusAlumniPage currentUser={currentUser} events={events} onOpenModal={setModalType} />} />
+                <Route path="finance" element={<CampusFinanceDashboard currentUser={currentUser} />} />
+              </Route>
               <Route path="campus/events" element={<CampusMinistryEvents events={events} />} />
-              <Route path="campus/finance" element={<CampusFinanceDashboard currentUser={currentUser} />} />
             </Route>
 
             {/* General Routes/Shared Logic */}

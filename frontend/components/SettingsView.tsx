@@ -38,6 +38,13 @@ interface SettingsViewProps {
 const SettingsView: React.FC<SettingsViewProps> = ({ users = [], openModal, onDeleteUser, onEditUser, currentUser, initialTab }) => {
     const { showToast, confirm: askConfirm } = useNotification();
     const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab || 'users');
+
+    // [PHASE E] Sync local state when URL initialTab changes
+    useEffect(() => {
+        if (initialTab && initialTab !== activeTab) {
+            setActiveTab(initialTab);
+        }
+    }, [initialTab]);
     const [searchQuery, setSearchQuery] = useState('');
     const [internalUsers, setInternalUsers] = useState<User[]>(users);
 

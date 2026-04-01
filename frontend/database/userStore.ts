@@ -56,12 +56,15 @@ export const UserStore = {
       console.log(`[USERSTORE LOGIN START] Attempting login for: ${username}`);
 
       // Force clear broken local storage states
+      // [FIX 6] Collect keys first, THEN delete — prevents mutation-during-iteration (undefined behavior)
+      const keysToRemove: string[] = [];
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
         if (key && key.startsWith('sb-') && key.endsWith('-auth-token')) {
-          localStorage.removeItem(key);
+          keysToRemove.push(key);
         }
       }
+      keysToRemove.forEach(k => localStorage.removeItem(k));
 
       const input = username.trim();
 

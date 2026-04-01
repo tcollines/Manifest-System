@@ -1,4 +1,6 @@
+import { create } from 'zustand';
 import { apiFetch } from '../services/api';
+import { supabase } from '../services/supabaseClient';
 
 export interface NextGenSoul {
     id: string;
@@ -30,7 +32,7 @@ export const mapNextGenSoulFromDB = (s: any): NextGenSoul => ({
     createdAt: s.created_at
 });
 
-const mapToDB = (s: NextGenSoul) => ({
+const mapToDB = (s: Partial<NextGenSoul>) => ({
     first_name: s.firstName,
     last_name: s.lastName,
     phone: s.phone,
@@ -43,36 +45,51 @@ const mapToDB = (s: NextGenSoul) => ({
     notes: s.notes
 });
 
-export const NextGenSoulsStore = {
-    add: async (soul: Omit<NextGenSoul, 'id' | 'createdAt'>): Promise<void> => {
-        try {
-            await apiFetch('/souls/nextgen', {
-                method: 'POST',
-                body: JSON.stringify(mapToDB(soul as NextGenSoul))
-            });
-        } catch (error: any) {
-            throw error;
-        }
-    },
+interface NextGenSoulsState {
+    souls: NextGenSoul[];
+    loading: boolean;
+    initialized: boolean;
+    fetchSouls: () => Promise<NextGenSoul[]>;
+    add: (soul: Omit<NextGenSoul, 'id' | 'createdAt'>) => Promise<void>;
+    delete: (id: string) => Promise<void>;
+    getByService: (serviceId: string) => Promise<NextGenSoul[]>;
+    getCountByService: (serviceId: string) => Promise<number>;
+    subscribe: () => void;
+    unsubscribe: () => void;
+}
 
-    getAll: async (): Promise<NextGenSoul[]> => {
+let channel: ReturnType<typeof supabase.channel> | null = null;
+
+export const useNextGenSoulsStore = create<NextGenSoulsState>((set, get) => ({
+    souls: [],
+    loading: false,
+    initialized: false,
+    
+    fetchSouls: async () => {
+        set({ loading: true });
         try {
             const data = await apiFetch('/souls/nextgen');
-            return data.map(mapNextGenSoulFromDB);
+            const mapped = data.map(mapNextGenSoulFromDB);
+            set({ souls: mapped, initialized: true, loading: false });
+            return mapped;
         } catch (error) {
+            set({ loading: false });
             return [];
         }
     },
 
-    delete: async (id: string): Promise<void> => {
-        try {
-            await apiFetch(`/souls/nextgen/${id}`, { method: 'DELETE' });
-        } catch (error: any) {
-            throw error;
-        }
+    add: async (soul) => {
+        await apiFetch('/souls/nextgen', {
+            method: 'POST',
+            body: JSON.stringify(mapToDB(soul))
+        });
     },
 
-    getByService: async (serviceId: string): Promise<NextGenSoul[]> => {
+    delete: async (id) => {
+        await apiFetch(`/souls/nextgen/${id}`, { method: 'DELETE' });
+    },
+
+    getByService: async (serviceId) => {
         try {
             const data = await apiFetch(`/souls/nextgen?serviceId=${serviceId}`);
             return data.map(mapNextGenSoulFromDB);
@@ -81,12 +98,51 @@ export const NextGenSoulsStore = {
         }
     },
 
-    getCountByService: async (serviceId: string): Promise<number> => {
+    getCountByService: async (serviceId) => {
         try {
             const { count } = await apiFetch(`/souls/nextgen/count/${serviceId}`);
             return count || 0;
         } catch (error) {
             return 0;
         }
+    },
+
+    subscribe: () => {
+        if (channel) return;
+        channel = supabase.channel('nextgen-souls-store-live')
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'next_gen_souls' }, (payload) => {
+                const newSoul = mapNextGenSoulFromDB(payload.new);
+                set(state => ({
+                    souls: state.souls.some(s => s.id === newSoul.id) ? state.souls : [newSoul, ...state.souls]
+                }));
+            })
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'next_gen_souls' }, (payload) => {
+                const updated = mapNextGenSoulFromDB(payload.new);
+                set(state => ({
+                    souls: state.souls.map(s => s.id === updated.id ? updated : s)
+                }));
+            })
+            .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'next_gen_souls' }, (payload) => {
+                set(state => ({
+                    souls: state.souls.filter(s => s.id !== payload.old.id)
+                }));
+            })
+            .subscribe();
+    },
+
+    unsubscribe: () => {
+        if (channel) {
+            supabase.removeChannel(channel);
+            channel = null;
+        }
     }
+}));
+
+// Backward compatibility object for non-React files or legacy components
+export const NextGenSoulsStore = {
+    add: (soul: Omit<NextGenSoul, 'id' | 'createdAt'>) => useNextGenSoulsStore.getState().add(soul),
+    getAll: () => useNextGenSoulsStore.getState().fetchSouls(),
+    delete: (id: string) => useNextGenSoulsStore.getState().delete(id),
+    getByService: (serviceId: string) => useNextGenSoulsStore.getState().getByService(serviceId),
+    getCountByService: (serviceId: string) => useNextGenSoulsStore.getState().getCountByService(serviceId)
 };

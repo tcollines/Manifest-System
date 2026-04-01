@@ -71,6 +71,9 @@ interface RegistrationDashboardProps {
   currentUser: User;
   onOpenModal?: (type: ModalType) => void;
   refreshParentData?: () => void;
+  // [PHASE B] URL-driven tab: injected by RegistrationLayout from URL segment.
+  // When provided, overrides internal state. When omitted, falls back to internal.
+  urlTab?: 'checkin' | 'events' | 'database';
 }
 
 type Tab = 'checkin' | 'events' | 'database';
@@ -79,23 +82,29 @@ type ViewMode = 'list' | 'service-active' | 'service-review' | 'Vehicle-view' | 
 // Helper for sanitizing empty strings to undefined
 const sanitize = (val: string | undefined): string | undefined => (!val || val.trim() === '') ? undefined : val;
 
-const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, currentUser, onOpenModal, refreshParentData }) => {
+const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, currentUser, onOpenModal, refreshParentData, urlTab }) => {
   const { showToast, confirm: askConfirm } = useNotification();
-  /* Persistence Logic */
+
+  // [PHASE B] activeTab is now URL-driven when urlTab prop is provided.
+  // Internal state is kept as a fallback for Logistics role-forcing effects.
   const [activeTab, setActiveTab] = useState<Tab>(() => {
+    if (urlTab) return urlTab;
     if (currentUser.role === 'Logistics') return 'events';
-    return (localStorage.getItem('registration_active_tab') as Tab) || 'checkin';
+    return 'checkin'; // Default — no more localStorage read
   });
+
+  // [PHASE B] Sync internal state when URL segment changes
+  useEffect(() => {
+    if (urlTab && urlTab !== activeTab) {
+      setActiveTab(urlTab);
+    }
+  }, [urlTab]);
 
   // Force re-render state
   const [, forceUpdate] = useState(0);
 
   // VIEW MODE SHOULD NOT BE PERSISTED - IT DEPENDS ON VOLATILE STATE (selectedService, etc.)
   const [viewMode, setViewMode] = useState<ViewMode>('list');
-
-  useEffect(() => {
-    localStorage.setItem('registration_active_tab', activeTab);
-  }, [activeTab]);
 
   // Force 'events' tab for Logistics users to prevent flicker if role updates late
   useEffect(() => {
@@ -2574,37 +2583,8 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
         </div>
       </div>
 
-      {!isLogisticsRole && viewMode === 'list' && (
-        <div className="flex space-x-1 bg-gray-100 p-1.5 rounded-xl w-fit overflow-x-auto">
-          <button
-            onClick={() => setActiveTab('checkin')}
-            className={`flex items-center space-x-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${activeTab === 'checkin' ? 'bg-black text-white shadow-md' : 'text-gray-500 hover:text-gray-900'}`}
-          >
-            <CheckCircle className={`w-4 h-4 ${activeTab === 'checkin' ? 'text-ministry-neon' : ''}`} />
-            <span>Service Check-In</span>
-          </button>
-          {!isMember && (
-            <button
-              onClick={() => setActiveTab('events')}
-              className={`flex items-center space-x-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${activeTab === 'events' ? 'bg-black text-white shadow-md' : 'text-gray-500 hover:text-gray-900'}`}
-            >
-              <Bus className={`w-4 h-4 ${activeTab === 'events' ? 'text-ministry-neon' : ''}`} />
-              <span>Events & Logistics</span>
-            </button>
-          )}
-          {!isMember && (
-            <button
-              onClick={() => setActiveTab('database')}
-              className={`flex items-center space-x-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${activeTab === 'database' ? 'bg-black text-white shadow-md' : 'text-gray-500 hover:text-gray-900'}`}
-            >
-              <Database className={`w-4 h-4 ${activeTab === 'database' ? 'text-ministry-neon' : ''}`} />
-              <span>Database</span>
-            </button>
-          )}
-
-        </div>
-      )
-      }
+      {/* [PHASE B] Tab bar removed — RegistrationLayout renders NavLink tabs */}
+      {/* Internal header still shown for Logistics (who see a different title) */}
 
       <div className={`${isLogisticsRole ? '' : 'bg-ministry-card border border-gray-200'} rounded-2xl md:p-6 shadow-sm min-h-[500px]`}>
 

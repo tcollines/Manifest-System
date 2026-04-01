@@ -46,22 +46,24 @@ export const apiFetch = async (endpoint: string, options: RequestInit & { token?
             if (res.status === 401 && !options._retry) {
                 const isGoogleAuth = !!localStorage.getItem('google_sso_token');
                 if (isGoogleAuth) {
-                     console.warn("[API FETCH 401] Google SSO token expired. Redirecting cleanly.");
-                     
-                     // CLEAN LOGOUT on 401: Clear local state to prevent broken UI
+                     console.warn("[API FETCH 401] Google SSO token expired. Dispatching clean logout.");
+
+                     // [FIX 3] Collect keys first, THEN delete — safe iteration (no mutation during loop)
+                     const keysToRemove: string[] = [];
                      for (let i = 0; i < localStorage.length; i++) {
                          const key = localStorage.key(i);
                          if (key && (key.startsWith('sb-') || key.includes('ministry_user_session') || key === 'google_sso_token')) {
-                             localStorage.removeItem(key);
+                             keysToRemove.push(key);
                          }
                      }
-                     // Use setTimeout to ensure the microtask queue is clear, then redirect
-                     setTimeout(() => {
-                         window.location.href = '/';
-                     }, 10);
-                     
-                     // Return an infinitely pending promise so no "Promise Error" is ever thrown to the UI!
-                     return new Promise(() => {});
+                     keysToRemove.forEach(k => localStorage.removeItem(k));
+
+                     // [FIX 3] Replace window.location.href — route through React Router via custom event
+                     // handleLogout() in App.tsx listens for this and calls navigate('/') cleanly
+                     window.dispatchEvent(new CustomEvent('auth:force-logout'));
+
+                     // Throw so callers get an error instead of a promise that never resolves
+                     throw new Error('SESSION_EXPIRED');
                 }
 
                 console.warn(`[API FETCH 401] Token rejected. Attempting background refresh for ${endpoint}...`);

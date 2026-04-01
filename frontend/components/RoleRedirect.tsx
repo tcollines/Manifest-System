@@ -1,71 +1,44 @@
-import React, { useEffect } from 'react';
-import { useNavigate, Navigate } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { Navigate } from 'react-router-dom';
+import { getDashboardForUser } from '../utils';
 import { User } from '../types';
+import { apiFetch } from '../services/api';
 
-interface RoleRedirectProps {
-    user: User;
-}
+// [FIX 4] Async handler ONLY for Head of Dept — preserves existing API dependency
+// All other roles get an immediate declarative <Navigate />, no useEffect, no spinner.
+const HeadOfDeptRedirect: React.FC<{ user: User }> = ({ user }) => {
+  const [target, setTarget] = useState<string | null>(null);
 
-const RoleRedirect: React.FC<RoleRedirectProps> = ({ user }) => {
-    const navigate = useNavigate();
-    const [departments, setDepartments] = React.useState<any[]>([]);
+  useEffect(() => {
+    apiFetch('/departments')
+      .then(data => {
+        const myDept = data.find((d: any) =>
+          d.id === user.departmentUid || d.code === user.departmentId
+        );
+        // Safe fallback: /setup-account instead of /dashboard (avoids ProtectedRoute loop)
+        setTarget(myDept?.dashboardRoute || '/setup-account');
+      })
+      .catch(() => setTarget('/setup-account')); // explicit, not silent /dashboard
+  }, [user]);
 
-    useEffect(() => {
-        if (!user) return;
-
-        console.log(`[ROLE REDIRECT] Checking user: ${user.email} | Username: '${user.username}' | Length: ${user.username?.length}`);
-
-        // Load Departments for 'Head of Dept'
-        if (user.role === 'Head of Dept') {
-            // We can lazy load or assumes loaded.
-            // Best to use a hook or store.
-            // For now, let's fetch.
-            import('../services/api').then(({ apiFetch }) => {
-                apiFetch('/departments').then(data => {
-                    const myDept = data.find((d: any) => d.id === user.departmentUid || d.code === user.departmentId);
-                    if (myDept && myDept.dashboardRoute) {
-                        navigate(myDept.dashboardRoute);
-                    } else {
-                        // Fallback if no route defined
-                        navigate('/dashboard');
-                    }
-                }).catch(() => navigate('/dashboard'));
-            });
-            return;
-        }
-
-        if (user.role === 'Super Admin' || user.role === 'Administrator') {
-            navigate('/dashboard');
-            return;
-        }
-
-        // Role-specific overrides from original logic
-        if (user.role === 'Logistics') {
-            navigate('/registration');
-            return;
-        }
-        if (user.role === 'Stage Coordinator' || user.role === 'Coordinator' || user.role === 'Vehicle Coordinator') {
-            if (user.stationId) navigate('/stage-dashboard');
-            else navigate('/transportation');
-            return;
-        }
-
-        // Default fallback if no specific role or department rule applies
-        // SECURITY FIX: Never default unknown roles to a protected dashboard.
-        if (!user.role || user.role === 'undefined' || user.role === 'null') {
-            console.warn(`[ROLE REDIRECT SECURITY] User ${user.email} has no valid role. Restricting to /setup-account.`);
-            navigate('/setup-account', { replace: true });
-        } else {
-            navigate('/dashboard');
-        }
-
-    }, [user, navigate]);
-
+  if (!target) {
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-ministry-orange"></div>
-        </div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-ministry-orange" />
+      </div>
     );
+  }
+  return <Navigate to={target} replace />;
+};
+
+// [FIX 4] Main component — synchronous + declarative for all roles except Head of Dept
+// Replaces imperative useEffect + navigate() pattern that fired on every '/' visit
+const RoleRedirect: React.FC<{ user: User }> = ({ user }) => {
+  if (user.role === 'Head of Dept') {
+    return <HeadOfDeptRedirect user={user} />;
+  }
+  // Immediate redirect — no mount side-effect, no spinner, no navigate() call
+  return <Navigate to={getDashboardForUser(user)} replace />;
 };
 
 export default RoleRedirect;

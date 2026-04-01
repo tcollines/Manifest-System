@@ -1,0 +1,97 @@
+﻿components/campus/ActivityTab.tsx(72,72): error TS1127: Invalid character.
+components/campus/ActivityTab.tsx(72,73): error TS1134: Variable declaration expected.
+components/campus/ActivityTab.tsx(530,1): error TS1005: '}' expected.
+components/campus/ActivityTab.tsx(530,1): error TS1160: Unterminated template literal.
+components/campus/FinanceTab.tsx(39,29): error TS2657: JSX expressions must have one parent element.
+components/campus/FinanceTab.tsx(42,54): error TS1127: Invalid character.
+components/campus/FinanceTab.tsx(43,44): error TS1381: Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+components/campus/FinanceTab.tsx(43,45): error TS1382: Unexpected token. Did you mean `{'>'}` or `&gt;`?
+components/campus/FinanceTab.tsx(45,39): error TS17002: Expected corresponding JSX closing tag for 'td'.
+components/campus/FinanceTab.tsx(46,35): error TS17002: Expected corresponding JSX closing tag for 'tr'.
+components/campus/FinanceTab.tsx(51,29): error TS1005: ')' expected.
+components/campus/FinanceTab.tsx(51,31): error TS17002: Expected corresponding JSX closing tag for 'tbody'.
+components/campus/FinanceTab.tsx(52,27): error TS1381: Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+components/campus/FinanceTab.tsx(56,23): error TS17002: Expected corresponding JSX closing tag for 'table'.
+components/campus/FinanceTab.tsx(57,19): error TS17002: Expected corresponding JSX closing tag for 'div'.
+components/campus/FinanceTab.tsx(59,9): error TS1005: ')' expected.
+components/campus/FinanceTab.tsx(60,5): error TS1109: Expression expected.
+components/campus/FinanceTab.tsx(61,1): error TS1128: Declaration or statement expected.
+components/CampusDashboard.tsx(121,80): error TS1127: Invalid character.
+components/CampusDashboard.tsx(121,105): error TS1381: Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+components/CampusDashboard.tsx(121,106): error TS1381: Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+components/CampusDashboard.tsx(122,36): error TS1127: Invalid character.
+components/CampusDashboard.tsx(126,32): error TS1381: Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+components/CampusDashboard.tsx(127,21): error TS1382: Unexpected token. Did you mean `{'>'}` or `&gt;`?
+components/CampusDashboard.tsx(130,23): error TS17002: Expected corresponding JSX closing tag for 'div'.
+components/CampusDashboard.tsx(131,19): error TS1381: Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+components/CampusDashboard.tsx(134,13): error TS1005: ')' expected.
+components/CampusDashboard.tsx(180,9): error TS1128: Declaration or statement expected.
+components/CampusDashboard.tsx(181,5): error TS1109: Expression expected.
+components/healing/NewReportTab.tsx(252,32): error TS1127: Invalid character.
+components/healing/NewReportTab.tsx(253,28): error TS1381: Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+components/healing/NewReportTab.tsx(254,17): error TS1382: Unexpected token. Did you mean `{'>'}` or `&gt;`?
+components/healing/NewReportTab.tsx(257,19): error TS17002: Expected corresponding JSX closing tag for 'div'.
+components/healing/NewReportTab.tsx(259,9): error TS1005: ')' expected.
+components/healing/NewReportTab.tsx(260,5): error TS1109: Expression expected.
+components/healing/NewReportTab.tsx(261,1): error TS1128: Declaration or statement expected.
+components/HealingDashboard.tsx(322,38): error TS1127: Invalid character.
+components/HealingDashboard.tsx(323,25): error TS1381: Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+components/HealingDashboard.tsx(323,26): error TS1381: Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+components/HealingDashboard.tsx(324,36): error TS1127: Invalid character.
+components/HealingDashboard.tsx(325,32): error TS1381: Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+components/HealingDashboard.tsx(326,21): error TS1382: Unexpected token. Did you mean `{'>'}` or `&gt;`?
+components/HealingDashboard.tsx(328,23): error TS17002: Expected corresponding JSX closing tag for 'div'.
+components/HealingDashboard.tsx(329,19): error TS1381: Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+components/HealingDashboard.tsx(332,13): error TS1005: ')' expected.
+components/HealingDashboard.tsx(490,9): error TS1128: Declaration or statement expected.
+components/HealingDashboard.tsx(491,5): error TS1109: Expression expected.
+components/HealingDashboard.tsx(492,1): error TS1128: Declaration or statement expected.
+components/parking/DatabaseTab.tsx(204,46): error TS1127: Invalid character.
+components/parking/DatabaseTab.tsx(204,119): error TS1381: Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+components/parking/DatabaseTab.tsx(205,30): error TS1382: Unexpected token. Did you mean `{'>'}` or `&gt;`?
+components/parking/DatabaseTab.tsx(267,37): error TS2657: JSX expressions must have one parent element.
+components/parking/DatabaseTab.tsx(272,62): error TS1127: Invalid character.
+components/parking/DatabaseTab.tsx(272,198): error TS1381: Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+components/parking/DatabaseTab.tsx(272,199): error TS1382: Unexpected token. Did you mean `{'>'}` or `&gt;`?
+components/parking/DatabaseTab.tsx(274,47): error TS17002: Expected corresponding JSX closing tag for 'td'.
+components/parking/DatabaseTab.tsx(275,43): error TS17002: Expected corresponding JSX closing tag for 'tr'.
+components/parking/DatabaseTab.tsx(277,37): error TS1005: ')' expected.
+components/parking/DatabaseTab.tsx(277,39): error TS17002: Expected corresponding JSX closing tag for 'tbody'.
+components/parking/DatabaseTab.tsx(284,34): error TS1381: Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+components/parking/DatabaseTab.tsx(285,31): error TS17002: Expected corresponding JSX closing tag for 'table'.
+components/parking/DatabaseTab.tsx(286,27): error TS17002: Expected corresponding JSX closing tag for 'div'.
+components/parking/DatabaseTab.tsx(288,17): error TS1005: ')' expected.
+components/parking/DatabaseTab.tsx(288,19): error TS17015: Expected corresponding closing tag for JSX fragment.
+components/parking/DatabaseTab.tsx(289,13): error TS1109: Expression expected.
+components/parking/DatabaseTab.tsx(289,14): error TS1128: Declaration or statement expected.
+components/parking/DatabaseTab.tsx(290,9): error TS1128: Declaration or statement expected.
+components/parking/DatabaseTab.tsx(290,11): error TS1109: Expression expected.
+components/parking/DatabaseTab.tsx(291,5): error TS1109: Expression expected.
+components/parking/DatabaseTab.tsx(292,1): error TS1128: Declaration or statement expected.
+components/ParkingDashboard.tsx(115,17): error TS2657: JSX expressions must have one parent element.
+components/ParkingDashboard.tsx(118,36): error TS1127: Invalid character.
+components/ParkingDashboard.tsx(121,32): error TS1381: Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+components/ParkingDashboard.tsx(122,21): error TS1382: Unexpected token. Did you mean `{'>'}` or `&gt;`?
+components/ParkingDashboard.tsx(123,49): error TS1127: Invalid character.
+components/ParkingDashboard.tsx(123,116): error TS1381: Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+components/ParkingDashboard.tsx(123,119): error TS1382: Unexpected token. Did you mean `{'>'}` or `&gt;`?
+components/ParkingDashboard.tsx(125,23): error TS17002: Expected corresponding JSX closing tag for 'div'.
+components/ParkingDashboard.tsx(128,36): error TS1127: Invalid character.
+components/ParkingDashboard.tsx(128,36): error TS1005: ')' expected.
+components/ParkingDashboard.tsx(131,32): error TS1381: Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+components/ParkingDashboard.tsx(132,21): error TS1382: Unexpected token. Did you mean `{'>'}` or `&gt;`?
+components/ParkingDashboard.tsx(133,46): error TS1127: Invalid character.
+components/ParkingDashboard.tsx(133,114): error TS1381: Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+components/ParkingDashboard.tsx(133,117): error TS1382: Unexpected token. Did you mean `{'>'}` or `&gt;`?
+components/ParkingDashboard.tsx(135,23): error TS17002: Expected corresponding JSX closing tag for 'div'.
+components/ParkingDashboard.tsx(136,17): error TS1005: ')' expected.
+components/ParkingDashboard.tsx(137,13): error TS1109: Expression expected.
+components/ParkingDashboard.tsx(137,14): error TS1128: Declaration or statement expected.
+components/ParkingDashboard.tsx(168,9): error TS1128: Declaration or statement expected.
+components/ParkingDashboard.tsx(169,5): error TS1109: Expression expected.
+components/ParkingDashboard.tsx(170,1): error TS1128: Declaration or statement expected.
+components/schools/EventsTab.tsx(151,27): error TS1127: Invalid character.
+components/schools/EventsTab.tsx(151,28): error TS1134: Variable declaration expected.
+components/schools/EventsTab.tsx(437,1): error TS1005: '}' expected.
+components/schools/EventsTab.tsx(437,1): error TS1160: Unterminated template literal.
+mapbox-gl-csp-worker.js(1,1390): error TS1109: Expression expected.

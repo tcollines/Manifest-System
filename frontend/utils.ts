@@ -196,7 +196,10 @@ export const getDashboardForUser = (user: User): string => {
         case 'd7': return '/schools';
         case 'd8': return '/healing';
         case 'd9': return '/campus';
-        default: return '/dashboard'; // Safe fallback avoiding Account Setup loops
+        // [FIX 5] Changed from /dashboard → /setup-account.
+        // /dashboard is protected (Admin only) — unknown dept users were caught in an infinite loop.
+        // /setup-account is a safe landing that prompts profile completion.
+        default: return '/setup-account';
     }
 };
 
