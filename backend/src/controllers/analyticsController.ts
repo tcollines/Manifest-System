@@ -48,7 +48,7 @@ export const getServiceAttendance = async (req: Request, res: Response) => {
 
         res.json(chartData);
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -161,7 +161,7 @@ export const getSoulsWon = async (req: Request, res: Response) => {
         res.json(chartData);
     } catch (error: any) {
         console.error('[ANALYTICS] Failed to fetch aggregate souls won:', error);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -280,7 +280,7 @@ export const getDashboardKPIs = async (req: Request, res: Response) => {
 
     } catch (error: any) {
         console.error('[ANALYTICS] Failed to fetch KPI Dashboard Stats:', error);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 export const getFollowUpAnalysis = async (req: Request, res: Response) => {
@@ -370,6 +370,6 @@ export const getFollowUpAnalysis = async (req: Request, res: Response) => {
         res.json(followUpMembers);
     } catch (error: any) {
         console.error('[GET FOLLOW UP ANALYSIS ERROR]', error);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };

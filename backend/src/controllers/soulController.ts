@@ -22,7 +22,7 @@ export const getSouls = async (req: Request, res: Response) => {
         if (error) throw error;
         res.json(data);
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -75,7 +75,7 @@ export const addSoul = async (req: Request, res: Response) => {
         res.status(201).json({ message: 'Soul saved (upsert)' });
     } catch (error: any) {
         console.error("Soul Add Catch Error:", error);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -100,7 +100,7 @@ export const updateSoul = async (req: Request, res: Response) => {
         if (error) throw error;
         res.json({ message: 'Soul updated' });
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -114,7 +114,7 @@ export const deleteSoul = async (req: Request, res: Response) => {
         if (error) throw error;
         res.json({ message: 'Soul deleted' });
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -152,7 +152,7 @@ export const getSoulServiceStats = async (req: Request, res: Response) => {
 
         res.json({ count: (mainCount || 0) + (nextGenCount || 0) });
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -235,7 +235,7 @@ export const getSoulDetails = async (req: Request, res: Response) => {
         });
 
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -259,7 +259,7 @@ export const getNextGenSouls = async (req: Request, res: Response) => {
         if (error) throw error;
         res.json(data);
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -273,7 +273,7 @@ export const addNextGenSoul = async (req: Request, res: Response) => {
         if (error) throw error;
         res.status(201).json({ message: 'NextGen Soul added' });
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -287,7 +287,7 @@ export const deleteNextGenSoul = async (req: Request, res: Response) => {
         if (error) throw error;
         res.json({ message: 'NextGen Soul deleted' });
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -306,6 +306,6 @@ export const getNextGenSoulCount = async (req: Request, res: Response) => {
         if (error) throw error;
         res.json({ count: count || 0 });
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };

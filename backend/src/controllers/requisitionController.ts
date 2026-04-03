@@ -15,7 +15,7 @@ export const getAllRequisitions = async (req: Request, res: Response) => {
         if (error) throw error;
         res.json(data);
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -35,7 +35,7 @@ export const getRequisitionsByDepartment = async (req: Request, res: Response) =
         if (error) throw error;
         res.json(data);
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -80,7 +80,7 @@ export const createRequisition = async (req: Request, res: Response) => {
         res.status(201).json({ message: 'Requisition created' });
 
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -124,7 +124,7 @@ export const updateRequisition = async (req: Request, res: Response) => {
 
         res.json({ message: 'Requisition updated' });
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -144,7 +144,7 @@ export const updateStatus = async (req: Request, res: Response) => {
 
         res.json({ message: 'Status updated' });
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -183,6 +183,6 @@ export const addPayment = async (req: Request, res: Response) => {
         res.json({ message: 'Payment added' });
 
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };

@@ -25,7 +25,7 @@ export const dropLegacyTrigger = async (req: Request, res: Response): Promise<vo
         res.status(200).json({ success: true, message: 'Legacy children trigger dropped successfully' });
     } catch (error: any) {
         console.error('Trigger drop error:', error);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     } finally {
         await client.end();
     }

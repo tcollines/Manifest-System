@@ -56,7 +56,7 @@ export const getVehicles = async (req: Request, res: Response) => {
         if (error) throw error;
         res.json(data);
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -77,7 +77,7 @@ export const getVehicle = async (req: Request, res: Response) => {
 
         res.json({ vehicle: data });
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -154,7 +154,7 @@ export const addVehicle = async (req: Request, res: Response) => {
         res.status(201).json({ message: 'Vehicle added', vehicle: data });
     } catch (error: any) {
         console.error("Add Vehicle Error:", error);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -251,7 +251,7 @@ export const updateVehicle = async (req: Request, res: Response) => {
 
         res.json({ message: 'Vehicle updated', vehicle: data });
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -303,7 +303,7 @@ export const updateVehicleStage = async (req: Request, res: Response) => {
 
         res.json({ message: 'Vehicle stage updated', vehicle: data });
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -343,7 +343,7 @@ export const startReturnJourney = async (req: Request, res: Response) => {
 
         res.json({ message: 'Return journey started', vehicle: data });
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -381,7 +381,7 @@ export const updateVehicleFinance = async (req: Request, res: Response) => {
 
         res.json({ message: 'Vehicle finance updated', vehicle: data });
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -398,7 +398,7 @@ export const updateVehicleLocation = async (req: Request, res: Response) => {
         if (error) throw error;
         res.json({ message: 'Location updated' });
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -415,7 +415,7 @@ export const updateVehicleChildren = async (req: Request, res: Response) => {
         if (error) throw error;
         res.json({ message: 'Children count updated' });
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -434,7 +434,7 @@ export const deleteVehicle = async (req: Request, res: Response) => {
         if (error) throw error;
         res.json({ message: 'Vehicle deleted' });
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -469,7 +469,7 @@ export const getPassengers = async (req: Request, res: Response) => {
         if (error) throw error;
         res.json(data);
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -492,7 +492,8 @@ export const addPassenger = async (req: Request, res: Response) => {
         if (error) throw error;
         res.status(201).json({ message: 'Passenger added', passenger: data });
     } catch (error: any) {
-        res.status(500).json({ error: error.message, details: error.details });
+        console.error('[addPassenger ERROR]', error);
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -536,7 +537,7 @@ export const updatePassenger = async (req: Request, res: Response) => {
 
         res.json({ message: 'Passenger updated' });
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -569,7 +570,7 @@ export const checkinPassenger = async (req: Request, res: Response) => {
 
         res.json({ message: 'Passenger checked in', passenger: data });
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -584,7 +585,7 @@ export const deletePassenger = async (req: Request, res: Response) => {
         if (error) throw error;
         res.json({ message: 'Passenger deleted' });
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -620,7 +621,7 @@ export const getPassengerCounts = async (req: Request, res: Response) => {
         }
         res.json(counts);
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -637,7 +638,7 @@ export const getPersonalVehicles = async (req: Request, res: Response) => {
         if (error) throw error;
         res.json(data);
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -656,7 +657,7 @@ export const addPersonalVehicle = async (req: Request, res: Response) => {
         if (error) throw error;
         res.status(201).json({ message: 'Personal vehicle added' });
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -683,6 +684,6 @@ export const updatePersonalVehicleStatus = async (req: Request, res: Response) =
         if (error) throw error;
         res.json({ message: 'Status updated' });
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };

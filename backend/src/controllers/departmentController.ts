@@ -15,6 +15,6 @@ export const getDepartments = async (req: Request, res: Response) => {
         if (error) throw error;
         res.json(data);
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };

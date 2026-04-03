@@ -19,7 +19,7 @@ export const getFinanceSummary = async (req: Request, res: Response) => {
         // The RPC returns a single row with the aggregates
         res.json(data[0] || { total_income: 0, total_expense: 0, net_balance: 0, transaction_count: 0 });
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -48,7 +48,7 @@ export const getTransactions = async (req: Request, res: Response) => {
         if (error) throw error;
         res.json(data);
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -62,7 +62,7 @@ export const addTransaction = async (req: Request, res: Response) => {
         if (error) throw error;
         res.status(201).json({ message: 'Transaction added' });
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -91,7 +91,7 @@ export const getRequests = async (req: Request, res: Response) => {
         if (error) throw error;
         res.json(data);
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -109,6 +109,6 @@ export const updateRequest = async (req: Request, res: Response) => {
         if (error) throw error;
         res.json({ message: 'Request updated' });
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };

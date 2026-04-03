@@ -30,7 +30,7 @@ export const getAllUsers = async (req: Request, res: Response) => {
         if (error) throw error;
         res.json(data);
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -82,7 +82,7 @@ export const getProfile = async (req: Request, res: Response) => {
         res.json(data);
     } catch (error: any) {
         console.error('[PROFILE ERROR]', error);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -168,7 +168,7 @@ export const createUser = async (req: Request, res: Response) => {
         res.status(201).json({ message: 'User created securely with Auth Identity' });
     } catch (error: any) {
         console.error("[createUser] Catch Error:", error);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -334,7 +334,7 @@ export const updateUser = async (req: Request, res: Response) => {
         res.json({ message: 'User updated' });
     } catch (error: any) {
         console.error('[USER UPDATE BLOCKED]', error.message);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -385,6 +385,6 @@ export const deleteUser = async (req: Request, res: Response) => {
         res.json({ message: 'User permanently deleted' });
     } catch (error: any) {
         console.error("[deleteUser] Error:", error);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 }

@@ -40,7 +40,7 @@ export const getStations = async (req: Request, res: Response) => {
 
         res.json(enrichedStations);
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -59,7 +59,7 @@ export const addStation = async (req: Request, res: Response) => {
         if (error) throw error;
         res.status(201).json({ message: 'Station added' });
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -85,7 +85,7 @@ export const updateStation = async (req: Request, res: Response) => {
         if (error) throw error;
         res.json({ message: 'Station updated' });
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -134,6 +134,6 @@ export const deleteStation = async (req: Request, res: Response) => {
 
         res.json({ message: 'Station and related data deleted' });
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };

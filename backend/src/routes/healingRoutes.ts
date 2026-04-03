@@ -78,7 +78,7 @@ router.post('/reports', async (req, res) => {
         res.status(201).json(report);
     } catch (error: any) {
         console.error('Error creating healing report:', error);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 });
 
@@ -101,7 +101,7 @@ router.get('/reports', async (req, res) => {
         if (error) throw error;
         res.json(data);
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 });
 
@@ -126,7 +126,7 @@ router.put('/reports/:id', async (req, res) => {
         if (error) throw error;
         res.json(data);
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 });
 
@@ -148,7 +148,7 @@ router.delete('/reports/:id', async (req, res) => {
         if (error) throw error;
         res.json({ message: 'Report deleted successfully' });
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 });
 
@@ -170,7 +170,7 @@ router.get('/souls', async (req, res) => {
         if (error) throw error;
         res.json(data);
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 });
 
@@ -193,7 +193,7 @@ router.get('/testimonies', async (req, res) => {
         if (error) throw error;
         res.json(data);
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 });
 // 5. Update Testimony
@@ -217,7 +217,7 @@ router.put('/testimonies/:id', async (req, res) => {
         if (error) throw error;
         res.json(data);
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 });
 
@@ -239,7 +239,7 @@ router.delete('/testimonies/:id', async (req, res) => {
         if (error) throw error;
         res.json({ message: 'Testimony deleted successfully' });
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 });
 
@@ -276,7 +276,7 @@ router.get('/stats', async (req, res) => {
         });
 
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 });
 

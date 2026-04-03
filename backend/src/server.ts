@@ -4,11 +4,11 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-// Environment Audit Logs (Temporary)
-console.log('[ENV CHECK]');
-console.log('SUPABASE_URL:', process.env.SUPABASE_URL);
-console.log('SUPABASE_KEY (anon exists?):', !!process.env.SUPABASE_KEY);
-console.log('SERVICE_ROLE exists?:', !!process.env.SUPABASE_SERVICE_ROLE_KEY);
+// [SECURITY] Startup env validation — no credentials logged
+if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY || !process.env.SUPABASE_KEY) {
+    console.error('[FATAL] Missing required environment variables. Server will not start.');
+    process.exit(1);
+}
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -36,26 +36,8 @@ app.get('/', (req, res) => {
     res.send('Manifest System API is running. Access endpoints at /api/...');
 });
 
-app.post('/api/admin/sql', async (req, res) => {
-    try {
-        const poolUrl = process.env.DATABASE_URL || '';
-        const match = poolUrl.match(/:([^:@]+)@/);
-        const password = match ? match[1] : '';
-        const directUrl = `postgres://postgres.poazorjmzswectxvakzl:${password}@aws-0-us-east-1.pooler.supabase.com:6543/postgres?options=project%3Dpoazorjmzswectxvakzl`;
-
-        const client = new Client({
-            connectionString: directUrl,
-            ssl: { rejectUnauthorized: false }
-        });
-        await client.connect();
-        const result = await client.query(req.body.query);
-        await client.end();
-        res.status(200).json({ success: true, rows: result.rows });
-    } catch (error: any) {
-        console.error('SQL Error:', error);
-        res.status(500).json({ error: error.message });
-    }
-});
+// [SECURITY] /api/admin/sql endpoint permanently removed — P0 vulnerability
+// Any previous functionality this provided must be performed via Supabase Dashboard only.
 
 // Protect all /api routes below this line
 app.use('/api', authenticate);
@@ -79,7 +61,7 @@ import reportRoutes from './routes/reportRoutes';
 import departmentRoutes from './routes/departmentRoutes';
 import campusRoutes from './routes/campusRoutes';
 import residentRoutes from './routes/residentRoutes';
-import { Client } from 'pg';
+// pg Client import removed — was only used by the deleted /api/admin/sql endpoint
 
 app.use('/api/users', userRoutes);
 app.use('/api/members', memberRoutes);

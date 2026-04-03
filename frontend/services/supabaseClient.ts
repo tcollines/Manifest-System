@@ -1,7 +1,13 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = 'https://poazorjmzswectxvakzl.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBvYXpvcmptenN3ZWN0eHZha3psIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY4MTEyNjgsImV4cCI6MjA4MjM4NzI2OH0.63UUyttqrMAvPYeiA2IIqPxTnk_WftlMLTKQ99Ejv-A';
+// [SECURITY] Credentials must come from environment variables.
+// NEVER hardcode Supabase keys in source — they end up in the compiled bundle.
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+
+if (!supabaseUrl || !supabaseKey) {
+    throw new Error('[FATAL] VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY must be set in .env');
+}
 
 // [FIX 2] Restore Supabase's native navigator.locks serialization guard.
 // The custom bypass is scoped to Vite HMR (dev only) to avoid Chrome HMR lock freezing.

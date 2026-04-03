@@ -20,7 +20,7 @@ export const getChildren = async (req: Request, res: Response) => {
         res.json(data);
     } catch (error: any) {
         console.error('Server Error:', error);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -132,7 +132,7 @@ export const addChild = async (req: Request, res: Response) => {
         if (error.message && (error.message.includes('unique constraint') || error.message.includes('dedupe'))) {
             res.status(409).json({ error: 'This child is already registered in this Manifest.' });
         } else {
-            res.status(500).json({ error: error.message });
+            res.status(500).json({ error: 'An internal server error occurred.' });
         }
     }
 };
@@ -151,7 +151,7 @@ export const bulkAddChildren = async (req: Request, res: Response) => {
         if (error) throw error;
         res.status(201).json({ message: 'Children added in bulk' });
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -188,7 +188,7 @@ export const updateChild = async (req: Request, res: Response) => {
         if (error) throw error;
         res.json({ message: 'Child updated' });
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -207,7 +207,7 @@ export const deleteChild = async (req: Request, res: Response) => {
         if (error) throw error;
         res.json({ message: 'Child deleted' });
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -223,7 +223,7 @@ export const bulkDeleteChildren = async (req: Request, res: Response) => {
         if (error) throw error;
         res.json({ message: 'Children deleted' });
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -242,6 +242,6 @@ export const getChildAttendance = async (req: Request, res: Response) => {
         if (error) throw error;
         res.json({ count: count || 0 });
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };

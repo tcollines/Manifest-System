@@ -52,7 +52,7 @@ export const getMembers = async (req: Request, res: Response) => {
         res.json({ data: data || [], count: count || 0 });
     } catch (error: any) {
         console.error('[GET MEMBERS EXCEPTION]', error);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -99,7 +99,7 @@ export const addMember = async (req: Request, res: Response) => {
         if (error.message && error.message.includes('idx_members_unique_identity')) {
             res.status(409).json({ error: 'This member (Name + Phone) is already registered in this Manifest.' });
         } else {
-            res.status(500).json({ error: error.message });
+            res.status(500).json({ error: 'An internal server error occurred.' });
         }
     }
 };
@@ -155,7 +155,7 @@ export const updateMember = async (req: Request, res: Response) => {
         res.json({ message: 'Member updated', updates });
     } catch (error: any) {
         console.error('Update Error:', error);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -179,7 +179,7 @@ export const deleteMember = async (req: Request, res: Response) => {
         if (error) throw error;
         res.json({ message: 'Members deleted' });
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -277,7 +277,7 @@ export const checkInMember = async (req: Request, res: Response) => {
         });
 
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -345,7 +345,7 @@ export const uncheckInMember = async (req: Request, res: Response) => {
 
     } catch (error: any) {
         console.error('[UNCHECK-IN ERROR]', error);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -406,7 +406,7 @@ export const getServiceStats = async (req: Request, res: Response) => {
             memberIds: validMemberIds
         });
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 }
 
@@ -478,7 +478,7 @@ export const getMemberDetails = async (req: Request, res: Response) => {
         });
 
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 }
 
@@ -527,7 +527,7 @@ export const searchMembersWithStatus = async (req: Request, res: Response) => {
         res.json(result);
 
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 }
 
@@ -595,7 +595,7 @@ export const getEventAttendees = async (req: Request, res: Response) => {
 
     } catch (error: any) {
         console.error('[GET ATTENDEES ERROR]', error);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 }
 
@@ -618,7 +618,7 @@ export const getMembersByIds = async (req: Request, res: Response) => {
         if (error) throw error;
         res.json(data || []);
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -641,7 +641,7 @@ export const getMemberById = async (req: Request, res: Response) => {
         if (error) throw error;
         res.json(data || null);
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -741,7 +741,7 @@ export const searchMembersByResidency = async (req: Request, res: Response) => {
         res.json(matchingMembers);
     } catch (error: any) {
         console.error('searchMembersByResidency Error:', error);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -772,7 +772,7 @@ export const bulkUpdateResidency = async (req: Request, res: Response) => {
         res.json({ message: 'Members residencies mapped successfully' });
     } catch (error: any) {
         console.error('bulkUpdateResidency Error:', error);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -842,7 +842,7 @@ export const getFirstTimers = async (req: Request, res: Response) => {
         res.json({ services, events });
     } catch (error: any) {
         console.error('getFirstTimers Error:', error);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -901,7 +901,7 @@ export const getPassengerDetails = async (req: Request, res: Response) => {
         });
 
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 

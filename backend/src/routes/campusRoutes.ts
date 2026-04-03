@@ -39,7 +39,7 @@ router.get('/activities', async (req, res) => {
 
         res.json(mappedData);
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 });
 
@@ -71,7 +71,7 @@ router.post('/activities', async (req, res) => {
         if (error) throw error;
         res.status(201).json(data);
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 });
 
@@ -103,7 +103,7 @@ router.put('/activities/:id', async (req, res) => {
         if (error) throw error;
         res.json(data);
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 });
 
@@ -125,7 +125,7 @@ router.delete('/activities/:id', async (req, res) => {
         if (error) throw error;
         res.json({ message: 'Activity deleted successfully' });
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 });
 
@@ -147,7 +147,7 @@ router.get('/attendants/:activityId', async (req, res) => {
         if (error) throw error;
         res.json(data);
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 });
 
@@ -178,7 +178,7 @@ router.post('/attendants', async (req, res) => {
         if (error) throw error;
         res.status(201).json(data);
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 });
 
@@ -199,7 +199,7 @@ router.delete('/attendants/:id', async (req, res) => {
         if (error) throw error;
         res.json({ message: 'Attendant deleted successfully' });
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 });
 
@@ -228,7 +228,7 @@ router.get('/finance', async (req, res) => {
             recordedBy: d.recorded_by
         })));
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 });
 
@@ -262,7 +262,7 @@ router.post('/finance', async (req, res) => {
             recordedBy: data.recorded_by
         });
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 });
 
@@ -297,7 +297,7 @@ router.put('/finance/:id', async (req, res) => {
             recordedBy: data.recorded_by
         });
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 });
 
@@ -318,7 +318,7 @@ router.delete('/finance/:id', async (req, res) => {
         if (error) throw error;
         res.status(204).send();
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 });
 

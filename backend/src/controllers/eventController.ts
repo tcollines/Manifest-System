@@ -40,7 +40,7 @@ export const getAllEvents = async (req: Request, res: Response) => {
             }
         });
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -69,11 +69,10 @@ export const createEvent = async (req: Request, res: Response) => {
 
         if (error) throw error;
 
-        if (error) throw error;
-
         res.status(201).json(data);
     } catch (error: any) {
-        res.status(500).json({ error: error.message, details: error.details });
+        console.error('[createEvent ERROR]', error);
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -92,7 +91,7 @@ export const updateEvent = async (req: Request, res: Response) => {
         if (error) throw error;
         res.json({ message: 'Event updated' });
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -146,7 +145,7 @@ export const deleteEvent = async (req: Request, res: Response) => {
 
         res.json({ message: 'Event and related data deleted instantaneously via database cascading RPC' });
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -253,7 +252,7 @@ export const getEventHighlights = async (req: Request, res: Response) => {
         res.json(response);
     } catch (error: any) {
         console.error("[getEventHighlights] Error:", error);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -370,7 +369,7 @@ export const getEventPassengers = async (req: Request, res: Response) => {
         res.json(filtered);
     } catch (error: any) {
         console.error('[getEventPassengers] Error:', error);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 

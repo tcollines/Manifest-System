@@ -18,7 +18,7 @@ export const getAllReports = async (req: Request, res: Response) => {
 
         res.json(data);
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -50,7 +50,7 @@ export const createReport = async (req: Request, res: Response) => {
         if (error) throw error;
         res.status(201).json(data);
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -69,7 +69,7 @@ export const updateReport = async (req: Request, res: Response) => {
         if (error) throw error;
         res.json({ message: 'Report updated successfully' });
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -114,7 +114,7 @@ export const getMyReports = async (req: Request, res: Response) => {
 
         res.json(merged);
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -170,7 +170,7 @@ export const submitReport = async (req: Request, res: Response) => {
         if (error) throw error;
         res.json(data);
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -189,6 +189,6 @@ export const deleteReport = async (req: Request, res: Response) => {
         if (error) throw error;
         res.json({ message: 'Report deleted successfully' });
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };

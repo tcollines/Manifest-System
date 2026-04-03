@@ -26,7 +26,7 @@ export const getManifest = async (req: Request, res: Response) => {
             soulsTarget: data.souls_target
         });
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -58,6 +58,6 @@ export const saveManifest = async (req: Request, res: Response) => {
         if (queryError) throw queryError;
         res.json(details);
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };

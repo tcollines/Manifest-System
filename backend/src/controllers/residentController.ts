@@ -17,7 +17,7 @@ export const getResidences = async (req: Request, res: Response) => {
         if (error) throw error;
         res.json(data);
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -104,7 +104,7 @@ export const addResidence = async (req: Request, res: Response) => {
         res.status(201).json(data);
     } catch (error: any) {
         console.error('[addResidence Error]:', error);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -156,7 +156,7 @@ export const deleteResidence = async (req: Request, res: Response) => {
         if (error) throw error;
         res.json({ message: 'Residence and all associated info deleted successfully' });
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -188,7 +188,7 @@ export const getResidenceMembers = async (req: Request, res: Response) => {
         if (memError) throw memError;
         res.json(members);
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -208,7 +208,7 @@ export const getResidentReports = async (req: Request, res: Response) => {
         if (error) throw error;
         res.json(data);
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
 
@@ -227,6 +227,6 @@ export const addResidentReport = async (req: Request, res: Response) => {
         if (error) throw error;
         res.status(201).json(data);
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
