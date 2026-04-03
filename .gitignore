@@ -25,3 +25,12 @@ dist-ssr
 backup-original/
 .antigravity/
 
+# Environment variables — credentials must never be committed
+.env
+.env.*
+!.env.example
+backend/.env
+frontend/.env
+
+# Google Drive temporary upload files
+.tmp.driveupload/
