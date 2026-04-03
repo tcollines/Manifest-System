@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { User, MinistryEvent, SchoolOutreachReport, ModalType } from '../types';
 import { SchoolsStore, mapSchoolReportFromDB } from '../database/schoolsStore';
 import { supabase } from '../services/supabaseClient';
@@ -32,7 +32,15 @@ export const SchoolsDashboard: React.FC<SchoolsDashboardProps> = ({
     }, [urlTab]);
 
     const [reports, setReports] = useState<SchoolOutreachReport[]>([]);
-    const [reportEventId, setReportEventId] = useState<string>(''); // For filtering reports
+    const [searchParams, setSearchParams] = useSearchParams();
+    const reportEventId = searchParams.get('eventId') || '';
+    const setReportEventId = (id: string) => {
+        setSearchParams(prev => {
+            if (id) prev.set('eventId', id);
+            else prev.delete('eventId');
+            return prev;
+        }, { replace: true });
+    };
 
     useEffect(() => {
         loadReports(reportEventId);

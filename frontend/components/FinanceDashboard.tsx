@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useNotification } from './ui/NotificationSystem';
 import {
     DollarSign,
@@ -37,18 +38,13 @@ interface FinanceDashboardProps {
     currentUser?: any;
     events: MinistryEvent[];
     onOpenModal?: (type: ModalType) => void;
+    urlTab?: 'income' | 'expenses' | 'requisitions' | 'fleet';
 }
 
-const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, events = [], onOpenModal }) => { // Accept events from props
+const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, events = [], onOpenModal, urlTab }) => { // Accept events from props
     const { showToast } = useNotification();
-    /* Persistence Logic */
-    const [activeTab, setActiveTab] = useState<'income' | 'expenses' | 'requisitions' | 'fleet'>(() =>
-        (localStorage.getItem('finance_active_tab') as 'income' | 'expenses' | 'requisitions' | 'fleet') || 'income'
-    );
-
-    useEffect(() => {
-        localStorage.setItem('finance_active_tab', activeTab);
-    }, [activeTab]);
+    const navigate = useNavigate();
+    const activeTab = urlTab || 'income';
 
     // Force re-render state
     const [, forceUpdate] = useState(0);
@@ -862,7 +858,7 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ currentUser, events
                 ].map(tab => (
                     <button
                         key={tab.id}
-                        onClick={() => setActiveTab(tab.id as any)}
+                        onClick={() => navigate(`/finance/${tab.id}?${searchParams.toString()}`)}
                         className={`flex items-center space-x-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${activeTab === tab.id ? 'bg-black text-white shadow-md' : 'text-gray-500 hover:text-gray-900'
                             }`}
                     >

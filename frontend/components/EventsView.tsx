@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { MinistryEvent } from '../types';
 import EventDetailsModal from './EventDetailsModal';
 import { Clock, MapPin, ChevronRight, Search, ChevronLeft } from 'lucide-react';
@@ -6,8 +7,16 @@ import { EventStore } from '../database/eventStore';
 
 const EventsView: React.FC = () => {
   const [events, setEvents] = useState<MinistryEvent[]>([]);
-  const [selectedEvent, setSelectedEvent] = useState<MinistryEvent | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  // URL-driven highlight: ?highlightId=<eventId>
+  const [searchParams, setSearchParams] = useSearchParams();
+  const highlightId = searchParams.get('highlightId');
+  const selectedEvent = events.find(e => e.id === highlightId) || null;
+  const openHighlight = (event: MinistryEvent) =>
+    setSearchParams(prev => { prev.set('highlightId', event.id); return prev; }, { replace: true });
+  const closeHighlight = () =>
+    setSearchParams(prev => { prev.delete('highlightId'); return prev; }, { replace: true });
 
   // Pagination & Search State
   const [page, setPage] = useState(1);
@@ -125,7 +134,7 @@ const EventsView: React.FC = () => {
               {/* Fixed Footer */}
               <div className="p-4 bg-gray-50 border-t border-gray-100 shrink-0">
                 <button
-                  onClick={() => setSelectedEvent(event)}
+                  onClick={() => openHighlight(event)}
                   className="w-full bg-white border border-gray-200 text-ministry-text font-semibold py-2.5 rounded-xl hover:bg-ministry-text hover:text-white hover:border-ministry-text transition-all flex items-center justify-center group-hover:shadow-md"
                 >
                   <span>View Highlights</span>
@@ -168,7 +177,7 @@ const EventsView: React.FC = () => {
 
       <EventDetailsModal
         event={selectedEvent}
-        onClose={() => setSelectedEvent(null)}
+        onClose={closeHighlight}
       />
     </div>
   );

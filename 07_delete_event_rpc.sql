@@ -50,20 +50,20 @@ BEGIN
       AND manifest_id = p_manifest_id;
 
     -- 3. Array Cleanup for Members (remove event_id from attended_service_ids)
-    -- Postgres >= 9.3 allows array_remove
+    -- array_remove is a no-op if the value is not present, so no WHERE filter needed.
     UPDATE public.members
     SET attended_service_ids = array_remove(attended_service_ids, p_event_id::text)
-    WHERE p_event_id::text = ANY(attended_service_ids) AND manifest_id = p_manifest_id;
+    WHERE manifest_id = p_manifest_id;
 
     -- 4. Array Cleanup for Children
     UPDATE public.children
     SET attended_service_ids = array_remove(attended_service_ids, p_event_id::text)
-    WHERE p_event_id::text = ANY(attended_service_ids) AND manifest_id = p_manifest_id;
+    WHERE manifest_id = p_manifest_id;
 
     -- 5. Array Cleanup for Personal Vehicles
     UPDATE public.personal_vehicles
     SET attended_service_ids = array_remove(attended_service_ids, p_event_id::text)
-    WHERE p_event_id::text = ANY(attended_service_ids) AND manifest_id = p_manifest_id;
+    WHERE manifest_id = p_manifest_id;
 
     -- Clear current_service_id where it matches
     UPDATE public.personal_vehicles

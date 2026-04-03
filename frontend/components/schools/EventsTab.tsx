@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { MinistryEvent, Passenger } from '../../types';
 import { apiFetch } from '../../services/api';
 import { ManifestStore } from '../../database/manifestStore';
@@ -13,20 +14,31 @@ interface EventsTabProps {
 
 export const EventsTab: React.FC<EventsTabProps> = ({ events }) => {
     const { showToast } = useNotification();
-    const [selectedEvent, setSelectedEvent] = useState<MinistryEvent | null>(null);
+    const [searchParams, setSearchParams] = useSearchParams();
+    const selectedEventId = searchParams.get('eventId') || null;
+    const selectedEvent = events.find(e => e.id === selectedEventId) || null;
+
     const [eventPassengers, setEventPassengers] = useState<Passenger[]>([]);
     const [eventFilter, setEventFilter] = useState<'all' | 'first-timers' | 'souls-won'>('all');
 
-    const handleViewEvent = async (event: MinistryEvent) => {
-        setSelectedEvent(event);
+    const loadPassengers = async (eventId: string) => {
         try {
-            const passengers = await apiFetch(`/events/${event.id}/passengers?category=Student`);
+            const passengers = await apiFetch(`/events/${eventId}/passengers?category=Student`);
             setEventPassengers(Array.isArray(passengers) ? passengers : []);
         } catch (error) {
-            console.error("Error fetching event details:", error);
-            showToast("Failed to load student list. Please try again.", 'error');
+            console.error('Error fetching event details:', error);
+            showToast('Failed to load student list. Please try again.', 'error');
             setEventPassengers([]);
         }
+    };
+
+    useEffect(() => {
+        if (selectedEventId) loadPassengers(selectedEventId);
+        else setEventPassengers([]);
+    }, [selectedEventId]);
+
+    const handleViewEvent = async (event: MinistryEvent) => {
+        setSearchParams(prev => { prev.set('eventId', event.id); return prev; }, { replace: true });
     };
 
     const handleDownloadExcel = () => {
@@ -320,7 +332,7 @@ export const EventsTab: React.FC<EventsTabProps> = ({ events }) => {
         <div className="space-y-6">
             <div className="flex items-center justify-between border-b border-gray-100 pb-4 mb-6">
                 <div className="flex items-center space-x-4">
-                    <button onClick={() => setSelectedEvent(null)} className="text-sm font-medium text-gray-500 hover:text-ministry-orange transition-colors flex items-center">
+                    <button onClick={() => setSearchParams(prev => { prev.delete('eventId'); return prev; }, { replace: true })} className="text-sm font-medium text-gray-500 hover:text-ministry-orange transition-colors flex items-center">
                         <span className="mr-2">←</span> Back to Events
                     </button>
                     <div>

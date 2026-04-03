@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { PersonalVehicle } from '../../types';
 import { validatePlate } from '../../utils';
 import { ParkingStore } from '../../database/parkingStore';
@@ -28,6 +29,7 @@ export const DatabaseTab: React.FC<DatabaseTabProps> = ({
     setViewMode
 }) => {
     const { showToast } = useNotification();
+    const [searchParams, setSearchParams] = useSearchParams();
     const initialFormState = {
         number_plate: '',
         driverName: '',
@@ -40,6 +42,7 @@ export const DatabaseTab: React.FC<DatabaseTabProps> = ({
         setViewMode('list');
         setFormData(initialFormState);
         setBulkText('');
+        setSearchParams(prev => { prev.delete('view'); return prev; }, { replace: true });
     };
 
     const validateContact = (val: string) => {
@@ -225,13 +228,13 @@ export const DatabaseTab: React.FC<DatabaseTabProps> = ({
                         </div>
                         <div className="flex gap-2">
                             <button
-                                onClick={() => setViewMode('bulk-add')}
+                                onClick={() => { setViewMode('bulk-add'); setSearchParams(prev => { prev.set('view', 'bulk'); return prev; }, { replace: true }); }}
                                 className="px-4 py-2 border border-gray-300 rounded-lg font-bold text-gray-700 hover:bg-gray-50 flex items-center gap-2"
                             >
                                 <Upload className="w-4 h-4" /> Import CSV
                             </button>
                             <button
-                                onClick={() => setViewMode('add-vehicle-db')}
+                                onClick={() => { setViewMode('add-vehicle-db'); setSearchParams(prev => { prev.set('view', 'add-vehicle'); return prev; }, { replace: true }); }}
                                 className="px-4 py-2 bg-ministry-text text-white rounded-lg font-bold hover:bg-ministry-orange flex items-center gap-2 shadow-sm"
                             >
                                 <Plus className="w-4 h-4" /> Add Vehicle

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useSafeAsync } from '../hooks/useSafeAsync';
 import { useNotification } from './ui/NotificationSystem';
 import { supabase } from '../services/supabaseClient';
@@ -34,8 +35,15 @@ const FollowUpDashboard: React.FC<FollowUpDashboardProps> = ({ onOpenModal, curr
     const canViewDatabase = true; // User requested all members in FollowUp see all tabs
 
     // Selection State
-
-    const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+    const [searchParams, setSearchParams] = useSearchParams();
+    const selectedEventId = searchParams.get('eventId') || null;
+    const setSelectedEventId = (id: string | null) => {
+        setSearchParams(prev => {
+            if (id) prev.set('eventId', id);
+            else prev.delete('eventId');
+            return prev;
+        }, { replace: true });
+    };
     const [showAddSoulForm, setShowAddSoulForm] = useState(false);
 
     // Link Copy State

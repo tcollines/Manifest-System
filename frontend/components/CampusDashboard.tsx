@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { User, MinistryEvent, ModalType, CampusActivity, CampusFinance } from '../types';
 import { Building2, Users, HeartHandshake, GraduationCap, DollarSign, Calendar } from 'lucide-react';
 import { CampusStore } from '../database/campusStore';
@@ -35,7 +35,15 @@ export default function CampusDashboard({ currentUser, events, onOpenModal, urlT
         if (urlTab) setActiveTab(urlTab);
     }, [urlTab]);
 
-    const [selectedEventId, setSelectedEventId] = useState<string>(''); // For filtering
+    const [searchParams, setSearchParams] = useSearchParams();
+    const selectedEventId = searchParams.get('eventId') || '';
+    const setSelectedEventId = (id: string) => {
+        setSearchParams(prev => {
+            if (id) prev.set('eventId', id);
+            else prev.delete('eventId');
+            return prev;
+        }, { replace: true });
+    };
 
     // Dashboard Data State
     const [activities, setActivities] = useState<CampusActivity[]>([]);

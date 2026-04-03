@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { PersonalVehicle, MinistryEvent } from '../../types';
 import { isServiceClosed, validatePlate } from '../../utils';
 import { ParkingStore } from '../../database/parkingStore';
@@ -46,6 +47,7 @@ export const CheckInTab: React.FC<CheckInTabProps> = ({
     setSelectedService
 }) => {
     const { showToast } = useNotification();
+    const [searchParams, setSearchParams] = useSearchParams();
     const initialFormState = {
         number_plate: '',
         driverName: '',
@@ -65,11 +67,13 @@ export const CheckInTab: React.FC<CheckInTabProps> = ({
         if (viewMode === 'register-new') {
             setViewMode('service-active');
             setFormData(initialFormState);
+            setSearchParams(prev => { prev.delete('view'); return prev; }, { replace: true });
             return;
         }
         setViewMode('list');
         setSelectedService(null);
         setSearchQuery('');
+        setSearchParams(prev => { prev.delete('view'); return prev; }, { replace: true });
     };
 
     const handleCheckIn = async (vehicleId: string) => {
@@ -229,7 +233,7 @@ export const CheckInTab: React.FC<CheckInTabProps> = ({
                                         <span className="hidden md:inline">Scan QR</span>
                                     </button>
                                     <button
-                                        onClick={() => setViewMode('register-new')}
+                                        onClick={() => { setViewMode('register-new'); setSearchParams(prev => { prev.set('view', 'register'); return prev; }, { replace: true }); }}
                                         className="flex items-center space-x-2 bg-ministry-orange text-white px-4 py-2 rounded-lg hover:bg-orange-600 shadow-md font-bold"
                                     >
                                         <Plus className="w-4 h-4" />
@@ -301,6 +305,7 @@ export const CheckInTab: React.FC<CheckInTabProps> = ({
                                                 onClick={() => {
                                                     setFormData({ ...initialFormState, number_plate: searchQuery.toUpperCase() }); 
                                                     setViewMode('register-new');
+                                                    setSearchParams(prev => { prev.set('view', 'register'); return prev; }, { replace: true });
                                                 }}
                                                 className="bg-ministry-text text-white px-6 py-2 rounded-lg font-bold hover:bg-gray-800"
                                             >

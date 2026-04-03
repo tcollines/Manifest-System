@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useNotification } from './ui/NotificationSystem';
 import { X, Plus, FileText, CheckCircle, Clock, AlertCircle, ChevronRight, Filter, DollarSign } from 'lucide-react';
 import { Requisition } from '../types';
@@ -11,7 +12,11 @@ interface RequisitionsViewProps {
 
 const RequisitionsView: React.FC<RequisitionsViewProps> = ({ currentUser }) => {
     const { showToast, confirm: askConfirm } = useNotification();
-    const [activeTab, setActiveTab] = useState<'Pending' | 'Approved'>('Pending');
+    const [searchParams, setSearchParams] = useSearchParams();
+    const activeTab = (searchParams.get('tab') as 'Pending' | 'Approved') || 'Pending';
+    const setActiveTab = (tab: 'Pending' | 'Approved') => {
+        setSearchParams(prev => { prev.set('tab', tab); return prev; }, { replace: true });
+    };
     const [viewMode, setViewMode] = useState<'list' | 'create'>('list');
     const [requisitions, setRequisitions] = useState<Requisition[]>([]);
     const [isLoading, setIsLoading] = useState(false);

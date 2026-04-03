@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useSafeAsync } from '../hooks/useSafeAsync';
 import { useNotification } from './ui/NotificationSystem';
 import { isEventLocked, isServiceClosed, validatePlate, validateContact, validateDriverIdentity } from '../utils';
@@ -285,7 +286,29 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
 
   // Bulk Selection & Delete State
   const [selectedMemberIds, setSelectedMemberIds] = useState<Set<string>>(new Set());
-  const [selectedEventId, setSelectedEventId] = useState<string>(events.find(e => e.type === 'Event')?.id || '');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const selectedEventId = searchParams.get('eventId') || events.find(e => e.type === 'Event')?.id || '';
+  const setSelectedEventId = (id: string) => {
+    setSearchParams(prev => {
+      if (id) prev.set('eventId', id);
+      else prev.delete('eventId');
+      return prev;
+    }, { replace: true });
+  };
+
+  // Sync viewMode when browser back/forward changes URL params
+  const urlView = searchParams.get('view');
+  const urlServiceId = searchParams.get('serviceId');
+  useEffect(() => {
+    // Browser back removed ?view= — snap out of the form
+    if (!urlView && viewMode === 'register-new') {
+      setViewMode(urlServiceId ? 'service-active' : 'list');
+    }
+    // Browser back removed ?serviceId= — snap out of service-active back to list
+    if (!urlServiceId && (viewMode === 'service-active' || viewMode === 'register-new')) {
+      setViewMode('list');
+    }
+  }, [urlView, urlServiceId]);
   const [coordinators, setCoordinators] = useState<User[]>([]);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deletePassword, setDeletePassword] = useState('');
@@ -755,6 +778,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
   const handleOpenService = async (service: MinistryEvent) => {
     setSelectedService(service);
     setViewMode('service-active');
+    setSearchParams(prev => { prev.set('serviceId', service.id); return prev; }, { replace: true });
     // Fetch initial stats
     const stats = await MemberStore.getServiceStats(service.id, service.date);
     const souls = await SoulsStore.getServiceStats(service.id);
@@ -801,10 +825,12 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
     // If we are in "Register New" mode and have an active service, go back to that service
     if (viewMode === 'register-new' && selectedService) {
       setViewMode('service-active');
+      setSearchParams(prev => { prev.delete('view'); return prev; }, { replace: true });
     } else {
       // Otherwise (from Service Dashboard OR from Register New with no service), go to list
       setViewMode('list');
       setSelectedService(null);
+      setSearchParams(prev => { prev.delete('serviceId'); prev.delete('view'); return prev; }, { replace: true });
     }
     setSearchQuery('');
     setFormData(initialForm);
@@ -2678,7 +2704,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
                       <Copy className="w-4 h-4" />
                     </button>
                   )}
-                  <button onClick={() => setViewMode('register-new')} className="flex items-center space-x-2 bg-ministry-orange text-white px-4 py-2 rounded-lg hover:bg-orange-600 shadow-md">
+                  <button onClick={() => { setViewMode('register-new'); setSearchParams(prev => { prev.set('view', 'register'); return prev; }, { replace: true }); }} className="flex items-center space-x-2 bg-ministry-orange text-white px-4 py-2 rounded-lg hover:bg-orange-600 shadow-md">
                     <UserPlus className="w-4 h-4" />
                     <span className="hidden md:inline">Register New</span>
                   </button>
@@ -2818,7 +2844,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
                     {searchQuery && filteredMembers.length === 0 && (
                       <div className="text-center pt-4">
                         <p className="text-gray-500 mb-2">Member not found?</p>
-                        <button onClick={() => setViewMode('register-new')} className="text-ministry-orange font-bold hover:underline">
+                        <button onClick={() => { setViewMode('register-new'); setSearchParams(prev => { prev.set('view', 'register'); return prev; }, { replace: true }); }} className="text-ministry-orange font-bold hover:underline">
                           Register New Member
                         </button>
                       </div>

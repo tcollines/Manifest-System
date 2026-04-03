@@ -75,17 +75,24 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
 
     const setSelectedService = (service: MinistryEvent | null) => {
         if (service) {
-            setSearchParams(prev => {
-                prev.set('eventId', service.id);
-                return prev;
-            });
+            setSearchParams(prev => { prev.set('eventId', service.id); return prev; }, { replace: true });
         } else {
-            setSearchParams(prev => {
-                prev.delete('eventId');
-                return prev;
-            });
+            setSearchParams(prev => { prev.delete('eventId'); return prev; }, { replace: true });
         }
     };
+
+    // Sync viewMode with URL when browser back/forward changes params
+    const urlView = searchParams.get('view');
+    useEffect(() => {
+        // Browser back removed ?eventId= while still in service view → go to list
+        if (!urlEventId && (viewMode === 'service-active' || viewMode === 'add-child')) {
+            setViewMode('list');
+        }
+        // Browser back removed ?view=add-child while still showing the form
+        if (!urlView && viewMode === 'add-child') {
+            setViewMode(urlEventId ? 'service-active' : 'list');
+        }
+    }, [urlEventId, urlView]);
 
     // Stats Filter State
     const [activeStatsFilter, setActiveStatsFilter] = useState<'All' | 'CheckIn' | 'CheckedOut' | 'FirstTimer' | 'Souls'>('All');
@@ -296,11 +303,13 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
         if (viewMode === 'add-child' && selectedService) {
             setViewMode('service-active');
             setFormData(initialForm);
+            setSearchParams(prev => { prev.delete('view'); return prev; }, { replace: true });
             return;
         }
 
         setViewMode('list');
         setSelectedService(null);
+        setSearchParams(prev => { prev.delete('view'); return prev; }, { replace: true });
         setSearchQuery('');
         setFormData(initialForm);
         setBulkText('');
@@ -912,7 +921,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                                     <span className="hidden md:inline">Export Excel</span>
                                 </button>
                                 <button
-                                    onClick={() => setViewMode('add-child')}
+                                    onClick={() => { setViewMode('add-child'); setSearchParams(prev => { prev.set('view', 'add-child'); return prev; }, { replace: true }); }}
                                     className="flex-1 md:flex-none flex items-center justify-center space-x-2 bg-ministry-text text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors"
                                 >
                                     <UserPlus className="w-4 h-4" />
@@ -1190,7 +1199,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                                             <>
 
                                                 <button
-                                                    onClick={() => setViewMode('add-child')}
+                                                    onClick={() => { setViewMode('add-child'); setSearchParams(prev => { prev.set('view', 'add-child'); return prev; }, { replace: true }); }}
                                                     className="flex items-center space-x-2 bg-ministry-orange text-white px-4 py-2 rounded-lg hover:bg-orange-600 shadow-md"
                                                 >
                                                     <UserPlus className="w-4 h-4" />

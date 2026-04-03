@@ -340,38 +340,6 @@ const SettingsView: React.FC<SettingsViewProps> = ({ users = [], openModal, onDe
 
     return (
         <div className="p-8 space-y-8 animate-in fade-in duration-500">
-            <div className="flex justify-between items-center">
-                <div>
-                    <h1 className="text-3xl font-bold text-ministry-text mb-1">Settings</h1>
-                    <p className="text-gray-500">Manage system users, ministry profile, and map configurations.</p>
-                </div>
-            </div>
-
-            <div className="flex space-x-1 bg-gray-100 p-1.5 rounded-xl w-fit">
-                <button
-                    onClick={() => setActiveTab('users')}
-                    className={`flex items-center space-x-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all ${activeTab === 'users' ? 'bg-black text-white shadow-md' : 'text-gray-500 hover:text-gray-900'}`}
-                >
-                    <Users className={`w-4 h-4 ${activeTab === 'users' ? 'text-ministry-neon' : ''}`} />
-                    <span>Team Members</span>
-                </button>
-                <button
-                    onClick={() => setActiveTab('profile')}
-                    className={`flex items-center space-x-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all ${activeTab === 'profile' ? 'bg-black text-white shadow-md' : 'text-gray-500 hover:text-gray-900'}`}
-                >
-                    <Shield className={`w-4 h-4 ${activeTab === 'profile' ? 'text-ministry-neon' : ''}`} />
-                    <span>My Profile</span>
-                </button>
-                {(isAdmin || isTeamLeader) && (
-                    <button
-                        onClick={() => setActiveTab('map')}
-                        className={`flex items-center space-x-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all ${activeTab === 'map' ? 'bg-black text-white shadow-md' : 'text-gray-500 hover:text-gray-900'}`}
-                    >
-                        <Map className={`w-4 h-4 ${activeTab === 'map' ? 'text-ministry-neon' : ''}`} />
-                        <span>Map Config</span>
-                    </button>
-                )}
-            </div>
 
             {activeTab === 'users' && (
                 <div className="bg-ministry-card border border-gray-200 rounded-2xl p-6 shadow-sm min-h-[500px]">

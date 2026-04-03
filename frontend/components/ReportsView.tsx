@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useNotification } from './ui/NotificationSystem';
 import { Download, Filter, FileText, DollarSign, Heart, ChevronDown, ClipboardList } from 'lucide-react';
 import { SERVICE_REPORT_DATA, FINANCIAL_REPORT_DATA, SOULS_CHANNELS_DATA } from '../constants';
@@ -15,7 +16,11 @@ interface ReportsViewProps {
 
 const ReportsView: React.FC<ReportsViewProps> = ({ currentUser }) => {
   const { showToast } = useNotification();
-  const [activeReport, setActiveReport] = useState<ReportType>('department'); // Default to Department for typical users? Or Service?
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeReport = (searchParams.get('tab') as ReportType) || 'department';
+  const setActiveReport = (tab: ReportType) => {
+    setSearchParams(prev => { prev.set('tab', tab); return prev; }, { replace: true });
+  };
   const [filter, setFilter] = useState<FilterType>('Monthly');
 
   const handleDownload = () => {

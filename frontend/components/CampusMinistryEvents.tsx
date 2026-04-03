@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { MinistryEvent } from '../types';
 import * as XLSX from 'xlsx';
 import html2pdf from 'html2pdf.js';
@@ -9,10 +10,32 @@ interface CampusMinistryEventsProps {
 }
 
 export default function CampusMinistryEvents({ events }: CampusMinistryEventsProps) {
-    const [selectedEvent, setSelectedEvent] = useState<MinistryEvent | null>(null);
+    const [searchParams, setSearchParams] = useSearchParams();
+    const selectedEventId = searchParams.get('eventId') || null;
+    const selectedEvent = events.find(e => e.id === selectedEventId) || null;
+
     const [eventPassengers, setEventPassengers] = useState<any[]>([]);
     const [isLoadingEvent, setIsLoadingEvent] = useState(false);
     const [filter, setFilter] = useState<'all' | 'first-timers' | 'souls-won'>('all');
+
+    const loadPassengers = async (eventId: string) => {
+        setIsLoadingEvent(true);
+        try {
+            const passengers = await apiFetch(`/events/${eventId}/passengers?category=Institution`);
+            setEventPassengers(Array.isArray(passengers) ? passengers : []);
+        } catch (error) {
+            console.error('Error fetching event details:', error);
+            setEventPassengers([]);
+        } finally {
+            setIsLoadingEvent(false);
+        }
+    };
+
+    // Auto-load when eventId appears in URL (e.g. on page refresh)
+    useEffect(() => {
+        if (selectedEventId) loadPassengers(selectedEventId);
+        else setEventPassengers([]);
+    }, [selectedEventId]);
 
     // Filter to show only 'Event' (not 'Service') and sort newest first
     const filteredEvents = events
@@ -20,20 +43,8 @@ export default function CampusMinistryEvents({ events }: CampusMinistryEventsPro
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
     const handleViewEvent = async (event: MinistryEvent) => {
-        setSelectedEvent(event);
-        setIsLoadingEvent(true);
-        try {
-            // Use backend API instead of direct Supabase queries.
-            // Direct Supabase queries are blocked by RLS policies for the anon key
-            // on pickup_stations and vehicles tables.
-            const passengers = await apiFetch(`/events/${event.id}/passengers?category=Institution`);
-            setEventPassengers(Array.isArray(passengers) ? passengers : []);
-        } catch (error) {
-            console.error("Error fetching event details:", error);
-            setEventPassengers([]);
-        } finally {
-            setIsLoadingEvent(false);
-        }
+        setSearchParams(prev => { prev.set('eventId', event.id); return prev; }, { replace: true });
+        // loadPassengers is triggered by the useEffect above
     };
 
     if (selectedEvent) {
@@ -140,7 +151,7 @@ export default function CampusMinistryEvents({ events }: CampusMinistryEventsPro
                     {/* Header Controls */}
                     <div className="flex items-center justify-between mb-4">
                         <button
-                            onClick={() => setSelectedEvent(null)}
+                            onClick={() => setSearchParams(prev => { prev.delete('eventId'); return prev; }, { replace: true })}
                             className="text-sm font-medium text-gray-500 hover:text-ministry-orange transition-colors flex items-center"
                         >
                             <span className="mr-2">←</span> Back to Events

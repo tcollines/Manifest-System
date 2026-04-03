@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useNotification } from './ui/NotificationSystem';
 import { PersonalVehicle, MinistryEvent, ModalType } from '../types';
 import {
@@ -30,6 +30,20 @@ const ParkingDashboard: React.FC<ParkingDashboardProps> = ({ currentUser, events
     // [PHASE F] activeTab is URL-driven when urlTab prop is provided.
     const [activeTab, setActiveTab] = useState<ParkingTab>(urlTab || 'checkin');
     const [viewMode, setViewMode] = useState<ViewMode>('list');
+    const [searchQuery, setSearchQuery] = useState('');
+    const [vehicles, setVehicles] = useState<PersonalVehicle[]>([]);
+
+    // URL-driven service selection — must be declared before urlTab effect
+    const [searchParams, setSearchParams] = useSearchParams();
+    const selectedServiceId = searchParams.get('serviceId') || null;
+    const selectedService = events.find(e => e.id === selectedServiceId) || null;
+    const setSelectedService = (svc: MinistryEvent | null) => {
+        setSearchParams(prev => {
+            if (svc) prev.set('serviceId', svc.id);
+            else prev.delete('serviceId');
+            return prev;
+        }, { replace: true });
+    };
 
     useEffect(() => {
         if (urlTab) {
@@ -41,9 +55,21 @@ const ParkingDashboard: React.FC<ParkingDashboardProps> = ({ currentUser, events
         }
     }, [urlTab]);
 
-    const [searchQuery, setSearchQuery] = useState('');
-    const [vehicles, setVehicles] = useState<PersonalVehicle[]>([]);
-    const [selectedService, setSelectedService] = useState<MinistryEvent | null>(null);
+    // Sync viewMode when browser back/forward changes URL params
+    const urlView = searchParams.get('view');
+    useEffect(() => {
+        // Browser back removed ?serviceId= while in service view → go to list
+        if (!selectedServiceId && (viewMode === 'service-active' || viewMode === 'register-new')) {
+            setViewMode('list');
+        }
+        // Browser back removed ?view= while a form was open
+        if (!urlView && viewMode === 'register-new') {
+            setViewMode(selectedServiceId ? 'service-active' : 'list');
+        }
+        if (!urlView && (viewMode === 'add-vehicle-db' || viewMode === 'bulk-add')) {
+            setViewMode('list');
+        }
+    }, [selectedServiceId, urlView]);
 
     const refreshData = async () => {
         const data = await ParkingStore.getAll();
