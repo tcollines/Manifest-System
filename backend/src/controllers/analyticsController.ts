@@ -79,12 +79,14 @@ export const getSoulsWon = async (req: Request, res: Response) => {
         // 1. Fetch individual souls from public.souls
         const { data: individualSouls, error: soulsError } = await supabase
             .from('souls')
-            .select('id, event_id')
+            .select('id, event_id, source_type')
             .eq('manifest_id', manifestId);
 
         if (!soulsError && individualSouls) {
             individualSouls.forEach((s: any) => {
-                if (s.event_id) {
+                if (s.source_type === 'Residential') {
+                    counts['Residency Outreach']++;
+                } else if (s.event_id) {
                     const type = eventTypeMap.get(s.event_id);
                     if (type === 'Service') counts['Services']++;
                     else if (type === 'Event') counts['Events']++;

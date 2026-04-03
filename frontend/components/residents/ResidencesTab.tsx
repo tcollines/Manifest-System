@@ -1,11 +1,24 @@
 import React, { useState } from 'react';
-import { Plus, Home, Check, ChevronRight, ChevronLeft, Search, Loader2, ChevronDown, ChevronUp, Trash2, Users, Activity, X } from 'lucide-react';
-import { Residence, Member } from '../../types';
+import { Plus, Home, Check, ChevronRight, ChevronLeft, Search, Loader2, ChevronDown, ChevronUp, Trash2, Users, Activity, X, Link as LinkIcon, Copy } from 'lucide-react';
+import { useNotification } from '../ui/NotificationSystem';
+import { Residence, Member, Soul, ResidenceOutreachReport } from '../../types';
 import { MemberStore } from '../../database/memberStore';
+import { SoulsStore } from '../../database/soulsStore';
 
-const ResidencesTab = ({ residences, reports, events, fetchResidenceMembers, deleteResidence, addResidence }: any) => {
+const ResidencesTab = ({ residences, reports, events, fetchResidenceMembers, deleteResidence, addResidence, addReport }: any) => {
+    const { showToast } = useNotification();
     const [showAddResidence, setShowAddResidence] = useState(false);
     const [showAddReport, setShowAddReport] = useState(false);
+    
+    const [residenceSouls, setResidenceSouls] = useState<Soul[]>([]);
+
+    React.useEffect(() => {
+        const fetchSouls = async () => {
+            const souls = await SoulsStore.getBySourceType('Residential');
+            setResidenceSouls(souls);
+        };
+        fetchSouls();
+    }, []);
 
     // 2-step Add Residence flow states
     const [addStep, setAddStep] = useState<1 | 2>(1);
@@ -598,10 +611,24 @@ const ResidencesTab = ({ residences, reports, events, fetchResidenceMembers, del
                                                                             <p className="text-sm font-semibold text-gray-700">Total Souls Won</p>
                                                                         </div>
                                                                         <p className="font-bold text-3xl text-green-600">
-                                                                            {reports.filter(r => r.residenceId === residence.id).reduce((sum, r) => sum + r.soulsWon, 0)}
+                                                                            {reports.filter((r: any) => r.residenceId === residence.id).reduce((sum: number, r: any) => sum + r.soulsWon, 0) + residenceSouls.filter(s => s.sourceId === residence.id).length}
                                                                         </p>
-                                                                        <p className="mt-1 text-xs text-gray-500">From outreach reports</p>
+                                                                        <p className="mt-1 text-xs text-gray-500">From reports & public entries</p>
                                                                     </div>
+                                                                </div>
+
+                                                                <div className="mb-6 flex space-x-3">
+                                                                    <button 
+                                                                        onClick={() => {
+                                                                            const link = `${window.location.origin}/collect-residency-souls/${residence.id}`;
+                                                                            navigator.clipboard.writeText(link);
+                                                                            showToast('Public Link copied to clipboard!', 'success');
+                                                                        }}
+                                                                        className="px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg text-sm font-bold flex items-center hover:bg-gray-50 transition-colors shadow-sm"
+                                                                    >
+                                                                        <LinkIcon className="w-4 h-4 mr-2 text-ministry-orange" />
+                                                                        Copy Public Entry Link
+                                                                    </button>
                                                                 </div>
 
                                                                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">

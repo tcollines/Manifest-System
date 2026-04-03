@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { supabase } from '../supabase';
+import { v4 as uuidv4 } from 'uuid';
 
 // Residences
 
@@ -56,7 +57,20 @@ export const addResidence = async (req: Request, res: Response) => {
                     // Do not fail the whole residence creation if auth fails, but log it.
                     // If the user already exists in auth but not public.users, we can still link them.
                     if (authError.message.includes('already been registered')) {
-                         console.log("User already exists in GoTrue auth, proceeding to create public profile.");
+                         console.log("User already exists in GoTrue auth, attempting to find existing profile for ID.");
+                         const { data: globalMatch } = await supabase
+                            .from('users')
+                            .select('id')
+                            .eq('email', coordinator_email)
+                            .order('created_at', { ascending: true })
+                            .limit(1)
+                            .maybeSingle();
+                         
+                         if (globalMatch) {
+                             authUserId = globalMatch.id;
+                         } else {
+                             authUserId = uuidv4(); // Fallback if absolutely no record exists to satisfy not-null
+                         }
                     } else {
                          throw new Error('Failed to provision authentication credentials: ' + authError.message);
                     }
@@ -69,8 +83,7 @@ export const addResidence = async (req: Request, res: Response) => {
                 }
 
                 // Insert public profile, linking ID if Auth was created
-                const newProfile = {
-                    id: authUserId || undefined, // undefined lets DB auto-generate if auth creation failed but we still want the profile
+                const newProfile: any = {
                     manifest_id: manifestId,
                     name: coordinator_name,
                     email: coordinator_email,
@@ -79,13 +92,19 @@ export const addResidence = async (req: Request, res: Response) => {
                     role: 'Resident Coordinator',
                     status: 'Active'
                 };
+                
+                if (authUserId) {
+                    newProfile.id = authUserId;
+                } else {
+                    newProfile.id = uuidv4();
+                }
 
                 const { error: dbError } = await supabase.from('users').insert([newProfile]);
 
                 if (dbError) {
                     console.error("[addResidence] DB Insert failed for coordinator", dbError);
-                    // Rollback Auth if DB fails
-                    if (authUserId) {
+                    // Rollback Auth if DB fails and we created it
+                    if (authUserId && !authError) {
                         await supabase.auth.admin.deleteUser(authUserId);
                     }
                     throw dbError;

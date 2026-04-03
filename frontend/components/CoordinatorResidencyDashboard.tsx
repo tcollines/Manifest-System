@@ -1,18 +1,19 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Home, Users, Search, Filter, FileText, ChevronRight, Phone, Target, TrendingUp, Calendar, MapPin, CheckCircle2, Circle, ClipboardList, Loader2 } from 'lucide-react';
+import { Home, Users, Search, Filter, FileText, ChevronRight, Phone, Target, TrendingUp, Calendar, MapPin, CheckCircle2, Circle, ClipboardList, Loader2, Link as LinkIcon, Activity } from 'lucide-react';
 import { MemberStore } from '../database/memberStore';
-import { EventStore } from '../database/eventStore'; // Added to fetch active events
+import { EventStore } from '../database/eventStore';
 import { VehicleStore } from '../database/vehicleStore'; // Added to store passenger confirmations
 import { useResidentStore } from '../database/residentStore';
+import { SoulsStore } from '../database/soulsStore';
 import { useNotification } from './ui/NotificationSystem';
-import { Member, Residence, MinistryEvent, Passenger, User, ResidenceOutreachReport } from '../types';
+import { Member, Residence, MinistryEvent, Passenger, User, ResidenceOutreachReport, Soul } from '../types';
 
 interface CoordinatorResidencyDashboardProps {
     currentUser: User | null;
 }
 
 const CoordinatorResidencyDashboard: React.FC<CoordinatorResidencyDashboardProps> = ({ currentUser }) => {
-    const { residences, fetchResidences, fetchResidenceMembers, addReport } = useResidentStore();
+    const { residences, fetchResidences, fetchResidenceMembers, addReport, reports, fetchReports } = useResidentStore();
     const { showToast } = useNotification();
     const [myResidence, setMyResidence] = useState<Residence | null>(null);
     const [events, setEvents] = useState<MinistryEvent[]>([]); // New state for events
@@ -20,6 +21,7 @@ const CoordinatorResidencyDashboard: React.FC<CoordinatorResidencyDashboardProps
     const [selectedEvent, setSelectedEvent] = useState<MinistryEvent | null>(null); // State for Custom Event view
     const [activeTab, setActiveTab] = useState<'reports' | 'members' | 'events'>('reports'); // Added 'events' tab
     const [members, setMembers] = useState<Member[]>([]);
+    const [residenceSouls, setResidenceSouls] = useState<Soul[]>([]);
     const [isLoadingInit, setIsLoadingInit] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -35,6 +37,7 @@ const CoordinatorResidencyDashboard: React.FC<CoordinatorResidencyDashboardProps
             try {
                 // Force a fresh fetch to ensure we have the latest residences
                 await fetchResidences();
+                await fetchReports();
             } catch (err) {
                 console.error("Failed to fetch residences:", err);
             }
@@ -64,6 +67,9 @@ const CoordinatorResidencyDashboard: React.FC<CoordinatorResidencyDashboardProps
                     const allEvents = eventsResponse.data || [];
                     setEvents(allEvents.filter(e => e.type === 'Event'));
                 }
+            });
+            SoulsStore.getBySourceType('Residential').then(souls => {
+                setResidenceSouls(souls);
             });
         }
     }, [myResidence, fetchResidenceMembers]);
@@ -208,6 +214,30 @@ const CoordinatorResidencyDashboard: React.FC<CoordinatorResidencyDashboardProps
                         <div className="flex items-center gap-1.5 bg-white/10 px-3 py-1.5 rounded-full backdrop-blur-sm">
                             <ClipboardList className="w-4 h-4" />
                             <span>Coordinator View</span>
+                        </div>
+                        
+                        <button 
+                            onClick={() => {
+                                const link = `${window.location.origin}/collect-residency-souls/${myResidence.id}`;
+                                navigator.clipboard.writeText(link);
+                                showToast('Public Link copied to clipboard!', 'success');
+                            }}
+                            className="flex items-center gap-1.5 bg-ministry-orange text-white px-4 py-1.5 rounded-full font-bold shadow-sm hover:bg-orange-600 transition-colors cursor-pointer"
+                        >
+                            <LinkIcon className="w-4 h-4" />
+                            <span>Copy Public Entry Link</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div className="absolute right-8 top-1/2 -translate-y-1/2 hidden md:flex flex-col items-end">
+                    <div className="bg-white/10 backdrop-blur-md border border-white/20 p-4 rounded-2xl text-right">
+                        <div className="flex items-center gap-2 justify-end text-orange-200 mb-1">
+                            <Activity className="w-4 h-4" />
+                            <span className="text-sm font-semibold uppercase tracking-wider">Total Souls Won</span>
+                        </div>
+                        <div className="text-4xl font-extrabold text-white">
+                            {reports.filter((r: any) => r.residence_id === myResidence.id).reduce((sum: number, r: any) => sum + r.souls_won, 0) + residenceSouls.filter(s => s.sourceId === myResidence.id).length}
                         </div>
                     </div>
                 </div>

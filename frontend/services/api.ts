@@ -101,3 +101,40 @@ export const apiFetch = async (endpoint: string, options: RequestInit & { token?
         throw error;
     }
 };
+
+export const apiFetchPublic = async (endpoint: string, options: RequestInit = {}) => {
+    const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        ...((options.headers as Record<string, string>) || {}),
+    };
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+    try {
+        const fetchOptions: RequestInit = {
+            ...options,
+            headers,
+            signal: controller.signal
+        };
+
+        if (options.method === 'GET' || !options.method) {
+            fetchOptions.cache = 'no-store';
+        }
+
+        const res = await fetch(`${API_URL}${endpoint}`, fetchOptions);
+        clearTimeout(timeoutId);
+
+        if (!res.ok) {
+            const text = await res.text();
+            let errorBody;
+            try { errorBody = JSON.parse(text); } catch {}
+            throw new Error(errorBody?.details || errorBody?.error || `API Error (${res.status}): ${text || res.statusText}`);
+        }
+        return await res.json();
+    } catch (error: any) {
+        clearTimeout(timeoutId);
+        if (error.name === 'AbortError') throw new Error('Request timed out');
+        throw error;
+    }
+};

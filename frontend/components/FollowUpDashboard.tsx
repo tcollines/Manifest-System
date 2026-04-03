@@ -816,7 +816,9 @@ const FollowUpDashboard: React.FC<FollowUpDashboardProps> = ({ onOpenModal, curr
                                         {soul.sourceType}
                                     </span>
                                     <div className="text-xs text-gray-500 mt-0.5">
-                                        {soul.sourceType === 'Healing Dept'
+                                        {soul.sourceType === 'Residential' 
+                                            ? 'Residential Area'
+                                            : soul.sourceType === 'Healing Dept'
                                             ? (soul.notes?.replace('Healing Outreach: ', '') || 'Hospital Outreach')
                                             : soul.sourceType === 'Campus'
                                                 ? (soul.campusCategory || 'Campus Outreach')

@@ -22,9 +22,11 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 import { authenticate } from './middleware/auth';
 import authRoutes from './routes/authRoutes';
+import publicRoutes from './routes/publicRoutes'; // NEW public routes
 
 // Public endpoints
 app.use('/api/auth', authRoutes);
+app.use('/api/public', publicRoutes);
 
 // Protected endpoints
 // Public Health & Root Routes

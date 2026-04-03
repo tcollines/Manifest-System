@@ -312,7 +312,7 @@ export interface Soul {
   gender: 'Male' | 'Female';
   residence: string;
   status: 'New' | 'Contacted' | 'Visited' | 'Integrated' | 'Lost' | 'Confirmed';
-  sourceType: 'Service' | 'Event' | 'Outreach' | 'Other' | 'Healing Dept' | 'Campus';
+  sourceType: 'Service' | 'Event' | 'Outreach' | 'Other' | 'Healing Dept' | 'Campus' | 'Residential';
   sourceId?: string;
   capturedBy?: string; // User ID or Name
   notes?: string;
