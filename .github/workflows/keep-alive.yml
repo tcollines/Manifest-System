@@ -13,12 +13,12 @@ jobs:
       - name: Ping Backend Health Endpoint
         run: |
           echo "Pinging backend at $(date)..."
-          # --max-time 60: wait up to 60s for Render cold start
-          # --retry 2: retry on failure
-          status_code=$(curl -o /dev/null -s -w "%{http_code}" --max-time 60 --retry 2 -L "https://manifest-system-esft.onrender.com/api/health")
+          # || echo "000" prevents curl's own exit code from failing the step
+          # The sole purpose of this job is to send a request to wake Render up
+          status_code=$(curl -o /dev/null -s -w "%{http_code}" --max-time 60 -L "https://manifest-system-esft.onrender.com/api/health" || echo "000")
           echo "Backend responded with HTTP status: $status_code"
-          if [ "$status_code" -ne 200 ]; then
-            echo "Warning: Backend returned $status_code (not 200). Render may be restarting."
-          else
+          if [ "$status_code" = "200" ]; then
             echo "Backend is alive and healthy."
+          else
+            echo "Notice: Backend returned $status_code — Render cold start in progress or server restarting. This is not a failure."
           fi
