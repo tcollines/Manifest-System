@@ -9,9 +9,7 @@ interface SettingsLayoutProps {
 }
 
 const TABS: ModuleTab[] = [
-  { to: '/settings/users',    label: 'Users',    icon: <Users size={16} /> },
   { to: '/settings/map',      label: 'Map',      icon: <Map size={16} /> },
-  { to: '/settings/profile',  label: 'Profile',  icon: <Shield size={16} /> },
   { to: '/settings/manifest', label: 'Manifest', icon: <LayoutList size={16} /> },
 ];
 

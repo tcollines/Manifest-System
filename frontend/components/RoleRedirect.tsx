@@ -4,21 +4,37 @@ import { getDashboardForUser } from '../utils';
 import { User } from '../types';
 import { apiFetch } from '../services/api';
 
-// [FIX 4] Async handler ONLY for Head of Dept — preserves existing API dependency
-// All other roles get an immediate declarative <Navigate />, no useEffect, no spinner.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Fast-path for custom dept HODs: departmentId is already a UUID → no API call needed
 const HeadOfDeptRedirect: React.FC<{ user: User }> = ({ user }) => {
+  if (user.departmentId && UUID_RE.test(user.departmentId)) {
+    return <Navigate to={`/departments/${user.departmentId}/dashboard`} replace />;
+  }
+  // Slow-path: legacy code-based HOD (e.g. 'd4', 'finance') needs API to resolve route
+  return <HeadOfDeptAsyncRedirect user={user} />;
+};
+
+const HeadOfDeptAsyncRedirect: React.FC<{ user: User }> = ({ user }) => {
   const [target, setTarget] = useState<string | null>(null);
 
   useEffect(() => {
     apiFetch('/departments')
       .then(data => {
         const myDept = data.find((d: any) =>
-          d.id === user.departmentUid || d.code === user.departmentId
+          d.id === user.departmentId ||
+          d.id === user.departmentUid ||
+          d.code === user.departmentId
         );
-        // Safe fallback: /setup-account instead of /dashboard (avoids ProtectedRoute loop)
-        setTarget(myDept?.dashboardRoute || '/setup-account');
+        if (myDept?.dashboardRoute) {
+          setTarget(myDept.dashboardRoute);
+        } else if (myDept?.id) {
+          setTarget(`/departments/${myDept.id}/dashboard`);
+        } else {
+          setTarget(getDashboardForUser(user));
+        }
       })
-      .catch(() => setTarget('/setup-account')); // explicit, not silent /dashboard
+      .catch(() => setTarget(getDashboardForUser(user)));
   }, [user]);
 
   if (!target) {
@@ -31,13 +47,11 @@ const HeadOfDeptRedirect: React.FC<{ user: User }> = ({ user }) => {
   return <Navigate to={target} replace />;
 };
 
-// [FIX 4] Main component — synchronous + declarative for all roles except Head of Dept
-// Replaces imperative useEffect + navigate() pattern that fired on every '/' visit
+// Main component — synchronous for all roles except Head of Dept
 const RoleRedirect: React.FC<{ user: User }> = ({ user }) => {
   if (user.role === 'Head of Dept') {
     return <HeadOfDeptRedirect user={user} />;
   }
-  // Immediate redirect — no mount side-effect, no spinner, no navigate() call
   return <Navigate to={getDashboardForUser(user)} replace />;
 };
 

@@ -17,9 +17,11 @@ interface ReportsViewProps {
 const ReportsView: React.FC<ReportsViewProps> = ({ currentUser }) => {
   const { showToast } = useNotification();
   const [searchParams, setSearchParams] = useSearchParams();
-  const activeReport = (searchParams.get('tab') as ReportType) || 'department';
-  const setActiveReport = (tab: ReportType) => {
-    setSearchParams(prev => { prev.set('tab', tab); return prev; }, { replace: true });
+  const VALID_REPORT_TYPES: ReportType[] = ['service', 'financial', 'souls', 'department'];
+  const rawReport = searchParams.get('report') as ReportType;
+  const activeReport: ReportType = VALID_REPORT_TYPES.includes(rawReport) ? rawReport : 'department';
+  const setActiveReport = (report: ReportType) => {
+    setSearchParams(prev => { prev.set('report', report); return prev; }, { replace: true });
   };
   const [filter, setFilter] = useState<FilterType>('Monthly');
 

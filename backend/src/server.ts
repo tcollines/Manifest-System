@@ -63,6 +63,8 @@ import reportRoutes from './routes/reportRoutes';
 import departmentRoutes from './routes/departmentRoutes';
 import campusRoutes from './routes/campusRoutes';
 import residentRoutes from './routes/residentRoutes';
+import scheduleRoutes from './routes/scheduleRoutes';
+import workplanRoutes from './routes/workplanRoutes';
 // pg Client import removed — was only used by the deleted /api/admin/sql endpoint
 
 app.use('/api/users', userRoutes);
@@ -84,6 +86,8 @@ app.use('/api/healing', healingRoutes);
 app.use('/api/departments', departmentRoutes);
 app.use('/api/campus', campusRoutes);
 app.use('/api/residents', residentRoutes);
+app.use('/api/schedules', scheduleRoutes);
+app.use('/api/workplans', workplanRoutes);
 
 
 app.listen(PORT, async () => {

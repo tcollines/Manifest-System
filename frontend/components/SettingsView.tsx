@@ -113,7 +113,18 @@ const SettingsView: React.FC<SettingsViewProps> = ({ users = [], openModal, onDe
             try {
                 const { apiFetch } = await import('../services/api');
                 const data = await apiFetch('/departments');
-                if (Array.isArray(data)) setDepartments(data);
+                if (Array.isArray(data)) {
+                    // Merge: start with static depts, append custom DB-only depts
+                    const staticIds = new Set(DEPARTMENTS.map((d: any) => d.id));
+                    const customDepts = data
+                        .filter((d: any) => d.is_custom)
+                        .map((d: any) => ({ id: d.id, name: d.name, slug: d.slug }));
+                    const merged = [
+                        ...DEPARTMENTS,
+                        ...customDepts.filter((d: any) => !staticIds.has(d.id)),
+                    ];
+                    setDepartments(merged);
+                }
             } catch (e) {
                 console.error("Failed to load departments in settings", e);
             }

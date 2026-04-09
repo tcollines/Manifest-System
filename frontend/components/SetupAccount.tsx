@@ -23,6 +23,34 @@ const SetupAccount: React.FC<SetupAccountProps> = ({ currentUser, onComplete, on
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [isGoogleUser, setIsGoogleUser] = useState(false);
 
+    // Resolve dept name — handles both static and custom (DB) departments
+    const [deptName, setDeptName] = useState<string>(() =>
+        DEPARTMENTS.find(d =>
+            d.id === currentUser.departmentId ||
+            d.slug === currentUser.departmentId ||
+            d.code === currentUser.departmentId
+        )?.name || currentUser.departmentId || ''
+    );
+
+    useEffect(() => {
+        if (!currentUser.departmentId) return;
+        const inStatic = DEPARTMENTS.some(d =>
+            d.id === currentUser.departmentId ||
+            d.slug === currentUser.departmentId ||
+            d.code === currentUser.departmentId
+        );
+        if (!inStatic) {
+            import('../services/api').then(({ apiFetch }) => {
+                apiFetch('/departments')
+                    .then((data: any[]) => {
+                        const found = Array.isArray(data) && data.find(d => d.id === currentUser.departmentId);
+                        if (found?.name) setDeptName(found.name);
+                    })
+                    .catch(() => {});
+            });
+        }
+    }, [currentUser.departmentId]);
+
     useEffect(() => {
         // Detect if the current session was created via Google OAuth
         supabase.auth.getSession().then(({ data: { session } }) => {
@@ -161,7 +189,7 @@ const SetupAccount: React.FC<SetupAccountProps> = ({ currentUser, onComplete, on
                                     <div>
                                         <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Department</label>
                                         <p className="text-sm font-semibold text-white">
-                                            {DEPARTMENTS.find(d => d.id === currentUser.departmentId || d.slug === currentUser.departmentId || d.code === currentUser.departmentId)?.name || currentUser.departmentId}
+                                            {deptName}
                                         </p>
                                     </div>
                                 )}

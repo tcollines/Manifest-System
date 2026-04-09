@@ -173,12 +173,16 @@ export const createUser = async (req: Request, res: Response) => {
 };
 
 const ROLE_RANK: Record<string, number> = {
-    'Member': 1,
-    'Logistics': 2,
-    'Coordinator': 3,
-    'TeamLeader': 4,
-    'Administrator': 5,
-    'Super Admin': 6
+    'Member':       1,
+    'Dept Finance': 2,
+    'Dept Admin':   3,
+    'HOD':          4,
+    'Head of Dept': 4,
+    'Logistics':    2,
+    'Coordinator':  3,
+    'TeamLeader':   5,
+    'Administrator':6,
+    'Super Admin':  7
 };
 
 export const updateUser = async (req: Request, res: Response) => {
@@ -321,14 +325,16 @@ export const updateUser = async (req: Request, res: Response) => {
             }
         }
 
-        // D) Log Successful Role Mutation
+        // D) Log Successful Role Mutation (non-critical — never block the update)
         if (payload.role && oldRole !== payload.role) {
-            await supabase.from('role_change_log').insert([{
+            supabase.from('role_change_log').insert([{
                 user_id: id,
                 old_role: oldRole,
                 new_role: payload.role,
                 changed_by: authUser.id
-            }]);
+            }]).then(({ error: logErr }) => {
+                if (logErr) console.warn('[updateUser] role_change_log insert failed (non-fatal):', logErr.message);
+            });
         }
 
         res.json({ message: 'User updated' });

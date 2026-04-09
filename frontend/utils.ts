@@ -198,8 +198,16 @@ export const getDashboardForUser = (user: User): string => {
         case 'd9': return '/campus';
         // [FIX 5] Changed from /dashboard → /setup-account.
         // /dashboard is protected (Admin only) — unknown dept users were caught in an infinite loop.
-        // /setup-account is a safe landing that prompts profile completion.
-        default: return '/setup-account';
+        // [FIX 6] Custom department UUIDs now route to GenericDeptDashboard.
+        // A UUID is 36 chars with dashes — if it matches that pattern it's a custom dept.
+        default: {
+            const id = user.departmentId;
+            if (id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+                return `/departments/${id}/dashboard`;
+            }
+            // Truly unknown — prompt setup
+            return '/setup-account';
+        }
     }
 };
 

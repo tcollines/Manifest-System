@@ -489,6 +489,12 @@ export interface Department {
   headId?: string;
   dashboardRoute?: string;
   status?: 'Active' | 'Inactive';
+  // New fields (from 18_new_department_system.sql)
+  description?: string;
+  icon?: string;
+  isCustom?: boolean;
+  createdBy?: string;
+  createdAt?: string;
   // Computed/Joined fields
   headName?: string;
   members?: number;
@@ -530,4 +536,121 @@ export interface ReportSubmission {
 export type ServiceResponse<T> =
   | { status: 'success'; data: T; count?: number }
   | { status: 'error'; message: string; error?: any };
+
+// ─────────────────────────────────────────────────────────────
+// NEW DEPARTMENT SYSTEM TYPES (migration 18)
+// ─────────────────────────────────────────────────────────────
+
+export type DeptRole = 'HOD' | 'Dept Admin' | 'Dept Finance' | 'Member';
+
+export interface DeptMember {
+  id: string;
+  departmentId: string;
+  userId: string;
+  deptRole: DeptRole;
+  createdAt?: string;
+  // Joined
+  userName?: string;
+  userEmail?: string;
+}
+
+export interface DeptChurchMember {
+  id: string;
+  departmentId: string;
+  memberId: string;
+  servingRole: string;
+  joinedDate?: string;
+  createdAt?: string;
+  // Joined from members table
+  memberName?: string;
+  phoneNumber?: string;
+  residence?: string;
+  // Joined from users table (Auth Linking)
+  userId?: string;
+  linkedUserName?: string;
+  linkedUserEmail?: string;
+  linkedUserStatus?: string;
+}
+
+export interface ScheduleAssignment {
+  id: string;
+  sessionId: string;
+  roleLabel: string;
+  ministerName: string;
+  memberId?: string;
+  sequence: number;
+  createdAt?: string;
+}
+
+export interface ScheduleSession {
+  id: string;
+  scheduleId: string;
+  sessionLabel: string;
+  sessionDate: string;
+  arrivalTime: string;
+  sequence: number;
+  notes?: string;
+  createdAt?: string;
+  // Joined
+  assignments?: ScheduleAssignment[];
+}
+
+export interface ServiceSchedule {
+  id: string;
+  manifestId: string;
+  departmentId: string;
+  departmentName?: string;
+  title: string;
+  weekStart: string;
+  status: 'Draft' | 'Published';
+  notes?: string;
+  createdBy?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  // Joined
+  sessions?: ScheduleSession[];
+}
+
+export interface WorkplanActivity {
+  activity: string;               // ACTIVITY — what is being done
+  item: string;                   // ITEM — specific resource/product
+  objective: string;              // OBJECTIVE — purpose
+  dateNeeded: string;             // DATE NEEDED
+  duration: string;               // DURATION — Monthly, Once, Weekly, etc.
+  unitCost: number;               // UNIT COST
+  quantity: number;               // Quantity (used to auto-calc total)
+  totalAmount: number;            // TOTAL AMOUNT
+  departmentalContribution?: string; // DEPARTMENTAL CONTRIBUTION (optional)
+}
+
+export interface MonthlyWorkplan {
+  id: string;
+  manifestId: string;
+  departmentId: string;
+  title: string;
+  month: string; // ISO date — first of month
+  objectives?: string;
+  activities: WorkplanActivity[];
+  status: 'Draft' | 'Submitted' | 'Approved';
+  createdBy?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  // Joined
+  departmentName?: string;
+}
+
+export interface DeptFinanceEntry {
+  id: string;
+  manifestId: string;
+  departmentId: string;
+  type: 'Income' | 'Expense';
+  category: string;
+  amount: number;
+  description?: string;
+  date: string;
+  recordedBy?: string;
+  createdAt?: string;
+  // Joined
+  recordedByName?: string;
+}
 

@@ -6,18 +6,21 @@ import PublicResidentSoulEntry from './components/PublicResidentSoulEntry';
 import AcceptInvite from './components/AcceptInvite';
 
 import { NotificationProvider } from './components/ui/NotificationSystem';
+import { AuthProvider } from './context/AuthContext';
 
 const Root: React.FC = () => {
     return (
         <NotificationProvider>
-            <Router>
-                <Routes>
-                    <Route path="/collect-souls/:eventId" element={<PublicSoulEntry />} />
-                    <Route path="/collect-residency-souls/:residenceId" element={<PublicResidentSoulEntry />} />
-                    <Route path="/accept-invite" element={<AcceptInvite />} />
-                    <Route path="*" element={<App />} />
-                </Routes>
-            </Router>
+            <AuthProvider>
+                <Router>
+                    <Routes>
+                        <Route path="/collect-souls/:eventId" element={<PublicSoulEntry />} />
+                        <Route path="/collect-residency-souls/:residenceId" element={<PublicResidentSoulEntry />} />
+                        <Route path="/accept-invite" element={<AcceptInvite />} />
+                        <Route path="*" element={<App />} />
+                    </Routes>
+                </Router>
+            </AuthProvider>
         </NotificationProvider>
     );
 };

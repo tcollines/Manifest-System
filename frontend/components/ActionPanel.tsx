@@ -20,6 +20,33 @@ interface ActionPanelProps {
 
 const ActionPanel: React.FC<ActionPanelProps> = ({ modalType, closeModal, onSave, onSaveUser, onUpdateUser, currentUser, targetUser }) => {
   const { showToast } = useNotification();
+
+  // Merged static + dynamic departments for the dropdown
+  const [allDepartments, setAllDepartments] = useState<{ id: string; name: string }[]>(DEPARTMENTS);
+
+  useEffect(() => {
+    // Fetch custom departments from DB and append to DEPARTMENTS constant
+    import('../services/api').then(({ apiFetch }) => {
+      apiFetch('/departments')
+        .then((data: any[]) => {
+          if (!Array.isArray(data)) return;
+          const custom = data
+            .filter((d: any) => d.is_custom)
+            .map((d: any) => ({ id: d.id, name: d.name }));
+          if (custom.length > 0) {
+            // Merge: static first, then custom, de-duped by id
+            const staticIds = new Set(DEPARTMENTS.map(d => d.id));
+            const merged = [
+              ...DEPARTMENTS,
+              ...custom.filter(d => !staticIds.has(d.id)),
+            ].sort((a, b) => a.name.localeCompare(b.name));
+            setAllDepartments(merged);
+          }
+        })
+        .catch(() => { /* fallback: use static */ });
+    });
+  }, []);
+
   const [formData, setFormData] = useState({
     title: '',
     date: new Date().toISOString().split('T')[0],
@@ -38,7 +65,7 @@ const ActionPanel: React.FC<ActionPanelProps> = ({ modalType, closeModal, onSave
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const isAdmin = currentUser?.role === 'Administrator';
+  const isAdmin = currentUser?.role === 'Administrator' || currentUser?.role === 'Super Admin';
   const isTeamLeader = currentUser?.role === 'TeamLeader';
 
   // Reset form when modal opens
@@ -55,7 +82,9 @@ const ActionPanel: React.FC<ActionPanelProps> = ({ modalType, closeModal, onSave
       email: '',
       contact: '256', // Initialize with 256
       // If not admin/team leader, lock to current user's department
-      departmentId: !isAdmin && !isTeamLeader && currentUser?.departmentId ? currentUser.departmentId : (DEPARTMENTS.length > 0 ? DEPARTMENTS[0].id : ''),
+      departmentId: !isAdmin && !isTeamLeader && currentUser?.departmentId
+        ? currentUser.departmentId
+        : (allDepartments.length > 0 ? allDepartments[0].id : ''),
 
       role: isTeamLeader ? 'Administrator' : 'Dept Admin' // Default role for Team Leader adds is Admin
     });
@@ -377,13 +406,13 @@ const ActionPanel: React.FC<ActionPanelProps> = ({ modalType, closeModal, onSave
                     >
                       {/* Dynamic Role Options based on Permissions */}
                       {(() => {
-                        const allRoles = ['Dept Admin', 'Member', 'Head of Dept', 'Administrator', 'TeamLeader', 'Logistics', 'Coordinator', 'Resident Coordinator'];
+                        const allRoles = ['HOD', 'Dept Admin', 'Dept Finance', 'Member', 'Head of Dept', 'Administrator', 'TeamLeader', 'Logistics', 'Coordinator', 'Resident Coordinator'];
                         let allowedRoles = allRoles;
 
                         if (isAdmin || isTeamLeader) {
                           allowedRoles = allRoles;
                         } else if (currentUser?.role === 'Head of Dept') {
-                          allowedRoles = ['Dept Admin', 'Member'];
+                          allowedRoles = ['Dept Admin', 'Dept Finance', 'Member'];
                         } else if (currentUser?.role === 'Dept Admin') {
                           allowedRoles = ['Member'];
                         }
@@ -406,7 +435,7 @@ const ActionPanel: React.FC<ActionPanelProps> = ({ modalType, closeModal, onSave
                       disabled={!canEditDept}
                       className={`w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-ministry-text focus:outline-none focus:border-ministry-orange ${!canEditDept ? 'opacity-60 bg-gray-100 cursor-not-allowed' : ''}`}
                     >
-                      {DEPARTMENTS.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                      {allDepartments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                     </select>
                   </div>
                 </div>
