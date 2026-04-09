@@ -71,7 +71,7 @@ export const UserStore = {
       // Secure Backend Login Proxy
       let authResult;
       try {
-        const apiUrl = (import.meta as any).env.VITE_API_URL || 'http://localhost:5000/api';
+        const apiUrl = (import.meta as any).env.VITE_API_URL || 'https://manifest-system-esft.onrender.com/api';
         const response = await fetch(`${apiUrl}/auth/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
