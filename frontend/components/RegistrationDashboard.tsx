@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate, useParams } from 'react-router-dom';
 import { useSafeAsync } from '../hooks/useSafeAsync';
 import { useNotification } from './ui/NotificationSystem';
 import { isEventLocked, isServiceClosed, validatePlate, validateContact, validateDriverIdentity } from '../utils';
@@ -85,6 +85,8 @@ const sanitize = (val: string | undefined): string | undefined => (!val || val.t
 
 const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, currentUser, onOpenModal, refreshParentData, urlTab }) => {
   const { showToast, confirm: askConfirm } = useNotification();
+  const navigate = useNavigate();
+  const { deptId = 'd1' } = useParams();
 
   // [PHASE B] activeTab is now URL-driven when urlTab prop is provided.
   // Internal state is kept as a fallback for Logistics role-forcing effects.
@@ -2609,8 +2611,59 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
         </div>
       </div>
 
-      {/* [PHASE B] Tab bar removed — RegistrationLayout renders NavLink tabs */}
-      {/* Internal header still shown for Logistics (who see a different title) */}
+      {/* Tabs */}
+      {!isLogisticsRole && (
+        <div className="inline-flex items-center gap-1 bg-gray-50 p-1.5 rounded-2xl mb-8 mt-4 border border-gray-100 ml-4 md:ml-0">
+          <button
+            onClick={() => {
+              setActiveTab('checkin');
+              setViewMode('list');
+              setSearchParams(prev => { prev.delete('view'); prev.delete('serviceId'); return prev; }, { replace: true });
+              navigate(`/departments/${deptId}/check-in`);
+            }}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${
+              effectiveTab === 'checkin'
+                ? 'bg-black text-white shadow-sm'
+                : 'bg-transparent text-gray-500 hover:text-gray-900 hover:bg-gray-200/50'
+            }`}
+          >
+            <CheckCircle strokeWidth={2.5} className={`w-4 h-4 ${effectiveTab === 'checkin' ? 'text-[#c2ff00]' : 'text-gray-400'}`} />
+            Check-In
+          </button>
+          <button
+            onClick={() => {
+              setActiveTab('events');
+              setViewMode('list');
+              setSearchParams(prev => { prev.delete('view'); prev.delete('serviceId'); return prev; }, { replace: true });
+              navigate(`/departments/${deptId}/events`);
+            }}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${
+              effectiveTab === 'events'
+                ? 'bg-black text-white shadow-sm'
+                : 'bg-transparent text-gray-500 hover:text-gray-900 hover:bg-gray-200/50'
+            }`}
+          >
+            <Calendar strokeWidth={2.5} className={`w-4 h-4 ${effectiveTab === 'events' ? 'text-[#c2ff00]' : 'text-gray-400'}`} />
+            Events
+          </button>
+          <button
+            onClick={() => {
+              setActiveTab('database');
+              setViewMode('list');
+              setSearchParams(prev => { prev.delete('view'); prev.delete('serviceId'); return prev; }, { replace: true });
+              navigate(`/departments/${deptId}/database`);
+            }}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${
+              effectiveTab === 'database'
+                ? 'bg-black text-white shadow-sm'
+                : 'bg-transparent text-gray-500 hover:text-gray-900 hover:bg-gray-200/50'
+            }`}
+          >
+            <Database strokeWidth={2.5} className={`w-4 h-4 ${effectiveTab === 'database' ? 'text-[#c2ff00]' : 'text-gray-400'}`} />
+            Database
+          </button>
+        </div>
+      )}
 
       <div className={`${isLogisticsRole ? '' : 'bg-ministry-card border border-gray-200'} rounded-2xl md:p-6 shadow-sm min-h-[500px]`}>
 
