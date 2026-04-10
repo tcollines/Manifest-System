@@ -2,9 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNotification } from './ui/NotificationSystem';
 import { Globe, ArrowLeft, CheckCircle } from 'lucide-react';
 import SoulEntryForm from './SoulEntryForm';
-import { EventStore } from '../database/eventStore';
-import { SoulsStore } from '../database/soulsStore';
 import { MinistryEvent, Soul } from '../types';
+import { apiFetch } from '../services/api';
 
 const PublicSoulEntry: React.FC = () => {
     const { showToast } = useNotification();
@@ -24,18 +23,11 @@ const PublicSoulEntry: React.FC = () => {
                 return;
             }
             try {
-                const response = await EventStore.getAll();
-                if (response.status === 'error' || !response.data) {
-                    throw new Error('Failed to fetch events');
-                }
-                const events = response.data;
-                const event = events.find(e => e.id === eventId);
-                if (event) {
-                    setEventData(event);
+                const data = await apiFetch(`/public/events/${eventId}`);
+                if (data && data.id) {
+                    setEventData(data);
                     setStatus('active');
                 } else {
-                    // Fallback for demo if ID not exact match in mock mode or error
-                    // In real app, we would probably query by ID directly
                     setStatus('error');
                     setErrorMsg('Event not found or link expired.');
                 }
@@ -49,10 +41,16 @@ const PublicSoulEntry: React.FC = () => {
 
     const handleSubmit = async (data: Omit<Soul, 'id' | 'createdAt'>) => {
         try {
-            await SoulsStore.add({
-                ...data,
-                capturedBy: 'Public Link' // Or prompt for user name
-            } as Soul);
+            await apiFetch('/public/events/souls', {
+                method: 'POST',
+                body: JSON.stringify({
+                    eventId: eventId,
+                    souls: [{
+                        ...data,
+                        capturedBy: 'Public Link' // Or prompt for user name
+                    }]
+                })
+            });
             setStatus('success');
         } catch (e) {
             console.error(e);

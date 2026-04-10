@@ -86,3 +86,69 @@ export const submitPublicSouls = async (req: Request, res: Response) => {
         res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
+
+export const getPublicEvent = async (req: Request, res: Response) => {
+    const { id } = req.params;
+    try {
+        const { data, error } = await supabase
+            .from('ministry_events')
+            .select('id, title, date, location, type')
+            .eq('id', id)
+            .single();
+            
+        if (error || !data) {
+            return res.status(404).json({ error: 'Event not found' });
+        }
+        res.json(data);
+    } catch (e) {
+        res.status(500).json({ error: 'An internal server error occurred.' });
+    }
+};
+
+export const submitPublicEventSouls = async (req: Request, res: Response) => {
+    const { eventId, souls } = req.body;
+    
+    if (!eventId || !Array.isArray(souls) || souls.length === 0) {
+        return res.status(400).json({ error: 'Invalid payload' });
+    }
+
+    try {
+        const { data: event, error: eventError } = await supabase
+                .from('ministry_events')
+                .select('manifest_id, title')
+                .eq('id', eventId)
+                .single();
+        
+        if (eventError || !event) {
+            return res.status(404).json({ error: 'Event not found' });
+        }
+        
+        const manifestId = event.manifest_id;
+
+        const formattedSouls = souls.map((s: any) => ({
+            id: uuidv4(),
+            manifest_id: manifestId,
+            first_name: s.firstName,
+            last_name: s.lastName,
+            phone: s.phone,
+            gender: s.gender,
+            residence: s.residence,
+            status: 'New',
+            source_type: 'Event',
+            source_id: eventId,
+            event_id: eventId,
+            captured_by: s.capturedBy || 'Public Link',
+            notes: s.notes
+        }));
+        
+        const { error } = await supabase.from('souls').insert(formattedSouls);
+        if (error) {
+            return res.status(500).json({ error: error.message });
+        }
+        
+        res.status(201).json({ success: true, count: formattedSouls.length });
+    } catch (e) {
+        res.status(500).json({ error: 'An internal server error occurred.' });
+    }
+};
+
