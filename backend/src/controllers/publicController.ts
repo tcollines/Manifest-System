@@ -133,7 +133,7 @@ export const submitPublicEventSouls = async (req: Request, res: Response) => {
             phone: s.phone,
             gender: s.gender,
             residence: s.residence,
-            status: 'New',
+            status: s.status || 'New',
             source_type: 'Event',
             source_id: eventId,
             event_id: eventId,

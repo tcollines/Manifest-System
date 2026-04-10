@@ -117,13 +117,26 @@ const PublicSoulEntry: React.FC = () => {
         showToast("Saved offline. Will sync when connected.", "info");
     };
 
-    const handleSubmit = async (data: Omit<Soul, 'id' | 'createdAt'>) => {
+    const handleSubmit = async (soulData: any) => {
+        const isDoubleSubmit = soulData.alsoConfirmed;
+        if (isDoubleSubmit) delete soulData.alsoConfirmed;
+
+        const payloadSouls = [{
+            ...soulData,
+            capturedBy: 'Public Link'
+        }];
+
+        if (isDoubleSubmit) {
+            payloadSouls.push({
+                ...soulData,
+                status: 'Confirmed',
+                capturedBy: 'Public Link'
+            });
+        }
+
         const payload = {
             eventId: eventId!,
-            souls: [{
-                ...data,
-                capturedBy: 'Public Link'
-            }],
+            souls: payloadSouls,
             timestamp: Date.now()
         };
 

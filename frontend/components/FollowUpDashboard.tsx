@@ -4,7 +4,7 @@ import { useSafeAsync } from '../hooks/useSafeAsync';
 import { useNotification } from './ui/NotificationSystem';
 import { supabase } from '../services/supabaseClient';
 import * as XLSX from 'xlsx';
-import { Users, Calendar, Database, Plus, Search, Link as LinkIcon, Share2, Copy, Check, Filter, ChevronLeft, ChevronRight, X, Trash2, Pencil, Clock, User as UserIcon } from 'lucide-react';
+import { Users, Calendar, Database, Plus, Search, Link as LinkIcon, Share2, Copy, Check, Filter, ChevronLeft, ChevronRight, X, Trash2, Pencil, Clock, User as UserIcon, Download } from 'lucide-react';
 import { MinistryEvent, Soul, Member, ModalType, User } from '../types';
 import { isEventLocked, isServiceClosed } from '../utils';
 import { EventStore, mapEventFromDB } from '../database/eventStore';
@@ -349,7 +349,10 @@ const FollowUpDashboard: React.FC<FollowUpDashboardProps> = ({ onOpenModal, curr
         setTimeout(() => setCopiedLinkId(null), 2000);
     };
 
-    const handleAddSoul = async (soulData: Omit<Soul, 'id' | 'createdAt'>) => {
+    const handleAddSoul = async (soulData: any) => {
+        const isDoubleSubmit = soulData.alsoConfirmed;
+        if (isDoubleSubmit) delete soulData.alsoConfirmed;
+
         // Validation: Ensure Event ID is present
         if (!soulData.eventId && (soulData.sourceType === 'Event' || soulData.sourceType === 'Service')) {
             showToast("Please select an event or service first.", 'error');
@@ -363,6 +366,9 @@ const FollowUpDashboard: React.FC<FollowUpDashboardProps> = ({ onOpenModal, curr
             } else {
                 // CREATE New
                 await SoulsStore.add(soulData as Soul);
+                if (isDoubleSubmit) {
+                    await SoulsStore.add({ ...soulData, status: 'Confirmed' } as Soul);
+                }
                 showToast("Soul added successfully", 'success');
             }
             // Refresh
@@ -459,27 +465,70 @@ const FollowUpDashboard: React.FC<FollowUpDashboardProps> = ({ onOpenModal, curr
         }, [selectedEventId]);
 
         const handleDownloadExcel = () => {
-            // CSV Generation
-            const headers = ['Name', 'Phone', 'Gender', 'Residence', 'Status', 'Category'];
-            const rows = attendees.map(a => [
-                a.name,
-                a.phone,
-                a.gender,
-                a.residency,
-                a.status,
+            const soulsHeaders = ['First Name', 'Last Name', 'Phone', 'Gender', 'Residence', 'Email', 'Status', 'Notes / Prayer Requests'];
+            
+            const soulsData = soulsWon.map(s => [
+                s.firstName || '',
+                s.lastName || '',
+                s.phone || '',
+                s.gender || '',
+                s.residence || '',
+                s.email || '',
+                s.status || '',
+                s.notes || ''
+            ]);
+
+            const confirmationsData = confirmations.map(s => [
+                s.firstName || '',
+                s.lastName || '',
+                s.phone || '',
+                s.gender || '',
+                s.residence || '',
+                s.email || '',
+                s.status || '',
+                s.notes || ''
+            ]);
+
+            const attendeeHeaders = ['Name', 'Phone', 'Gender', 'Residence', 'Status', 'Category'];
+            
+            const firstTimersData = firstTimers.map(a => [
+                a.name || '',
+                a.phone || '',
+                a.gender || '',
+                a.residency || '',
+                a.status || '',
                 a.category || ''
             ]);
 
-            const csvContent = "data:text/csv;charset=utf-8,"
-                + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+            const attendeesData = attendees.map(a => [
+                a.name || '',
+                a.phone || '',
+                a.gender || '',
+                a.residency || '',
+                a.status || '',
+                a.category || ''
+            ]);
 
-            const encodedUri = encodeURI(csvContent);
-            const link = document.createElement("a");
-            link.setAttribute("href", encodedUri);
-            link.setAttribute("download", `${event.title}_Attendees.csv`);
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+            const wb = XLSX.utils.book_new();
+
+            const wsSouls = XLSX.utils.aoa_to_sheet([soulsHeaders, ...soulsData]);
+            // Adjust column widths based on content
+            wsSouls['!cols'] = [{wch: 15}, {wch: 15}, {wch: 15}, {wch: 10}, {wch: 25}, {wch: 25}, {wch: 15}, {wch: 40}];
+            XLSX.utils.book_append_sheet(wb, wsSouls, "Souls Won");
+
+            const wsConfirmations = XLSX.utils.aoa_to_sheet([soulsHeaders, ...confirmationsData]);
+            wsConfirmations['!cols'] = [{wch: 15}, {wch: 15}, {wch: 15}, {wch: 10}, {wch: 25}, {wch: 25}, {wch: 15}, {wch: 40}];
+            XLSX.utils.book_append_sheet(wb, wsConfirmations, "Confirmations");
+
+            const wsFirstTimers = XLSX.utils.aoa_to_sheet([attendeeHeaders, ...firstTimersData]);
+            wsFirstTimers['!cols'] = [{wch: 25}, {wch: 15}, {wch: 10}, {wch: 25}, {wch: 15}, {wch: 15}];
+            XLSX.utils.book_append_sheet(wb, wsFirstTimers, "First Timers");
+
+            const wsAttendees = XLSX.utils.aoa_to_sheet([attendeeHeaders, ...attendeesData]);
+            wsAttendees['!cols'] = [{wch: 25}, {wch: 15}, {wch: 10}, {wch: 25}, {wch: 15}, {wch: 15}];
+            XLSX.utils.book_append_sheet(wb, wsAttendees, "All Attendees");
+
+            XLSX.writeFile(wb, `${event.title}_Export.xlsx`);
         };
 
         return (
@@ -580,14 +629,13 @@ const FollowUpDashboard: React.FC<FollowUpDashboardProps> = ({ onOpenModal, curr
                         </button>
                     </div>
 
-                    {viewTab === 'attendees' && attendees.length > 0 && (
-                        <button
-                            onClick={handleDownloadExcel}
-                            className="text-sm font-bold text-green-700 hover:bg-green-50 px-3 py-2 rounded-lg transition-colors flex items-center border border-green-200"
-                        >
-                            Download Excel
-                        </button>
-                    )}
+                    <button
+                        onClick={handleDownloadExcel}
+                        className="text-sm font-bold text-green-700 hover:bg-green-50 px-3 py-2 rounded-lg transition-colors flex items-center border border-green-200 ml-auto"
+                    >
+                        <Download className="w-4 h-4 mr-2" />
+                        Download Excel
+                    </button>
                 </div>
 
                 {/* Table */}

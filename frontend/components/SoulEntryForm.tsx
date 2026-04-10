@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNotification } from './ui/NotificationSystem';
 import PhoneInput from './PhoneInput';
-import { UserPlus, Save, X } from 'lucide-react';
+import { UserPlus, Save, X, CheckCircle } from 'lucide-react';
 import { Soul } from '../types';
 
 interface SoulEntryFormProps {
@@ -73,6 +73,7 @@ const SoulEntryForm: React.FC<SoulEntryFormProps> = ({
     }, [existingMember, initialData]);
 
     const [entryType, setEntryType] = useState<'Soul' | 'Confirmation'>('Soul');
+    const [isAlsoConfirmed, setIsAlsoConfirmed] = useState(false);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -88,7 +89,7 @@ const SoulEntryForm: React.FC<SoulEntryFormProps> = ({
         // If sourceId is an event or service, it IS the eventId (mostly)
         const resolvedEventId = eventId || (['Event', 'Service'].includes(sourceType) ? sourceId : undefined);
 
-        onSubmit({
+        const baseData: any = {
             ...formData,
             status: entryType === 'Confirmation' ? 'Confirmed' : 'New',
             sourceType,
@@ -97,7 +98,13 @@ const SoulEntryForm: React.FC<SoulEntryFormProps> = ({
             stationId,
             vehicleId,
             capturedBy: capturedBy || 'System' // Default to System for backward compatibility
-        });
+        };
+
+        if (isAlsoConfirmed && entryType === 'Soul') {
+            baseData.alsoConfirmed = true;
+        }
+
+        onSubmit(baseData);
         // Reset form
         setFormData({
             firstName: '',
@@ -109,6 +116,7 @@ const SoulEntryForm: React.FC<SoulEntryFormProps> = ({
             notes: ''
         });
         setEntryType('Soul');
+        setIsAlsoConfirmed(false);
     };
 
     return (
@@ -300,6 +308,20 @@ const SoulEntryForm: React.FC<SoulEntryFormProps> = ({
                 </div>
 
                 <div className="pt-2">
+                    {sourceType === 'Event' && entryType === 'Soul' && (
+                        <div className="flex items-center mb-4 p-3 bg-blue-50 border border-blue-100 rounded-lg">
+                            <input
+                                type="checkbox"
+                                id="markAsConfirmation"
+                                checked={isAlsoConfirmed}
+                                onChange={(e) => setIsAlsoConfirmed(e.target.checked)}
+                                className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500 cursor-pointer"
+                            />
+                            <label htmlFor="markAsConfirmation" className="ml-3 text-sm font-semibold text-blue-900 cursor-pointer select-none">
+                                Also Mark as Confirmation
+                            </label>
+                        </div>
+                    )}
                     <button
                         type="submit"
                         className="w-full py-3 bg-gray-900 text-white rounded-lg hover:bg-black transition-colors flex items-center justify-center font-medium shadow-lg"
