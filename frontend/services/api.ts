@@ -1,6 +1,6 @@
 import { supabase } from './supabaseClient';
 
-export const API_URL = import.meta.env.VITE_API_URL || 'https://manifest-system-esft.onrender.com/api';
+export const API_URL = import.meta.env.VITE_API_URL || 'https://manifest-system-lofy.onrender.com/api';
 
 export const apiFetch = async (endpoint: string, options: RequestInit & { token?: string, _retry?: boolean } = {}) => {
     // Dynamically retrieve the latest session token if not explicitly provided

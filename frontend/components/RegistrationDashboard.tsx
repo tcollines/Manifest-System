@@ -2280,7 +2280,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
 
   const confirmDelete = async () => {
     // 1. Password Check
-    const apiUrl = (import.meta as any).env.VITE_API_URL || 'https://manifest-system-esft.onrender.com/api';
+    const apiUrl = (import.meta as any).env.VITE_API_URL || 'https://manifest-system-lofy.onrender.com/api';
     try {
       const response = await fetch(`${apiUrl}/auth/login`, {
         method: 'POST',
