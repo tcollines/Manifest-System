@@ -48,8 +48,8 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
         return <Navigate to={redirectPath} replace />;
     }
 
-    // ── Super Admin / Administrator: full access ─────────────────
-    if (['Super Admin', 'Administrator'].includes(user.role)) {
+    // ── Super Admin / Administrator / TeamLeader: full access ─────────────────
+    if (['Super Admin', 'Administrator', 'TeamLeader', 'Team Leader'].includes(user.role)) {
         return <Outlet />;
     }
 

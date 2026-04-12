@@ -61,6 +61,7 @@ const GenericDeptDashboard: React.FC<DashboardProps> = ({ openModal, onEditUser,
     // Map system/app role to dept-scoped role for tab access control
     const effectiveDeptRole: DeptRole | null = (() => {
         const r = user?.role;
+        if (r === 'Super Admin' || r === 'Administrator' || r === 'TeamLeader' || r === 'Team Leader') return 'HOD';
         if (r === 'Head of Dept' || r === 'HOD' || r === 'Dept Admin')   return 'HOD';
         // 'Dept Admin' is mapped to 'HOD' above
         if (r === 'Dept Finance')                   return 'Dept Finance';
