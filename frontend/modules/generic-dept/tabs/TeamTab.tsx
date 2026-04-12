@@ -607,7 +607,7 @@ const TeamTab: React.FC<Props> = ({ department, user, deptRole, systemRole, open
                                             </td>
                                             <td className="px-6 py-4">
                                                 <span className={`px-2 py-1 rounded-full text-xs font-bold ${u.role === 'Administrator' ? 'bg-purple-100 text-purple-700' :
-                                                    u.role === 'Head of Dept' ? 'bg-blue-100 text-blue-700' :
+                                                    (u.role === 'Head of Dept' || u.role === 'Dept Admin') ? 'bg-blue-100 text-blue-700' :
                                                     u.role === 'TeamLeader' ? 'bg-orange-100 text-orange-700' :
                                                     u.role === 'Reg. Admin' ? 'bg-indigo-100 text-indigo-700' :
                                                     u.role === 'Member' ? 'bg-green-100 text-green-700' :

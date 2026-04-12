@@ -1,11 +1,6 @@
-/** CoordinatorsPage — route: /transportation/coordinators */
+/** TransportationCoordinatorsPage — route: /departments/d5/coordinators */
 import React from 'react';
-import TransportationDashboard from '../../components/TransportationDashboard';
-import { MinistryEvent, ModalType, User } from '../../types';
+import CoordinatorsTab from './tabs/CoordinatorsTab';
 
-interface Props { events: MinistryEvent[]; currentUser: User; onOpenModal?: (t: ModalType) => void; }
-
-const CoordinatorsPage: React.FC<Props> = ({ events, currentUser, onOpenModal }) => (
-  <TransportationDashboard events={events} currentUser={currentUser} onOpenModal={onOpenModal} urlTab="coordinators" />
-);
-export default CoordinatorsPage;
+const TransportationCoordinatorsPage: React.FC = () => <CoordinatorsTab />;
+export default TransportationCoordinatorsPage;

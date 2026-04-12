@@ -1,20 +1,6 @@
 /** FleetPage — route: /finance/fleet */
 import React from 'react';
-import FinanceDashboard from '../../components/FinanceDashboard';
-import { MinistryEvent, ModalType, User } from '../../types';
+import FleetTab from './tabs/FleetTab';
 
-interface FleetPageProps {
-  events: MinistryEvent[];
-  currentUser?: User;
-  onOpenModal?: (type: ModalType) => void;
-}
-
-const FleetPage: React.FC<FleetPageProps> = ({ events, currentUser, onOpenModal }) => (
-  <FinanceDashboard
-    events={events}
-    currentUser={currentUser}
-    onOpenModal={onOpenModal}
-    urlTab="fleet"
-  />
-);
+const FleetPage: React.FC = () => <FleetTab />;
 export default FleetPage;

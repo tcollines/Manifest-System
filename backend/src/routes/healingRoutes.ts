@@ -36,49 +36,59 @@ router.post('/reports', async (req, res) => {
         // B. Insert Testimonies (if any)
         if (testimonies && testimonies.length > 0) {
             const testimoniesToInsert = testimonies.map((t: any) => ({
-                manifest_id: manifestId, // INJECT TENANT ID
+                manifest_id: manifestId,
                 report_id: reportId,
                 content: t.content,
-                testifier_name: t.testifier_name,
-                testifier_contact: t.testifier_contact
+                testifier_name: t.testifier_name || null,
+                testifier_contact: t.testifier_contact || null
             }));
 
+            console.log('Inserting testimonies:', JSON.stringify(testimoniesToInsert, null, 2));
             const { error: testimonyError } = await supabase
                 .from('healing_testimonies')
                 .insert(testimoniesToInsert);
 
-            if (testimonyError) throw testimonyError;
+            if (testimonyError) {
+                console.error('Testimony insert error:', JSON.stringify(testimonyError));
+                // Don't fail the whole report — return partial success with error detail
+                return res.status(201).json({ ...report, _testimonyError: testimonyError.message });
+            }
         }
 
         // C. Insert Souls (if any)
         if (souls && souls.length > 0) {
             const soulsToInsert = souls.map((s: any) => ({
-                manifest_id: manifestId, // INJECT TENANT ID
-                first_name: s.firstName,
-                last_name: s.lastName,
-                phone: s.phone,
-                gender: s.gender,
-                source_type: 'Healing Dept', // As decided
-                source_id: reportId,     // Link to this report
-                captured_by: captured_by, // Ensure we track who added them
-                notes: `Healing Outreach: ${hospital_name}`,
-                residence: s.residence,
-                next_of_kin_name: s.nextOfKinName,
-                next_of_kin_contact: s.nextOfKinContact,
-                status: 'New'
-            }));
+                    manifest_id: manifestId,
+                    first_name: s.firstName,
+                    last_name: s.lastName,
+                    phone: s.phone || null,
+                    gender: s.gender,
+                    source_type: 'Healing Dept',
+                    source_id: reportId,
+                    captured_by: captured_by,
+                    notes: `Healing Outreach: ${hospital_name}`,
+                    residence: s.residence || null,
+                    next_of_kin_name: s.nextOfKinName || null,
+                    next_of_kin_contact: s.nextOfKinContact || null,
+                    status: 'New',
+                    event_id: null   // Healing souls are not event-linked (requires migration 57)
+                }));
 
+            console.log('Inserting souls:', JSON.stringify(soulsToInsert, null, 2));
             const { error: soulsError } = await supabase
-                .from('souls') // Linking to MAIN souls table
+                .from('souls')
                 .insert(soulsToInsert);
 
-            if (soulsError) throw soulsError;
+            if (soulsError) {
+                console.error('Souls insert error:', JSON.stringify(soulsError));
+                return res.status(201).json({ ...report, _soulsError: soulsError.message });
+            }
         }
 
         res.status(201).json(report);
     } catch (error: any) {
         console.error('Error creating healing report:', error);
-        res.status(500).json({ error: 'An internal server error occurred.' });
+        res.status(500).json({ error: error.message || 'An internal server error occurred.' });
     }
 });
 
@@ -113,20 +123,57 @@ router.put('/reports/:id', async (req, res) => {
         if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
 
         const { id } = req.params;
-        const { date, hospital_name, labourers_count, souls_count, notes, people_reached } = req.body;
+        const { date, hospital_name, labourers_count, souls_count, notes, people_reached, souls, testimonies, captured_by } = req.body;
 
+        // A. Update the report core fields
         const { data, error } = await supabase
             .from('healing_reports')
             .update({ date, hospital_name, labourers_count, souls_count, notes, people_reached })
-            .eq('manifest_id', manifestId) // Tenant Isolation
+            .eq('manifest_id', manifestId)
             .eq('id', id)
             .select()
             .single();
 
         if (error) throw error;
+
+        // B. Insert NEW souls added during edit (if any)
+        if (souls && souls.length > 0) {
+            const soulsToInsert = souls.map((s: any) => ({
+                manifest_id: manifestId,
+                first_name: s.firstName,
+                last_name: s.lastName,
+                phone: s.phone || null,
+                gender: s.gender,
+                source_type: 'Healing Dept',
+                source_id: id,
+                captured_by: captured_by || null,
+                notes: `Healing Outreach: ${hospital_name}`,
+                residence: s.residence || null,
+                next_of_kin_name: s.nextOfKinName || null,
+                next_of_kin_contact: s.nextOfKinContact || null,
+                status: 'New',
+                event_id: null
+            }));
+            const { error: soulsError } = await supabase.from('souls').insert(soulsToInsert);
+            if (soulsError) console.error('Edit - souls insert error:', soulsError.message);
+        }
+
+        // C. Insert NEW testimonies added during edit (if any)
+        if (testimonies && testimonies.length > 0) {
+            const testimoniesToInsert = testimonies.map((t: any) => ({
+                manifest_id: manifestId,
+                report_id: id,
+                content: t.content,
+                testifier_name: t.testifier_name || null,
+                testifier_contact: t.testifier_contact || null
+            }));
+            const { error: testimonyError } = await supabase.from('healing_testimonies').insert(testimoniesToInsert);
+            if (testimonyError) console.error('Edit - testimonies insert error:', testimonyError.message);
+        }
+
         res.json(data);
     } catch (error: any) {
-        res.status(500).json({ error: 'An internal server error occurred.' });
+        res.status(500).json({ error: error.message || 'An internal server error occurred.' });
     }
 });
 
@@ -139,16 +186,32 @@ router.delete('/reports/:id', async (req, res) => {
 
         const { id } = req.params;
 
+        // 1. Delete linked testimonies first
+        const { error: testimonyError } = await supabase
+            .from('healing_testimonies')
+            .delete()
+            .eq('report_id', id);
+        if (testimonyError) throw testimonyError;
+
+        // 2. Delete linked souls
+        const { error: soulsError } = await supabase
+            .from('souls')
+            .delete()
+            .eq('source_type', 'Healing Dept')
+            .eq('source_id', id);
+        if (soulsError) throw soulsError;
+
+        // 3. Delete the report itself
         const { error } = await supabase
             .from('healing_reports')
             .delete()
-            .eq('manifest_id', manifestId) // Tenant Isolation
+            .eq('manifest_id', manifestId)
             .eq('id', id);
 
         if (error) throw error;
-        res.json({ message: 'Report deleted successfully' });
+        res.json({ message: 'Report and linked records deleted successfully' });
     } catch (error: any) {
-        res.status(500).json({ error: 'An internal server error occurred.' });
+        res.status(500).json({ error: error.message || 'An internal server error occurred.' });
     }
 });
 

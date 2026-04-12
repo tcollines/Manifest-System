@@ -1,16 +1,19 @@
 import React from 'react';
 import { Outlet } from 'react-router-dom';
-import { User } from '../../types';
+import { MinistryEvent } from '../../types';
+import { ResidentProvider } from './ResidentContext';
 
 interface ResidentLayoutProps {
-  currentUser?: User;
+  events: MinistryEvent[];
 }
 
-export const ResidentLayout: React.FC<ResidentLayoutProps> = () => (
+export const ResidentLayout: React.FC<ResidentLayoutProps> = ({ events }) => (
     <div className="flex flex-col h-full bg-gray-50">
-        <div className="flex-1 overflow-y-auto">
-            <Outlet />
-        </div>
+        <ResidentProvider initialEvents={events}>
+            <div className="flex-1 overflow-y-auto">
+                <Outlet />
+            </div>
+        </ResidentProvider>
     </div>
 );
 

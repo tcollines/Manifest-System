@@ -555,13 +555,16 @@ export const checkinPassenger = async (req: Request, res: Response) => {
         if (pErr || !pRecord) return res.status(404).json({ error: 'Passenger not found' });
 
         // Direct Update Replacement for RPC
-        const { data, error } = await supabase.from('passengers')
+        let query = supabase.from('passengers')
             .update({ verified: isVerified })
             .eq('manifest_id', manifestId)
-            .eq('id', idUuid)
-            .eq('version', version !== undefined ? version : -1)
-            .select('*')
-            .maybeSingle();
+            .eq('id', idUuid);
+            
+        if (version !== undefined) {
+            query = query.eq('version', version);
+        }
+
+        const { data, error } = await query.select('*').maybeSingle();
 
         if (!data && version !== undefined) {
             return res.status(409).json({ error: 'Conflict: Passenger state changed concurrently. Please refresh.' });

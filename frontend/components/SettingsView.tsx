@@ -4,6 +4,7 @@ import { DEPARTMENTS, CURRENCIES } from '../constants';
 import { User, ModalType, ManifestDetails } from '../types';
 import { UserStore } from '../database/userStore';
 import { ManifestStore } from '../database/manifestStore';
+import { useAuth } from '../context/AuthContext';
 import {
     Users,
     Map,
@@ -27,15 +28,14 @@ import {
 type SettingsTab = 'users' | 'map' | 'profile' | 'manifest';
 
 interface SettingsViewProps {
-    users?: User[];
     openModal?: (type: ModalType) => void;
     onDeleteUser?: (id: string) => void;
     onEditUser?: (user: User) => void;
-    currentUser?: User | null;
     initialTab?: SettingsTab;
 }
 
-const SettingsView: React.FC<SettingsViewProps> = ({ users = [], openModal, onDeleteUser, onEditUser, currentUser, initialTab }) => {
+const SettingsView: React.FC<SettingsViewProps> = ({ openModal, onDeleteUser, onEditUser, initialTab }) => {
+    const { user: currentUser } = useAuth();
     const { showToast, confirm: askConfirm } = useNotification();
     const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab || 'users');
 
@@ -46,14 +46,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ users = [], openModal, onDe
         }
     }, [initialTab]);
     const [searchQuery, setSearchQuery] = useState('');
-    const [internalUsers, setInternalUsers] = useState<User[]>(users);
-
-    // Update internal users when prop changes
-    useEffect(() => {
-        if (users && users.length > 0) {
-            setInternalUsers(users);
-        }
-    }, [users]);
+    const [internalUsers, setInternalUsers] = useState<User[]>([]);
 
     // On-demand fetch if list is empty
     useEffect(() => {
@@ -93,7 +86,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ users = [], openModal, onDe
     const isTeamLeader = currentUser?.role === 'TeamLeader';
 
     // Determine view mode
-    const isManifestMode = isTeamLeader && initialTab === 'manifest';
+    const isManifestMode = (isAdmin || isTeamLeader) && activeTab === 'manifest';
 
     useEffect(() => {
         const loadManifest = async () => {
@@ -399,7 +392,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ users = [], openModal, onDe
                                         </td>
                                         <td className="px-6 py-4">
                                             <span className={`px-2 py-1 rounded-full text-xs font-bold ${user.role === 'Administrator' ? 'bg-purple-100 text-purple-700' :
-                                                user.role === 'Head of Dept' ? 'bg-blue-100 text-blue-700' :
+                                                (user.role === 'Head of Dept' || user.role === 'Dept Admin') ? 'bg-blue-100 text-blue-700' :
                                                     user.role === 'TeamLeader' ? 'bg-orange-100 text-orange-700' :
                                                         user.role === 'Reg. Admin' ? 'bg-indigo-100 text-indigo-700' :
                                                             user.role === 'Member' ? 'bg-green-100 text-green-700' :

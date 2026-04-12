@@ -1,20 +1,6 @@
 /** IncomePage — route: /finance/income */
 import React from 'react';
-import FinanceDashboard from '../../components/FinanceDashboard';
-import { MinistryEvent, ModalType, User } from '../../types';
+import IncomeTab from './tabs/IncomeTab';
 
-interface IncomePageProps {
-  events: MinistryEvent[];
-  currentUser?: User;
-  onOpenModal?: (type: ModalType) => void;
-}
-
-const IncomePage: React.FC<IncomePageProps> = ({ events, currentUser, onOpenModal }) => (
-  <FinanceDashboard
-    events={events}
-    currentUser={currentUser}
-    onOpenModal={onOpenModal}
-    urlTab="income"
-  />
-);
+const IncomePage: React.FC = () => <IncomeTab />;
 export default IncomePage;

@@ -61,8 +61,8 @@ const GenericDeptDashboard: React.FC<DashboardProps> = ({ openModal, onEditUser,
     // Map system/app role to dept-scoped role for tab access control
     const effectiveDeptRole: DeptRole | null = (() => {
         const r = user?.role;
-        if (r === 'Head of Dept' || r === 'HOD')   return 'HOD';
-        if (r === 'Dept Admin')                     return 'Dept Admin';
+        if (r === 'Head of Dept' || r === 'HOD' || r === 'Dept Admin')   return 'HOD';
+        // 'Dept Admin' is mapped to 'HOD' above
         if (r === 'Dept Finance')                   return 'Dept Finance';
         if (r === 'Member')                         return 'Member';
         return null;
@@ -111,8 +111,12 @@ const GenericDeptDashboard: React.FC<DashboardProps> = ({ openModal, onEditUser,
             <div className="flex flex-col bg-gray-50 min-h-screen">
                 <div className="bg-white border-b border-gray-100 px-6 py-5 md:px-8">
                     <div className="max-w-screen-xl mx-auto flex items-center gap-3">
-                        <button onClick={() => navigate('/departments')} className="text-gray-400 hover:text-gray-600 text-sm">← Departments</button>
-                        <span className="text-gray-300">/</span>
+                        {['Super Admin', 'Administrator'].includes(user?.role ?? '') && (
+                            <>
+                                <button onClick={() => navigate('/departments')} className="text-gray-400 hover:text-gray-600 text-sm">← Departments</button>
+                                <span className="text-gray-300">/</span>
+                            </>
+                        )}
                         <div className="h-6 w-48 bg-gray-200 animate-pulse rounded"></div>
                     </div>
                 </div>
@@ -173,20 +177,19 @@ const GenericDeptDashboard: React.FC<DashboardProps> = ({ openModal, onEditUser,
             <div className="bg-white border-b border-gray-100 px-6 py-5 md:px-8">
                 <div className="max-w-screen-xl mx-auto flex items-start justify-between gap-4">
                     <div className="flex items-center gap-3">
-                        <button
-                            onClick={() => navigate('/departments')}
-                            className="text-gray-400 hover:text-gray-600 transition-colors text-sm"
-                            aria-label="Back to departments"
-                        >
-                            ← Departments
-                        </button>
-                        <span className="text-gray-300">/</span>
-                        <h1 className="text-xl font-bold text-gray-900">{department.name}</h1>
-                        {department.isCustom && (
-                            <span className="text-xs bg-ministry-orange/10 text-ministry-orange font-semibold px-2.5 py-1 rounded-full">
-                                Custom
-                            </span>
+                        {['Super Admin', 'Administrator'].includes(user?.role ?? '') && (
+                            <>
+                                <button
+                                    onClick={() => navigate('/departments')}
+                                    className="text-gray-400 hover:text-gray-600 transition-colors text-sm"
+                                    aria-label="Back to departments"
+                                >
+                                    ← Departments
+                                </button>
+                                <span className="text-gray-300">/</span>
+                            </>
                         )}
+                        <h1 className="text-xl font-bold text-gray-900">{department.name}</h1>
                     </div>
                     {department.headName && (
                         <p className="text-sm text-gray-500 hidden md:block">

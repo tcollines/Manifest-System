@@ -60,7 +60,11 @@ export const HealingStore = {
     },
 
     // Update Report
-    updateReport: async (id: string, updates: Partial<HealingReport>) => {
+    updateReport: async (id: string, updates: Partial<HealingReport> & {
+        souls?: any[];
+        testimonies?: any[];
+        captured_by?: string;
+    }) => {
         return await apiFetch(`/healing/reports/${id}`, {
             method: 'PUT',
             body: JSON.stringify(updates)

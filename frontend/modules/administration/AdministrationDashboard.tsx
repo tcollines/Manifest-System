@@ -1,16 +1,14 @@
 import React, { useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Calendar, Users } from 'lucide-react';
-import { User, ModalType } from '../../types';
+import { ModalType } from '../../types';
 import AdministrationUsersPage from './AdministrationUsersPage';
 import AdministrationSchedulesPage from './AdministrationSchedulesPage';
 
 interface Props {
-  users: User[];
   openModal: (t: ModalType) => void;
   onDeleteUser: (id: string) => void;
-  onEditUser: (u: User) => void;
-  currentUser?: User | null;
+  onEditUser: (u: any) => void;
 }
 
 const AdministrationDashboard: React.FC<Props> = (props) => {
@@ -58,12 +56,12 @@ const AdministrationDashboard: React.FC<Props> = (props) => {
       {/* Content */}
       <div className="mt-6">
         {activeTab === 'schedules' && (
-           <div className="-mx-8 -my-8">
+           <div className="animate-in fade-in duration-300">
              <AdministrationSchedulesPage />
            </div>
         )}
         {activeTab === 'users' && (
-           <div className="-mx-8 -my-8">
+           <div className="animate-in fade-in duration-300">
              <AdministrationUsersPage {...props} />
            </div>
         )}

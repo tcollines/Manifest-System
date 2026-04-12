@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNotification } from './components/ui/NotificationSystem';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
@@ -10,10 +10,9 @@ import SetupAccount from './components/SetupAccount';
 import { AssetsTab } from './components/AssetsTab';
 import { ModalType, MinistryEvent, User } from './types';
 import { DEPARTMENTS } from './constants';
-import { EventStore } from './database/eventStore';
 import { UserStore } from './database/userStore';
+import { EventStore } from './database/eventStore';
 import { Bell, Search, Menu } from 'lucide-react';
-import { supabase } from './services/supabaseClient';
 import TeamLeaderRequisitions from './components/TeamLeaderRequisitions';
 import RequisitionsView from './components/RequisitionsView';
 import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
@@ -24,9 +23,13 @@ import ActionPanel from './components/ActionPanel';
 import MinistryAI from './components/MinistryAI';
 import PublicSoulEntry from './components/PublicSoulEntry';
 import DepartmentRouterProxy from './components/DepartmentRouterProxy';
+import { isTeamLeader } from './domain/rbac';
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 import { useAuth } from './context/AuthContext';
+
+// ── Event Context ─────────────────────────────────────────────────────────────
+import { useEvent } from './context/EventContext';
 
 // ── Modules ───────────────────────────────────────────────────────────────────
 import AdministrationDashboard from './modules/administration/AdministrationDashboard';
@@ -39,63 +42,26 @@ import SettingsManifestPage from './modules/settings/SettingsManifestPage';
 
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { useBackgroundSync } from './hooks/useBackgroundSync';
+import { SyncIndicator } from './components/SyncIndicator';
+
 const App: React.FC = () => {
+  useBackgroundSync(); // Global injection of offline queue flusher
   const { showToast } = useNotification();
   const { user, isLoading, login, googleLogin, logout, getDashboard } = useAuth();
+  const { addEvent, refreshEvents } = useEvent();
 
-  // ── UI state (not auth state) ────────────────────────────────────────────
-  const [loginError, setLoginError]         = useState<string | null>(null);
-  const [isSidebarOpen, setIsSidebarOpen]   = useState(false);
+  // ── UI state only ────────────────────────────────────────────────────────
+  const [loginError, setLoginError]             = useState<string | null>(null);
+  const [isSidebarOpen, setIsSidebarOpen]       = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
-  const [modalType, setModalType]           = useState<ModalType>(ModalType.NONE);
-  const [targetUser, setTargetUser]         = useState<User | null>(null);
-  const [allUsers, setAllUsers]             = useState<User[]>([]);
+  const [modalType, setModalType]               = useState<ModalType>(ModalType.NONE);
+  const [targetUser, setTargetUser]             = useState<User | null>(null);
 
-  // ── Events state (owned by App for realtime distribution) ────────────────
-  const [events, setEvents] = useState<MinistryEvent[]>([]);
+  const navigate = useNavigate();
+  const location = useLocation();
 
-  const navigate  = useNavigate();
-  const location  = useLocation();
-
-  // ── Initial events fetch (once user is available) ─────────────────────────
-  useEffect(() => {
-    if (!user) return;
-    EventStore.getAll({ limit: 50 }).then(res => {
-      if (res.status === 'success' && res.data) setEvents(res.data);
-    });
-  }, [user?.id]); // re-fetch only when user identity actually changes
-
-  // ── Ministry events realtime subscription ────────────────────────────────
-  // NOTE: This is the ONLY realtime listener that remains in App.tsx.
-  // Auth realtime listeners live exclusively in AuthContext.
-  useEffect(() => {
-    if (!user) return; // don't subscribe before auth is ready
-
-    const subscription = supabase
-      .channel('app:ministry_events')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'ministry_events' }, (payload) => {
-        const { eventType, new: newRecord, old: oldRecord } = payload;
-        setEvents(prev => {
-          let next: MinistryEvent[];
-          if (eventType === 'INSERT') {
-            if (prev.some(e => e.id === newRecord.id)) return prev;
-            next = [newRecord as MinistryEvent, ...prev];
-          } else if (eventType === 'UPDATE') {
-            next = prev.map(e => e.id === newRecord.id ? (newRecord as MinistryEvent) : e);
-          } else if (eventType === 'DELETE') {
-            next = prev.filter(e => e.id !== oldRecord.id);
-          } else {
-            return prev;
-          }
-          return next.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-        });
-      })
-      .subscribe();
-
-    return () => { supabase.removeChannel(subscription); };
-  }, [user?.id]);
-
-  // ── Thin login wrappers (navigation only — auth state managed by AuthContext) ──
+  // ── Thin login wrappers (navigation only) ────────────────────────────────
 
   const handleLogin = async (username: string, password: string) => {
     setLoginError(null);
@@ -128,31 +94,26 @@ const App: React.FC = () => {
     navigate(getDashboard(), { replace: true });
   };
 
-  // ── Event data handlers ──────────────────────────────────────────────────
-
-  const refreshData = async () => {
-    try {
-      const res = await EventStore.getAll({ limit: 50 });
-      if (res.status === 'success' && res.data) setEvents(res.data);
-    } catch (e) {
-      console.error('[App] refreshData failed:', e);
-    }
-  };
+  // ── Event handlers (thin wrappers; state lives in EventContext) ───────────
 
   const handleSaveEvent = async (newEvent: MinistryEvent) => {
     try {
-      setEvents(prev => [newEvent, ...prev]);
+      addEvent(newEvent);             // optimistic update in context
       await EventStore.add(newEvent);
-      await refreshData();
+      await refreshEvents();          // reconcile from DB
       showToast(`${newEvent.type} created successfully!`, 'success');
     } catch (error: any) {
       console.error('Failed to save event:', error);
       showToast(`Failed to save event: ${error.message || 'Unknown error'}`, 'error');
-      refreshData();
+      refreshEvents();
     }
   };
 
-  // ── User CRUD handlers ───────────────────────────────────────────────────
+  // ── User CRUD handlers (used only by ActionPanel/Settings/Administration) ─
+  // These stay in App.tsx minimally because ActionPanel is a global modal
+  // that can be opened from any page. Moving state to AdministrationDashboard
+  // would require lifting it back up for Settings pages.
+  // A dedicated UserManagementContext is the P1 follow-up for this.
 
   const handleSaveUser = async (newUser: User) => {
     try {
@@ -160,7 +121,7 @@ const App: React.FC = () => {
       const users = usersResp.status === 'success' && usersResp.data ? usersResp.data : [];
       if (users.some(u => u.username?.toLowerCase() === newUser.username?.toLowerCase())) {
         if (newUser.username) {
-          alert(`Error: The username "${newUser.username}" is already taken. Please choose another.`);
+          showToast(`Error: The username "${newUser.username}" is already taken.`, 'error');
           return;
         }
       }
@@ -168,28 +129,23 @@ const App: React.FC = () => {
         throw new Error(`The email "${newUser.email}" is already registered.`);
       }
       const response = await UserStore.add(newUser);
-      if (response.status === 'success' && response.data) {
-        setAllUsers(response.data);
-      } else {
+      if (response.status !== 'success') {
         throw new Error(response.status === 'error' ? response.message : 'Failed to add user');
       }
     } catch (e: any) {
-      alert(e.message || 'Failed to add user');
+      showToast(e.message || 'Failed to add user', 'error');
       throw e;
     }
   };
 
   const handleDeleteUser = async (userId: string) => {
-    const response = await UserStore.remove(userId);
-    if (response.status === 'success' && response.data) setAllUsers(response.data);
+    await UserStore.remove(userId);
   };
 
   const handleUpdateUser = async (updatedUser: User) => {
     try {
       const response = await UserStore.update(updatedUser);
-      if (response.status === 'success' && response.data) {
-        setAllUsers(response.data);
-      } else {
+      if (response.status !== 'success') {
         throw new Error(response.status === 'error' ? response.message : 'Failed to update user');
       }
       showToast('User updated successfully!', 'success');
@@ -199,9 +155,8 @@ const App: React.FC = () => {
     }
   };
 
-  // ── Auth guard (reads ONLY from AuthContext) ──────────────────────────────
+  // ── Auth guard ────────────────────────────────────────────────────────────
 
-  // Phase 1+2 loading: wait for AuthContext to fully settle before rendering
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center fade-in">
@@ -216,17 +171,15 @@ const App: React.FC = () => {
     );
   }
 
-  // Unauthenticated: show sign-in screen
   if (!user) {
     return <SignIn onLogin={handleLogin} onGoogleLogin={handleGoogleLogin} error={loginError} />;
   }
 
-  // Account not yet set up
   if (location.pathname === '/setup-account') {
     return <SetupAccount currentUser={user} onComplete={handleSetupComplete} onLogout={handleLogout} />;
   }
 
-  // ── Authenticated layout ─────────────────────────────────────────────────
+  // ── Authenticated layout ──────────────────────────────────────────────────
   return (
     <div className="flex min-h-screen bg-ministry-black text-ministry-text font-sans selection:bg-ministry-neon selection:text-black">
       {/* Mobile overlay */}
@@ -237,8 +190,8 @@ const App: React.FC = () => {
         />
       )}
 
+      {/* Sidebar — no longer receives currentUser prop */}
       <Sidebar
-        currentUser={user}
         onLogout={handleLogout}
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
@@ -312,15 +265,13 @@ const App: React.FC = () => {
               <Route path="team-dashboard" element={<TeamLeaderDashboard />} />
             </Route>
 
-            {/* Administration */}
+            {/* Administration — self-manages user list internally */}
             <Route element={<ProtectedRoute allowedDepartments={['d0']} allowedRoles={['Super Admin', 'Administrator', 'TeamLeader']} />}>
               <Route path="administration/*" element={
                 <AdministrationDashboard
-                  users={allUsers}
                   openModal={setModalType}
                   onDeleteUser={handleDeleteUser}
                   onEditUser={(u) => { setTargetUser(u); setModalType(ModalType.EDIT_USER); }}
-                  currentUser={user}
                 />
               } />
             </Route>
@@ -328,11 +279,11 @@ const App: React.FC = () => {
             {/* Public */}
             <Route path="public-soul-entry" element={<PublicSoulEntry />} />
 
-            {/* Settings */}
+            {/* Settings — self-manage user list internally */}
             <Route path="settings" element={<SettingsLayout />}>
               <Route index element={<Navigate to="manifest" replace />} />
-              <Route path="map"      element={<SettingsMapPage      users={allUsers} openModal={setModalType} onDeleteUser={handleDeleteUser} currentUser={user} onEditUser={(u) => { setTargetUser(u); setModalType(ModalType.EDIT_USER); }} />} />
-              <Route path="manifest" element={<SettingsManifestPage users={allUsers} openModal={setModalType} onDeleteUser={handleDeleteUser} currentUser={user} onEditUser={(u) => { setTargetUser(u); setModalType(ModalType.EDIT_USER); }} />} />
+              <Route path="map"      element={<SettingsMapPage      openModal={setModalType} onDeleteUser={handleDeleteUser} onEditUser={(u) => { setTargetUser(u); setModalType(ModalType.EDIT_USER); }} />} />
+              <Route path="manifest" element={<SettingsManifestPage openModal={setModalType} onDeleteUser={handleDeleteUser} onEditUser={(u) => { setTargetUser(u); setModalType(ModalType.EDIT_USER); }} />} />
             </Route>
             <Route path="manifest-settings" element={<Navigate to="/settings/manifest" replace />} />
 
@@ -341,30 +292,42 @@ const App: React.FC = () => {
               <Route index element={<DepartmentsView currentUser={user} />} />
               <Route path=":deptId/*" element={
                 <DepartmentRouterProxy
-                  events={events}
                   onOpenModal={setModalType}
                   onEditUser={(u) => { setTargetUser(u); setModalType(ModalType.EDIT_USER); }}
-                  refreshParentData={refreshData}
                 />
               } />
             </Route>
 
             {/* Backward-compat redirects */}
-            <Route path="registration/*"  element={<Navigate to="/departments/d1" replace />} />
-            <Route path="next-gen/*"      element={<Navigate to="/departments/d2" replace />} />
-            <Route path="parking/*"       element={<Navigate to="/departments/d3" replace />} />
-            <Route path="finance/*"       element={<Navigate to="/departments/d4" replace />} />
-            <Route path="transportation/*"element={<Navigate to="/departments/d5" replace />} />
-            <Route path="follow-up/*"     element={<Navigate to="/departments/d6" replace />} />
-            <Route path="schools/*"       element={<Navigate to="/departments/d7" replace />} />
-            <Route path="healing/*"       element={<Navigate to="/departments/d8" replace />} />
-            <Route path="campus/*"        element={<Navigate to="/departments/d9" replace />} />
+            <Route path="departments/d0/*" element={<Navigate to="/departments/0b685c69-edb6-44b9-8f21-1a11878b6d7b" replace />} />
+            <Route path="departments/d1/*" element={<Navigate to="/departments/81b8b740-6663-4179-bcfb-e3dc7524d36c" replace />} />
+            <Route path="departments/d2/*" element={<Navigate to="/departments/a9aff0dc-1a78-4c00-ad29-4531942670d0" replace />} />
+            <Route path="departments/d3/*" element={<Navigate to="/departments/65808f94-cf1c-4e0f-b7f0-d3ac2b49d20a" replace />} />
+            <Route path="departments/d4/*" element={<Navigate to="/departments/e35f6789-1862-4c31-8b13-96d59463d257" replace />} />
+            <Route path="departments/d5/*" element={<Navigate to="/departments/4630e48a-f97e-48fd-a901-864b591c282f" replace />} />
+            <Route path="departments/d6/*" element={<Navigate to="/departments/e680342f-72c7-4d10-b7cb-631725afe770" replace />} />
+            <Route path="departments/d7/*" element={<Navigate to="/departments/4d99940e-58ec-40ba-92bd-4a65651bf23a" replace />} />
+            <Route path="departments/d8/*" element={<Navigate to="/departments/f1a0d749-d681-4150-9764-aecfeac8b0ca" replace />} />
+            <Route path="departments/d9/*" element={<Navigate to="/departments/b2c1d3e4-f5a6-7890-bcde-1234567890ab" replace />} />
+            <Route path="departments/d10/*" element={<Navigate to="/departments/c1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d" replace />} />
+
+            <Route path="registration/*"  element={<Navigate to="/departments/81b8b740-6663-4179-bcfb-e3dc7524d36c" replace />} />
+            <Route path="next-gen/*"      element={<Navigate to="/departments/a9aff0dc-1a78-4c00-ad29-4531942670d0" replace />} />
+            <Route path="parking/*"       element={<Navigate to="/departments/65808f94-cf1c-4e0f-b7f0-d3ac2b49d20a" replace />} />
+            <Route path="finance/*"       element={<Navigate to="/departments/e35f6789-1862-4c31-8b13-96d59463d257" replace />} />
+            <Route path="transportation/*"element={<Navigate to="/departments/4630e48a-f97e-48fd-a901-864b591c282f" replace />} />
+            <Route path="follow-up/*"     element={<Navigate to="/departments/e680342f-72c7-4d10-b7cb-631725afe770" replace />} />
+            <Route path="schools/*"       element={<Navigate to="/departments/4d99940e-58ec-40ba-92bd-4a65651bf23a" replace />} />
+            <Route path="healing/*"       element={<Navigate to="/departments/f1a0d749-d681-4150-9764-aecfeac8b0ca" replace />} />
+            <Route path="campus/*"        element={<Navigate to="/departments/b2c1d3e4-f5a6-7890-bcde-1234567890ab" replace />} />
+            <Route path="residents/*"     element={<Navigate to="/departments/c1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d" replace />} />
+            <Route path="stage-dashboard" element={<Navigate to="/departments/4630e48a-f97e-48fd-a901-864b591c282f/stage-dashboard" replace />} />
 
             <Route path="events"      element={<EventsView />} />
             <Route path="reports"     element={<ReportsView currentUser={user} />} />
 
             <Route path="requisitions" element={
-              user?.role === 'TeamLeader'
+              isTeamLeader(user)
                 ? <TeamLeaderRequisitions currentUser={user} />
                 : <RequisitionsView currentUser={user} />
             } />
@@ -402,6 +365,7 @@ const App: React.FC = () => {
       )}
       {modalType === ModalType.AI_INSIGHTS && <MinistryAI onClose={() => setModalType(ModalType.NONE)} />}
       <ProfileModal isOpen={isProfileModalOpen} onClose={() => setIsProfileModalOpen(false)} currentUser={user} />
+      <SyncIndicator />
     </div>
   );
 };

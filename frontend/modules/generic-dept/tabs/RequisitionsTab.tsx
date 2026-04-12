@@ -6,6 +6,7 @@ import { X, Plus, FileText, CheckCircle, Clock, AlertCircle, DollarSign } from '
 import { Requisition } from '../../../types';
 import { RequisitionStore } from '../../../database/requisitionStore';
 import RequisitionForm from '../../../components/RequisitionForm';
+import { resolveDepartment } from '../../../constants/departmentMap';
 
 interface Props { department: Department; user: User | null; deptRole: DeptRole | null; systemRole: any; }
 
@@ -30,7 +31,7 @@ const RequisitionsTab: React.FC<Props> = ({ user }) => {
 
     const isAdmin      = user.role === 'Administrator' || user.role === 'Super Admin';
     const isTeamLeader = user.role === 'TeamLeader';
-    const isFinance    = user.role === 'Finance' || user.departmentId === 'd4';
+    const isFinance    = user.role === 'Finance' || resolveDepartment(user.departmentId || '')?.slug === 'finance';
 
     async function fetchRequisitions() {
         setIsLoading(true);

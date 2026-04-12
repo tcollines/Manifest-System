@@ -9,6 +9,7 @@ import {
 import { Asset, AssetStore } from '../database/assetStore';
 import { User } from '../types';
 import { DEPARTMENTS } from '../constants';
+import { departmentMap } from '../constants/departmentMap';
 
 interface AssetsTabProps {
     departmentId?: string; // If provided, filters by this department. If null/undefined, shows all (Admin view)
@@ -38,9 +39,9 @@ export const AssetsTab: React.FC<AssetsTabProps> = ({ departmentId, currentUser 
         value_at_purchase: 0,
         // Auto-select department:
         // 1. If departmentId is passed (e.g. from Dashboard), use it.
-        // 2. If Admin, default to 'd0' (Administration).
+        // 2. If Admin, default to administration department UUID.
         // 3. If User has a department (Team Leader), use that.
-        department_id: departmentId || (currentUser.role === 'Administrator' ? 'd0' : currentUser.departmentId || ''),
+        department_id: departmentId || (currentUser.role === 'Administrator' ? departmentMap.administration.uuid : currentUser.departmentId || ''),
         current_condition: 'Working',
         storage_location: '',
         responsible_person: ''

@@ -1,20 +1,6 @@
 /** FinanceRequisitionsPage — route: /finance/requisitions */
 import React from 'react';
-import FinanceDashboard from '../../components/FinanceDashboard';
-import { MinistryEvent, ModalType, User } from '../../types';
+import RequisitionsTab from './tabs/RequisitionsTab';
 
-interface FinanceRequisitionsPageProps {
-  events: MinistryEvent[];
-  currentUser?: User;
-  onOpenModal?: (type: ModalType) => void;
-}
-
-const FinanceRequisitionsPage: React.FC<FinanceRequisitionsPageProps> = ({ events, currentUser, onOpenModal }) => (
-  <FinanceDashboard
-    events={events}
-    currentUser={currentUser}
-    onOpenModal={onOpenModal}
-    urlTab="requisitions"
-  />
-);
+const FinanceRequisitionsPage: React.FC = () => <RequisitionsTab />;
 export default FinanceRequisitionsPage;
