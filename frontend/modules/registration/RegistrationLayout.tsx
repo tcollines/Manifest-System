@@ -32,6 +32,8 @@ const RegistrationLayout: React.FC = () => {
     // Logistics users are locked to the Events tab (they manage stations/vehicles)
     const { user } = useAuth();
     const isLogisticsRole = hasLogisticsAccess(user);
+    const isElevated = user ? ['Administrator', 'Super Admin', 'Head of Dept', 'HOD', 'Department Head', 'Dept Admin', 'Reg. Admin', 'Registration Admin', 'Registration Head', 'TeamLeader'].includes(user.role) : false;
+
     const tabs = isLogisticsRole
         ? [{ to: 'events', icon: Calendar, label: 'Logistics Entry' }]
         : [
@@ -44,7 +46,7 @@ const RegistrationLayout: React.FC = () => {
         <RegistrationProvider>
             <div className="flex flex-col min-h-full bg-gray-50">
                 {/* ── NavLink tab bar ────────────────────────────────────────── */}
-                {!isLogisticsRole && (
+                {(!isLogisticsRole && isElevated) && (
                     <div className="bg-white border-b border-gray-200 px-6 py-3 flex items-center gap-1 flex-wrap sticky top-0 z-20">
                         {tabs.map(({ to, icon: Icon, label }) => (
                             <NavLink

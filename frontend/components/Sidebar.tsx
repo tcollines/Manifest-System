@@ -157,7 +157,6 @@ const Sidebar: React.FC<SidebarProps> = ({ onLogout, isOpen, onClose }) => {
     const dId = resolveDeptId('registration');
     menuItems = [
       { id: 'registration',   label: 'Registration Dashboard', icon: ClipboardCheck, path: `/departments/${dId}` },
-      { id: 'r-events',       label: 'Service Check In',       icon: ClipboardCheck, path: `/departments/${dId}/check-in` },
     ];
   } else if (isNextGenHead) {
     const dId = resolveDeptId('next-gen');

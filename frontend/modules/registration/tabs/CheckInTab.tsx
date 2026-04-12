@@ -95,7 +95,7 @@ export default function CheckInTab() {
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {services.map(service => {
+                        {services.filter(s => elevatedRoles.includes(currentUser.role) || !isServiceClosed(s.date)).map(service => {
                             const isClosed = isServiceClosed(service.date);
                             return (
                                 <div key={service.id} className="bg-white border border-gray-200 rounded-xl p-5 hover:border-ministry-orange/40 transition-all">
@@ -124,9 +124,9 @@ export default function CheckInTab() {
                                 </div>
                             );
                         })}
-                        {services.length === 0 && (
+                        {services.filter(s => elevatedRoles.includes(currentUser.role) || !isServiceClosed(s.date)).length === 0 && (
                             <div className="col-span-full py-12 text-center text-gray-400 bg-white rounded-xl border border-dashed border-gray-300">
-                                No active services scheduled.
+                                No active service
                             </div>
                         )}
                     </div>
