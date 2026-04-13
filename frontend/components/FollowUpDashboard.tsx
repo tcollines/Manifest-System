@@ -552,13 +552,6 @@ const FollowUpDashboard: React.FC<FollowUpDashboardProps> = ({ onOpenModal, curr
                         </div>
                     </div>
                     <div className="flex gap-3">
-                        <button
-                            onClick={handleDownloadExcel}
-                            className="px-4 py-2 bg-green-50 text-green-700 border border-green-200 rounded-xl text-sm font-bold hover:bg-green-100 transition-colors flex items-center shadow-sm"
-                        >
-                            <Download className="w-4 h-4 mr-2" />
-                            Export Excel
-                        </button>
                         {/* Existing Buttons */}
                         <button
                             onClick={() => handleCopyLink(event.id)}
