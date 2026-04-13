@@ -11,16 +11,35 @@ export const getSouls = async (req: Request, res: Response) => {
 
     const { sourceId } = req.query;
     try {
-        let query = supabase.from('souls').select('*').eq('manifest_id', manifestId).order('created_at', { ascending: false }); // Tenant Isolation
-        if (sourceId) {
-            const idUuid = toUUID(sourceId as string);
-            if (idUuid) {
-                query = query.eq('event_id', idUuid);
+        let allData: any[] = [];
+        let from = 0;
+        const step = 1000;
+        
+        while (true) {
+            let query = supabase.from('souls')
+                .select('*')
+                .eq('manifest_id', manifestId)
+                .order('created_at', { ascending: false })
+                .range(from, from + step - 1);
+                
+            if (sourceId) {
+                const idUuid = toUUID(sourceId as string);
+                if (idUuid) {
+                    query = query.eq('event_id', idUuid);
+                }
             }
+            const { data, error } = await query;
+            if (error) throw error;
+            
+            if (data && data.length > 0) {
+                allData = allData.concat(data);
+            }
+            if (!data || data.length < step) {
+                break;
+            }
+            from += step;
         }
-        const { data, error } = await query;
-        if (error) throw error;
-        res.json(data);
+        res.json(allData);
     } catch (error: any) {
         res.status(500).json({ error: 'An internal server error occurred.' });
     }
@@ -246,18 +265,37 @@ export const getNextGenSouls = async (req: Request, res: Response) => {
 
     const { serviceId } = req.query;
     try {
-        let query = supabase.from('next_gen_souls').select('*').eq('manifest_id', manifestId).order('created_at', { ascending: false }); // Tenant Isolation
-        if (serviceId) {
-            const uuid = toUUID(serviceId as string);
-            if (uuid) {
-                query = query.eq('service_id', uuid);
-            } else {
-                query = query.eq('service_id', serviceId); // Let it fail cleanly or match if we ever roll back
+        let allData: any[] = [];
+        let from = 0;
+        const step = 1000;
+        
+        while (true) {
+            let query = supabase.from('next_gen_souls')
+                .select('*')
+                .eq('manifest_id', manifestId)
+                .order('created_at', { ascending: false })
+                .range(from, from + step - 1);
+                
+            if (serviceId) {
+                const uuid = toUUID(serviceId as string);
+                if (uuid) {
+                    query = query.eq('service_id', uuid);
+                } else {
+                    query = query.eq('service_id', serviceId); // Let it fail cleanly or match if we ever roll back
+                }
             }
+            const { data, error } = await query;
+            if (error) throw error;
+            
+            if (data && data.length > 0) {
+                allData = allData.concat(data);
+            }
+            if (!data || data.length < step) {
+                break;
+            }
+            from += step;
         }
-        const { data, error } = await query;
-        if (error) throw error;
-        res.json(data);
+        res.json(allData);
     } catch (error: any) {
         res.status(500).json({ error: 'An internal server error occurred.' });
     }
