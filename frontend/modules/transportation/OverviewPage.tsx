@@ -1,11 +1,6 @@
-/** TransportationOverviewPage — route: /transportation/overview */
+/** TransportationOverviewPage — route: /departments/d5/overview */
 import React from 'react';
-import TransportationDashboard from '../../components/TransportationDashboard';
-import { MinistryEvent, ModalType, User } from '../../types';
+import OverviewTab from './tabs/OverviewTab';
 
-interface Props { events: MinistryEvent[]; currentUser: User; onOpenModal?: (t: ModalType) => void; }
-
-const TransportationOverviewPage: React.FC<Props> = ({ events, currentUser, onOpenModal }) => (
-  <TransportationDashboard events={events} currentUser={currentUser} onOpenModal={onOpenModal} urlTab="overview" />
-);
+const TransportationOverviewPage: React.FC = () => <OverviewTab />;
 export default TransportationOverviewPage;

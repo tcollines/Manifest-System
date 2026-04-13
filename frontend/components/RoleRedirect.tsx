@@ -49,7 +49,7 @@ const HeadOfDeptAsyncRedirect: React.FC<{ user: User }> = ({ user }) => {
 
 // Main component — synchronous for all roles except Head of Dept
 const RoleRedirect: React.FC<{ user: User }> = ({ user }) => {
-  if (user.role === 'Head of Dept') {
+  if (user.role === 'Head of Dept' || user.role === 'Dept Admin') {
     return <HeadOfDeptRedirect user={user} />;
   }
   return <Navigate to={getDashboardForUser(user)} replace />;

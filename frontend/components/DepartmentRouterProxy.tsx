@@ -1,8 +1,11 @@
 import React from 'react';
-import { useParams, Routes, Route, Navigate } from 'react-router-dom';
+import { useParams, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import ProtectedRoute from './ProtectedRoute';
 import { useAuth } from '../context/AuthContext';
-import { MinistryEvent, ModalType, User } from '../types';
+import { useEvent } from '../context/EventContext';
+import { ModalType, User } from '../types';
+import { hasLogisticsAccess } from '../domain/rbac';
+import { resolveDepartment } from '../constants/departmentMap';
 
 // Core Department Layouts
 import RegistrationLayout from '../modules/registration/RegistrationLayout';
@@ -47,29 +50,34 @@ import FollowUpMembersPage from '../modules/follow-up/FollowUpMembersPage';
 import FollowUpAnalysisPage from '../modules/follow-up/FollowUpAnalysisPage';
 
 import SchoolsLayout from '../modules/schools/SchoolsLayout';
-import SchoolsReportsPage from '../modules/schools/SchoolsReportsPage';
-import SchoolsEventsPage from '../modules/schools/SchoolsEventsPage';
+import { SchoolsTabsLayout } from '../modules/schools/SchoolsTabsLayout';
+import { ReportsTab as SchoolsReportsTab } from '../modules/schools/tabs/ReportsTab';
+import { EventsTab as SchoolsEventsTab } from '../modules/schools/tabs/EventsTab';
 
+// Campus Domain (Modularized)
 import CampusLayout from '../modules/campus/CampusLayout';
-import CampusFamiliesPage from '../modules/campus/CampusFamiliesPage';
-import CampusEvangelismPage from '../modules/campus/CampusEvangelismPage';
-import CampusVacistsPage from '../modules/campus/CampusVacistsPage';
-import CampusAlumniPage from '../modules/campus/CampusAlumniPage';
-import CampusFinanceDashboard from './CampusFinanceDashboard';
+import { CampusTabsLayout } from '../modules/campus/CampusTabsLayout';
+import { ActivityTab } from '../modules/campus/tabs/ActivityTab';
+import CampusFinanceDashboard from '../modules/campus/tabs/CampusFinancePage';
 import CampusMinistryEvents from './CampusMinistryEvents';
 
 // Residents 
 import ResidentLayout from '../modules/residents/ResidentLayout';
-import ResidentOverviewPage from '../modules/residents/ResidentOverviewPage';
-import ResidentResidencesPage from '../modules/residents/ResidentResidencesPage';
-import ResidentReportsPage from '../modules/residents/ResidentReportsPage';
-import CoordinatorResidencyDashboard from './CoordinatorResidencyDashboard';
+import { ResidentTabsLayout } from '../modules/residents/ResidentTabsLayout';
+import OverviewTab from '../modules/residents/tabs/OverviewTab';
+import ResidencesTab from '../modules/residents/tabs/ResidencesTab';
+import ReportsTab from '../modules/residents/tabs/ReportsTab';
+// Coordinator (my-residency) — modular replacement for CoordinatorResidencyDashboard
+import ResidentCoordinatorLayout from '../modules/residents/ResidentCoordinatorLayout';
+import CoordinatorReportsPage from '../modules/residents/CoordinatorReportsPage';
+import CoordinatorMembersPage from '../modules/residents/CoordinatorMembersPage';
+import CoordinatorEventsPage from '../modules/residents/CoordinatorEventsPage';
 
 // Custom Dashboards
 import NextGenFollowUp from './NextGenFollowUp';
 import NextGenTeam from './NextGenTeam';
 import NextGenReports from './NextGenReports';
-import StageCoordinatorDashboard from './StageCoordinatorDashboard';
+import StageCoordinatorDashboard from '../modules/transportation/StageCoordinatorDashboard';
 
 // Dynamic/Generic Dashboard 
 import GenericDeptDashboard from '../modules/generic-dept/GenericDeptDashboard';
@@ -78,31 +86,37 @@ import GenericDeptDashboard from '../modules/generic-dept/GenericDeptDashboard';
 import DepartmentDetail from './DepartmentDetail';
 import DepartmentRequests from './DepartmentRequests';
 
+const RedirectWithParams = ({ to }: { to: string }) => {
+    const { search } = useLocation();
+    return <Navigate to={{ pathname: to, search }} replace />;
+};
+
 interface ProxyProps {
-    events: MinistryEvent[];
     onOpenModal: (t: ModalType) => void;
     onEditUser: (u: User) => void;
-    refreshParentData?: () => void;
 }
 
-const DepartmentRouterProxy: React.FC<ProxyProps> = ({ events, onOpenModal, onEditUser, refreshParentData }) => {
+const DepartmentRouterProxy: React.FC<ProxyProps> = ({ onOpenModal, onEditUser }) => {
     const { deptId } = useParams<{ deptId: string }>();
     const { user } = useAuth();
-    const currentUser = user; // local alias for passing to child modules
+    const { events, refreshEvents } = useEvent();
+    const currentUser = user;
 
     // Safeguard
     if (!deptId) return <Navigate to="/departments" replace />;
 
+    const dept = resolveDepartment(deptId);
+
     // ── Registration (d1) ────────────────────────────────────────────────────────
-    if (deptId === 'd1' || deptId === 'registration') {
+    if (dept?.slug === 'registration') {
         return (
             <Routes>
-                <Route element={<ProtectedRoute allowedDepartments={['d1']} bypassRoles={['Logistics']} />}>
-                    <Route element={<RegistrationLayout currentUser={currentUser} />}>
-                        <Route index element={<Navigate to={currentUser?.role === 'Logistics' ? 'events' : 'check-in'} replace />} />
-                        <Route path="check-in" element={<CheckInPage events={events} currentUser={currentUser} onOpenModal={onOpenModal} refreshParentData={refreshParentData as any} />} />
-                        <Route path="events" element={<EventsPage events={events} currentUser={currentUser} onOpenModal={onOpenModal} refreshParentData={refreshParentData as any} />} />
-                        <Route path="database" element={<DatabasePage events={events} currentUser={currentUser} onOpenModal={onOpenModal} refreshParentData={refreshParentData as any} />} />
+                <Route element={<ProtectedRoute allowedDepartments={['registration']} bypassRoles={['Logistics']} />}>
+                    <Route element={<RegistrationLayout />}>
+                        <Route index element={<RedirectWithParams to={hasLogisticsAccess(user) ? 'events' : 'check-in'} />} />
+                        <Route path="check-in" element={<CheckInPage />} />
+                        <Route path="events"   element={<EventsPage />} />
+                        <Route path="database" element={<DatabasePage />} />
                     </Route>
                     <Route path="dashboard/*" element={<GenericDeptDashboard currentUser={currentUser} openModal={onOpenModal} onEditUser={onEditUser} />} />
                 </Route>
@@ -111,12 +125,12 @@ const DepartmentRouterProxy: React.FC<ProxyProps> = ({ events, onOpenModal, onEd
     }
 
     // ── Next Gen (d2) ────────────────────────────────────────────────────────────
-    if (deptId === 'd2' || deptId === 'next-gen') {
+    if (dept?.slug === 'next-gen') {
         return (
             <Routes>
-                <Route element={<ProtectedRoute allowedDepartments={['d2']} />}>
+                <Route element={<ProtectedRoute allowedDepartments={['next-gen']} />}>
                     <Route element={<NextGenLayout />}>
-                        <Route index element={<Navigate to="checkin" replace />} />
+                        <Route index element={<RedirectWithParams to="checkin" />} />
                         <Route path="checkin"  element={<NextGenCheckInPage events={events} currentUser={currentUser} onOpenModal={onOpenModal} />} />
                         <Route path="checkout" element={<NextGenCheckOutPage events={events} currentUser={currentUser} onOpenModal={onOpenModal} />} />
                         <Route path="database" element={<NextGenDatabasePage events={events} currentUser={currentUser} onOpenModal={onOpenModal} />} />
@@ -133,12 +147,12 @@ const DepartmentRouterProxy: React.FC<ProxyProps> = ({ events, onOpenModal, onEd
     }
 
     // ── Parking (d3) ─────────────────────────────────────────────────────────────
-    if (deptId === 'd3' || deptId === 'parking') {
+    if (dept?.slug === 'parking') {
         return (
             <Routes>
-                <Route element={<ProtectedRoute allowedDepartments={['d3']} />}>
+                <Route element={<ProtectedRoute allowedDepartments={['parking']} />}>
                     <Route element={<ParkingLayout />}>
-                        <Route index element={<Navigate to="checkin" replace />} />
+                        <Route index element={<RedirectWithParams to="checkin" />} />
                         <Route path="checkin" element={<ParkingCheckInPage currentUser={currentUser} events={events} onOpenModal={onOpenModal} />} />
                         <Route path="database" element={<ParkingDatabasePage currentUser={currentUser} events={events} onOpenModal={onOpenModal} />} />
                     </Route>
@@ -149,16 +163,16 @@ const DepartmentRouterProxy: React.FC<ProxyProps> = ({ events, onOpenModal, onEd
     }
 
     // ── Finance (d4) ─────────────────────────────────────────────────────────────
-    if (deptId === 'd4' || deptId === 'finance') {
+    if (dept?.slug === 'finance') {
         return (
             <Routes>
-                <Route element={<ProtectedRoute allowedDepartments={['d4']} />}>
-                    <Route element={<FinanceLayout currentUser={currentUser!} />}>
-                        <Route index element={<Navigate to="income" replace />} />
-                        <Route path="income"       element={<IncomePage events={events} currentUser={currentUser} onOpenModal={onOpenModal} />} />
-                        <Route path="expenses"     element={<ExpensesPage events={events} currentUser={currentUser} onOpenModal={onOpenModal} />} />
-                        <Route path="requisitions" element={<FinanceRequisitionsPage events={events} currentUser={currentUser} onOpenModal={onOpenModal} />} />
-                        <Route path="fleet"        element={<FleetPage events={events} currentUser={currentUser} onOpenModal={onOpenModal} />} />
+                <Route element={<ProtectedRoute allowedDepartments={['finance']} />}>
+                    <Route element={<FinanceLayout />}>
+                        <Route index element={<RedirectWithParams to="income" />} />
+                        <Route path="income"       element={<IncomePage />} />
+                        <Route path="expenses"     element={<ExpensesPage />} />
+                        <Route path="requisitions" element={<FinanceRequisitionsPage />} />
+                        <Route path="fleet"        element={<FleetPage />} />
                     </Route>
                     <Route path="dashboard/*" element={<GenericDeptDashboard currentUser={currentUser} openModal={onOpenModal} onEditUser={onEditUser} />} />
                 </Route>
@@ -167,17 +181,17 @@ const DepartmentRouterProxy: React.FC<ProxyProps> = ({ events, onOpenModal, onEd
     }
 
     // ── Transportation (d5) ──────────────────────────────────────────────────────
-    if (deptId === 'd5' || deptId === 'transportation') {
+    if (dept?.slug === 'transportation') {
         return (
             <Routes>
-                <Route element={<ProtectedRoute allowedDepartments={['4630e48a-f97e-48fd-a901-864b591c282f', 'd5']} />}>
+                <Route element={<ProtectedRoute allowedDepartments={['transportation']} />}>
                     <Route element={<TransportationLayout />}>
-                        <Route index element={<Navigate to="overview" replace />} />
-                        <Route path="overview"     element={<OverviewPage events={events} currentUser={currentUser} onOpenModal={onOpenModal} />} />
-                        <Route path="coordinators" element={<CoordinatorsPage events={events} currentUser={currentUser} onOpenModal={onOpenModal} />} />
-                        <Route path="stages"       element={<StagesPage events={events} currentUser={currentUser} onOpenModal={onOpenModal} />} />
+                        <Route index element={<RedirectWithParams to="overview" />} />
+                        <Route path="overview"     element={<OverviewPage />} />
+                        <Route path="coordinators" element={<CoordinatorsPage />} />
+                        <Route path="stages"       element={<StagesPage />} />
+                        <Route path="stage-dashboard" element={<StageCoordinatorDashboard />} />
                     </Route>
-                    <Route path="stage-dashboard" element={<StageCoordinatorDashboard currentUser={currentUser!} events={events} onOpenModal={onOpenModal} />} />
                     <Route path="dashboard/*" element={<GenericDeptDashboard currentUser={currentUser} openModal={onOpenModal} onEditUser={onEditUser} />} />
                 </Route>
             </Routes>
@@ -185,18 +199,18 @@ const DepartmentRouterProxy: React.FC<ProxyProps> = ({ events, onOpenModal, onEd
     }
 
     // ── Follow-Up (d6) ───────────────────────────────────────────────────────────
-    if (deptId === 'd6' || deptId === 'follow-up') {
+    if (dept?.slug === 'follow-up') {
         return (
             <Routes>
-                <Route element={<ProtectedRoute allowedDepartments={['d6']} />}>
+                <Route element={<ProtectedRoute allowedDepartments={['follow-up']} />}>
                     <Route element={<FollowUpLayout />}>
-                        <Route index element={<Navigate to="services" replace />} />
-                        <Route path="services"     element={<FollowUpServicesPage currentUser={currentUser} onOpenModal={onOpenModal} />} />
-                        <Route path="events"       element={<FollowUpEventsPage currentUser={currentUser} onOpenModal={onOpenModal} />} />
-                        <Route path="database"     element={<FollowUpDatabasePage currentUser={currentUser} onOpenModal={onOpenModal} />} />
-                        <Route path="first-timers" element={<FollowUpFirstTimersPage currentUser={currentUser} onOpenModal={onOpenModal} />} />
-                        <Route path="members"      element={<FollowUpMembersPage currentUser={currentUser} onOpenModal={onOpenModal} />} />
-                        <Route path="analysis"     element={<FollowUpAnalysisPage currentUser={currentUser} onOpenModal={onOpenModal} />} />
+                        <Route index element={<RedirectWithParams to="services" />} />
+                        <Route path="services"     element={<FollowUpServicesPage />} />
+                        <Route path="events"       element={<FollowUpEventsPage />} />
+                        <Route path="database"     element={<FollowUpDatabasePage />} />
+                        <Route path="first-timers" element={<FollowUpFirstTimersPage />} />
+                        <Route path="members"      element={<FollowUpMembersPage />} />
+                        <Route path="analysis"     element={<FollowUpAnalysisPage />} />
                     </Route>
                     <Route path="dashboard/*" element={<GenericDeptDashboard currentUser={currentUser} openModal={onOpenModal} onEditUser={onEditUser} />} />
                 </Route>
@@ -205,14 +219,16 @@ const DepartmentRouterProxy: React.FC<ProxyProps> = ({ events, onOpenModal, onEd
     }
 
     // ── Schools (d7) ─────────────────────────────────────────────────────────────
-    if (deptId === 'd7' || deptId === 'schools') {
+    if (dept?.slug === 'schools') {
         return (
             <Routes>
-                <Route element={<ProtectedRoute allowedDepartments={['d7']} />}>
-                    <Route element={<SchoolsLayout />}>
-                        <Route index element={<Navigate to="reports" replace />} />
-                        <Route path="reports" element={<SchoolsReportsPage currentUser={currentUser} events={events} onOpenModal={onOpenModal} />} />
-                        <Route path="events" element={<SchoolsEventsPage currentUser={currentUser} events={events} onOpenModal={onOpenModal} />} />
+                <Route element={<ProtectedRoute allowedDepartments={['schools']} />}>
+                    <Route element={<SchoolsLayout events={events} />}>
+                        <Route element={<SchoolsTabsLayout />}>
+                            <Route index element={<RedirectWithParams to="reports" />} />
+                            <Route path="reports" element={<SchoolsReportsTab />} />
+                            <Route path="events" element={<SchoolsEventsTab />} />
+                        </Route>
                     </Route>
                     <Route path="dashboard/*" element={<GenericDeptDashboard currentUser={currentUser} openModal={onOpenModal} onEditUser={onEditUser} />} />
                 </Route>
@@ -221,17 +237,17 @@ const DepartmentRouterProxy: React.FC<ProxyProps> = ({ events, onOpenModal, onEd
     }
 
     // ── Healing (d8) ─────────────────────────────────────────────────────────────
-    if (deptId === 'd8' || deptId === 'healing') {
+    if (dept?.slug === 'healing') {
         return (
             <Routes>
-                <Route element={<ProtectedRoute allowedDepartments={['d8']} />}>
+                <Route element={<ProtectedRoute allowedDepartments={['healing']} />}>
                     <Route element={<HealingLayout />}>
-                        <Route index element={<Navigate to="overview" replace />} />
-                        <Route path="overview" element={<HealingOverviewPage currentUser={currentUser} events={events} onOpenModal={onOpenModal} />} />
-                        <Route path="reports" element={<HealingReportsPage currentUser={currentUser} events={events} onOpenModal={onOpenModal} />} />
-                        <Route path="souls" element={<HealingSoulsPage currentUser={currentUser} events={events} onOpenModal={onOpenModal} />} />
-                        <Route path="testimonies" element={<HealingTestimoniesPage currentUser={currentUser} events={events} onOpenModal={onOpenModal} />} />
-                        <Route path="new" element={<HealingNewPage currentUser={currentUser} events={events} onOpenModal={onOpenModal} />} />
+                        <Route index element={<RedirectWithParams to="overview" />} />
+                        <Route path="overview" element={<HealingOverviewPage />} />
+                        <Route path="reports" element={<HealingReportsPage />} />
+                        <Route path="souls" element={<HealingSoulsPage />} />
+                        <Route path="testimonies" element={<HealingTestimoniesPage />} />
+                        <Route path="new" element={<HealingNewPage />} />
                     </Route>
                     <Route path="dashboard/*" element={<GenericDeptDashboard currentUser={currentUser} openModal={onOpenModal} onEditUser={onEditUser} />} />
                 </Route>
@@ -240,17 +256,19 @@ const DepartmentRouterProxy: React.FC<ProxyProps> = ({ events, onOpenModal, onEd
     }
 
     // ── Campus (d9) ──────────────────────────────────────────────────────────────
-    if (deptId === 'd9' || deptId === 'campus') {
+    if (dept?.slug === 'campus') {
         return (
             <Routes>
-                <Route element={<ProtectedRoute allowedDepartments={['d9']} />}>
-                    <Route element={<CampusLayout />}>
-                        <Route index element={<Navigate to="families" replace />} />
-                        <Route path="families" element={<CampusFamiliesPage currentUser={currentUser} events={events} onOpenModal={onOpenModal} />} />
-                        <Route path="evangelism" element={<CampusEvangelismPage currentUser={currentUser} events={events} onOpenModal={onOpenModal} />} />
-                        <Route path="vacists" element={<CampusVacistsPage currentUser={currentUser} events={events} onOpenModal={onOpenModal} />} />
-                        <Route path="alumni" element={<CampusAlumniPage currentUser={currentUser} events={events} onOpenModal={onOpenModal} />} />
-                        <Route path="finance" element={<CampusFinanceDashboard currentUser={currentUser!} />} />
+                <Route element={<ProtectedRoute allowedDepartments={['campus']} />}>
+                    <Route element={<CampusLayout events={events} />}>
+                        <Route element={<CampusTabsLayout />}>
+                            <Route index element={<RedirectWithParams to="families" />} />
+                            <Route path="families" element={<ActivityTab category="Family" />} />
+                            <Route path="evangelism" element={<ActivityTab category="Evangelism" />} />
+                            <Route path="vacists" element={<ActivityTab category="Vacists" />} />
+                            <Route path="alumni" element={<ActivityTab category="Alumni" />} />
+                        </Route>
+                        <Route path="finance" element={<CampusFinanceDashboard />} />
                     </Route>
                     <Route path="events" element={<CampusMinistryEvents events={events} />} />
                     <Route path="dashboard/*" element={<GenericDeptDashboard currentUser={currentUser} openModal={onOpenModal} onEditUser={onEditUser} />} />
@@ -260,19 +278,26 @@ const DepartmentRouterProxy: React.FC<ProxyProps> = ({ events, onOpenModal, onEd
     }
 
     // ── Residents (d10) ────────────────────────────────────────────────────────
-    if (deptId === 'd10' || deptId === 'residents') {
+    if (dept?.slug === 'residents') {
         return (
             <Routes>
                 <Route element={<ProtectedRoute allowedRoles={['Administrator', 'Super Admin']} />}>
-                    <Route element={<ResidentLayout />}>
-                        <Route index element={<Navigate to="overview" replace />} />
-                        <Route path="overview"   element={<ResidentOverviewPage events={events} currentUser={currentUser} onOpenModal={onOpenModal} />} />
-                        <Route path="residences" element={<ResidentResidencesPage events={events} currentUser={currentUser} onOpenModal={onOpenModal} />} />
-                        <Route path="reports"    element={<ResidentReportsPage events={events} currentUser={currentUser} onOpenModal={onOpenModal} />} />
+                    <Route element={<ResidentLayout events={events} />}>
+                        <Route element={<ResidentTabsLayout />}>
+                            <Route index element={<RedirectWithParams to="overview" />} />
+                            <Route path="overview"   element={<OverviewTab />} />
+                            <Route path="residences" element={<ResidencesTab />} />
+                            <Route path="reports"    element={<ReportsTab />} />
+                        </Route>
                     </Route>
                 </Route>
                 <Route element={<ProtectedRoute allowedRoles={['Resident Coordinator']} />}>
-                    <Route path="my-residency" element={<CoordinatorResidencyDashboard currentUser={currentUser!} />} />
+                    <Route path="my-residency" element={<ResidentCoordinatorLayout />}>
+                        <Route index element={<RedirectWithParams to="reports" />} />
+                        <Route path="reports" element={<CoordinatorReportsPage />} />
+                        <Route path="members" element={<CoordinatorMembersPage />} />
+                        <Route path="events"  element={<CoordinatorEventsPage />} />
+                    </Route>
                 </Route>
             </Routes>
         );

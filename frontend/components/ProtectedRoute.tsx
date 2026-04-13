@@ -3,7 +3,7 @@ import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { User } from '../types';
 import { getDashboardForUser } from '../utils';
-import { DEPARTMENTS } from '../constants';
+import { resolveDepartment } from '../constants/departmentMap';
 import LoadingSpinner from './ui/LoadingSpinner';
 
 interface ProtectedRouteProps {
@@ -49,7 +49,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     }
 
     // ── Super Admin / Administrator / TeamLeader: full access ─────────────────
-    if (['Super Admin', 'Administrator', 'TeamLeader'].includes(user.role)) {
+    if (['Super Admin', 'Administrator', 'TeamLeader', 'Team Leader'].includes(user.role)) {
         return <Outlet />;
     }
 
@@ -60,24 +60,11 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 
     // ── Department check ──────────────────────────────────────────────────────
     if (allowedDepartments.length > 0) {
-        // Custom dept users (UUID departmentId) have no entry in the DEPARTMENTS constant.
-        // Their route (/departments/:id/dashboard) is guarded by a plain ProtectedRoute
-        // with no allowedDepartments — so they pass through here automatically.
-        const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-        if (user.departmentId && UUID_RE.test(user.departmentId)) {
-            return <Outlet />;
-        }
-
-        const userDept = DEPARTMENTS.find(d =>
-            d.id === user.departmentId ||
-            d.uuid === user.departmentId ||
-            d.code === user.departmentId
-        );
+        const userDept = resolveDepartment(user.departmentId);
 
         const isAllowed =
             (user.departmentId && allowedDepartments.includes(user.departmentId)) ||
             (userDept && (
-                allowedDepartments.includes(userDept.code) ||
                 allowedDepartments.includes(userDept.slug) ||
                 allowedDepartments.includes(userDept.uuid)
             ));

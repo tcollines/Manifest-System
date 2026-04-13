@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { useNotification } from './ui/NotificationSystem';
 import { PersonalVehicle, MinistryEvent, ModalType } from '../types';
 import {
@@ -26,9 +26,15 @@ type ViewMode = 'list' | 'service-active' | 'register-new' | 'add-vehicle-db' | 
 const ParkingDashboard: React.FC<ParkingDashboardProps> = ({ currentUser, events = [], onOpenModal, urlTab }) => {
     const { showToast, confirm: askConfirm } = useNotification();
     const navigate = useNavigate();
+    const location = useLocation();
+    const basePath = location.pathname.replace(/\/[^/]+$/, '');
 
-    // [PHASE F] activeTab is URL-driven when urlTab prop is provided.
     const [activeTab, setActiveTab] = useState<ParkingTab>(urlTab || 'checkin');
+
+    const switchTab = (tab: ParkingTab) => {
+        setActiveTab(tab);
+        navigate(`${basePath}/${tab}`);
+    };
     const [viewMode, setViewMode] = useState<ViewMode>('list');
     const [searchQuery, setSearchQuery] = useState('');
     const [vehicles, setVehicles] = useState<PersonalVehicle[]>([]);
@@ -140,7 +146,7 @@ const ParkingDashboard: React.FC<ParkingDashboardProps> = ({ currentUser, events
             {viewMode === 'list' && (
                 <div className="flex space-x-1 bg-gray-100 p-1.5 rounded-xl w-fit">
                     <button
-                        onClick={() => { setActiveTab('checkin'); navigate('/parking/checkin'); }}
+                        onClick={() => switchTab('checkin')}
                         className={`flex items-center space-x-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all ${activeTab === 'checkin'
                             ? 'bg-black text-white shadow-md'
                             : 'text-gray-500 hover:text-gray-900'
@@ -150,7 +156,7 @@ const ParkingDashboard: React.FC<ParkingDashboardProps> = ({ currentUser, events
                         <span>Check-In</span>
                     </button>
                     <button
-                        onClick={() => { setActiveTab('database'); navigate('/parking/database'); }}
+                        onClick={() => switchTab('database')}
                         className={`flex items-center space-x-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all ${activeTab === 'database'
                             ? 'bg-black text-white shadow-md'
                             : 'text-gray-500 hover:text-gray-900'

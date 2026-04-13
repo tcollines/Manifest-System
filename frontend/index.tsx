@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import Root from './Root';
+import { GoogleOAuthProvider } from '@react-oauth/google';
 
 // [NUKING ROGUE SERVICE WORKERS]
 // A legacy service worker (sw.js) was previously registered and is permanently stuck in the browser.
@@ -19,8 +20,6 @@ if ('serviceWorker' in navigator) {
     }
   });
 }
-
-import { GoogleOAuthProvider } from '@react-oauth/google';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {

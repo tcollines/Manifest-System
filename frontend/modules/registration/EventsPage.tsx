@@ -1,28 +1,13 @@
-/**
- * EventsPage — route: /registration/events
- *
- * Thin wrapper that renders RegistrationDashboard with urlTab='events'.
- * All business logic remains in RegistrationDashboard.
- */
 import React from 'react';
-import RegistrationDashboard from '../../components/RegistrationDashboard';
-import { MinistryEvent, ModalType, User } from '../../types';
+import EventsTab from './tabs/EventsTab';
+import { useRegistration } from './RegistrationContext';
 
-interface EventsPageProps {
-  events: MinistryEvent[];
-  currentUser: User;
-  onOpenModal?: (type: ModalType) => void;
-  refreshParentData?: () => void;
-}
+const EventsPage: React.FC = () => {
+    const { currentUser } = useRegistration();
 
-const EventsPage: React.FC<EventsPageProps> = ({ events, currentUser, onOpenModal, refreshParentData }) => (
-  <RegistrationDashboard
-    events={events}
-    currentUser={currentUser}
-    onOpenModal={onOpenModal}
-    refreshParentData={refreshParentData}
-    urlTab="events"
-  />
-);
+    if (!currentUser) return null;
+
+    return <EventsTab />;
+};
 
 export default EventsPage;

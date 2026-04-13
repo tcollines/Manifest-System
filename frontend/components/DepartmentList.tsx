@@ -51,19 +51,8 @@ const DepartmentList: React.FC<DepartmentListProps> = () => {
         });
     }, []);
 
-    const handleViewDashboard = (deptName: string) => {
-        const name = deptName.toLowerCase();
-        if (name === 'registration')                              navigate('/registration');
-        else if (name === 'next gen')                            navigate('/next-gen');
-        else if (name === 'transportation')                      navigate('/transportation');
-        else if (name === 'finance')                             navigate('/finance');
-        else if (name === 'parking')                             navigate('/parking');
-        else if (name === 'follow-up')                           navigate('/follow-up');
-        else if (name === 'schools')                             navigate('/schools');
-        else if (name === 'healing')                             navigate('/healing');
-        else if (name === 'campus and institutions' || name === 'campus') navigate('/campus');
-        else if (name === 'residents')                           navigate('/residents');
-        else showToast(`Navigating to ${deptName} Dashboard... (Module under construction)`, 'info');
+    const handleViewDashboard = (deptId: string) => {
+        navigate(`/departments/${deptId}`);
     };
 
     // Shared card renderer
@@ -148,7 +137,7 @@ const DepartmentList: React.FC<DepartmentListProps> = () => {
                         dept.status,
                         undefined,
                         false,
-                        () => handleViewDashboard(dept.name),
+                        () => handleViewDashboard(dept.id),
                         `/departments/${dept.id}`,
                     )
                 )}

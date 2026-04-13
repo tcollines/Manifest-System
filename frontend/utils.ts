@@ -151,12 +151,13 @@ export const getDashboardForUser = (user: User): string => {
     if (user.role === 'Super Admin' || user.role === 'Administrator') return '/dashboard';
 
     // Role-specific overrides (BEFORE Department Check)
+    if (user.role === 'TeamLeader' || user.role === 'Team Leader') return '/team-dashboard';
     if (user.role === 'Logistics') return '/registration';
     if (user.role === 'Vehicle Coordinator') return '/transportation';
-    if (user.role === 'Stage Coordinator') return '/stage-dashboard';
+    if (user.role === 'Stage Coordinator') return '/departments/4630e48a-f97e-48fd-a901-864b591c282f/stage-dashboard';
     if (user.role === 'Resident Coordinator') return '/my-residency';
     if (user.role === 'Coordinator') {
-        if (user.stationId) return '/stage-dashboard';
+        if (user.stationId) return '/departments/4630e48a-f97e-48fd-a901-864b591c282f/stage-dashboard';
         return '/transportation';
     }
 
@@ -184,30 +185,15 @@ export const getDashboardForUser = (user: User): string => {
         }
     }
 
-    // Check Legacy Hardcodes (Fail-safe if DEPARTMENTS lookup misses)
-    switch (user.departmentId) {
-        case 'd1': return '/registration';
-        case 'd2': return '/next-gen';
-        case 'd3': return '/parking';
-        case 'd4': return '/finance';
-        case '4630e48a-f97e-48fd-a901-864b591c282f':
-        case 'd5': return '/transportation';
-        case 'd6': return '/follow-up';
-        case 'd7': return '/schools';
-        case 'd8': return '/healing';
-        case 'd9': return '/campus';
-        // [FIX 5] Changed from /dashboard → /setup-account.
-        // /dashboard is protected (Admin only) — unknown dept users were caught in an infinite loop.
-        // [FIX 6] Custom department UUIDs now route to GenericDeptDashboard.
-        // A UUID is 36 chars with dashes — if it matches that pattern it's a custom dept.
-        default: {
-            const id = user.departmentId;
-            if (id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
-                return `/departments/${id}/dashboard`;
-            }
-            // Truly unknown — prompt setup
-            return '/setup-account';
-        }
+    // [FIX 5] Changed from /dashboard → /setup-account.
+    // /dashboard is protected (Admin only) — unknown dept users were caught in an infinite loop.
+    // [FIX 6] Custom department UUIDs now route to GenericDeptDashboard.
+    // A UUID is 36 chars with dashes — if it matches that pattern it's a custom dept.
+    const id = user.departmentId;
+    if (id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+        return `/departments/${id}/dashboard`;
     }
+    // Truly unknown — prompt setup
+    return '/setup-account';
 };
 

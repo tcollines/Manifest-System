@@ -1,15 +1,8 @@
 import React from 'react';
-import HealingDashboard from '../../components/HealingDashboard';
-import { User, MinistryEvent, ModalType } from '../../types';
+import { OverviewTab } from './tabs/OverviewTab';
 
-interface HealingPageProps {
-    currentUser: User;
-    events: MinistryEvent[];
-    onOpenModal: (type: ModalType) => void;
-}
-
-const HealingOverviewPage: React.FC<HealingPageProps> = (props) => {
-    return <HealingDashboard {...props} urlTab="overview" />;
+const HealingOverviewPage: React.FC = () => {
+    return <OverviewTab />;
 };
 
 export default HealingOverviewPage;

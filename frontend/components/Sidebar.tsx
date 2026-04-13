@@ -3,17 +3,22 @@ import React, { useState, useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { LayoutDashboard, Users, Calendar, Bus, PlusSquare, FileText, ClipboardList, Map, BookOpen, Clock, FileCheck, Phone, CheckCircle, Package, Search, Menu, X, Settings, Heart, Database, BarChart2, Briefcase, GraduationCap, ArrowRight, UserPlus, CreditCard, Building2, DollarSign, ClipboardCheck, Baby, Car, Globe, LogOut } from 'lucide-react';
 import { ModalType, User, Department } from '../types';
+import { useAuth } from '../context/AuthContext';
+import { resolveDepartment } from '../constants/departmentMap';
 
 interface SidebarProps {
-  currentUser: User;
   onLogout: () => void;
   isOpen: boolean;
   onClose: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ currentUser, onLogout, isOpen, onClose }) => {
+const Sidebar: React.FC<SidebarProps> = ({ onLogout, isOpen, onClose }) => {
+  const { user: currentUser } = useAuth();
   const location = useLocation();
   const [departments, setDepartments] = useState<Department[]>([]);
+
+  // Guard: if auth hasn't resolved yet, render nothing (ProtectedRoute handles this)
+  if (!currentUser) return null;
 
   useEffect(() => {
     const fetchDepts = async () => {
@@ -64,8 +69,11 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, onLogout, isOpen, onClos
   // Uses ONLY checkCode (reads currentUser directly ÔÇö never flickers on API load).
   // checkDept is reserved for building paths, never for detecting which menu to show.
 
-  const checkCode = (...codes: string[]) =>
-    codes.some(c => currentUser.departmentId === c || currentUser.departmentUid === c);
+  const checkCode = (...codes: string[]) => {
+    if (codes.some(c => currentUser.departmentId === c || currentUser.departmentUid === c)) return true;
+    const resolved = resolveDepartment(currentUser.departmentId || '');
+    return !!resolved && codes.includes(resolved.slug);
+  };
 
   const roleHOD  = currentUser.role === 'Head of Dept' || currentUser.role === 'HOD' || currentUser.role === 'Dept Admin';
   const roleAdminOrFinance = roleHOD || currentUser.role === 'Dept Finance';
@@ -122,6 +130,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, onLogout, isOpen, onClos
     const dId = resolveDeptId('schools');
     menuItems = [
       { id: 'schools',        label: 'Schools Dashboard',  icon: BookOpen,      path: `/departments/${dId}` },
+      { id: 's-dashboard',    label: 'Dept Dashboard',     icon: LayoutDashboard, path: `/departments/${dId}/dashboard` },
       { id: 's-team',         label: 'Team Management',    icon: Users,         path: `/departments/${dId}/dashboard?tab=team` },
       { id: 's-schedule',     label: 'Service Schedule',   icon: Calendar,      path: `/departments/${dId}/dashboard?tab=schedule` },
       { id: 's-workplans',    label: 'Monthly Workplans',  icon: ClipboardList, path: `/departments/${dId}/dashboard?tab=workplans` },
@@ -133,15 +142,16 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, onLogout, isOpen, onClos
   } else if (isRegistrationHead) {
     const dId = resolveDeptId('registration');
     menuItems = [
-      { id: 'registration',   label: 'Registration Dashboard', icon: ClipboardCheck, path: `/departments/${dId}` },
-      { id: 'r-events',       label: 'Service Check In',       icon: ClipboardCheck, path: `/departments/${dId}/check-in` },
-      { id: 'r-team',         label: 'Team Management',        icon: Users,          path: `/departments/${dId}/dashboard?tab=team` },
-      { id: 'r-schedule',     label: 'Service Schedule',       icon: Calendar,       path: `/departments/${dId}/dashboard?tab=schedule` },
-      { id: 'r-workplans',    label: 'Monthly Workplans',      icon: ClipboardList,  path: `/departments/${dId}/dashboard?tab=workplans` },
-      { id: 'r-requisitions', label: 'Requisitions',           icon: FileText,       path: '/requisitions' },
-      { id: 'r-assets',       label: 'Assets',                 icon: Package,        path: '/assets' },
-      { id: 'r-finances',     label: 'Dept Finances',          icon: CreditCard,     path: `/departments/${dId}/dashboard?tab=finances` },
-      { id: 'r-reports',      label: 'Monthly Reports',        icon: BarChart2,      path: '/reports' },
+      { id: 'registration',   label: 'Registration Dashboard', icon: ClipboardCheck,  path: `/departments/${dId}` },
+      { id: 'r-dashboard',    label: 'Dept Dashboard',         icon: LayoutDashboard, path: `/departments/${dId}/dashboard` },
+      { id: 'r-events',       label: 'Service Check In',       icon: ClipboardCheck,  path: `/departments/${dId}/check-in` },
+      { id: 'r-team',         label: 'Team Management',        icon: Users,           path: `/departments/${dId}/dashboard?tab=team` },
+      { id: 'r-schedule',     label: 'Service Schedule',       icon: Calendar,        path: `/departments/${dId}/dashboard?tab=schedule` },
+      { id: 'r-workplans',    label: 'Monthly Workplans',      icon: ClipboardList,   path: `/departments/${dId}/dashboard?tab=workplans` },
+      { id: 'r-requisitions', label: 'Requisitions',           icon: FileText,        path: '/requisitions' },
+      { id: 'r-assets',       label: 'Assets',                 icon: Package,         path: '/assets' },
+      { id: 'r-finances',     label: 'Dept Finances',          icon: CreditCard,      path: `/departments/${dId}/dashboard?tab=finances` },
+      { id: 'r-reports',      label: 'Monthly Reports',        icon: BarChart2,       path: '/reports' },
     ];
   } else if (isRegistrationMember) {
     const dId = resolveDeptId('registration');
@@ -152,20 +162,21 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, onLogout, isOpen, onClos
   } else if (isNextGenHead) {
     const dId = resolveDeptId('next-gen');
     menuItems = [
-      { id: 'next-gen',            label: 'Next Gen Dashboard',  icon: Baby,          path: `/departments/${dId}` },
-      { id: 'ng-checkin',          label: 'Service Check In',    icon: CheckCircle,   path: `/departments/${dId}/checkin` },
-      { id: 'ng-checkout',         label: 'Check Out',           icon: ArrowRight,    path: `/departments/${dId}/checkout` },
-      { id: 'next-gen-follow-up',  label: 'Follow Up',           icon: UserPlus,      path: `/departments/${dId}/follow-up` },
-      { id: 'next-gen-reports',    label: 'Stats Reports',       icon: BarChart2,     path: `/departments/${dId}/reports` },
-      { id: 'events',              label: 'Events & Services',   icon: Calendar,      path: '/events' },
-      { id: 'next-gen-team',       label: 'Volunteer Team',      icon: Users,         path: `/departments/${dId}/team` },
-      { id: 'ng-team',             label: 'Team Management',     icon: Users,         path: `/departments/${dId}/dashboard?tab=team` },
-      { id: 'ng-schedule',         label: 'Service Schedule',    icon: Calendar,      path: `/departments/${dId}/dashboard?tab=schedule` },
-      { id: 'ng-workplans',        label: 'Monthly Workplans',   icon: ClipboardList, path: `/departments/${dId}/dashboard?tab=workplans` },
-      { id: 'ng-requisitions',     label: 'Requisitions',        icon: FileText,      path: '/requisitions' },
-      { id: 'ng-assets',           label: 'Assets',              icon: Package,       path: '/assets' },
-      { id: 'ng-finances',         label: 'Dept Finances',       icon: CreditCard,    path: `/departments/${dId}/dashboard?tab=finances` },
-      { id: 'reports',             label: 'Monthly Reports',     icon: BarChart2,     path: '/reports' },
+      { id: 'next-gen',            label: 'Next Gen Dashboard',  icon: Baby,            path: `/departments/${dId}` },
+      { id: 'ng-dashboard',        label: 'Dept Dashboard',      icon: LayoutDashboard, path: `/departments/${dId}/dashboard` },
+      { id: 'ng-checkin',          label: 'Service Check In',    icon: CheckCircle,     path: `/departments/${dId}/checkin` },
+      { id: 'ng-checkout',         label: 'Check Out',           icon: ArrowRight,      path: `/departments/${dId}/checkout` },
+      { id: 'next-gen-follow-up',  label: 'Follow Up',           icon: UserPlus,        path: `/departments/${dId}/follow-up` },
+      { id: 'next-gen-reports',    label: 'Stats Reports',       icon: BarChart2,       path: `/departments/${dId}/reports` },
+      { id: 'events',              label: 'Events & Services',   icon: Calendar,        path: '/events' },
+      { id: 'next-gen-team',       label: 'Volunteer Team',      icon: Users,           path: `/departments/${dId}/team` },
+      { id: 'ng-team',             label: 'Team Management',     icon: Users,           path: `/departments/${dId}/dashboard?tab=team` },
+      { id: 'ng-schedule',         label: 'Service Schedule',    icon: Calendar,        path: `/departments/${dId}/dashboard?tab=schedule` },
+      { id: 'ng-workplans',        label: 'Monthly Workplans',   icon: ClipboardList,   path: `/departments/${dId}/dashboard?tab=workplans` },
+      { id: 'ng-requisitions',     label: 'Requisitions',        icon: FileText,        path: '/requisitions' },
+      { id: 'ng-assets',           label: 'Assets',              icon: Package,         path: '/assets' },
+      { id: 'ng-finances',         label: 'Dept Finances',       icon: CreditCard,      path: `/departments/${dId}/dashboard?tab=finances` },
+      { id: 'reports',             label: 'Monthly Reports',     icon: BarChart2,       path: '/reports' },
     ];
     // Staff: no reports, no team management, no admin items
     if (currentUser.role === 'Staff') {
@@ -179,79 +190,84 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, onLogout, isOpen, onClos
   } else if (isNextGenMember) {
     const dId = resolveDeptId('next-gen');
     menuItems = [
-      { id: 'next-gen',           label: 'Next Gen Dashboard', icon: Baby,        path: `/departments/${dId}` },
+      { id: 'next-gen',           label: 'Next Gen Dashboard', icon: Baby,        path: `/departments/${dId}/checkin` },
       { id: 'next-gen-check-in',  label: 'Service Check In',   icon: CheckCircle, path: `/departments/${dId}/checkin` },
       { id: 'next-gen-check-out', label: 'Check Out',          icon: ArrowRight,  path: `/departments/${dId}/checkout` },
     ];
   } else if (isParkingHead) {
     const dId = resolveDeptId('parking');
     menuItems = [
-      { id: 'parking',        label: 'Parking Dashboard',   icon: Car,           path: `/departments/${dId}` },
-      { id: 'p-checkin',      label: 'Service Check In',    icon: CheckCircle,   path: `/departments/${dId}/checkin` },
-      { id: 'p-team',         label: 'Team Management',     icon: Users,         path: `/departments/${dId}/dashboard?tab=team` },
-      { id: 'p-schedule',     label: 'Service Schedule',    icon: Calendar,      path: `/departments/${dId}/dashboard?tab=schedule` },
-      { id: 'p-workplans',    label: 'Monthly Workplans',   icon: ClipboardList, path: `/departments/${dId}/dashboard?tab=workplans` },
-      { id: 'p-requisitions', label: 'Requisitions',        icon: FileText,      path: '/requisitions' },
-      { id: 'p-assets',       label: 'Assets',              icon: Package,       path: '/assets' },
-      { id: 'p-finances',     label: 'Dept Finances',       icon: CreditCard,    path: `/departments/${dId}/dashboard?tab=finances` },
-      { id: 'p-reports',      label: 'Monthly Reports',     icon: BarChart2,     path: '/reports' },
+      { id: 'parking',        label: 'Parking Dashboard',   icon: Car,             path: `/departments/${dId}/checkin` },
+      { id: 'p-dashboard',    label: 'Dept Dashboard',      icon: LayoutDashboard, path: `/departments/${dId}/dashboard` },
+      { id: 'p-checkin',      label: 'Service Check In',    icon: CheckCircle,     path: `/departments/${dId}/checkin` },
+      { id: 'p-team',         label: 'Team Management',     icon: Users,           path: `/departments/${dId}/dashboard?tab=team` },
+      { id: 'p-schedule',     label: 'Service Schedule',    icon: Calendar,        path: `/departments/${dId}/dashboard?tab=schedule` },
+      { id: 'p-workplans',    label: 'Monthly Workplans',   icon: ClipboardList,   path: `/departments/${dId}/dashboard?tab=workplans` },
+      { id: 'p-requisitions', label: 'Requisitions',        icon: FileText,        path: '/requisitions' },
+      { id: 'p-assets',       label: 'Assets',              icon: Package,         path: '/assets' },
+      { id: 'p-finances',     label: 'Dept Finances',        icon: CreditCard,     path: `/departments/${dId}/dashboard?tab=finances` },
+      { id: 'p-reports',      label: 'Monthly Reports',     icon: BarChart2,       path: '/reports' },
     ];
   } else if (isParkingMember) {
     const dId = resolveDeptId('parking');
     menuItems = [
-      { id: 'parking',          label: 'Parking Dashboard', icon: Car,         path: `/departments/${dId}` },
+      { id: 'parking',          label: 'Parking Dashboard', icon: Car,         path: `/departments/${dId}/checkin` },
       { id: 'parking-check-in', label: 'Service Check In',  icon: CheckCircle, path: `/departments/${dId}/checkin` },
     ];
   } else if (isTransportationHead) {
     const dId = resolveDeptId('transportation');
     menuItems = [
-      { id: 'transportation',   label: 'Transportation Dashboard', icon: Bus,           path: `/departments/${dId}` },
-      { id: 't-team',           label: 'Team Management',          icon: Users,         path: `/departments/${dId}/dashboard?tab=team` },
-      { id: 't-schedule',       label: 'Service Schedule',         icon: Calendar,      path: `/departments/${dId}/dashboard?tab=schedule` },
-      { id: 't-workplans',      label: 'Monthly Workplans',        icon: ClipboardList, path: `/departments/${dId}/dashboard?tab=workplans` },
-      { id: 't-requisitions',   label: 'Requisitions',             icon: FileText,      path: '/requisitions' },
-      { id: 't-assets',         label: 'Assets',                   icon: Package,       path: '/assets' },
-      { id: 't-finances',       label: 'Dept Finances',            icon: CreditCard,    path: `/departments/${dId}/dashboard?tab=finances` },
-      { id: 't-reports',        label: 'Monthly Reports',          icon: BarChart2,     path: '/reports' },
+      { id: 'transportation',   label: 'Transportation Dashboard', icon: Bus,             path: `/departments/${dId}/overview` },
+      { id: 't-dashboard',      label: 'Dept Dashboard',           icon: LayoutDashboard, path: `/departments/${dId}/dashboard` },
+      { id: 't-team',           label: 'Team Management',          icon: Users,           path: `/departments/${dId}/dashboard?tab=team` },
+      { id: 't-schedule',       label: 'Service Schedule',         icon: Calendar,        path: `/departments/${dId}/dashboard?tab=schedule` },
+      { id: 't-workplans',      label: 'Monthly Workplans',        icon: ClipboardList,   path: `/departments/${dId}/dashboard?tab=workplans` },
+      { id: 't-requisitions',   label: 'Requisitions',             icon: FileText,        path: '/requisitions' },
+      { id: 't-assets',         label: 'Assets',                   icon: Package,         path: '/assets' },
+      { id: 't-finances',       label: 'Dept Finances',            icon: CreditCard,      path: `/departments/${dId}/dashboard?tab=finances` },
+      { id: 't-reports',        label: 'Monthly Reports',          icon: BarChart2,       path: '/reports' },
     ];
   } else if (isFinanceHead) {
     const dId = resolveDeptId('finance');
     menuItems = [
-      { id: 'finance',        label: 'Finance Dashboard', icon: CreditCard,    path: `/departments/${dId}` },
-      { id: 'f-team',         label: 'Team Management',   icon: Users,         path: `/departments/${dId}/dashboard?tab=team` },
-      { id: 'f-schedule',     label: 'Service Schedule',  icon: Calendar,      path: `/departments/${dId}/dashboard?tab=schedule` },
-      { id: 'f-workplans',    label: 'Monthly Workplans', icon: ClipboardList, path: `/departments/${dId}/dashboard?tab=workplans` },
-      { id: 'f-requisitions', label: 'Requisitions',      icon: FileText,      path: '/requisitions' },
-      { id: 'f-assets',       label: 'Assets',            icon: Package,       path: '/assets' },
-      { id: 'f-finances',     label: 'Dept Finances',     icon: CreditCard,    path: `/departments/${dId}/dashboard?tab=finances` },
-      { id: 'f-reports',      label: 'Monthly Reports',   icon: BarChart2,     path: '/reports' },
+      { id: 'finance',        label: 'Finance Dashboard', icon: CreditCard,      path: `/departments/${dId}/income` },
+      { id: 'f-dashboard',    label: 'Dept Dashboard',    icon: LayoutDashboard, path: `/departments/${dId}/dashboard` },
+      { id: 'f-team',         label: 'Team Management',   icon: Users,           path: `/departments/${dId}/dashboard?tab=team` },
+      { id: 'f-schedule',     label: 'Service Schedule',  icon: Calendar,        path: `/departments/${dId}/dashboard?tab=schedule` },
+      { id: 'f-workplans',    label: 'Monthly Workplans', icon: ClipboardList,   path: `/departments/${dId}/dashboard?tab=workplans` },
+      { id: 'f-requisitions', label: 'Requisitions',      icon: FileText,        path: '/requisitions' },
+      { id: 'f-assets',       label: 'Assets',            icon: Package,         path: '/assets' },
+      { id: 'f-finances',     label: 'Dept Finances',     icon: CreditCard,      path: `/departments/${dId}/dashboard?tab=finances` },
+      { id: 'f-reports',      label: 'Monthly Reports',   icon: BarChart2,       path: '/reports' },
     ];
   } else if (isHealingHead) {
     const dId = resolveDeptId('healing');
     menuItems = [
-      { id: 'healing',        label: 'Healing Dept',      icon: Heart,         path: `/departments/${dId}` },
-      { id: 'h-team',         label: 'Team Management',   icon: Users,         path: `/departments/${dId}/dashboard?tab=team` },
-      { id: 'h-schedule',     label: 'Service Schedule',  icon: Calendar,      path: `/departments/${dId}/dashboard?tab=schedule` },
-      { id: 'h-workplans',    label: 'Monthly Workplans', icon: ClipboardList, path: `/departments/${dId}/dashboard?tab=workplans` },
-      { id: 'h-requisitions', label: 'Requisitions',      icon: FileText,      path: '/requisitions' },
-      { id: 'h-assets',       label: 'Assets',            icon: Package,       path: '/assets' },
-      { id: 'h-finances',     label: 'Dept Finances',     icon: CreditCard,    path: `/departments/${dId}/dashboard?tab=finances` },
-      { id: 'h-reports',      label: 'Monthly Reports',   icon: BarChart2,     path: '/reports' },
+      { id: 'healing',        label: 'Healing Dept',      icon: Heart,           path: `/departments/${dId}/overview` },
+      { id: 'h-dashboard',    label: 'Dept Dashboard',    icon: LayoutDashboard, path: `/departments/${dId}/dashboard` },
+      { id: 'h-team',         label: 'Team Management',   icon: Users,           path: `/departments/${dId}/dashboard?tab=team` },
+      { id: 'h-schedule',     label: 'Service Schedule',  icon: Calendar,        path: `/departments/${dId}/dashboard?tab=schedule` },
+      { id: 'h-workplans',    label: 'Monthly Workplans', icon: ClipboardList,   path: `/departments/${dId}/dashboard?tab=workplans` },
+      { id: 'h-requisitions', label: 'Requisitions',      icon: FileText,        path: '/requisitions' },
+      { id: 'h-assets',       label: 'Assets',            icon: Package,         path: '/assets' },
+      { id: 'h-finances',     label: 'Dept Finances',     icon: CreditCard,      path: `/departments/${dId}/dashboard?tab=finances` },
+      { id: 'h-reports',      label: 'Monthly Reports',   icon: BarChart2,       path: '/reports' },
     ];
     if (currentUser.role === 'Staff') {
-      menuItems = menuItems.filter(i => ['healing', 'h-schedule'].includes(i.id));
+      menuItems = menuItems.filter(i => ['healing', 'h-dashboard', 'h-schedule'].includes(i.id));
     }
   } else if (isFollowUpHead) {
     const dId = resolveDeptId('follow-up');
     menuItems = [
-      { id: 'follow-up',       label: 'Follow Up Dashboard', icon: UserPlus,      path: `/departments/${dId}` },
-      { id: 'fu-team',         label: 'Team Management',     icon: Users,         path: `/departments/${dId}/dashboard?tab=team` },
-      { id: 'fu-schedule',     label: 'Service Schedule',    icon: Calendar,      path: `/departments/${dId}/dashboard?tab=schedule` },
-      { id: 'fu-workplans',    label: 'Monthly Workplans',   icon: ClipboardList, path: `/departments/${dId}/dashboard?tab=workplans` },
-      { id: 'fu-requisitions', label: 'Requisitions',        icon: FileText,      path: '/requisitions' },
-      { id: 'fu-assets',       label: 'Assets',              icon: Package,       path: '/assets' },
-      { id: 'fu-finances',     label: 'Dept Finances',       icon: CreditCard,    path: `/departments/${dId}/dashboard?tab=finances` },
-      { id: 'fu-reports',      label: 'Monthly Reports',     icon: BarChart2,     path: '/reports' },
+      { id: 'follow-up',       label: 'Follow Up Dashboard', icon: UserPlus,        path: `/departments/${dId}/services` },
+      { id: 'fu-dashboard',    label: 'Dept Dashboard',      icon: LayoutDashboard, path: `/departments/${dId}/dashboard` },
+      { id: 'fu-team',         label: 'Team Management',     icon: Users,           path: `/departments/${dId}/dashboard?tab=team` },
+      { id: 'fu-schedule',     label: 'Service Schedule',    icon: Calendar,        path: `/departments/${dId}/dashboard?tab=schedule` },
+      { id: 'fu-workplans',    label: 'Monthly Workplans',   icon: ClipboardList,   path: `/departments/${dId}/dashboard?tab=workplans` },
+      { id: 'fu-requisitions', label: 'Requisitions',        icon: FileText,        path: '/requisitions' },
+      { id: 'fu-assets',       label: 'Assets',              icon: Package,         path: '/assets' },
+      { id: 'fu-finances',     label: 'Dept Finances',       icon: CreditCard,      path: `/departments/${dId}/dashboard?tab=finances` },
+      { id: 'fu-reports',      label: 'Monthly Reports',     icon: BarChart2,       path: '/reports' },
     ];
   } else if (isFollowUpMember) {
     menuItems = [
@@ -260,15 +276,16 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, onLogout, isOpen, onClos
   } else if (isCampusHead) {
     const dId = resolveDeptId('campus');
     menuItems = [
-      { id: 'campus',          label: 'Campus Dashboard',     icon: Building2,     path: `/departments/${dId}` },
-      { id: 'campus-events',   label: 'Ministry Events',      icon: Calendar,      path: `/departments/${dId}/events` },
-      { id: 'ca-team',         label: 'Team Management',      icon: Users,         path: `/departments/${dId}/dashboard?tab=team` },
-      { id: 'ca-schedule',     label: 'Service Schedule',     icon: Calendar,      path: `/departments/${dId}/dashboard?tab=schedule` },
-      { id: 'ca-workplans',    label: 'Monthly Workplans',    icon: ClipboardList, path: `/departments/${dId}/dashboard?tab=workplans` },
-      { id: 'ca-requisitions', label: 'Requisitions',         icon: FileText,      path: '/requisitions' },
-      { id: 'ca-assets',       label: 'Assets',               icon: Package,       path: '/assets' },
-      { id: 'campus-finance',  label: 'Dept Finances',        icon: DollarSign,    path: `/departments/${dId}/finance` },
-      { id: 'ca-reports',      label: 'Monthly Reports',      icon: BarChart2,     path: '/reports' },
+      { id: 'campus',          label: 'Campus Dashboard',     icon: Building2,       path: `/departments/${dId}/families` },
+      { id: 'ca-dashboard',    label: 'Dept Dashboard',       icon: LayoutDashboard, path: `/departments/${dId}/dashboard` },
+      { id: 'campus-events',   label: 'Ministry Events',      icon: Calendar,        path: `/departments/${dId}/events` },
+      { id: 'ca-team',         label: 'Team Management',      icon: Users,           path: `/departments/${dId}/dashboard?tab=team` },
+      { id: 'ca-schedule',     label: 'Service Schedule',     icon: Calendar,        path: `/departments/${dId}/dashboard?tab=schedule` },
+      { id: 'ca-workplans',    label: 'Monthly Workplans',    icon: ClipboardList,   path: `/departments/${dId}/dashboard?tab=workplans` },
+      { id: 'ca-requisitions', label: 'Requisitions',         icon: FileText,        path: '/requisitions' },
+      { id: 'ca-assets',       label: 'Assets',               icon: Package,         path: '/assets' },
+      { id: 'campus-finance',  label: 'Dept Finances',        icon: DollarSign,      path: `/departments/${dId}/finance` },
+      { id: 'ca-reports',      label: 'Monthly Reports',      icon: BarChart2,       path: '/reports' },
     ];
   } else if (isStageCoordinator) {
     menuItems = [
@@ -336,7 +353,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, onLogout, isOpen, onClos
         { id: 'custom-finances',     label: 'Dept Finances',      icon: CreditCard,      path: `/departments/${customDeptId}/dashboard?tab=finances` },
         { id: 'custom-assets',       label: 'Assets',             icon: Package,         path: `/departments/${customDeptId}/dashboard?tab=assets` },
         { id: 'custom-reports',      label: 'Monthly Reports',    icon: BarChart2,       path: `/departments/${customDeptId}/dashboard?tab=reports` },
-        { id: 'custom-settings',     label: 'Settings',           icon: Settings,        path: '/settings' },
       ] : [
         // Finance-role sees dashboard + finances + workplans + requisitions + assets + schedule (= all Member tabs + finance tabs)
 
@@ -346,20 +362,19 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, onLogout, isOpen, onClos
         { id: 'custom-requisitions', label: 'Requisitions',       icon: FileText,        path: `/departments/${customDeptId}/dashboard?tab=requisitions` },
         { id: 'custom-assets',       label: 'Assets',             icon: Package,         path: `/departments/${customDeptId}/dashboard?tab=assets` },
         { id: 'custom-schedule',     label: 'Service Schedule',   icon: Calendar,        path: `/departments/${customDeptId}/dashboard?tab=schedule` },
-        { id: 'custom-settings',     label: 'Settings',           icon: Settings,        path: '/settings' },
       ]),
     ];
   } else if (menuItems.length === 0) {
     // Only falls here for Super Admin / Administrator ÔÇö no dept-specific menu was set above
     const allMenuItems = [
-      { id: 'dashboard',         label: 'Dashboard',         icon: LayoutDashboard, roles: ['Administrator', 'Super Admin', 'Head of Dept', 'Staff', 'Volunteer'], path: '/dashboard' },
+      { id: 'dashboard',         label: 'Dashboard',         icon: LayoutDashboard, roles: ['Administrator', 'Super Admin', 'Head of Dept', 'Dept Admin', 'Staff', 'Volunteer'], path: '/dashboard' },
       { id: 'departments',       label: 'Departments',       icon: Users,           roles: ['Administrator', 'Super Admin'],                                        path: '/departments' },
       { id: 'administration-team', label: 'Team Management', icon: Users, roles: ['Administrator', 'Super Admin'], path: '/administration?tab=schedules' },
-      { id: 'events',            label: 'Events & Services', icon: Calendar,        roles: ['Administrator', 'Super Admin', 'Head of Dept', 'Staff'],               path: '/events' },
-      { id: 'reports',           label: 'Reports',           icon: BarChart2,       roles: ['Administrator', 'Super Admin', 'Head of Dept'],                        path: '/reports' },
-      { id: 'requisitions',      label: 'Requisitions',      icon: FileText,        roles: ['Administrator', 'Super Admin', 'Head of Dept', 'Staff'],               path: '/requisitions' },
-      { id: 'assets',            label: 'Assets',            icon: Package,         roles: ['Administrator', 'Super Admin', 'Head of Dept'],                        path: '/assets' },
-      { id: 'settings',          label: 'Settings',          icon: Settings,        roles: ['Administrator', 'Super Admin', 'Head of Dept', 'Staff', 'Volunteer'],  path: '/settings' },
+      { id: 'events',            label: 'Events & Services', icon: Calendar,        roles: ['Administrator', 'Super Admin', 'Head of Dept', 'Dept Admin', 'Staff'],               path: '/events' },
+      { id: 'reports',           label: 'Reports',           icon: BarChart2,       roles: ['Administrator', 'Super Admin', 'Head of Dept', 'Dept Admin'],                        path: '/reports' },
+      { id: 'requisitions',      label: 'Requisitions',      icon: FileText,        roles: ['Administrator', 'Super Admin', 'Head of Dept', 'Dept Admin', 'Staff'],               path: '/requisitions' },
+      { id: 'assets',            label: 'Assets',            icon: Package,         roles: ['Administrator', 'Super Admin', 'Head of Dept', 'Dept Admin'],                        path: '/assets' },
+      { id: 'settings',          label: 'Settings',          icon: Settings,        roles: ['Administrator', 'Super Admin', 'Head of Dept', 'Dept Admin', 'Staff', 'Volunteer'],  path: '/settings' },
     ];
     menuItems = allMenuItems.filter(item => {
       if (currentUser.role === 'Administrator' || currentUser.role === 'Super Admin') return true;
@@ -372,14 +387,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, onLogout, isOpen, onClos
     menuItems = menuItems.filter(i => !i.id.includes('team') && !i.id.includes('report'));
   }
 
-  // ÔöÇÔöÇÔöÇ Add Settings to every old-dept menu that doesn't already have it ÔöÇÔöÇÔöÇÔöÇ
-  const hasSettings = menuItems.some(i => i.id === 'settings' || i.id.endsWith('-settings'));
-  if (!hasSettings && menuItems.length > 0 && !isCustomDeptUser) {
-    menuItems = [
-      ...menuItems,
-      { id: 'dept-settings', label: 'Settings', icon: Settings, path: '/settings' },
-    ];
-  }
+  // Settings is only shown in the Administrator/Super Admin menu (see allMenuItems above)
 
 
   const getPath = (id: string) => {
@@ -415,7 +423,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, onLogout, isOpen, onClos
       case 'campus': return '/campus';
       case 'campus-events': return '/campus/events';
       case 'campus-finance': return '/campus/finance';
-      case 'stage-dashboard': return '/stage-dashboard';
+      case 'stage-dashboard': return '/departments/4630e48a-f97e-48fd-a901-864b591c282f/stage-dashboard';
       case 'residents': return '/residents';
       default: return '/dashboard';
     }
@@ -452,16 +460,20 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, onLogout, isOpen, onClos
 
             // For custom dept items with ?tab= params, manually compare path+tab
             // NavLink isActive only checks the pathname, not query params
-            const isCustomDeptItem = !!item.path && item.path.includes('/departments/') && item.path.includes('?tab=');
+            const isTabLink   = !!item.path && item.path.includes('/departments/') && item.path.includes('?tab=');
+            // A bare /dashboard link (no tab param) should ONLY be active when there is no ?tab in the URL
+            const isDashboardLink = !!item.path && item.path.endsWith('/dashboard') && !item.path.includes('?');
             let isActiveItem = false;
-            if (isCustomDeptItem) {
+            if (isTabLink) {
               const [itemPath, itemQuery] = path.split('?');
               const itemTab = new URLSearchParams(itemQuery).get('tab');
               const currentTab = new URLSearchParams(location.search).get('tab');
-              isActiveItem = location.pathname === itemPath && (itemTab ? currentTab === itemTab : !currentTab);
-            } else if (item.path && item.path.includes('/departments/') && !item.path.includes('?')) {
-              // Overview link: /departments/:id/dashboard with NO tab param
+              isActiveItem = location.pathname === itemPath && currentTab === itemTab;
+            } else if (isDashboardLink) {
+              // Active only when on the dashboard path with NO tab selected
               isActiveItem = location.pathname === path && !new URLSearchParams(location.search).get('tab');
+            } else if (item.path && item.path.includes('/departments/') && !item.path.includes('?')) {
+              isActiveItem = location.pathname === path;
             }
 
             return (
@@ -471,7 +483,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, onLogout, isOpen, onClos
                 end
                 onClick={handleItemClick}
                 className={({ isActive }) => {
-                  const active = isCustomDeptItem || (item.path && item.path.includes('/departments/'))
+                  const active = (isTabLink || isDashboardLink || (item.path && item.path.includes('/departments/')))
                     ? isActiveItem
                     : isActive;
                   return `w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 group ${active

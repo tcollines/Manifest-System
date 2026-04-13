@@ -85,7 +85,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
     const urlView = searchParams.get('view');
     useEffect(() => {
         // Browser back removed ?eventId= while still in service view → go to list
-        if (!urlEventId && (viewMode === 'service-active' || viewMode === 'add-child')) {
+        if (!urlEventId && viewMode === 'service-active') {
             setViewMode('list');
         }
         // Browser back removed ?view=add-child while still showing the form
@@ -720,7 +720,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
             {(viewMode === 'list' || viewMode === 'child-detail') && (
                 <div className="flex space-x-1 bg-gray-100 p-1.5 rounded-xl w-full md:w-fit overflow-x-auto scrollbar-hide">
                     <button
-                        onClick={() => { setActiveTab('checkin'); setViewMode('list'); navigate('/next-gen/checkin'); }}
+                        onClick={() => { setActiveTab('checkin'); setViewMode('list'); }}
                         className={`flex items-center space-x-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${activeTab === 'checkin'
                             ? 'bg-black text-white shadow-md'
                             : 'text-gray-500 hover:text-gray-900'
@@ -733,7 +733,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
 
                     {!isRestrictedUser && (
                         <button
-                            onClick={() => { setActiveTab('souls'); setViewMode('list'); navigate('/next-gen/souls'); }}
+                            onClick={() => { setActiveTab('souls'); setViewMode('list'); }}
                             className={`flex items-center space-x-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${activeTab === 'souls'
                                 ? 'bg-black text-white shadow-md'
                                 : 'text-gray-500 hover:text-gray-900'
@@ -745,7 +745,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                     )}
                     {!isRestrictedUser && (
                         <button
-                            onClick={() => { setActiveTab('database'); setViewMode('list'); navigate('/next-gen/database'); }}
+                            onClick={() => { setActiveTab('database'); setViewMode('list'); }}
                             className={`flex items-center space-x-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${activeTab === 'database'
                                 ? 'bg-black text-white shadow-md'
                                 : 'text-gray-500 hover:text-gray-900'
@@ -921,7 +921,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                                     <span className="hidden md:inline">Export Excel</span>
                                 </button>
                                 <button
-                                    onClick={() => { setViewMode('add-child'); setSearchParams(prev => { prev.set('view', 'add-child'); return prev; }, { replace: true }); }}
+                                    onClick={() => setViewMode('add-child')}
                                     className="flex-1 md:flex-none flex items-center justify-center space-x-2 bg-ministry-text text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors"
                                 >
                                     <UserPlus className="w-4 h-4" />

@@ -1,9 +1,12 @@
-/** CampusLayout — pure route shell. The inner dashboard renders its own header and tabs. */
 import React from 'react';
 import { Outlet } from 'react-router-dom';
+import { CampusProvider } from './CampusContext';
+import { MinistryEvent } from '../../types';
 
-const CampusLayout: React.FC = () => (
-    <Outlet />
+const CampusLayout: React.FC<{ events: MinistryEvent[] }> = ({ events }) => (
+    <CampusProvider initialEvents={events}>
+        <Outlet />
+    </CampusProvider>
 );
 
 export default CampusLayout;

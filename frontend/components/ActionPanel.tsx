@@ -282,7 +282,7 @@ const ActionPanel: React.FC<ActionPanelProps> = ({ modalType, closeModal, onSave
 
   const isCreator = currentUser?.id === targetUser?.createdBy; // Kept for legacy/fallback reference if needed, but primary logic is Role-based now.
   // Refined Permissions Logic
-  const isHeadOfTheirDept = modalType === ModalType.CREATE_USER ? (currentUser?.role === 'Head of Dept') : (currentUser?.role === 'Head of Dept' && currentUser?.departmentId === targetUser?.departmentId);
+  const isHeadOfTheirDept = modalType === ModalType.CREATE_USER ? (currentUser?.role === 'Head of Dept' || currentUser?.role === 'Dept Admin') : ((currentUser?.role === 'Head of Dept' || currentUser?.role === 'Dept Admin') && currentUser?.departmentId === targetUser?.departmentId);
   const isDeptAdminOfTheirDept = modalType === ModalType.CREATE_USER ? (currentUser?.role === 'Dept Admin') : (currentUser?.role === 'Dept Admin' && (targetUser ? currentUser?.departmentId === targetUser.departmentId : true));
 
   const isTargetTeamLeader = targetUser?.role === 'TeamLeader';
@@ -411,7 +411,7 @@ const ActionPanel: React.FC<ActionPanelProps> = ({ modalType, closeModal, onSave
 
                         if (isAdmin || isTeamLeader) {
                           allowedRoles = allRoles;
-                        } else if (currentUser?.role === 'Head of Dept') {
+                        } else if (currentUser?.role === 'Head of Dept' || currentUser?.role === 'Dept Admin') {
                           allowedRoles = ['Dept Admin', 'Dept Finance', 'Member'];
                         } else if (currentUser?.role === 'Dept Admin') {
                           allowedRoles = ['Member'];
@@ -435,6 +435,9 @@ const ActionPanel: React.FC<ActionPanelProps> = ({ modalType, closeModal, onSave
                       disabled={!canEditDept}
                       className={`w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-ministry-text focus:outline-none focus:border-ministry-orange ${!canEditDept ? 'opacity-60 bg-gray-100 cursor-not-allowed' : ''}`}
                     >
+                      {formData.departmentId && !allDepartments.some(d => d.id === formData.departmentId) && (
+                          <option value={formData.departmentId}>Loading department...</option>
+                      )}
                       {allDepartments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                     </select>
                   </div>

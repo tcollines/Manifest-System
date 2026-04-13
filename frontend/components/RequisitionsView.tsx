@@ -5,6 +5,7 @@ import { X, Plus, FileText, CheckCircle, Clock, AlertCircle, ChevronRight, Filte
 import { Requisition } from '../types';
 import { RequisitionStore } from '../database/requisitionStore';
 import RequisitionForm from './RequisitionForm';
+import { resolveDepartment } from '../constants/departmentMap';
 
 interface RequisitionsViewProps {
     currentUser: any;
@@ -26,7 +27,7 @@ const RequisitionsView: React.FC<RequisitionsViewProps> = ({ currentUser }) => {
     // Check Roles
     const isAdmin = currentUser.role === 'Administrator' || currentUser.role === 'Super Admin';
     const isTeamLeader = currentUser.role === 'TeamLeader';
-    const isFinance = currentUser.role === 'Finance' || currentUser.departmentId === 'd4';
+    const isFinance = currentUser.role === 'Finance' || resolveDepartment(currentUser.departmentId || '')?.slug === 'finance';
 
     useEffect(() => {
         fetchRequisitions();
