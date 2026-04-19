@@ -12,6 +12,7 @@ import { isEventLocked } from '../../../utils';
 import { MemberStore } from '../../../database/memberStore';
 import { SoulsStore } from '../../../database/soulsStore';
 import { Calendar, Share2, Check, Plus, Trash2, ChevronLeft, Users } from 'lucide-react';
+import * as XLSX from 'xlsx';
 
 const EventsTab: React.FC = () => {
     const { events, souls, selectedEventId, setSelectedEventId, copiedLinkId, handleCopyLink, setShowAddSoulForm } = useFollowUp();
@@ -100,14 +101,27 @@ const EventDetailView: React.FC<{
     }, [eventId]);
 
     const handleDownloadExcel = () => {
-        const rows = attendees.map(a => [a.name, a.phone, a.gender, a.residency, a.status, a.category || ''].join(','));
-        const csv = 'data:text/csv;charset=utf-8,' + encodeURI(['Name,Phone,Gender,Residence,Status,Category', ...rows].join('\n'));
-        const link = document.createElement('a');
-        link.setAttribute('href', csv);
-        link.setAttribute('download', `${event.title}_Attendees.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        const wb = XLSX.utils.book_new();
+
+        const soulsHeaders = ['First Name', 'Last Name', 'Phone', 'Gender', 'Residence', 'Email', 'Notes', 'Status'];
+        const soulsRows = soulsWon.map((s: any) => [s.firstName || '', s.lastName || '', s.phone || '', s.gender || '', s.residence || '', s.email || '', s.notes || '', s.status || '']);
+        const wsSouls = XLSX.utils.aoa_to_sheet([soulsHeaders, ...soulsRows]);
+        XLSX.utils.book_append_sheet(wb, wsSouls, "Souls Won");
+
+        const confRows = confirmations.map((s: any) => [s.firstName || '', s.lastName || '', s.phone || '', s.gender || '', s.residence || '', s.email || '', s.notes || '', s.status || '']);
+        const wsConf = XLSX.utils.aoa_to_sheet([soulsHeaders, ...confRows]);
+        XLSX.utils.book_append_sheet(wb, wsConf, "Confirmations");
+
+        const attHeaders = ['Name', 'Phone', 'Gender', 'Residence', 'Status', 'Category'];
+        const ftRows = firstTimers.map((a: any) => [a.name, a.phone, a.gender || '', a.residency || '', a.status || '', a.category || '']);
+        const wsFt = XLSX.utils.aoa_to_sheet([attHeaders, ...ftRows]);
+        XLSX.utils.book_append_sheet(wb, wsFt, "First Timers");
+
+        const attRows = attendees.map((a: any) => [a.name, a.phone, a.gender || '', a.residency || '', a.status || '', a.category || '']);
+        const wsAtt = XLSX.utils.aoa_to_sheet([attHeaders, ...attRows]);
+        XLSX.utils.book_append_sheet(wb, wsAtt, "All Attendees");
+
+        XLSX.writeFile(wb, `${event.title}_Data.xlsx`);
     };
 
     return (
@@ -160,8 +174,13 @@ const EventDetailView: React.FC<{
                         </button>
                     ))}
                 </div>
-                {viewTab === 'attendees' && attendees.length > 0 && (
-                    <button onClick={handleDownloadExcel} className="text-sm font-bold text-green-700 hover:bg-green-50 px-3 py-2 rounded-lg flex items-center border border-green-200">Download Excel</button>
+                {((viewTab === 'attendees' && attendees.length > 0) || 
+                  (viewTab === 'firstTimers' && firstTimers.length > 0) || 
+                  (viewTab === 'souls' && soulsWon.length > 0) || 
+                  (viewTab === 'confirmations' && confirmations.length > 0)) && (
+                    <button onClick={handleDownloadExcel} className="text-sm font-bold text-green-700 hover:bg-green-50 px-3 py-2 rounded-lg flex items-center border border-green-200">
+                        Download Excel
+                    </button>
                 )}
             </div>
 
