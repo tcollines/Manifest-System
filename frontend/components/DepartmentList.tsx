@@ -5,7 +5,8 @@ import { DEPARTMENTS } from '../constants';
 import { MoreHorizontal, Users, Car, CreditCard, ClipboardCheck, Phone, Bus, BookOpen, Heart, Building2, Home, Music, Mic, Shield, Camera, Star, Utensils, Flower2 } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import { DepartmentStore } from '../database/departmentStore';
-import { Department } from '../types';
+import { UserStore } from '../database/userStore';
+import { Department, User } from '../types';
 
 interface DepartmentListProps {
     onNavigate?: (view: string) => void;
@@ -40,15 +41,64 @@ const DepartmentList: React.FC<DepartmentListProps> = () => {
 
     const [customDepts, setCustomDepts] = useState<Department[]>([]);
     const [loadingCustom, setLoadingCustom] = useState(true);
+    const [deptStats, setDeptStats] = useState<Record<string, { head: string, count: number }>>({});
 
     useEffect(() => {
-        DepartmentStore.getAll().then(res => {
-            if (res.status === 'success') {
-                // Only show is_custom depts here — hardcoded ones are in DEPARTMENTS constant
-                setCustomDepts(res.data.filter(d => d.isCustom));
+        const loadAllData = async () => {
+            const [deptRes, userRes] = await Promise.all([
+                DepartmentStore.getAll(),
+                UserStore.getAll()
+            ]);
+
+            if (deptRes.status === 'success') {
+                setCustomDepts(deptRes.data.filter(d => d.isCustom));
             }
+
+            if (userRes.status === 'success' && userRes.data) {
+                const users = userRes.data;
+                const stats: Record<string, { head: string, count: number }> = {};
+                const globalAdmins = users.filter(u => u.role === 'Administrator' || u.role === 'Super Admin');
+
+                // Pre-populate keys for all constant depts to ensure they get default stats evaluated
+                DEPARTMENTS.forEach(d => {
+                    stats[d.id] = { head: '', count: 0 };
+                    stats[d.code] = { head: '', count: 0 }; // map by code as well just in case
+                });
+
+                // Compute Head and native assignment count
+                users.forEach(u => {
+                    const dId = u.departmentId;
+                    if (!dId) return;
+
+                    if (!stats[dId]) {
+                        stats[dId] = { head: '', count: 0 };
+                    }
+
+                    // Look for Head of Dept
+                    if (u.role === 'Head of Dept') {
+                        if (!stats[dId].head) stats[dId].head = u.name || '';
+                    }
+
+                    // Native assignment
+                    stats[dId].count += 1;
+                });
+
+                // Also initialize missing custom departments to ensure they render as 0 instead of mock data
+                if (deptRes.status === 'success' && deptRes.data) {
+                    deptRes.data.forEach((d: Department) => {
+                        if (d.isCustom && !stats[d.id]) {
+                            stats[d.id] = { head: '', count: 0 };
+                        }
+                    });
+                }
+
+                setDeptStats(stats);
+            }
+
             setLoadingCustom(false);
-        });
+        };
+
+        loadAllData();
     }, []);
 
     const handleViewDashboard = (deptId: string) => {
@@ -89,7 +139,7 @@ const DepartmentList: React.FC<DepartmentListProps> = () => {
 
                 {/* Content */}
                 <div className="mb-5">
-                    <button onClick={onView} className="text-left">
+                    <button onClick={onView} className="text-left w-full">
                         <h4 className="text-lg font-bold text-ministry-text mb-1 hover:text-ministry-orange transition-colors">{name}</h4>
                     </button>
                     <div className="flex items-center text-sm text-gray-500">
@@ -128,34 +178,39 @@ const DepartmentList: React.FC<DepartmentListProps> = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                 {/* Static / hardcoded departments */}
-                {DEPARTMENTS.map(dept =>
-                    renderCard(
+                {DEPARTMENTS.map(dept => {
+                    // Check if deptStats has been loaded (not empty). If empty, use mock data to prevent brief zeros from rendering visually wrong
+                    const hasLoadedStats = Object.keys(deptStats).length > 0;
+                    const stats = deptStats[dept.id] || deptStats[dept.code] || { head: dept.head, count: hasLoadedStats ? 0 : dept.members };
+                    
+                    return renderCard(
                         dept.id,
                         dept.name,
-                        dept.head,
-                        dept.members,
+                        stats.head || dept.head,
+                        stats.count !== undefined ? stats.count : dept.members,
                         dept.status,
                         undefined,
                         false,
                         () => handleViewDashboard(dept.id),
                         `/departments/${dept.id}`,
-                    )
-                )}
+                    );
+                })}
 
                 {/* Dynamic / custom departments from DB */}
-                {!loadingCustom && customDepts.map(dept =>
-                    renderCard(
+                {!loadingCustom && customDepts.map(dept => {
+                    const stats = deptStats[dept.id] || { head: dept.headName, count: 0 };
+                    return renderCard(
                         dept.id,
                         dept.name,
-                        dept.headName,
-                        dept.members,
+                        stats.head || dept.headName,
+                        stats.count !== undefined ? stats.count : dept.members,
                         dept.status,
                         dept.icon,
                         true,
                         () => navigate(`/departments/${dept.id}/dashboard`),
                         `/departments/${dept.id}/dashboard`,
-                    )
-                )}
+                    );
+                })}
 
                 {/* Loading skeleton for custom depts */}
                 {loadingCustom && (
