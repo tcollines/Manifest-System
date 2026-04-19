@@ -69,6 +69,21 @@ router.post('/activities', async (req, res) => {
             .single();
 
         if (error) throw error;
+
+        // Unified Ledger Sync
+        if (data && data.souls_won > 0) {
+            const unifiedPayload = {
+                id: data.id,
+                manifest_id: manifestId,
+                source_category: 'Campus Activity',
+                source_id: data.id,
+                soul_count: data.souls_won,
+                notes: data.notes || '',
+                captured_by: data.created_by || ''
+            };
+            await supabase.from('unified_souls_won').upsert(unifiedPayload, { onConflict: 'id' });
+        }
+
         res.status(201).json(data);
     } catch (error: any) {
         res.status(500).json({ error: 'An internal server error occurred.' });
@@ -101,6 +116,25 @@ router.put('/activities/:id', async (req, res) => {
             .single();
 
         if (error) throw error;
+
+        // Unified Ledger Sync
+        if (data) {
+            if (data.souls_won > 0) {
+                const unifiedPayload = {
+                    id: data.id,
+                    manifest_id: manifestId,
+                    source_category: 'Campus Activity',
+                    source_id: data.id,
+                    soul_count: data.souls_won,
+                    notes: data.notes || '',
+                    captured_by: data.created_by || ''
+                };
+                await supabase.from('unified_souls_won').upsert(unifiedPayload, { onConflict: 'id' });
+            } else {
+                await supabase.from('unified_souls_won').delete().eq('manifest_id', manifestId).eq('id', data.id);
+            }
+        }
+
         res.json(data);
     } catch (error: any) {
         res.status(500).json({ error: 'An internal server error occurred.' });
@@ -123,6 +157,10 @@ router.delete('/activities/:id', async (req, res) => {
             .eq('id', id);
 
         if (error) throw error;
+
+        // Unified Ledger Delete Sync
+        await supabase.from('unified_souls_won').delete().eq('manifest_id', manifestId).eq('id', id);
+
         res.json({ message: 'Activity deleted successfully' });
     } catch (error: any) {
         res.status(500).json({ error: 'An internal server error occurred.' });

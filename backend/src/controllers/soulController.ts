@@ -86,11 +86,31 @@ export const addSoul = async (req: Request, res: Response) => {
             payload.id = idToUse;
         }
 
-        const { error } = await supabase.from('souls').upsert(payload, { onConflict: 'id' });
-        if (error) {
+        const { data: savedSoul, error } = await supabase.from('souls').upsert(payload, { onConflict: 'id' }).select().single();
+        if (error || !savedSoul) {
             console.error("Soul Add DB Error:", error);
             throw error;
         }
+
+        // Unified Ledger Sync
+        const unifiedPayload = {
+            id: savedSoul.id, // Guarantee identical ID
+            manifest_id: manifestId,
+            source_category: payload.source_type,
+            source_id: payload.source_id,
+            soul_count: 1,
+            first_name: payload.first_name,
+            last_name: payload.last_name,
+            phone: payload.phone,
+            email: payload.email,
+            gender: payload.gender,
+            residence: payload.residence,
+            status: payload.status,
+            notes: payload.notes,
+            captured_by: payload.captured_by
+        };
+        await supabase.from('unified_souls_won').upsert(unifiedPayload, { onConflict: 'id' });
+
         res.status(201).json({ message: 'Soul saved (upsert)' });
     } catch (error: any) {
         console.error("Soul Add Catch Error:", error);
@@ -117,6 +137,22 @@ export const updateSoul = async (req: Request, res: Response) => {
 
         const { error } = await supabase.from('souls').update(payload).eq('manifest_id', manifestId).eq('id', id);
         if (error) throw error;
+
+        // Unified Ledger Sync (Partial Update)
+        const unifiedPayload: any = {};
+        if (payload.first_name) unifiedPayload.first_name = payload.first_name;
+        if (payload.last_name) unifiedPayload.last_name = payload.last_name;
+        if (payload.phone) unifiedPayload.phone = payload.phone;
+        if (payload.email) unifiedPayload.email = payload.email;
+        if (payload.gender) unifiedPayload.gender = payload.gender;
+        if (payload.residence) unifiedPayload.residence = payload.residence;
+        if (payload.status) unifiedPayload.status = payload.status;
+        if (payload.notes) unifiedPayload.notes = payload.notes;
+        
+        if (Object.keys(unifiedPayload).length > 0) {
+            await supabase.from('unified_souls_won').update(unifiedPayload).eq('manifest_id', manifestId).eq('id', id);
+        }
+
         res.json({ message: 'Soul updated' });
     } catch (error: any) {
         res.status(500).json({ error: 'An internal server error occurred.' });
@@ -131,6 +167,10 @@ export const deleteSoul = async (req: Request, res: Response) => {
     try {
         const { error } = await supabase.from('souls').delete().eq('manifest_id', manifestId).eq('id', id);
         if (error) throw error;
+
+        // Unified Ledger Cleanup
+        await supabase.from('unified_souls_won').delete().eq('manifest_id', manifestId).eq('id', id);
+
         res.json({ message: 'Soul deleted' });
     } catch (error: any) {
         res.status(500).json({ error: 'An internal server error occurred.' });
@@ -307,8 +347,28 @@ export const addNextGenSoul = async (req: Request, res: Response) => {
 
     try {
         const payload = { ...req.body, manifest_id: manifestId };
+        const idToUse = payload.id || crypto.randomUUID();
+        payload.id = idToUse;
+        
         const { error } = await supabase.from('next_gen_souls').insert([payload]);
         if (error) throw error;
+
+        // Unified Ledger Sync
+        const unifiedPayload = {
+            id: idToUse,
+            manifest_id: manifestId,
+            source_category: 'NextGen',
+            source_id: payload.service_id,
+            soul_count: 1,
+            first_name: (payload.child_name || '').trim().split(' ')[0],
+            last_name: (payload.child_name || '').trim().split(' ').slice(1).join(' '),
+            phone: payload.guardian_contact,
+            status: payload.status || 'New',
+            notes: payload.notes || payload.follow_up_notes || '',
+            captured_by: payload.captured_by
+        };
+        await supabase.from('unified_souls_won').upsert(unifiedPayload, { onConflict: 'id' });
+
         res.status(201).json({ message: 'NextGen Soul added' });
     } catch (error: any) {
         res.status(500).json({ error: 'An internal server error occurred.' });
@@ -323,6 +383,10 @@ export const deleteNextGenSoul = async (req: Request, res: Response) => {
     try {
         const { error } = await supabase.from('next_gen_souls').delete().eq('manifest_id', manifestId).eq('id', id);
         if (error) throw error;
+
+        // Unified Ledger Sync
+        await supabase.from('unified_souls_won').delete().eq('manifest_id', manifestId).eq('id', id);
+
         res.json({ message: 'NextGen Soul deleted' });
     } catch (error: any) {
         res.status(500).json({ error: 'An internal server error occurred.' });

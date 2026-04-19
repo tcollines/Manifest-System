@@ -490,6 +490,24 @@ export const addPassenger = async (req: Request, res: Response) => {
         };
         const { data, error } = await supabase.from('passengers').insert([payload]).select('*').maybeSingle();
         if (error) throw error;
+
+        // Unified Ledger Sync
+        if (data && data.soul_won) {
+            const unifiedPayload = {
+                id: data.id,
+                manifest_id: manifestId,
+                source_category: 'Passenger',
+                source_id: data.event_id,
+                soul_count: 1,
+                first_name: (data.name || '').trim().split(' ')[0],
+                last_name: (data.name || '').trim().split(' ').slice(1).join(' '),
+                phone: data.contact,
+                notes: '',
+                captured_by: ''
+            };
+            await supabase.from('unified_souls_won').upsert(unifiedPayload, { onConflict: 'id' });
+        }
+
         res.status(201).json({ message: 'Passenger added', passenger: data });
     } catch (error: any) {
         console.error('[addPassenger ERROR]', error);
@@ -527,8 +545,29 @@ export const updatePassenger = async (req: Request, res: Response) => {
             query = query.eq('version', expectedVersion);
         }
 
-        const { data, error } = await query.select('id').maybeSingle();
+        const { data, error } = await query.select('*').maybeSingle();
         if (error) throw error;
+
+        // Unified Ledger Sync
+        if (data) {
+            if (payload.soul_won) {
+                const unifiedPayload = {
+                    id: data.id,
+                    manifest_id: manifestId,
+                    source_category: 'Passenger',
+                    source_id: data.event_id,
+                    soul_count: 1,
+                    first_name: (data.name || '').trim().split(' ')[0],
+                    last_name: (data.name || '').trim().split(' ').slice(1).join(' '),
+                    phone: data.contact,
+                    notes: '',
+                    captured_by: ''
+                };
+                await supabase.from('unified_souls_won').upsert(unifiedPayload, { onConflict: 'id' });
+            } else if (payload.soul_won === false) {
+                await supabase.from('unified_souls_won').delete().eq('manifest_id', manifestId).eq('id', data.id);
+            }
+        }
 
         // Optimistic Locking Conflict Check
         if (!data && expectedVersion !== undefined) {
@@ -586,6 +625,10 @@ export const deletePassenger = async (req: Request, res: Response) => {
         const { error } = await supabase.from('passengers').delete()
             .eq('manifest_id', manifestId).eq('id', id);
         if (error) throw error;
+
+        // Unified Ledger Delete Sync
+        await supabase.from('unified_souls_won').delete().eq('manifest_id', manifestId).eq('id', id);
+
         res.json({ message: 'Passenger deleted' });
     } catch (error: any) {
         res.status(500).json({ error: 'An internal server error occurred.' });

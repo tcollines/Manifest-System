@@ -244,6 +244,21 @@ export const addResidentReport = async (req: Request, res: Response) => {
             .single();
 
         if (error) throw error;
+
+        // Unified Ledger Sync
+        if (data && data.souls_won > 0) {
+            const unifiedPayload = {
+                id: data.id,
+                manifest_id: manifestId,
+                source_category: 'Residency Outreach',
+                source_id: data.id,
+                soul_count: data.souls_won,
+                notes: data.notes || '',
+                captured_by: data.submitted_by || ''
+            };
+            await supabase.from('unified_souls_won').insert([unifiedPayload]);
+        }
+
         res.status(201).json(data);
     } catch (error: any) {
         res.status(500).json({ error: 'An internal server error occurred.' });

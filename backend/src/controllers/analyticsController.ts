@@ -65,94 +65,43 @@ export const getSoulsWon = async (req: Request, res: Response) => {
             'Departments': 0
         };
 
-        // Pre-fetch events to classify Services vs Events
-        const { data: allEvents, error: eventsError } = await supabase
-            .from('ministry_events')
-            .select('id, type')
-            .eq('manifest_id', manifestId);
+        // Query unified ledger
+        let allUnifiedSouls: any[] = [];
+        let hasMore = true;
+        let start = 0;
+        let limit = 1000;
+        
+        while (hasMore) {
+            const { data: pageSouls, error: soulsError } = await supabase
+                .from('unified_souls_won')
+                .select('source_category, soul_count')
+                .eq('manifest_id', manifestId)
+                .range(start, start + limit - 1);
 
-        const eventTypeMap = new Map<string, string>();
-        if (!eventsError && allEvents) {
-            allEvents.forEach((e: any) => eventTypeMap.set(e.id, e.type));
+            if (soulsError || !pageSouls || pageSouls.length === 0) {
+                hasMore = false;
+            } else {
+                allUnifiedSouls = [...allUnifiedSouls, ...pageSouls];
+                start += limit;
+                if (pageSouls.length < limit) hasMore = false;
+            }
         }
 
-        // 1. Fetch individual souls from public.souls
-        const { data: individualSouls, error: soulsError } = await supabase
-            .from('souls')
-            .select('id, event_id, source_type')
-            .eq('manifest_id', manifestId);
-
-        if (!soulsError && individualSouls) {
-            individualSouls.forEach((s: any) => {
-                if (s.source_type === 'Residential') {
-                    counts['Residency Outreach']++;
-                } else if (s.event_id) {
-                    const type = eventTypeMap.get(s.event_id);
-                    if (type === 'Service') counts['Services']++;
-                    else if (type === 'Event') counts['Events']++;
-                    else counts['Public Entry']++;
-                } else {
-                    counts['Public Entry']++;
-                }
-            });
-        }
-
-        // 2. Fetch souls_won from passengers (representing souls won during services/events)
-        const { data: passengers, error: passengersError } = await supabase
-            .from('passengers')
-            .select('id, event_id')
-            .eq('manifest_id', manifestId)
-            .eq('soul_won', true);
-
-        if (!passengersError && passengers) {
-            passengers.forEach((p: any) => {
-                if (p.event_id) {
-                    const type = eventTypeMap.get(p.event_id);
-                    if (type === 'Service') counts['Services']++;
-                    else if (type === 'Event') counts['Events']++;
-                }
-            });
-        }
-
-        // 3. Fetch souls_won from residence_outreach_reports
-        const { data: reports, error: reportsError } = await supabase
-            .from('residence_outreach_reports')
-            .select('souls_won')
-            .eq('manifest_id', manifestId);
-
-        if (!reportsError && reports) {
-            counts['Residency Outreach'] = reports.reduce((sum: number, report: any) => sum + (report.souls_won || 0), 0);
-        }
-
-        // 4. Fetch souls won from school_outreach_reports
-        const { data: schoolReports, error: schoolReportsError } = await supabase
-            .from('school_outreach_reports')
-            .select('souls_won')
-            .eq('manifest_id', manifestId);
-
-        if (!schoolReportsError && schoolReports) {
-            counts['Departments'] += schoolReports.reduce((sum: number, report: any) => sum + (report.souls_won || 0), 0);
-        }
-
-        // 5. Fetch souls won from campus_activities
-        const { data: campusReports, error: campusReportsError } = await supabase
-            .from('campus_activities')
-            .select('souls_won')
-            .eq('manifest_id', manifestId);
-
-        if (!campusReportsError && campusReports) {
-            counts['Departments'] += campusReports.reduce((sum: number, report: any) => sum + (report.souls_won || 0), 0);
-        }
-
-        // 6. Fetch souls won from healing_reports
-        const { data: healingReports, error: healingReportsError } = await supabase
-            .from('healing_reports')
-            .select('souls_count')
-            .eq('manifest_id', manifestId);
-
-        if (!healingReportsError && healingReports) {
-            counts['Departments'] += healingReports.reduce((sum: number, report: any) => sum + (report.souls_count || 0), 0);
-        }
+        allUnifiedSouls.forEach((s: any) => {
+            const count = s.soul_count || 1;
+            if (s.source_category === 'Service') counts['Services'] += count;
+            else if (s.source_category === 'Event') counts['Events'] += count;
+            else if (s.source_category === 'Residency Outreach') counts['Residency Outreach'] += count;
+            else if (['School Outreach', 'Campus Activity', 'Healing'].includes(s.source_category)) {
+                counts['Departments'] += count;
+            } else if (s.source_category === 'Passenger') {
+                // Historically passengers might be events or services, but for unified ledger let's map loosely or put under Events
+                counts['Events'] += count; 
+            } else {
+                 // Public Entry, NextGen, etc
+                counts['Public Entry'] += count;
+            }
+        });
 
         // Format for Recharts
         const chartData = Object.keys(counts).map(key => ({
@@ -217,23 +166,6 @@ export const getDashboardKPIs = async (req: Request, res: Response) => {
             .eq('manifest_id', manifestId)
             .not('attended_service_ids', 'is', null);
 
-        // 4. Souls Won
-        const p_souls = supabase
-            .from('souls')
-            .select('*', { count: 'exact', head: true })
-            .eq('manifest_id', manifestId);
-        
-        const p_passenger_souls = supabase
-            .from('passengers')
-            .select('*', { count: 'exact', head: true })
-            .eq('manifest_id', manifestId)
-            .eq('soul_won', true);
-
-        // Departmental souls (run in parallel)
-        const tables = ['residence_outreach_reports', 'school_outreach_reports', 'campus_activities'];
-        const departmentPromises = tables.map(t => supabase.from(t).select('souls_won').eq('manifest_id', manifestId));
-        const healingPromise = supabase.from('healing_reports').select('souls_count').eq('manifest_id', manifestId);
-
         // 5. Registered Residential Areas
         const p_residences = supabase
             .from('residences')
@@ -247,30 +179,39 @@ export const getDashboardKPIs = async (req: Request, res: Response) => {
             p_native_with_service, 
             p_passengers, 
             p_nextGen, 
-            p_souls, 
-            p_passenger_souls, 
-            p_residences,
-            ...departmentPromises, 
-            healingPromise
+            p_residences
         ]);
 
         const [
             res_active, res_native, res_native_svs, res_passengers, 
-            res_nextGen, res_souls, res_passenger_souls, res_residences,
-            res_dept1, res_dept2, res_dept3, res_healing
+            res_nextGen, res_residences
         ] = allResponses;
 
         const activeMembersCount = (res_active.data || []).filter(m => m.attended_service_ids && m.attended_service_ids.length > 0).length;
         const nextGenActiveCount = (res_nextGen.data || []).filter(m => m.attended_service_ids && m.attended_service_ids.length > 0).length;
         const totalFirstTimers = (res_native.count || 0) + (res_native_svs.count || 0) + (res_passengers.count || 0);
-        
-        let departmentalSouls = 0;
-        departmentalSouls += (res_dept1.data || []).reduce((sum: number, rep: any) => sum + (rep.souls_won || 0), 0);
-        departmentalSouls += (res_dept2.data || []).reduce((sum: number, rep: any) => sum + (rep.souls_won || 0), 0);
-        departmentalSouls += (res_dept3.data || []).reduce((sum: number, rep: any) => sum + (rep.souls_won || 0), 0);
-        departmentalSouls += (res_healing.data || []).reduce((sum: number, rep: any) => sum + (rep.souls_count || 0), 0);
 
-        const totalSoulsWon = (res_souls.count || 0) + (res_passenger_souls.count || 0) + departmentalSouls;
+        // 4. Souls Won (using unified ledger WITH pagination for exact sum)
+        let totalSoulsWon = 0;
+        let hasMoreSouls = true;
+        let start = 0;
+        const limit = 1000;
+        
+        while (hasMoreSouls) {
+            const { data: pageSouls, error: soulsError } = await supabase
+                .from('unified_souls_won')
+                .select('soul_count')
+                .eq('manifest_id', manifestId)
+                .range(start, start + limit - 1);
+
+            if (soulsError || !pageSouls || pageSouls.length === 0) {
+                hasMoreSouls = false;
+            } else {
+                totalSoulsWon += pageSouls.reduce((sum: number, s: any) => sum + (s.soul_count || 1), 0);
+                start += limit;
+                if (pageSouls.length < limit) hasMoreSouls = false;
+            }
+        }
 
         return res.json({
             activeMembers: activeMembersCount,

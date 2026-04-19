@@ -83,6 +83,25 @@ router.post('/reports', async (req, res) => {
                 console.error('Souls insert error:', JSON.stringify(soulsError));
                 return res.status(201).json({ ...report, _soulsError: soulsError.message });
             }
+
+            // Unified Ledger Sync for Individual Souls
+            const unifiedSouls = soulsToInsert.map((s: any) => ({
+                id: crypto.randomUUID(), // Assuming no ID was provided to `souls` either, but wait.
+                manifest_id: s.manifest_id,
+                source_category: 'Healing',
+                source_id: s.source_id,
+                soul_count: 1,
+                first_name: s.first_name,
+                last_name: s.last_name,
+                phone: s.phone,
+                gender: s.gender,
+                residence: s.residence,
+                status: s.status,
+                notes: s.notes,
+                captured_by: s.captured_by
+            }));
+            
+            await supabase.from('unified_souls_won').insert(unifiedSouls);
         }
 
         res.status(201).json(report);
@@ -155,7 +174,27 @@ router.put('/reports/:id', async (req, res) => {
                 event_id: null
             }));
             const { error: soulsError } = await supabase.from('souls').insert(soulsToInsert);
-            if (soulsError) console.error('Edit - souls insert error:', soulsError.message);
+            if (soulsError) {
+                console.error('Edit - souls insert error:', soulsError.message);
+            } else {
+                // Unified Ledger Sync for NEW Individual Souls
+                const unifiedSouls = soulsToInsert.map((s: any) => ({
+                    id: crypto.randomUUID(),
+                    manifest_id: s.manifest_id,
+                    source_category: 'Healing',
+                    source_id: s.source_id,
+                    soul_count: 1,
+                    first_name: s.first_name,
+                    last_name: s.last_name,
+                    phone: s.phone,
+                    gender: s.gender,
+                    residence: s.residence,
+                    status: s.status,
+                    notes: s.notes,
+                    captured_by: s.captured_by
+                }));
+                await supabase.from('unified_souls_won').insert(unifiedSouls);
+            }
         }
 
         // C. Insert NEW testimonies added during edit (if any)
