@@ -2825,8 +2825,7 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
     refreshDataRef, 
     selectedServiceRef, 
     checkedInIdsRef, 
-    membersRef, 
-    itemsPerPage
+    membersRef
   };
 
   return (
