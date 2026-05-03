@@ -82,26 +82,54 @@ const Sidebar: React.FC<SidebarProps> = ({ onLogout, isOpen, onClose }) => {
   const dId = resolveDeptId(currentUser.departmentId || '');
   let myDeptItems: NavItem[] = [];
 
-  const addCheckInRoute = (slug: string) => {
-      if (checkCode('d1', 'registration')) return '/registration/check-in';
-      if (checkCode('d3', 'parking')) return '/parking/checkin';
-      if (checkCode('d2', 'next-gen')) return '/next-gen/checkin';
-      if (checkCode('d5', 'transportation')) return `/departments/${dId}/overview`;
-      if (checkCode('d7', 'schools')) return `/departments/${dId}`;
-      if (checkCode('d8', 'healing')) return `/departments/${dId}/overview`;
-      if (checkCode('d9', 'campus')) return `/departments/${dId}/families`;
-      if (checkCode('d6', 'follow-up')) return `/departments/${dId}/services`;
-      if (checkCode('d4', 'finance')) return `/departments/${dId}/income`;
-      return `/departments/${dId}/dashboard`; // General fallback dashboard
-  };
+  const isElevatedRegistration = ['Administrator', 'Super Admin', 'Head of Dept', 'HOD', 'Department Head', 'Dept Admin', 'Reg. Admin', 'Registration Admin', 'Registration Head', 'TeamLeader'].includes(currentUser.role);
+  const isRegularRegistration = checkCode('d1', 'registration') && !isElevatedRegistration;
 
-  const isFinanceDept = checkCode('d4', 'finance');
-
-  if (isFinanceDept) {
-      myDeptItems.push({ id: 'my-dept-finance-dash', label: 'Finance Dashboard', icon: CreditCard, path: `/departments/${dId}/income` });
+  if (!isRegularRegistration) {
+      myDeptItems.push({ id: 'my-dept-ops', label: 'Dept Dashboard', icon: LayoutDashboard, path: `/departments/${dId}/dashboard` });
   }
 
-  myDeptItems.push({ id: 'my-dept-ops', label: 'Dept Dashboard', icon: LayoutDashboard, path: `/departments/${dId}/dashboard` });
+  if (checkCode('d1', 'registration')) {
+      myDeptItems.push({ id: 'reg-checkin', label: 'Service Check-In', icon: ClipboardCheck, path: `/departments/${dId}/check-in` });
+      if (isElevatedRegistration) {
+          myDeptItems.push({ id: 'reg-events', label: 'Events Check-In', icon: Calendar, path: `/departments/${dId}/events` });
+          myDeptItems.push({ id: 'reg-db', label: 'Member Database', icon: Database, path: `/departments/${dId}/database` });
+      }
+  } else if (checkCode('d2', 'next-gen')) {
+      myDeptItems.push({ id: 'ng-checkin', label: 'Service Check-In', icon: Baby, path: `/departments/${dId}/checkin` });
+      myDeptItems.push({ id: 'ng-checkout', label: 'Check-Out', icon: LogOut, path: `/departments/${dId}/checkout` });
+      myDeptItems.push({ id: 'ng-souls', label: 'Next Gen Souls', icon: Heart, path: `/departments/${dId}/souls` });
+      myDeptItems.push({ id: 'ng-db', label: 'Member Database', icon: Database, path: `/departments/${dId}/database` });
+  } else if (checkCode('d3', 'parking')) {
+      myDeptItems.push({ id: 'park-checkin', label: 'Parking Check-In', icon: Car, path: `/departments/${dId}/checkin` });
+      myDeptItems.push({ id: 'park-db', label: 'Member Database', icon: Database, path: `/departments/${dId}/database` });
+  } else if (checkCode('d4', 'finance')) {
+      myDeptItems.push({ id: 'fin-income', label: 'Income', icon: DollarSign, path: `/departments/${dId}/income` });
+      myDeptItems.push({ id: 'fin-expenses', label: 'Expenses', icon: CreditCard, path: `/departments/${dId}/expenses` });
+      myDeptItems.push({ id: 'fin-req', label: 'Requisitions', icon: FileText, path: `/departments/${dId}/requisitions` });
+      myDeptItems.push({ id: 'fin-fleet', label: 'Fleet Management', icon: Bus, path: `/departments/${dId}/fleet` });
+  } else if (checkCode('d5', 'transportation')) {
+      myDeptItems.push({ id: 'tr-overview', label: 'Overview', icon: LayoutDashboard, path: `/departments/${dId}/overview` });
+      myDeptItems.push({ id: 'tr-coordinators', label: 'Coordinators', icon: Users, path: `/departments/${dId}/coordinators` });
+      myDeptItems.push({ id: 'tr-stages', label: 'Stages', icon: Map, path: `/departments/${dId}/stages` });
+      myDeptItems.push({ id: 'tr-stage-dash', label: 'Stage Dashboard', icon: LayoutDashboard, path: `/departments/${dId}/stage-dashboard` });
+  } else if (checkCode('d6', 'follow-up')) {
+      myDeptItems.push({ id: 'fu-services', label: 'Services', icon: ClipboardCheck, path: `/departments/${dId}/services` });
+      myDeptItems.push({ id: 'fu-events', label: 'Events', icon: Calendar, path: `/departments/${dId}/events` });
+      myDeptItems.push({ id: 'fu-ft', label: 'First Timers', icon: UserPlus, path: `/departments/${dId}/first-timers` });
+      myDeptItems.push({ id: 'fu-members', label: 'Members', icon: Users, path: `/departments/${dId}/members` });
+      myDeptItems.push({ id: 'fu-db', label: 'Database', icon: Database, path: `/departments/${dId}/database` });
+      myDeptItems.push({ id: 'fu-analysis', label: 'Analysis', icon: BarChart2, path: `/departments/${dId}/analysis` });
+  } else if (checkCode('d7', 'schools')) {
+      myDeptItems.push({ id: 'sch-reports', label: 'Reports', icon: BarChart2, path: `/departments/${dId}/reports` });
+      myDeptItems.push({ id: 'sch-events', label: 'Events', icon: Calendar, path: `/departments/${dId}/events` });
+  } else if (checkCode('d8', 'healing')) {
+      myDeptItems.push({ id: 'hl-overview', label: 'Overview', icon: LayoutDashboard, path: `/departments/${dId}/overview` });
+      myDeptItems.push({ id: 'hl-reports', label: 'Reports', icon: BarChart2, path: `/departments/${dId}/reports` });
+      myDeptItems.push({ id: 'hl-souls', label: 'Souls', icon: Heart, path: `/departments/${dId}/souls` });
+      myDeptItems.push({ id: 'hl-testimonies', label: 'Testimonies', icon: BookOpen, path: `/departments/${dId}/testimonies` });
+      myDeptItems.push({ id: 'hl-new', label: 'New Entry', icon: FileCheck, path: `/departments/${dId}/new` });
+  }
 
   if (roleHOD || isDeptFinance || isGlobalFinance || isSystemAdmin || isTeamLeader) {
       if (!isDeptFinance && !isGlobalFinance) {

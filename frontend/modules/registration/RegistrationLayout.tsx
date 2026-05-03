@@ -45,29 +45,10 @@ const RegistrationLayout: React.FC = () => {
     return (
         <RegistrationProvider>
             <div className="flex flex-col min-h-full bg-gray-50">
-                {/* ── NavLink tab bar ────────────────────────────────────────── */}
-                {(!isLogisticsRole && isElevated) && (
-                    <div className="bg-white border-b border-gray-200 px-6 py-3 flex items-center gap-1 flex-wrap sticky top-0 z-20">
-                        {tabs.map(({ to, icon: Icon, label }) => (
-                            <NavLink
-                                key={to}
-                                to={to}
-                                className={({ isActive }) =>
-                                    `flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${
-                                        isActive
-                                            ? 'bg-black text-white'
-                                            : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'
-                                    }`
-                                }
-                            >
-                                <Icon className="w-4 h-4" /> {label}
-                            </NavLink>
-                        ))}
-                    </div>
-                )}
+
 
                 {/* ── Active page content ────────────────────────────────────── */}
-                <div className="flex-1 relative">
+                <div className="flex-1 relative p-6">
                     <Outlet />
                 </div>
             </div>

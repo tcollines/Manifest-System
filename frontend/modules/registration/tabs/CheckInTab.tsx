@@ -73,7 +73,7 @@ export default function CheckInTab() {
         isServiceClosed,
     } = useRegistration();
 
-    const elevatedRoles = ['Administrator', 'Head of Dept', 'Department Head', 'Dept Admin', 'Reg. Admin', 'Registration Admin', 'Registration Head'];
+    const elevatedRoles = ['Administrator', 'Super Admin', 'Head of Dept', 'HOD', 'Department Head', 'Dept Admin', 'Reg. Admin', 'Registration Admin', 'Registration Head', 'TeamLeader'];
 
     return (
         <>
