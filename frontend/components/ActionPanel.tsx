@@ -86,7 +86,7 @@ const ActionPanel: React.FC<ActionPanelProps> = ({ modalType, closeModal, onSave
         ? currentUser.departmentId
         : (allDepartments.length > 0 ? allDepartments[0].id : ''),
 
-      role: isTeamLeader ? 'Administrator' : 'Dept Admin' // Default role for Team Leader adds is Admin
+      role: isTeamLeader ? 'Administrator' : (currentUser?.role === 'Dept Admin' ? 'Member' : 'Dept Admin') // Default role for Team Leader adds is Admin
     });
   }, [modalType, currentUser, isAdmin, isTeamLeader]);
 
@@ -411,9 +411,9 @@ const ActionPanel: React.FC<ActionPanelProps> = ({ modalType, closeModal, onSave
 
                         if (isAdmin || isTeamLeader) {
                           allowedRoles = allRoles;
-                        } else if (currentUser?.role === 'Head of Dept' || currentUser?.role === 'Dept Admin') {
+                        } else if (currentUser?.role === 'Head of Dept' || currentUser?.role === 'HOD') {
                           allowedRoles = ['Dept Admin', 'Dept Finance', 'Member'];
-                        } else if (currentUser?.role === 'Dept Admin') {
+                        } else {
                           allowedRoles = ['Member'];
                         }
 
