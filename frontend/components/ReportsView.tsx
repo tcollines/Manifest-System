@@ -12,9 +12,10 @@ type FilterType = 'Monthly' | 'Quarterly' | 'Annually';
 
 interface ReportsViewProps {
   currentUser: User | null;
+  isGlobal?: boolean;
 }
 
-const ReportsView: React.FC<ReportsViewProps> = ({ currentUser }) => {
+const ReportsView: React.FC<ReportsViewProps> = ({ currentUser, isGlobal = false }) => {
   const { showToast } = useNotification();
   const [searchParams, setSearchParams] = useSearchParams();
   const VALID_REPORT_TYPES: ReportType[] = ['service', 'financial', 'souls', 'department'];
@@ -130,7 +131,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({ currentUser }) => {
           { id: 'service', label: 'Service Analytics', icon: FileText, adminOnly: true },
           { id: 'financial', label: 'Financial Analytics', icon: DollarSign, adminOnly: true },
           { id: 'souls', label: 'Souls Analytics', icon: Heart, adminOnly: true },
-        ].filter(tab => !tab.adminOnly || ['Administrator', 'TeamLeader'].includes(currentUser?.role || ''))
+        ].filter(tab => !tab.adminOnly || (isGlobal && ['Administrator', 'TeamLeader'].includes(currentUser?.role || '')))
           .map((tab) => {
             const Icon = tab.icon;
             const isActive = activeReport === tab.id;
@@ -153,7 +154,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({ currentUser }) => {
       {activeReport === 'department' ? (
         <div className="bg-ministry-card border border-gray-200 rounded-2xl p-6 shadow-sm min-h-[500px]">
           {currentUser ? (
-            <ReportsDashboard user={currentUser} />
+            <ReportsDashboard user={currentUser} isGlobal={isGlobal} />
           ) : (
             <div>Please log in to view reports.</div>
           )}

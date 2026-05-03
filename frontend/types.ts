@@ -1,4 +1,7 @@
 
+import { type RequisitionStatusType } from './shared/constants';
+export { type RequisitionStatusType };
+
 export interface KPI {
   id: string;
   label: string;
@@ -412,18 +415,35 @@ export interface RequisitionItem {
   totalCost: number;
 }
 
+export interface RequisitionBatch {
+  id: string;
+  batchNumber: string;
+  departmentId?: string;
+  createdBy?: string;
+  status: 'PENDING' | 'TL_APPROVAL' | 'APPROVED' | 'PAID' | 'REJECTED';
+  submittedAt?: string;
+  approvedAt?: string;
+  paidAt?: string;
+  createdAt: string;
+  requisitions?: Requisition[];
+}
+
 export interface Requisition {
   id: string;
   requisitionNumber: string;
   title: string;
   departmentId: string;
   requesterId: string;
-  requesterName?: string; // For display
-  status: 'Pending' | 'Approved' | 'Rejected' | 'Paid' | 'Pending Finance' | 'Pending Team Leader';
+  requesterName?: string;
+  status: RequisitionStatusType;
   totalAmount: number;
-  amountPaid?: number; // New field
-  payments?: RequisitionPayment[]; // New field
+  amountPaid?: number;
+  payments?: RequisitionPayment[];
   items?: RequisitionItem[];
+  workplanItemId?: string;
+  batchId?: string;
+  type: 'WORKPLAN' | 'ADHOC';
+  dateRequired?: string;
   notes?: string;
   rejectionReason?: string;
   createdAt: string;
@@ -611,16 +631,25 @@ export interface ServiceSchedule {
   sessions?: ScheduleSession[];
 }
 
-export interface WorkplanActivity {
-  activity: string;               // ACTIVITY — what is being done
-  item: string;                   // ITEM — specific resource/product
-  objective: string;              // OBJECTIVE — purpose
-  dateNeeded: string;             // DATE NEEDED
-  duration: string;               // DURATION — Monthly, Once, Weekly, etc.
-  unitCost: number;               // UNIT COST
-  quantity: number;               // Quantity (used to auto-calc total)
-  totalAmount: number;            // TOTAL AMOUNT
-  departmentalContribution?: string; // DEPARTMENTAL CONTRIBUTION (optional)
+export interface WorkplanItem {
+  id: string;
+  workplanId: string;
+  activity: string;
+  item?: string;
+  objective?: string;
+  dateNeeded?: string;
+  duration?: string;
+  unitCost?: number | '';
+  deptContribution?: number | '';
+  quantity: number | '';
+  amount: number;
+  status: 'PENDING' | 'ADMIN_APPROVED' | 'ADMIN_REJECTED' | 'TL_APPROVED' | 'TL_ADJUSTED' | 'TL_REJECTED' | 'FINALIZED';
+  adminComment?: string;
+  tlComment?: string;
+  approvedQuantity?: number;
+  approvedAmount?: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface MonthlyWorkplan {
@@ -628,15 +657,16 @@ export interface MonthlyWorkplan {
   manifestId: string;
   departmentId: string;
   title: string;
-  month: string; // ISO date — first of month
+  month: string; // ISO date
   objectives?: string;
-  activities: WorkplanActivity[];
-  status: 'Draft' | 'Submitted' | 'Approved';
+  status: 'Draft' | 'Submitted' | 'Admin_Review' | 'TL_Review' | 'Finalized';
+  isLocked: boolean;
   createdBy?: string;
   createdAt?: string;
   updatedAt?: string;
   // Joined
   departmentName?: string;
+  items?: WorkplanItem[];
 }
 
 export interface DeptFinanceEntry {

@@ -73,7 +73,7 @@ const AdminReportsView: React.FC<AdminReportsViewProps> = ({ user }) => {
         <div className="p-6 bg-gray-50 min-h-screen">
             <div className="flex justify-between items-center mb-6">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Monthly Reports</h1>
+                    <h1 className="text-2xl font-bold text-gray-900">Global Administration Reports</h1>
                     <p className="text-gray-500">Manage and monitor department reports</p>
                 </div>
                 {view === 'list' && (

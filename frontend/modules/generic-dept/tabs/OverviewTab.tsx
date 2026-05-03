@@ -8,8 +8,10 @@ import { DeptFinanceStore } from '../../../database/deptFinanceStore';
 import { formatCurrency } from '../../../shared/formatters';
 import StatCard from '../../../components/ui/StatCard';
 import LoadingSpinner from '../../../components/ui/LoadingSpinner';
-import { Users, Calendar, ClipboardList, DollarSign } from 'lucide-react';
+import { Users, Calendar, ClipboardList, DollarSign, CheckCircle, Clock, XCircle } from 'lucide-react';
 import { User } from '../../../types';
+import { useDepartmentAnalytics } from '../../../services/analyticsService';
+import { KpiCard } from '../../../components/ui/KpiCard';
 
 interface Props {
     department: Department;
@@ -24,6 +26,8 @@ const OverviewTab: React.FC<Props> = ({ department, user, deptRole, systemRole }
     const [workplanCount, setWorkplanCount] = useState<number | null>(null);
     const [balance, setBalance]           = useState<number | null>(null);
     const [loading, setLoading]           = useState(true);
+
+    const { data: analytics, isLoading: isLoadingAnalytics } = useDepartmentAnalytics(department.id);
 
     useEffect(() => {
         const deptId = department.id;
@@ -82,6 +86,37 @@ const OverviewTab: React.FC<Props> = ({ department, user, deptRole, systemRole }
                     iconBg="bg-green-50"
                     iconColor="text-green-600"
                 />
+            </div>
+
+            {/* Phase 3 Workflow Analytics */}
+            <div className="mt-8">
+                <h3 className="text-md font-bold text-gray-800 mb-4">Workflow & Financial Analytics (This Month)</h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <KpiCard
+                        label="Approved Budget"
+                        value={formatCurrency(analytics?.approved_budget || 0)}
+                        icon={CheckCircle}
+                        isLoading={isLoadingAnalytics}
+                    />
+                    <KpiCard
+                        label="Requested Budget"
+                        value={formatCurrency(analytics?.requested_budget || 0)}
+                        icon={DollarSign}
+                        isLoading={isLoadingAnalytics}
+                    />
+                    <KpiCard
+                        label="Items Pending Review"
+                        value={analytics?.items_pending || 0}
+                        icon={Clock}
+                        isLoading={isLoadingAnalytics}
+                    />
+                    <KpiCard
+                        label="Items Rejected"
+                        value={analytics?.items_rejected || 0}
+                        icon={XCircle}
+                        isLoading={isLoadingAnalytics}
+                    />
+                </div>
             </div>
         </div>
     );

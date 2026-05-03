@@ -79,11 +79,13 @@ const RequisitionForm: React.FC<RequisitionFormProps> = ({ onClose, onSuccess, c
             }));
 
             if (initialData) {
-                // EDIT MODE
+                // EDIT MODE -> Preserve generation lineage
                 const updatedReq: any = {
                     title,
                     totalAmount,
-                    notes
+                    notes,
+                    type: initialData.type || 'ADHOC',
+                    workplanItemId: initialData.workplanItemId
                 };
                 await RequisitionStore.update(initialData.id, updatedReq, reqItems);
                 showToast("Requisition updated and resubmitted successfully!", 'success');
@@ -95,6 +97,7 @@ const RequisitionForm: React.FC<RequisitionFormProps> = ({ onClose, onSuccess, c
                     requesterId: currentUser?.id,
                     status: 'Pending',
                     totalAmount,
+                    type: 'ADHOC',
                     notes
                 };
                 await RequisitionStore.create(newReq, reqItems);
@@ -153,7 +156,7 @@ const RequisitionForm: React.FC<RequisitionFormProps> = ({ onClose, onSuccess, c
                                     <input
                                         type="text"
                                         placeholder="Item description"
-                                        className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                                        className="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-ministry-orange focus:border-transparent"
                                         value={item.description}
                                         onChange={e => handleItemChange(item.id, 'description', e.target.value)}
                                     />
@@ -161,23 +164,29 @@ const RequisitionForm: React.FC<RequisitionFormProps> = ({ onClose, onSuccess, c
                                 <div className="col-span-2">
                                     <label className="block text-xs text-gray-400 mb-1">{index === 0 ? 'Qty' : ''}</label>
                                     <input
-                                        type="number"
-                                        min="1"
-                                        className="w-full border border-gray-300 rounded-md px-2 py-2 text-sm text-center"
-                                        value={item.quantity}
-                                        onChange={e => handleItemChange(item.id, 'quantity', parseFloat(e.target.value) || 0)}
+                                        type="text"
+                                        className="w-full border border-gray-300 rounded-lg px-2 py-2 text-sm text-center focus:ring-2 focus:ring-ministry-orange focus:border-transparent"
+                                        value={item.quantity ? item.quantity.toLocaleString() : ''}
+                                        onChange={e => {
+                                            const rawValue = e.target.value.replace(/\D/g, '');
+                                            const parsed = parseInt(rawValue, 10);
+                                            handleItemChange(item.id, 'quantity', isNaN(parsed) ? 0 : parsed);
+                                        }}
                                     />
                                 </div>
                                 <div className="col-span-3">
                                     <label className="block text-xs text-gray-400 mb-1">{index === 0 ? 'Unit Cost' : ''}</label>
                                     <div className="relative">
-                                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-xs">UGX</span>
+                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs font-medium">UGX</span>
                                         <input
-                                            type="number"
-                                            min="0"
-                                            className="w-full border border-gray-300 rounded-md pl-8 pr-2 py-2 text-sm text-right"
-                                            value={item.unitCost}
-                                            onChange={e => handleItemChange(item.id, 'unitCost', parseFloat(e.target.value) || 0)}
+                                            type="text"
+                                            className="w-full border border-gray-300 rounded-lg pl-10 pr-3 py-2 text-sm text-right focus:ring-2 focus:ring-ministry-orange focus:border-transparent"
+                                            value={item.unitCost ? item.unitCost.toLocaleString() : ''}
+                                            onChange={e => {
+                                                const rawValue = e.target.value.replace(/\D/g, '');
+                                                const parsed = parseInt(rawValue, 10);
+                                                handleItemChange(item.id, 'unitCost', isNaN(parsed) ? 0 : parsed);
+                                            }}
                                         />
                                     </div>
                                 </div>

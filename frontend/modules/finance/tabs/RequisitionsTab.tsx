@@ -9,13 +9,15 @@
 import React, { useState } from 'react';
 import { useFinance } from '../FinanceContext';
 import { FileText, CheckCircle } from 'lucide-react';
+import { REQUISITION_STATUS } from '../../../shared/constants';
+import { StatusBadge } from '../../../components/ui/StatusBadge';
 
 const RequisitionsTab: React.FC = () => {
     const { requisitions, formatMoney, handleOpenPaymentModal, showToast } = useFinance();
     const [subTab, setSubTab] = useState<'Pending' | 'Paid'>('Pending');
 
-    const pendingItems = requisitions.filter(r => r.status === 'Pending Finance');
-    const paidItems = requisitions.filter(r => r.status === 'Paid');
+    const pendingItems = requisitions.filter(r => r.status === REQUISITION_STATUS.FINANCE_BATCH);
+    const paidItems = requisitions.filter(r => r.status === REQUISITION_STATUS.PAID);
 
     return (
         <div className="p-6 space-y-6 animate-in fade-in duration-300">
@@ -62,6 +64,7 @@ const RequisitionsTab: React.FC = () => {
                                             <div className="flex items-center gap-2 mb-1">
                                                 <span className="text-xs font-bold text-gray-500 uppercase bg-gray-100 px-2 py-0.5 rounded">{req.departmentId}</span>
                                                 <span className="text-xs font-mono text-gray-400">{req.requisitionNumber}</span>
+                                                <StatusBadge status={req.status as any} />
                                             </div>
                                             <h4 className="text-lg font-bold text-gray-900">{req.title}</h4>
                                         </div>
@@ -115,14 +118,13 @@ const RequisitionsTab: React.FC = () => {
                             <div key={req.id} className="bg-white border border-gray-200 rounded-xl p-5 opacity-80 hover:opacity-100 transition-opacity">
                                 <div className="flex justify-between items-center mb-2">
                                     <div className="flex items-center gap-2">
-                                        <span className="bg-green-100 text-green-700 p-1 rounded-full"><CheckCircle className="w-4 h-4" /></span>
+                                        <StatusBadge status={req.status as any} />
                                         <h4 className="text-lg font-bold text-gray-400 line-through">{req.title}</h4>
                                     </div>
                                     <p className="text-lg font-black text-green-600">{formatMoney(req.totalAmount)}</p>
                                 </div>
                                 <div className="flex justify-between items-center text-sm text-gray-500">
                                     <span>{req.departmentId} • {req.requisitionNumber}</span>
-                                    <span className="text-green-600 font-bold">Fully Paid</span>
                                 </div>
                             </div>
                         ))

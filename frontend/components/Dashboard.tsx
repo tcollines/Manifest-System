@@ -6,9 +6,11 @@ import AnalyticsCharts from './AnalyticsCharts';
 import AttendanceTrendChart from './AttendanceTrendChart';
 import DepartmentList from './DepartmentList';
 import { ModalType, MinistryEvent } from '../types';
-import { Plus, UserPlus, Target, FileText, Download, Sparkles, Map, Maximize2, Package } from 'lucide-react';
+import { Plus, UserPlus, Target, FileText, Download, Sparkles, Map, Maximize2, Package, FileCheck, CheckCircle, ClipboardList, DollarSign } from 'lucide-react';
 import { useEventLifecycle } from '../hooks/useEventLifecycle';
 import { EventStore } from '../database/eventStore';
+import { useWorkflowSummaryAnalytics } from '../services/analyticsService';
+import { KpiCard } from './ui/KpiCard';
 
 
 interface DashboardProps {
@@ -41,6 +43,9 @@ const Dashboard: React.FC<DashboardProps> = ({ openModal }) => {
 
    useEventLifecycle();
 
+   // New Phase 3 visibility layer
+   const { data: workflowStats, isLoading: isLoadingWorkflow } = useWorkflowSummaryAnalytics();
+
    return (
       <div className="p-4 md:p-8">
          {/* Header Section */}
@@ -72,6 +77,37 @@ const Dashboard: React.FC<DashboardProps> = ({ openModal }) => {
 
          {/* Monitor Content */}
          <>
+            {/* System Workflows Summary */}
+            <div className="mb-8">
+               <h2 className="text-xl font-bold text-ministry-text mb-4">System Workflows Summary</h2>
+               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+                  <KpiCard 
+                     label="Workplans Pending Admin" 
+                     value={workflowStats?.workplans_pending_admin ?? 0} 
+                     icon={FileCheck} 
+                     isLoading={isLoadingWorkflow} 
+                  />
+                  <KpiCard 
+                     label="Workplans Approved" 
+                     value={workflowStats?.workplans_finalized ?? 0} 
+                     icon={CheckCircle} 
+                     isLoading={isLoadingWorkflow} 
+                  />
+                  <KpiCard 
+                     label="Requisitions Pending Admin" 
+                     value={workflowStats?.requisitions_pending_admin ?? 0} 
+                     icon={ClipboardList} 
+                     isLoading={isLoadingWorkflow} 
+                  />
+                  <KpiCard 
+                     label="Requisitions Awaiting Finance" 
+                     value={workflowStats?.requisitions_awaiting_finance ?? 0} 
+                     icon={DollarSign} 
+                     isLoading={isLoadingWorkflow} 
+                  />
+               </div>
+            </div>
+
             {/* KPI Section */}
             <KPIGrid eventId={selectedEventId} />
 

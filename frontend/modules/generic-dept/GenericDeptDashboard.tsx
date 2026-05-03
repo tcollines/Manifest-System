@@ -144,8 +144,9 @@ const GenericDeptDashboard: React.FC<DashboardProps> = ({ openModal, onEditUser,
         );
     }
 
-    // Admins/TeamLeader get the in-page tab bar; dept users navigate via sidebar
-    const showInlineTabBar = ['Super Admin', 'Administrator', 'TeamLeader'].includes(user?.role ?? '');
+    // Admins/TeamLeader get the in-page tab bar for OTHER departments; but for their OWN department, they navigate via sidebar to avoid redundancy.
+    const isAdminOrTL = ['Super Admin', 'Administrator', 'TeamLeader'].includes(user?.role ?? '');
+    const showInlineTabBar = isAdminOrTL && deptId !== user?.departmentId;
 
     // ── Tab visibility ───────────────────────────────────────────────────────
     const accessibleTabs = getAccessibleTabs(effectiveDeptRole, systemRole);

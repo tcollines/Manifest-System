@@ -151,7 +151,7 @@ export const getDashboardForUser = (user: User): string => {
     if (user.role === 'Super Admin' || user.role === 'Administrator') return '/dashboard';
 
     // Role-specific overrides (BEFORE Department Check)
-    if (user.role === 'TeamLeader' || user.role === 'Team Leader') return '/team-dashboard';
+    if (user.role === 'TeamLeader' || user.role === 'Team Leader') return '/dashboard';
     if (user.role === 'Logistics') return '/registration';
     if (user.role === 'Vehicle Coordinator') return '/transportation';
     if (user.role === 'Stage Coordinator') return '/departments/4630e48a-f97e-48fd-a901-864b591c282f/stage-dashboard';

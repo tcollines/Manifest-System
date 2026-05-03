@@ -6,25 +6,18 @@ import MyReportsView from './MyReportsView';
 
 interface ReportsDashboardProps {
     user: User;
+    isGlobal?: boolean;
 }
 
-const ReportsDashboard: React.FC<ReportsDashboardProps> = ({ user }) => {
+const ReportsDashboard: React.FC<ReportsDashboardProps> = ({ user, isGlobal = true }) => {
+    // If they are on the global page, and they have global rights, show the Admin Builder/Monitor
     const isAdmin = ['Super Admin', 'Administrator', 'TeamLeader'].includes(user.role);
-    const isHoD = user.role === 'Head of Dept' || user.role === 'Dept Admin';
-
-    if (isAdmin) {
+    if (isAdmin && isGlobal) {
         return <AdminReportsView user={user} />;
     }
 
-    if (isHoD) {
-        return <MyReportsView user={user} />;
-    }
-
-    return (
-        <div className="p-6 text-center text-gray-500">
-            You do not have access to this module.
-        </div>
-    );
+    // Otherwise (even for Admins in 'My Dept' view), show the Department Filler view
+    return <MyReportsView user={user} />;
 };
 
 export default ReportsDashboard;

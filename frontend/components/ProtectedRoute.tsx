@@ -34,12 +34,12 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     bypassRoles = [],
     redirectPath = '/',
 }) => {
-    const { user, isLoading } = useAuth();
+    const { user, isInitialLoading } = useAuth();
 
     // ── Phase 1+2 loading: wait for auth to fully settle ─────────────────────
-    // isLoading in AuthContext covers BOTH the Supabase session check AND the
+    // isInitialLoading in AuthContext covers BOTH the Supabase session check AND the
     // backend profile fetch. Only after both complete is it safe to decide.
-    if (isLoading) {
+    if (isInitialLoading) {
         return <LoadingSpinner message="Loading…" />;
     }
 

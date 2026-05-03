@@ -119,9 +119,11 @@ export const AssetsTab: React.FC<AssetsTabProps> = ({ departmentId, currentUser 
 
         let matchesDept = true;
 
+        const isGlobalViewer = currentUser.role === 'Administrator' || currentUser.role === 'Super Admin' || currentUser.role === 'TeamLeader';
+
         if (departmentId) {
             matchesDept = asset.department_id === departmentId;
-        } else if (currentUser.role === 'Administrator') {
+        } else if (isGlobalViewer) {
             matchesDept = selectedDept ? asset.department_id === selectedDept : true;
         } else {
             // Non-Admin on global view -> restricted to own department
@@ -186,8 +188,8 @@ export const AssetsTab: React.FC<AssetsTabProps> = ({ departmentId, currentUser 
                         />
                     </div>
 
-                    {/* Department Filter (Only for Admin Global View) */}
-                    {!departmentId && currentUser.role === 'Administrator' && (
+                    {/* Department Filter (Only for Global Viewers) */}
+                    {!departmentId && (currentUser.role === 'Administrator' || currentUser.role === 'Super Admin' || currentUser.role === 'TeamLeader') && (
                         <select
                             value={selectedDept}
                             onChange={(e) => setSelectedDept(e.target.value)}
@@ -259,7 +261,7 @@ export const AssetsTab: React.FC<AssetsTabProps> = ({ departmentId, currentUser 
                                     </td>
                                     <td className="p-4">
                                         <span className="text-sm font-bold text-gray-700 px-2 py-1 bg-gray-100 rounded-lg">
-                                            {asset.department_id}
+                                            {DEPARTMENTS.find(d => d.id === asset.department_id)?.name || asset.department_id}
                                         </span>
                                     </td>
                                     <td className="p-4">
@@ -345,8 +347,8 @@ export const AssetsTab: React.FC<AssetsTabProps> = ({ departmentId, currentUser 
                                     <select
                                         value={formData.department_id}
                                         onChange={e => setFormData({ ...formData, department_id: e.target.value })}
-                                        disabled={currentUser.role !== 'Administrator'}
-                                        className={`w-full p-3 border rounded-xl bg-white ${currentUser.role !== 'Administrator' ? 'opacity-70 bg-gray-100' : ''}`}
+                                        disabled={!(currentUser.role === 'Administrator' || currentUser.role === 'Super Admin' || currentUser.role === 'TeamLeader')}
+                                        className={`w-full p-3 border rounded-xl bg-white ${!(currentUser.role === 'Administrator' || currentUser.role === 'Super Admin' || currentUser.role === 'TeamLeader') ? 'opacity-70 bg-gray-100' : ''}`}
                                     >
                                         <option value="">Select Department...</option>
                                         {DEPARTMENTS.map(dept => (

@@ -65,7 +65,12 @@ import campusRoutes from './routes/campusRoutes';
 import residentRoutes from './routes/residentRoutes';
 import scheduleRoutes from './routes/scheduleRoutes';
 import workplanRoutes from './routes/workplanRoutes';
+import notificationRoutes from './routes/notificationRoutes';
+import auditRoutes from './routes/auditRoutes';
 // pg Client import removed — was only used by the deleted /api/admin/sql endpoint
+
+import pushRoutes from './routes/pushRoutes';
+import { startPushWorker } from './workers/pushWorker';
 
 app.use('/api/users', userRoutes);
 app.use('/api/members', memberRoutes);
@@ -88,10 +93,15 @@ app.use('/api/campus', campusRoutes);
 app.use('/api/residents', residentRoutes);
 app.use('/api/schedules', scheduleRoutes);
 app.use('/api/workplans', workplanRoutes);
-
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/audit', auditRoutes);
+app.use('/api/push', pushRoutes);
 
 app.listen(PORT, async () => {
     console.log(`Server is running on port ${PORT}`);
+
+    // Start Web Push Delivery Worker
+    startPushWorker();
 
     // 1. Startup Self-Check: Database Connectivity & Permissions
     try {

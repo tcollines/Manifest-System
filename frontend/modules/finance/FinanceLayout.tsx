@@ -25,6 +25,8 @@ import { UserStore } from '../../database/userStore';
 import { supabase } from '../../services/supabaseClient';
 import { Transaction, Requisition, Vehicle, Passenger, MinistryEvent } from '../../types';
 import { FinanceContext, FinanceContextValue } from './FinanceContext';
+import { useFinanceAnalytics } from '../../services/analyticsService';
+import { KpiCard } from '../../components/ui/KpiCard';
 
 // ─── Layout ───────────────────────────────────────────────────────────────────
 
@@ -46,15 +48,6 @@ const FinanceLayout: React.FC = () => {
 
     const selectedEvent = events.find(e => e.id === selectedEventId);
     const activeFetchTarget = useRef<string | null>(null);
-
-    // Auto-select first event
-    useEffect(() => {
-        if (!selectedEventId && events.length > 0) {
-            const first = events.find(e => e.type === 'Event' || e.type === 'Service');
-            if (first) setSelectedEventId(first.id);
-        }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [events.length, selectedEventId]);
 
     // ── Shared data state ─────────────────────────────────────────────────────
     const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -103,19 +96,19 @@ const FinanceLayout: React.FC = () => {
     // ── Data fetching ─────────────────────────────────────────────────────────
     const refreshData = useCallback(async (eventIdTrigger?: string) => {
         const targetEventId = typeof eventIdTrigger === 'string' ? eventIdTrigger : selectedEventId;
-        if (!targetEventId) return;
+        // targetEventId can be empty string for Global view
         activeFetchTarget.current = targetEventId;
         try {
             setIsRefreshing(true);
             const [vehicleRes, transactionsRes, financeSummaryRes, requisitionsRes, stationRes, manifestRes, usersRes, passengerRes] = await Promise.all([
-                VehicleStore.getVehicles({ eventId: targetEventId }),
+                VehicleStore.getVehicles(targetEventId ? { eventId: targetEventId } : {}),
                 FinanceStore.getTransactions(targetEventId),
                 FinanceStore.getEventSummary(targetEventId),
                 RequisitionStore.getAll(),
                 LogisticsStore.getStations(targetEventId),
                 ManifestStore.get(),
-                UserStore.getAll({ eventId: targetEventId }),
-                VehicleStore.getPassengers({ eventId: targetEventId })
+                UserStore.getAll(targetEventId ? { eventId: targetEventId } : {}),
+                VehicleStore.getPassengers(targetEventId ? { eventId: targetEventId } : {})
             ]);
             if (activeFetchTarget.current !== targetEventId) return;
             setVehicles(vehicleRes.status === 'success' ? vehicleRes.data : []);
@@ -135,18 +128,20 @@ const FinanceLayout: React.FC = () => {
 
     // ── Realtime + fetch on event change ──────────────────────────────────────
     useEffect(() => {
-        if (!selectedEventId) return;
         setTransactions([]); setRequisitions([]); setVehicles([]); setPassengers([]);
         const t = setTimeout(() => refreshDataRef.current(selectedEventId).catch(console.error), 0);
 
+        const transFilter = selectedEventId ? `event_id=eq.${selectedEventId}` : undefined;
+        const reqFilter = selectedEventId ? `event_id=eq.${selectedEventId}` : undefined;
+
         const channel = supabase
-            .channel(`finance-layout-${selectedEventId}`)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'finance_transactions', filter: `event_id=eq.${selectedEventId}` }, ({ eventType, new: n, old: o }) => {
+            .channel(`finance-layout-${selectedEventId || 'global'}`)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'finance_transactions', ...(transFilter && { filter: transFilter }) }, ({ eventType, new: n, old: o }) => {
                 if (eventType === 'INSERT') setTransactions(prev => prev.some(t => t.id === n.id) ? prev : [mapTransactionFromDB(n), ...prev]);
                 else if (eventType === 'UPDATE') setTransactions(prev => prev.map(t => t.id === n.id ? mapTransactionFromDB(n) : t));
                 else if (eventType === 'DELETE') setTransactions(prev => prev.filter(t => t.id !== o.id));
             })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'requisitions', filter: `event_id=eq.${selectedEventId}` }, ({ eventType, new: n, old: o }) => {
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'requisitions', ...(reqFilter && { filter: reqFilter }) }, ({ eventType, new: n, old: o }) => {
                 if (eventType === 'INSERT') setRequisitions(prev => prev.some(r => r.id === n.id) ? prev : [mapRequisitionFromDB(n), ...prev]);
                 else if (eventType === 'UPDATE') setRequisitions(prev => prev.map(r => r.id === n.id ? mapRequisitionFromDB(n) : r));
                 else if (eventType === 'DELETE') setRequisitions(prev => prev.filter(r => r.id !== o.id));
@@ -181,9 +176,9 @@ const FinanceLayout: React.FC = () => {
     const parseMoneyInput = (val: string) => val.replace(/,/g, '');
 
     // ── Derived stats ─────────────────────────────────────────────────────────
-    const totalIncome = transactions.filter(t => t.type === 'Income' && t.eventId === selectedEventId).reduce((s, t) => s + t.amount, 0);
-    const totalExpense = transactions.filter(t => t.type === 'Expense' && t.eventId === selectedEventId).reduce((s, t) => s + t.amount, 0);
-    const pendingRequisitions = requisitions.filter(r => r.status === 'Pending' && r.eventId === selectedEventId).length;
+    const totalIncome = transactions.filter(t => t.type === 'Income' && (!selectedEventId || t.eventId === selectedEventId)).reduce((s, t) => s + t.amount, 0);
+    const totalExpense = transactions.filter(t => t.type === 'Expense' && (!selectedEventId || t.eventId === selectedEventId)).reduce((s, t) => s + t.amount, 0);
+    const pendingRequisitions = requisitions.filter(r => r.status === 'Pending' && (!selectedEventId || r.eventId === selectedEventId)).length;
 
     // ── Transaction handlers ──────────────────────────────────────────────────
     const handleAddTransaction = async (e: React.FormEvent) => {
@@ -419,39 +414,71 @@ const FinanceLayout: React.FC = () => {
         handlePrintFleetReport, handlePrintAccountability, handlePrintBatchAccountability,
     };
 
+    const { data: financeStats, isLoading: isFinanceStatsLoading } = useFinanceAnalytics();
+
     return (
         <FinanceContext.Provider value={contextValue}>
             <div className="flex flex-col min-h-full bg-gray-50">
                 {/* Top Nav */}
-                <div className="bg-white border-b border-gray-200 px-6 py-3 flex items-center gap-2 flex-wrap sticky top-0 z-20">
-                    <NavLink to="income" className={({ isActive }) => `flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${isActive ? 'bg-black text-white' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`}>
-                        <TrendingUp className="w-4 h-4" /> Income
-                    </NavLink>
-                    <NavLink to="expenses" className={({ isActive }) => `flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${isActive ? 'bg-black text-white' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`}>
-                        <CreditCard className="w-4 h-4" /> Expenses
-                    </NavLink>
-                    <NavLink to="requisitions" className={({ isActive }) => `flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${isActive ? 'bg-black text-white' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`}>
-                        <FileText className="w-4 h-4" /> Requisitions
-                    </NavLink>
-                    <NavLink to="fleet" className={({ isActive }) => `flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${isActive ? 'bg-black text-white' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`}>
-                        <Bus className="w-4 h-4" /> Fleet Logistics
-                    </NavLink>
+                <div className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between flex-wrap sticky top-0 z-20 gap-4">
+                    <div className="flex items-center gap-2">
+                        <NavLink to="income" className={({ isActive }) => `flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${isActive ? 'bg-black text-white' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`}>
+                            <TrendingUp className="w-4 h-4" /> Income
+                        </NavLink>
+                        <NavLink to="expenses" className={({ isActive }) => `flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${isActive ? 'bg-black text-white' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`}>
+                            <CreditCard className="w-4 h-4" /> Expenses
+                        </NavLink>
+                        <NavLink to="requisitions" className={({ isActive }) => `flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${isActive ? 'bg-black text-white' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`}>
+                            <FileText className="w-4 h-4" /> Requisitions
+                        </NavLink>
+                        <NavLink to="fleet" className={({ isActive }) => `flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${isActive ? 'bg-black text-white' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`}>
+                            <Bus className="w-4 h-4" /> Fleet Logistics
+                        </NavLink>
+                    </div>
+
+                    {/* Event Selector */}
+                    {events.length > 0 && (
+                        <select 
+                            value={selectedEventId} 
+                            onChange={e => setSelectedEventId(e.target.value)}
+                            className="px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm font-bold text-gray-700 outline-none focus:border-ministry-orange"
+                        >
+                            <option value="">-- View All (Global) --</option>
+                            {events.map((ev) => (
+                                <option key={ev.id} value={ev.id}>
+                                    {ev.date} • {ev.title}
+                                </option>
+                            ))}
+                        </select>
+                    )}
                 </div>
 
-                {/* KPI Summary Strip */}
-                <div className="bg-white border-b border-gray-200 px-6 py-3 grid grid-cols-3 gap-4">
-                    <div className="flex items-center gap-3 p-3 bg-green-50 rounded-xl border border-green-100">
-                        <div className="p-2 bg-green-100 rounded-lg"><TrendingUp className="w-4 h-4 text-green-600" /></div>
-                        <div><p className="text-xs font-bold text-gray-400 uppercase">Income</p><p className="text-lg font-black text-green-600">{formatMoney(totalIncome)}</p></div>
-                    </div>
-                    <div className="flex items-center gap-3 p-3 bg-red-50 rounded-xl border border-red-100">
-                        <div className="p-2 bg-red-100 rounded-lg"><CreditCard className="w-4 h-4 text-red-600" /></div>
-                        <div><p className="text-xs font-bold text-gray-400 uppercase">Expenditure</p><p className="text-lg font-black text-red-600">{formatMoney(totalExpense)}</p></div>
-                    </div>
-                    <div className="flex items-center gap-3 p-3 bg-orange-50 rounded-xl border border-orange-100">
-                        <div className="p-2 bg-orange-100 rounded-lg"><FileText className="w-4 h-4 text-ministry-orange" /></div>
-                        <div><p className="text-xs font-bold text-gray-400 uppercase">Pending</p><p className="text-lg font-black text-ministry-orange">{pendingRequisitions}</p></div>
-                    </div>
+                {/* KPI Summary Strip using new KpiCard */}
+                <div className="bg-white border-b border-gray-200 px-6 py-4 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    <KpiCard 
+                        label="Total Income" 
+                        value={formatMoney(financeStats?.total_income ?? 0)} 
+                        icon={TrendingUp} 
+                        isLoading={isFinanceStatsLoading} 
+                    />
+                    <KpiCard 
+                        label="Total Expenses" 
+                        value={formatMoney(financeStats?.total_expenses ?? 0)} 
+                        icon={CreditCard} 
+                        isLoading={isFinanceStatsLoading} 
+                    />
+                    <KpiCard 
+                        label="Net Balance" 
+                        value={formatMoney((financeStats?.total_income ?? 0) - (financeStats?.total_expenses ?? 0))} 
+                        icon={DollarSign} 
+                        isLoading={isFinanceStatsLoading} 
+                    />
+                    <KpiCard 
+                        label="Requisitions Pending" 
+                        value={financeStats?.requisitions_pending ?? 0} 
+                        icon={FileText} 
+                        isLoading={isFinanceStatsLoading} 
+                    />
                 </div>
 
                 <div className="flex-1"><Outlet /></div>

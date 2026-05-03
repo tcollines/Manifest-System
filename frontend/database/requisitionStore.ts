@@ -1,4 +1,4 @@
-import { Requisition, RequisitionItem, RequisitionPayment } from '../types';
+import { Requisition, RequisitionItem, RequisitionPayment, ServiceResponse, RequisitionStatusType } from '../types';
 import { apiFetch } from '../services/api';
 
 export const mapRequisitionFromDB = (dbReq: any): Requisition => ({
@@ -10,6 +10,10 @@ export const mapRequisitionFromDB = (dbReq: any): Requisition => ({
     status: dbReq.status,
     totalAmount: dbReq.total_amount,
     amountPaid: dbReq.amount_paid || 0,
+    type: dbReq.type,
+    dateRequired: dbReq.date_required,
+    workplanItemId: dbReq.workplan_item_id,
+    batchId: dbReq.batch_id,
     payments: (dbReq.requisition_payments || []).map((p: any) => ({
         id: p.id,
         requisitionId: p.requisition_id,
@@ -34,15 +38,22 @@ export const mapRequisitionFromDB = (dbReq: any): Requisition => ({
 });
 
 export const RequisitionStore = {
-    create: async (req: Omit<Requisition, 'id' | 'requisitionNumber' | 'createdAt' | 'updatedAt'>, items: Omit<RequisitionItem, 'id' | 'requisitionId'>[]): Promise<void> => {
+    // Only ADHOC generation relies on this method frontend-side now!
+    create: async (req: Omit<Requisition, 'id' | 'requisitionNumber' | 'createdAt' | 'updatedAt' | 'workplanItemId' | 'batchId'>, items: Omit<RequisitionItem, 'id' | 'requisitionId'>[]): Promise<ServiceResponse<any>> => {
         try {
-            await apiFetch('/requisitions', {
+            // Strict enforcement on Create
+            if (req.type !== 'ADHOC') {
+                throw new Error("System violation: Only ADHOC requisitions can be manually drafted.");
+            }
+
+            const data = await apiFetch('/requisitions', {
                 method: 'POST',
                 body: JSON.stringify({ req, items })
             });
+            return { status: 'success', data };
         } catch (error: any) {
             console.error("Requisition create error:", error);
-            throw error;
+            return { status: 'error', message: error.message || 'Failed to create requisition' };
         }
     },
 
@@ -52,6 +63,40 @@ export const RequisitionStore = {
             return (data || []).map(mapRequisitionFromDB);
         } catch (error: any) {
             console.error("Requisition getAll error:", error);
+            throw error;
+        }
+    },
+
+    getQueue: async (): Promise<any> => {
+        try {
+            const data = await apiFetch('/requisitions/queue');
+            
+            // Map the requisitions inside the buckets
+            const mapReqs = (arr: any[]) => (arr || []).map(mapRequisitionFromDB);
+            const mapBatches = (arr: any[]) => (arr || []).map((dbBatch: any) => ({
+                id: dbBatch.id,
+                batchNumber: dbBatch.batch_number,
+                status: dbBatch.status,
+                createdAt: dbBatch.created_at,
+                requisitions: (dbBatch.requisitions || []).map(mapRequisitionFromDB)
+            }));
+            
+            return {
+                finance: {
+                    unbatched: mapReqs(data.finance?.unbatched),
+                    batched_pending_tl: mapBatches(data.finance?.batched_pending_tl),
+                    approved_pending_payment: mapBatches(data.finance?.approved_pending_payment),
+                    history: mapReqs(data.finance?.history)
+                },
+                tl: {
+                    pending_approval: mapBatches(data.tl?.pending_approval)
+                },
+                admin: {
+                    pending_review: mapReqs(data.admin?.pending_review)
+                }
+            };
+        } catch (error: any) {
+            console.error("Requisition getQueue error:", error);
             throw error;
         }
     },
@@ -78,7 +123,7 @@ export const RequisitionStore = {
         }
     },
 
-    updateStatus: async (id: string, status: 'Approved' | 'Rejected' | 'Paid' | 'Pending Finance' | 'Pending Team Leader', reason?: string): Promise<void> => {
+    updateStatus: async (id: string, status: RequisitionStatusType, reason?: string): Promise<void> => {
         try {
             await apiFetch(`/requisitions/${id}/status`, {
                 method: 'PATCH',
@@ -98,6 +143,46 @@ export const RequisitionStore = {
         } catch (error: any) {
             console.error("Add Payment Error:", error);
             throw error;
+        }
+    },
+
+    createBatch: async (requisitionIds: string[]): Promise<ServiceResponse<{ message: string, batchId: string }>> => {
+        try {
+            const data = await apiFetch('/requisitions/batch', {
+                method: 'POST',
+                body: JSON.stringify({ requisitionIds })
+            });
+            return { status: 'success', data };
+        } catch (error: any) {
+            return { status: 'error', message: error.message || 'Failed to create batch' };
+        }
+    },
+
+    getBatches: async () => {
+        try {
+            const data = await apiFetch('/requisitions/batches');
+            return (data || []).map((dbBatch: any) => ({
+                id: dbBatch.id,
+                batchNumber: dbBatch.batch_number,
+                status: dbBatch.status,
+                createdAt: dbBatch.created_at,
+                // Nested requisitions
+                requisitions: (dbBatch.requisitions || []).map((r: any) => mapRequisitionFromDB(r))
+            }));
+        } catch (error: any) {
+            console.error("getBatches error:", error);
+            throw error;
+        }
+    },
+
+    updateBatchStatus: async (batchId: string, status: RequisitionStatusType, reason?: string): Promise<void> => {
+        try {
+            await apiFetch(`/requisitions/batches/${batchId}/status`, {
+                method: 'PATCH',
+                body: JSON.stringify({ status, reason })
+            });
+        } catch (e: any) {
+            throw e;
         }
     }
 };

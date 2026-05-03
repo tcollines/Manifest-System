@@ -5,6 +5,7 @@ import Dashboard from './components/Dashboard';
 import DepartmentsView from './components/DepartmentsView';
 import EventsView from './components/EventsView';
 import ReportsView from './components/ReportsView';
+import GlobalSchedulesView from './components/GlobalSchedulesView';
 import SignIn from './components/SignIn';
 import SetupAccount from './components/SetupAccount';
 import { AssetsTab } from './components/AssetsTab';
@@ -14,7 +15,7 @@ import { UserStore } from './database/userStore';
 import { EventStore } from './database/eventStore';
 import { Bell, Search, Menu } from 'lucide-react';
 import TeamLeaderRequisitions from './components/TeamLeaderRequisitions';
-import RequisitionsView from './components/RequisitionsView';
+
 import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import RoleRedirect from './components/RoleRedirect';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -25,6 +26,10 @@ import PublicSoulEntry from './components/PublicSoulEntry';
 import DepartmentRouterProxy from './components/DepartmentRouterProxy';
 import { isTeamLeader } from './domain/rbac';
 
+import WorkplanQueue from './components/WorkplanQueue';
+import RequisitionQueue from './components/RequisitionQueue';
+import AdminRequisitionQueue from './components/AdminRequisitionQueue';
+
 // ── Auth ──────────────────────────────────────────────────────────────────────
 import { useAuth } from './context/AuthContext';
 
@@ -34,6 +39,7 @@ import { useEvent } from './context/EventContext';
 // ── Modules ───────────────────────────────────────────────────────────────────
 import AdministrationDashboard from './modules/administration/AdministrationDashboard';
 import TeamLeaderDashboard from './components/TeamLeaderDashboard';
+import { NotificationDropdown } from './components/ui/NotificationDropdown';
 
 // ── Settings ──────────────────────────────────────────────────────────────────
 import SettingsLayout from './modules/settings/SettingsLayout';
@@ -48,7 +54,7 @@ import { SyncIndicator } from './components/SyncIndicator';
 const App: React.FC = () => {
   useBackgroundSync(); // Global injection of offline queue flusher
   const { showToast } = useNotification();
-  const { user, isLoading, login, googleLogin, logout, getDashboard } = useAuth();
+  const { user, isInitialLoading, login, googleLogin, logout, getDashboard } = useAuth();
   const { addEvent, refreshEvents } = useEvent();
 
   // ── UI state only ────────────────────────────────────────────────────────
@@ -157,7 +163,7 @@ const App: React.FC = () => {
 
   // ── Auth guard ────────────────────────────────────────────────────────────
 
-  if (isLoading) {
+  if (isInitialLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center fade-in">
         <div className="flex flex-col items-center animate-pulse">
@@ -221,10 +227,7 @@ const App: React.FC = () => {
           </div>
 
           <div className="flex items-center space-x-4 md:space-x-6">
-            <button className="relative p-2 rounded-full hover:bg-gray-100 transition-colors">
-              <Bell className="text-gray-500" size={20} />
-              <span className="absolute top-2 right-2 w-2 h-2 bg-ministry-orange rounded-full border-2 border-white" />
-            </button>
+            <NotificationDropdown />
 
             <button
               onClick={() => setIsProfileModalOpen(true)}
@@ -323,14 +326,28 @@ const App: React.FC = () => {
             <Route path="residents/*"     element={<Navigate to="/departments/c1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d" replace />} />
             <Route path="stage-dashboard" element={<Navigate to="/departments/4630e48a-f97e-48fd-a901-864b591c282f/stage-dashboard" replace />} />
 
-            <Route path="events"      element={<EventsView />} />
-            <Route path="reports"     element={<ReportsView currentUser={user} />} />
+            {/* Global Scopes */}
+            <Route element={<ProtectedRoute allowedRoles={['Administrator', 'Super Admin', 'TeamLeader', 'Finance', 'Dept Finance', 'Head of Dept', 'HOD', 'Dept Admin']} />}>
+                 <Route path="approvals/workplans" element={<WorkplanQueue systemRole={user.role} />} />
+            </Route>
 
-            <Route path="requisitions" element={
-              isTeamLeader(user)
-                ? <TeamLeaderRequisitions currentUser={user} />
-                : <RequisitionsView currentUser={user} />
-            } />
+            <Route element={<ProtectedRoute allowedRoles={['TeamLeader']} />}>
+                 <Route path="approvals/requisitions" element={<TeamLeaderRequisitions currentUser={user} />} />
+            </Route>
+
+            <Route element={<ProtectedRoute allowedRoles={['Administrator', 'Super Admin']} />}>
+                 <Route path="approvals/adhoc-requisitions" element={<AdminRequisitionQueue currentUser={user} />} />
+            </Route>
+
+            <Route element={<ProtectedRoute allowedRoles={['Dept Finance', 'Finance', 'Head of Dept', 'HOD', 'Dept Admin']} allowedDepartments={['d4', 'e35f6789-1862-4c31-8b13-96d59463d257']} />}>
+                 <Route path="finance/processing" element={<RequisitionQueue systemRole={user.role} />} />
+            </Route>
+
+            <Route path="events"      element={<EventsView />} />
+            <Route path="reports"     element={<ReportsView currentUser={user} isGlobal={true} />} />
+            <Route path="schedules"   element={<GlobalSchedulesView />} />
+
+
 
             <Route path="assets" element={
               <div className="p-4 md:p-8">

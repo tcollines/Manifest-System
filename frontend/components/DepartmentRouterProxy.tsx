@@ -84,7 +84,6 @@ import GenericDeptDashboard from '../modules/generic-dept/GenericDeptDashboard';
 
 // Map specific custom dashboards if needed, else fallback
 import DepartmentDetail from './DepartmentDetail';
-import DepartmentRequests from './DepartmentRequests';
 
 const RedirectWithParams = ({ to }: { to: string }) => {
     const { search } = useLocation();
@@ -309,9 +308,7 @@ const DepartmentRouterProxy: React.FC<ProxyProps> = ({ onOpenModal, onEditUser }
         <Routes>
             <Route element={<ProtectedRoute allowedDepartments={[deptId]} />}>
                 <Route index element={<DepartmentDetail />} />
-                <Route path="requests" element={<DepartmentDetail />}> {/* The current pattern wraps request in DepartmentDetail */}
-                    <Route index element={<DepartmentRequests />} /> 
-                </Route>
+
                 <Route path="dashboard/*" element={<GenericDeptDashboard currentUser={currentUser} openModal={onOpenModal} onEditUser={onEditUser} />} />
             </Route>
         </Routes>

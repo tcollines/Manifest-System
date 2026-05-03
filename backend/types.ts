@@ -1,3 +1,4 @@
+import { RequisitionStatusType } from './src/constants/status';
 
 export interface KPI {
     id: string;
@@ -338,7 +339,7 @@ export interface Requisition {
     departmentId: string;
     requesterId: string;
     requesterName?: string; // For display
-    status: 'Pending' | 'Approved' | 'Rejected' | 'Paid' | 'Pending Finance' | 'Pending Team Leader';
+    status: RequisitionStatusType;
     totalAmount: number;
     amountPaid?: number; // New field
     payments?: RequisitionPayment[]; // New field

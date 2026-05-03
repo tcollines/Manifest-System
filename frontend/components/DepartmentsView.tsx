@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import DepartmentList from './DepartmentList';
-import DepartmentRequests from './DepartmentRequests';
 import CreateDepartmentModal from '../modules/generic-dept/CreateDepartmentModal';
 
 interface DepartmentsViewProps {
@@ -34,12 +33,6 @@ const DepartmentsView: React.FC<DepartmentsViewProps> = ({ currentUser }) => {
       </div>
 
       <DepartmentList />
-
-      {!isTeamLeader && (
-        <div id="requests-section">
-          <DepartmentRequests />
-        </div>
-      )}
 
       {showModal && (
         <CreateDepartmentModal

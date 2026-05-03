@@ -35,7 +35,7 @@ const MyReportsView: React.FC<MyReportsViewProps> = ({ user }) => {
     return (
         <div className="p-6 bg-gray-50 min-h-screen">
             <div className="mb-6">
-                <h1 className="text-2xl font-bold text-gray-900">Department Reports</h1>
+                <h1 className="text-2xl font-bold text-gray-900">My Department's Reports</h1>
                 <p className="text-gray-500">Submit pending reports for your department</p>
             </div>
 

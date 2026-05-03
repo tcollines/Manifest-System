@@ -5,8 +5,8 @@ import { useNotification } from '../../../components/ui/NotificationSystem';
 import { X, Plus, FileText, CheckCircle, Clock, AlertCircle, DollarSign } from 'lucide-react';
 import { Requisition } from '../../../types';
 import { RequisitionStore } from '../../../database/requisitionStore';
+import { REQUISITION_STATUS } from '../../../shared/constants';
 import RequisitionForm from '../../../components/RequisitionForm';
-import { resolveDepartment } from '../../../constants/departmentMap';
 
 interface Props { department: Department; user: User | null; deptRole: DeptRole | null; systemRole: any; }
 
@@ -29,9 +29,7 @@ const RequisitionsTab: React.FC<Props> = ({ user }) => {
 
     if (!user) return null;
 
-    const isAdmin      = user.role === 'Administrator' || user.role === 'Super Admin';
     const isTeamLeader = user.role === 'TeamLeader';
-    const isFinance    = user.role === 'Finance' || resolveDepartment(user.departmentId || '')?.slug === 'finance';
 
     async function fetchRequisitions() {
         setIsLoading(true);
@@ -52,38 +50,23 @@ const RequisitionsTab: React.FC<Props> = ({ user }) => {
 
     const filteredRequisitions = requisitions.filter(r => {
         if (activeTab === 'Pending') {
-            if (isTeamLeader) return r.status === 'Pending Team Leader';
-            return r.status === 'Pending' || r.status === 'Rejected' ||
-                   r.status === 'Pending Finance' || r.status === 'Pending Team Leader';
+            return [REQUISITION_STATUS.DRAFT, REQUISITION_STATUS.PENDING, REQUISITION_STATUS.REJECTED, REQUISITION_STATUS.FINANCE_BATCH, REQUISITION_STATUS.TL_APPROVAL].includes(r.status as any);
         }
-        if (activeTab === 'Approved') return r.status === 'Approved' || r.status === 'Paid';
+        if (activeTab === 'Approved') return r.status === REQUISITION_STATUS.APPROVED || r.status === REQUISITION_STATUS.PAID;
         return true;
     });
 
-    const handleApprove = async (req: Requisition) => {
-        if (!await askConfirm('Approve Request?', `Approve "${req.title}"?`)) return;
-        try {
-            let nextStatus: 'Pending Team Leader' | 'Pending Finance' | 'Approved' = 'Approved';
-            if (req.status === 'Pending') nextStatus = 'Pending Team Leader';
-            else if (req.status === 'Pending Team Leader') nextStatus = 'Pending Finance';
-            else if (req.status === 'Pending Finance') nextStatus = 'Approved';
-            await RequisitionStore.updateStatus(req.id, nextStatus);
-            showToast('Requisition status updated.', 'success');
-            fetchRequisitions();
-        } catch (e: any) {
-            showToast('Error updating status: ' + e.message, 'error');
-        }
-    };
 
-    const handleReject = async (req: Requisition) => {
-        const reason = prompt(`Reason for rejection for "${req.title}":`);
-        if (!reason) return;
+
+    const handleSubmit = async (req: Requisition) => {
+        setIsLoading(true);
         try {
-            await RequisitionStore.updateStatus(req.id, 'Rejected', reason);
-            showToast('Requisition rejected.', 'success');
+            await RequisitionStore.updateStatus(req.id, REQUISITION_STATUS.PENDING);
+            showToast('Requisition submitted successfully!', 'success');
             fetchRequisitions();
         } catch (e: any) {
-            showToast('Error rejecting requisition: ' + e.message, 'error');
+            showToast(e.message || 'Failed to submit requisition', 'error');
+            setIsLoading(false);
         }
     };
 
@@ -116,12 +99,10 @@ const RequisitionsTab: React.FC<Props> = ({ user }) => {
                         <div>
                             <h1 className="text-3xl font-bold text-ministry-text flex items-center gap-2">
                                 <FileText className="text-ministry-orange" size={32} />
-                                {isTeamLeader ? 'Review Requisitions' : 'Requisitions'}
+                                Requisitions
                             </h1>
                             <p className="text-gray-500">
-                                {isTeamLeader
-                                    ? 'Departmental requests waiting for your approval.'
-                                    : 'Manage funding requests for your department.'}
+                                Manage funding requests for your department.
                             </p>
                         </div>
                         {activeTab === 'Pending' && !isTeamLeader && (
@@ -175,23 +156,49 @@ const RequisitionsTab: React.FC<Props> = ({ user }) => {
                                             <div className="flex justify-between items-start">
                                                 <div className="flex items-start gap-4">
                                                     <div className={`mt-1 p-2 rounded-lg ${
-                                                        req.status === 'Approved'      ? 'bg-green-100 text-green-600'  :
-                                                        req.status === 'Paid'          ? 'bg-blue-100 text-blue-600'   :
-                                                        req.status === 'Rejected'      ? 'bg-red-100 text-red-600'     :
-                                                        req.status === 'Pending Finance' ? 'bg-purple-100 text-purple-600' :
+                                                        req.status === REQUISITION_STATUS.APPROVED      ? 'bg-green-100 text-green-600'  :
+                                                        req.status === REQUISITION_STATUS.PAID          ? 'bg-blue-100 text-blue-600'   :
+                                                        req.status === REQUISITION_STATUS.REJECTED      ? 'bg-red-100 text-red-600'     :
+                                                        req.status === REQUISITION_STATUS.FINANCE_BATCH ? 'bg-purple-100 text-purple-600' :
                                                         'bg-yellow-100 text-yellow-600'
                                                     }`}>
-                                                        {req.status === 'Approved'         && <CheckCircle className="w-5 h-5" />}
-                                                        {req.status === 'Paid'             && <DollarSign className="w-5 h-5" />}
-                                                        {req.status === 'Rejected'         && <AlertCircle className="w-5 h-5" />}
-                                                        {req.status === 'Pending'          && <Clock className="w-5 h-5" />}
-                                                        {req.status === 'Pending Finance'  && (
+                                                        {req.status === REQUISITION_STATUS.APPROVED && (
+                                                            <div className="flex items-center gap-1">
+                                                                <CheckCircle className="w-5 h-5" />
+                                                                <span className="text-xs font-bold whitespace-nowrap">Approved</span>
+                                                            </div>
+                                                        )}
+                                                        {req.status === REQUISITION_STATUS.PAID && (
+                                                            <div className="flex items-center gap-1">
+                                                                <DollarSign className="w-5 h-5" />
+                                                                <span className="text-xs font-bold whitespace-nowrap">Paid</span>
+                                                            </div>
+                                                        )}
+                                                        {req.status === REQUISITION_STATUS.REJECTED && (
+                                                            <div className="flex items-center gap-1">
+                                                                <AlertCircle className="w-5 h-5" />
+                                                                <span className="text-xs font-bold whitespace-nowrap">Rejected</span>
+                                                            </div>
+                                                        )}
+                                                        {req.status === REQUISITION_STATUS.PENDING && (
+                                                            <div className="flex items-center gap-1">
+                                                                <Clock className="w-5 h-5" />
+                                                                <span className="text-xs font-bold whitespace-nowrap">Pending</span>
+                                                            </div>
+                                                        )}
+                                                        {req.status === REQUISITION_STATUS.DRAFT && (
+                                                            <div className="flex items-center gap-1">
+                                                                <Clock className="w-5 h-5" />
+                                                                <span className="text-xs font-bold whitespace-nowrap">Draft</span>
+                                                            </div>
+                                                        )}
+                                                        {req.status === REQUISITION_STATUS.FINANCE_BATCH  && (
                                                             <div className="flex items-center gap-1">
                                                                 <Clock className="w-5 h-5" />
                                                                 <span className="text-xs font-bold whitespace-nowrap">Finance</span>
                                                             </div>
                                                         )}
-                                                        {req.status === 'Pending Team Leader' && (
+                                                        {req.status === REQUISITION_STATUS.TL_APPROVAL && (
                                                             <div className="flex items-center gap-1">
                                                                 <Clock className="w-5 h-5" />
                                                                 <span className="text-xs font-bold whitespace-nowrap">Team Leader</span>
@@ -209,7 +216,7 @@ const RequisitionsTab: React.FC<Props> = ({ user }) => {
                                                             <span>•</span>
                                                             <span>{(req.items || []).length} Items</span>
                                                         </div>
-                                                        {req.status === 'Rejected' && req.rejectionReason && (
+                                                        {req.status === REQUISITION_STATUS.REJECTED && req.rejectionReason && (
                                                             <div className="mt-3 bg-red-50 text-red-700 text-sm p-3 rounded-lg border border-red-100">
                                                                 <strong>Rejected:</strong> {req.rejectionReason}
                                                             </div>
@@ -220,29 +227,21 @@ const RequisitionsTab: React.FC<Props> = ({ user }) => {
                                                     <p className="text-xs text-gray-400 uppercase tracking-wider mb-1">Amount</p>
                                                     <p className="text-xl font-black text-gray-900">UGX {req.totalAmount.toLocaleString()}</p>
 
-                                                    {req.status === 'Rejected' && (
+                                                    {req.status === REQUISITION_STATUS.REJECTED && (
                                                         <button
                                                             onClick={() => handleEdit(req)}
-                                                            className="mt-2 text-sm text-ministry-orange font-bold hover:text-orange-700 border border-ministry-orange rounded px-3 py-1 hover:bg-orange-50 transition-colors"
+                                                            className="mt-2 text-sm text-ministry-orange font-bold hover:text-orange-700 border border-ministry-orange rounded px-3 py-1 hover:bg-orange-50 transition-colors block w-full text-center"
                                                         >
                                                             Edit &amp; Resubmit
                                                         </button>
                                                     )}
-
-                                                    {isAdmin && req.status === 'Pending' && (
-                                                        <div className="flex gap-2 mt-2">
-                                                            <button onClick={() => handleReject(req)} className="text-sm bg-red-100 text-red-600 px-3 py-2 rounded-lg font-bold hover:bg-red-200 transition-colors shadow-sm whitespace-nowrap">Reject</button>
-                                                            <button onClick={() => handleApprove(req)} className="text-sm bg-black text-white px-4 py-2 rounded-lg font-bold hover:bg-gray-800 transition-colors shadow-sm whitespace-nowrap">Approve to Team Leader</button>
-                                                        </div>
-                                                    )}
-                                                    {isTeamLeader && req.status === 'Pending Team Leader' && (
-                                                        <div className="flex gap-2 mt-2">
-                                                            <button onClick={() => handleReject(req)} className="text-sm bg-red-100 text-red-600 px-3 py-2 rounded-lg font-bold hover:bg-red-200 transition-colors shadow-sm whitespace-nowrap">Reject</button>
-                                                            <button onClick={() => handleApprove(req)} className="text-sm bg-ministry-text text-white px-4 py-2 rounded-lg font-bold hover:bg-gray-800 transition-colors shadow-sm whitespace-nowrap">Approve to Finance</button>
-                                                        </div>
-                                                    )}
-                                                    {isFinance && req.status === 'Pending Finance' && (
-                                                        <button onClick={() => handleApprove(req)} className="mt-2 text-sm bg-green-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-green-700 transition-colors shadow-sm whitespace-nowrap">Approve &amp; Pay</button>
+                                                    {req.status === REQUISITION_STATUS.DRAFT && (
+                                                        <button
+                                                            onClick={() => handleSubmit(req)}
+                                                            className="mt-2 text-sm bg-ministry-orange text-white font-bold hover:bg-orange-600 rounded px-3 py-1.5 transition-colors block w-full text-center shadow"
+                                                        >
+                                                            Submit
+                                                        </button>
                                                     )}
                                                 </div>
                                             </div>

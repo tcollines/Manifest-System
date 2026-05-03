@@ -8,7 +8,7 @@ import { getDashboardForUser } from '../utils';
 
 interface AuthContextType {
     user: User | null;
-    isLoading: boolean;
+    isInitialLoading: boolean;
     isAuthenticated: boolean;
     login: (username: string, password: string) => Promise<{ success: boolean; error?: string }>;
     googleLogin: (email: string, token: string) => Promise<{ success: boolean; error?: string }>;
@@ -25,11 +25,11 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [user, setUser] = useState<User | null>(null);
-    // isLoading stays true until BOTH phases of auth complete:
+    // isInitialLoading stays true until BOTH phases of auth complete:
     //   Phase 1 — Supabase session check
     //   Phase 2 — Backend /users/profile fetch
     // Until both are done, no component may make navigation decisions.
-    const [isLoading, setIsLoading] = useState(true);
+    const [isInitialLoading, setIsInitialLoading] = useState(true);
 
     // Prevent the SIGNED_IN listener from double-fetching on token-refresh events
     const isHandlingSignIn = useRef(false);
@@ -49,7 +49,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 console.warn('[AuthContext] Session restore failed:', e);
             } finally {
                 // Phase 1+2 complete for the cold-load case
-                setIsLoading(false);
+                setIsInitialLoading(false);
             }
         };
         restoreSession();
@@ -57,9 +57,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // ── Supabase auth listener ────────────────────────────────────────────────
     // Handles SIGNED_IN (fresh login) and SIGNED_OUT events.
-    // SIGNED_IN: sets isLoading=true, fetches the backend profile, then clears isLoading.
-    // This guarantees there is NEVER a state where isLoading=false && user=null
-    // during an active login flow.
+    // SIGNED_IN fetches the backend profile silently in the background.
     useEffect(() => {
         const { data: authSub } = supabase.auth.onAuthStateChange(async (event, session) => {
             // Always sync the realtime token when a session is active
@@ -72,8 +70,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 if (isHandlingSignIn.current) return;
                 isHandlingSignIn.current = true;
 
-                // Phase 2 begins — keep isLoading=true so all components wait
-                setIsLoading(true);
                 try {
                     const profile = await UserStore.getByEmail(
                         session.user.email,
@@ -86,8 +82,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 } catch (e) {
                     console.warn('[AuthContext] SIGNED_IN profile fetch failed:', e);
                 } finally {
-                    // Phase 2 complete — NOW components may render / navigate
-                    setIsLoading(false);
                     isHandlingSignIn.current = false;
                 }
             }
@@ -104,11 +98,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'users' }, payload => {
                 setUser(current => {
                     if (current && payload.new?.id === current.id) {
-                        // Async refresh — non-blocking; doesn't affect isLoading
+                        // Async refresh — non-blocking; doesn't affect isInitialLoading
                         UserStore.get(current.id).then(res => {
                             if (res.status === 'success' && res.data) {
-                                setUser(res.data);
-                                UserStore.saveSession(res.data);
+                                const profile = res.data;
+                                // Task 6: Forced logout check
+                                if ((profile as any).disabled || profile.role === 'revoked') {
+                                    window.dispatchEvent(new CustomEvent('auth:force-logout'));
+                                } else {
+                                    setUser(profile);
+                                    UserStore.saveSession(profile);
+                                }
                             }
                         });
                     }
@@ -207,7 +207,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return (
         <AuthContext.Provider value={{
             user,
-            isLoading,
+            isInitialLoading,
             isAuthenticated: !!user,
             login,
             googleLogin,
@@ -227,7 +227,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
  * Never drill currentUser as a prop; always use this hook.
  *
  * @example
- * const { user, isLoading, logout } = useAuth();
+ * const { user, isInitialLoading, logout } = useAuth();
  */
 export const useAuth = (): AuthContextType => {
     const ctx = useContext(AuthContext);

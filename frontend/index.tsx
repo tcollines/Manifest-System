@@ -2,22 +2,18 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import Root from './Root';
 import { GoogleOAuthProvider } from '@react-oauth/google';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
-// [NUKING ROGUE SERVICE WORKERS]
-// A legacy service worker (sw.js) was previously registered and is permanently stuck in the browser.
-// It intercepts all POST requests to Supabase and hangs indefinitely. 
-// This block finds any active service workers for this domain and permanently destroys them.
+const queryClient = new QueryClient();
+
+import { registerServiceWorker } from './services/pushService';
+
+// Initialize the new Push Service Worker
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.getRegistrations().then(function (registrations) {
-    for (let registration of registrations) {
-      registration.unregister()
-        .then(function () {
-          console.log('Successfully destroyed legacy ServiceWorker:', registration.scope);
-        })
-        .catch(function (err) {
-          console.error('ServiceWorker unregistration failed: ', err);
-        });
-    }
+  registerServiceWorker().then(() => {
+    console.log('[App] Push Service Worker registered successfully.');
+  }).catch((err) => {
+    console.error('[App] Failed to register Push Service Worker:', err);
   });
 }
 
@@ -30,7 +26,9 @@ const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
     <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
-      <Root />
+      <QueryClientProvider client={queryClient}>
+        <Root />
+      </QueryClientProvider>
     </GoogleOAuthProvider>
   </React.StrictMode>
 );
