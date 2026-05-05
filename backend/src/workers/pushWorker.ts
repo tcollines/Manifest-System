@@ -135,18 +135,24 @@ const deliverNotification = async (notification: any) => {
                 successCount++;
             } catch (err: any) {
                 if (err.statusCode === 410 || err.statusCode === 404) {
-                    // Subscription expired or no longer valid
-                    console.log(`[PushWorker] Subscription ${sub.id} is invalid (410/404). Marking inactive.`);
+                    // Subscription expired or no longer valid — deactivate it
+                    console.log(`[PushWorker] Subscription ${sub.id} expired (${err.statusCode}). Marking inactive.`);
                     await supabase
                         .from('user_push_subscriptions')
                         .update({ is_active: false })
                         .eq('id', sub.id);
                 } else {
-                    console.error(`[PushWorker] Failed to send push to sub ${sub.id}:`, err);
+                    // Log the full FCM error so it appears in Render/server logs
+                    console.error(`[PushWorker] FCM push failed for sub ${sub.id}:`, {
+                        statusCode: err.statusCode,
+                        headers: err.headers,
+                        body: err.body,
+                    });
                 }
                 failCount++;
             }
         }
+
 
         // 5. Update notification status
         if (successCount > 0) {
@@ -170,8 +176,9 @@ const getTitleForType = (type: string) => {
     switch (type) {
         case 'WORKPLAN_REVIEW': return 'Workplan Update';
         case 'REQUISITION_ACTION': return 'Requisition Update';
+        case 'REQUISITION_APPROVAL': return 'Approval Required';
         case 'FINANCE_ACTION': return 'Finance Action Required';
         case 'PAYMENT': return 'Payment Recorded';
-        default: return 'System Notification';
+        default: return 'Manifest System';
     }
 };

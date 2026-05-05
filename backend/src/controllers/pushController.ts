@@ -13,30 +13,39 @@ export const saveSubscription = async (req: Request, res: Response) => {
     }
 
     const userAgent = req.headers['user-agent'] || 'Unknown';
+    const endpoint = subscription.endpoint;
 
     try {
-        // We will do an upsert or check if this exact endpoint exists for the user.
-        // It's possible the user has multiple devices. We just insert a new one if endpoint doesn't exist.
-        
-        // Let's see if this exact endpoint exists
+        // First: remove this exact endpoint from any OTHER users to prevent notification leakage
+        // when multiple users log into the same device
+        await supabase
+            .from('user_push_subscriptions')
+            .delete()
+            .neq('user_id', userId)
+            .filter('subscription_data->>endpoint', 'eq', endpoint);
+
+        // Next: mark any existing row for this exact endpoint and current user as active (update)
         const { data: existing, error: findError } = await supabase
             .from('user_push_subscriptions')
             .select('id')
             .eq('user_id', userId)
-            // JSONB query to match endpoint inside subscription_data
-            .contains('subscription_data', { endpoint: subscription.endpoint })
+            .filter('subscription_data->>endpoint', 'eq', endpoint)
             .maybeSingle();
-            
+
         if (findError) throw findError;
 
         if (existing) {
-            // Update last_seen_at and ensure it's active
+            // Already registered — just refresh timestamps and keys (subscription_data may have rotated keys)
             await supabase
                 .from('user_push_subscriptions')
-                .update({ last_seen_at: new Date().toISOString(), is_active: true })
+                .update({
+                    subscription_data: subscription,
+                    last_seen_at: new Date().toISOString(),
+                    is_active: true
+                })
                 .eq('id', existing.id);
-                
-            return res.status(200).json({ message: 'Subscription updated' });
+
+            return res.status(200).json({ message: 'Subscription refreshed' });
         }
 
         // Insert new subscription
@@ -46,10 +55,27 @@ export const saveSubscription = async (req: Request, res: Response) => {
                 user_id: userId,
                 subscription_data: subscription,
                 user_agent: userAgent,
+                last_seen_at: new Date().toISOString(),
                 is_active: true
             }]);
 
         if (insertError) throw insertError;
+
+        // Cleanup: keep only the 5 most recent active subscriptions per user to prevent stale buildup
+        const { data: allSubs } = await supabase
+            .from('user_push_subscriptions')
+            .select('id, created_at')
+            .eq('user_id', userId)
+            .eq('is_active', true)
+            .order('created_at', { ascending: false });
+
+        if (allSubs && allSubs.length > 5) {
+            const toDeactivate = allSubs.slice(5).map((s: any) => s.id);
+            await supabase
+                .from('user_push_subscriptions')
+                .update({ is_active: false })
+                .in('id', toDeactivate);
+        }
 
         res.status(201).json({ message: 'Subscription saved' });
     } catch (err) {
@@ -57,6 +83,7 @@ export const saveSubscription = async (req: Request, res: Response) => {
         res.status(500).json({ error: 'Internal server error' });
     }
 };
+
 
 export const deleteSubscription = async (req: Request, res: Response) => {
     const userId = req.user?.id;

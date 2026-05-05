@@ -1,45 +1,70 @@
-self.addEventListener('push', function(event) {
-    if (event.data) {
-        try {
-            const data = event.data.json();
-            const options = {
-                body: data.body,
-                icon: '/icon-192x192.png',
-                badge: '/badge.png', // Optional, small icon for Android status bar
-                data: {
-                    url: data.url,
-                    entity_id: data.entity_id,
-                    type: data.type
-                }
-            };
-
-            event.waitUntil(
-                self.registration.showNotification(data.title || 'Manifest System', options)
-            );
-        } catch (e) {
-            console.error('[SW] Error parsing push payload:', e);
-        }
-    }
+// ─── Service Worker Lifecycle ──────────────────────────────────────────────────
+self.addEventListener('install', (event) => {
+    // Force the waiting service worker to become the active service worker
+    self.skipWaiting();
 });
 
-self.addEventListener('notificationclick', function(event) {
+self.addEventListener('activate', (event) => {
+    // Claim any clients immediately, so we don't have to wait for a reload
+    event.waitUntil(clients.claim());
+});
+
+// ─── Push Event ──────────────────────────────────────────────────────────────
+self.addEventListener('push', function (event) {
+    if (!event.data) return;
+
+    let data = {};
+    try {
+        data = event.data.json();
+    } catch (e) {
+        data = { title: 'Manifest System', body: event.data.text() };
+    }
+
+    const options = {
+        body: data.body,
+        icon: '/favicon.png',
+        tag: data.type || 'manifest-notification', // Collapses duplicate type notifications
+        renotify: true,                             // Always vibrate/sound even if same tag
+        requireInteraction: false,
+        data: {
+            url: data.url || '/',
+            entity_id: data.entity_id,
+            type: data.type
+        }
+    };
+
+    // Always show the native OS notification, even if the app is in the foreground.
+    // Chrome suppresses notifications when the PWA is focused; we force it via the SW.
+    event.waitUntil(
+        self.registration.showNotification(data.title || 'Manifest System', options)
+    );
+});
+
+// ─── Notification Click ───────────────────────────────────────────────────────
+self.addEventListener('notificationclick', function (event) {
     event.notification.close();
 
-    const urlToOpen = event.notification.data?.url || '/';
+    const targetUrl = event.notification.data?.url || '/';
+    // Build an absolute URL so we can match against open windows
+    const absoluteUrl = new URL(targetUrl, self.location.origin).href;
 
     event.waitUntil(
-        clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(windowClients) {
-            // Check if there is already a window/tab open with the target URL
-            for (let i = 0; i < windowClients.length; i++) {
-                const client = windowClients[i];
-                if (client.url.includes(urlToOpen) && 'focus' in client) {
-                    return client.focus();
+        clients
+            .matchAll({ type: 'window', includeUncontrolled: true })
+            .then(function (windowClients) {
+                // Focus an already-open window if possible
+                for (let i = 0; i < windowClients.length; i++) {
+                    const client = windowClients[i];
+                    if ('focus' in client) {
+                        // Navigate the existing tab to the target URL and focus it
+                        client.navigate(absoluteUrl);
+                        return client.focus();
+                    }
                 }
-            }
-            // If not open, open a new window
-            if (clients.openWindow) {
-                return clients.openWindow(urlToOpen);
-            }
-        })
+                // Otherwise open a new window
+                if (clients.openWindow) {
+                    return clients.openWindow(absoluteUrl);
+                }
+            })
     );
 });

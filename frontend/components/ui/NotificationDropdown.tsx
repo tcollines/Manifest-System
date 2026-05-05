@@ -1,8 +1,10 @@
 import React, { useEffect, useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Bell, CheckCircle2, Settings, ArrowLeft } from 'lucide-react';
 import { useNotificationStore } from '../../database/NotificationStore';
 import { useAuth } from "../../context/AuthContext";
 import { subscribeToPush, unsubscribeFromPush, checkPushStatus, getPushPreferences, updatePushPreferences } from '../../services/pushService';
+
 
 export const NotificationDropdown: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -16,6 +18,7 @@ export const NotificationDropdown: React.FC = () => {
   const dropdownRef = useRef<HTMLDivElement>(null);
   
   const { user } = useAuth();
+  const navigate = useNavigate();
   const { 
     notifications, 
     unreadCount, 
@@ -30,16 +33,25 @@ export const NotificationDropdown: React.FC = () => {
     if (user?.id) {
       fetchNotifications();
       subscribe(user.id);
-      
-      // Load push status
-      checkPushStatus().then(setPushEnabled);
+
+      // Always re-check directly from the browser — don't trust localStorage
+      checkPushStatus().then(async (isEnabled) => {
+        setPushEnabled(isEnabled);
+        if (isEnabled) {
+          try {
+            // Silently sync with backend to ensure the subscription is assigned to the current user
+            // This prevents notifications leaking when users switch accounts on the same device
+            await subscribeToPush();
+          } catch (e) {
+            console.error('Background push sync failed:', e);
+          }
+        }
+      });
       getPushPreferences().then(data => {
         if (data) setPreferences(data);
       }).catch(console.error);
     }
-    return () => {
-      unsubscribe();
-    };
+    return () => { unsubscribe(); };
   }, [user?.id]);
 
   useEffect(() => {
@@ -68,11 +80,21 @@ export const NotificationDropdown: React.FC = () => {
         setPushEnabled(false);
       } else {
         await subscribeToPush();
-        setPushEnabled(true);
+        // Re-verify the browser actually holds a subscription before marking enabled
+        const confirmed = await checkPushStatus();
+        setPushEnabled(confirmed);
+        if (!confirmed) {
+          alert('Push notification setup failed. Please try again.');
+        }
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error('Failed to toggle push notifications:', e);
-      alert('Failed to enable push notifications. Check browser permissions.');
+      const msg = e?.message || 'Unknown error';
+      if (msg.includes('denied')) {
+        alert('Notifications are blocked. Please enable them in your browser settings.');
+      } else {
+        alert(`Failed to enable push notifications: ${msg}`);
+      }
     }
   };
 
@@ -101,7 +123,7 @@ export const NotificationDropdown: React.FC = () => {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-lg border border-gray-100 z-50 overflow-hidden">
+        <div className="absolute right-[-60px] sm:right-0 mt-2 w-80 bg-white rounded-xl shadow-lg border border-gray-100 z-50 overflow-hidden">
           {!showSettings ? (
             <>
               <div className="p-4 border-b border-gray-50 flex justify-between items-center bg-gray-50/50">
@@ -138,8 +160,9 @@ export const NotificationDropdown: React.FC = () => {
                         className={`p-4 transition-colors hover:bg-gray-50 ${!notification.read ? 'bg-orange-50/30' : ''}`}
                         onClick={() => {
                           if (!notification.read) markAsRead(notification.id);
-                          if (notification.url && window) {
-                             window.open(notification.url, '_blank');
+                          if (notification.url) {
+                            setIsOpen(false);
+                            navigate(notification.url);
                           }
                         }}
                       >
@@ -184,6 +207,12 @@ export const NotificationDropdown: React.FC = () => {
                     <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-ministry-orange"></div>
                   </label>
                 </div>
+
+                {pushEnabled && (
+                  <p className="text-[10px] text-gray-400 leading-tight mt-1">
+                    Not seeing them? Ensure your browser notifications are enabled in your phone's system settings.
+                  </p>
+                )}
                 
                 {pushEnabled && (
                   <div className="space-y-3 pt-3 border-t border-gray-100">
