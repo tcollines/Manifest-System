@@ -68,3 +68,10 @@ self.addEventListener('notificationclick', function (event) {
             })
     );
 });
+
+// ─── Fetch Event (Required for PWA Install Prompt) ───────────────────────────
+self.addEventListener('fetch', (event) => {
+    // A minimal fetch handler is required to pass the PWA install criteria.
+    // Just pass the request through.
+    event.respondWith(fetch(event.request));
+});
