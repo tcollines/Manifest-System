@@ -1,3 +1,14 @@
+// ─── Service Worker Lifecycle ──────────────────────────────────────────────────
+self.addEventListener('install', (event) => {
+    // Force the waiting service worker to become the active service worker
+    self.skipWaiting();
+});
+
+self.addEventListener('activate', (event) => {
+    // Claim any clients immediately, so we don't have to wait for a reload
+    event.waitUntil(clients.claim());
+});
+
 // ─── Push Event ──────────────────────────────────────────────────────────────
 self.addEventListener('push', function (event) {
     if (!event.data) return;
