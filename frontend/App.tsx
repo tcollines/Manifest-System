@@ -40,6 +40,7 @@ import { useEvent } from './context/EventContext';
 import AdministrationDashboard from './modules/administration/AdministrationDashboard';
 import TeamLeaderDashboard from './components/TeamLeaderDashboard';
 import { NotificationDropdown } from './components/ui/NotificationDropdown';
+import { PushPromptBanner } from './components/ui/PushPromptBanner';
 
 // ── Settings ──────────────────────────────────────────────────────────────────
 import SettingsLayout from './modules/settings/SettingsLayout';
@@ -383,6 +384,7 @@ const App: React.FC = () => {
       {modalType === ModalType.AI_INSIGHTS && <MinistryAI onClose={() => setModalType(ModalType.NONE)} />}
       <ProfileModal isOpen={isProfileModalOpen} onClose={() => setIsProfileModalOpen(false)} currentUser={user} />
       <SyncIndicator />
+      <PushPromptBanner />
     </div>
   );
 };
