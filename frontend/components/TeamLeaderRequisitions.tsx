@@ -25,7 +25,7 @@ const TeamLeaderRequisitions: React.FC<TeamLeaderRequisitionsProps> = ({ current
         setIsLoading(true);
         try {
             const data = await RequisitionStore.getQueue();
-            setBatches([...data.tl.pending_approval, ...data.finance.history, ...data.finance.approved_pending_payment]);
+            setBatches([...data.tl.pending_approval, ...data.tl.history]);
         } catch (e) {
             console.error("Failed to fetch batches", e);
         } finally {

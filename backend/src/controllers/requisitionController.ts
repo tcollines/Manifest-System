@@ -410,7 +410,8 @@ export const getQueue = async (req: Request, res: Response) => {
                 history: requisitions.filter(r => [REQUISITION_STATUS.PAID, REQUISITION_STATUS.REJECTED].includes(r.status as any))
             },
             tl: {
-                pending_approval: batches.filter(b => [REQUISITION_STATUS.PENDING, REQUISITION_STATUS.TL_APPROVAL].includes(b.status as any))
+                pending_approval: batches.filter(b => [REQUISITION_STATUS.PENDING, REQUISITION_STATUS.TL_APPROVAL].includes(b.status as any)),
+                history: batches.filter(b => [REQUISITION_STATUS.APPROVED, REQUISITION_STATUS.PAID, REQUISITION_STATUS.REJECTED].includes(b.status as any))
             },
             admin: {
                 pending_review: requisitions.filter(r => r.status === REQUISITION_STATUS.PENDING && r.type === 'ADHOC')

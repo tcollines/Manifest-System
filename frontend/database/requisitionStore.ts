@@ -89,7 +89,8 @@ export const RequisitionStore = {
                     history: mapReqs(data.finance?.history)
                 },
                 tl: {
-                    pending_approval: mapBatches(data.tl?.pending_approval)
+                    pending_approval: mapBatches(data.tl?.pending_approval),
+                    history: mapBatches(data.tl?.history)
                 },
                 admin: {
                     pending_review: mapReqs(data.admin?.pending_review)
