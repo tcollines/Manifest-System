@@ -67,7 +67,7 @@ const DepartmentList: React.FC<DepartmentListProps> = () => {
 
                 // Compute Head and native assignment count
                 users.forEach(u => {
-                    const dId = u.departmentId;
+                    const dId = u.departmentUid || u.departmentId;
                     if (!dId) return;
 
                     if (!stats[dId]) {
@@ -75,7 +75,7 @@ const DepartmentList: React.FC<DepartmentListProps> = () => {
                     }
 
                     // Look for Head of Dept
-                    if (u.role === 'Head of Dept') {
+                    if (u.role?.trim() === 'Head of Dept') {
                         if (!stats[dId].head) stats[dId].head = u.name || '';
                     }
 
