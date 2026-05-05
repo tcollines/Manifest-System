@@ -187,9 +187,12 @@ export const updatePreferences = async (req: Request, res: Response) => {
 };
 
 export const deliverWebhook = async (req: Request, res: Response) => {
+    console.log('[Webhook] Received push delivery request');
+    
     // 1. Webhook Security
     const secret = req.headers['x-webhook-secret'];
     if (secret !== process.env.WEBHOOK_SECRET) {
+        console.error('[Webhook] Unauthorized: Invalid webhook secret');
         return res.status(403).json({ error: 'Forbidden: Invalid webhook secret' });
     }
 
@@ -202,8 +205,11 @@ export const deliverWebhook = async (req: Request, res: Response) => {
     const notification = payload.record;
     const { id, user_id, message, type, entity_id, url, push_status, attempt_count } = notification;
 
+    console.log(`[Webhook] Processing notification ${id} for user ${user_id}`);
+
     // Prevent duplicate push delivery
     if (push_status === 'SENT') {
+        console.log(`[Webhook] Notification ${id} already sent`);
         return res.status(200).json({ message: 'Already sent' });
     }
 
@@ -222,6 +228,7 @@ export const deliverWebhook = async (req: Request, res: Response) => {
         }
 
         if (isOptedOut) {
+            console.log(`[Webhook] User ${user_id} is opted out of ${type} notifications`);
             await supabase.from('notifications').update({ push_status: 'NOT_APPLICABLE' }).eq('id', id);
             return res.status(200).json({ message: 'Opted out' });
         }
@@ -233,6 +240,7 @@ export const deliverWebhook = async (req: Request, res: Response) => {
             .eq('is_active', true);
 
         if (!subscriptions || subscriptions.length === 0) {
+            console.log(`[Webhook] User ${user_id} has no active push subscriptions`);
             await supabase.from('notifications').update({ push_status: 'NOT_APPLICABLE' }).eq('id', id);
             return res.status(200).json({ message: 'No subscriptions' });
         }
@@ -269,8 +277,10 @@ export const deliverWebhook = async (req: Request, res: Response) => {
         }
 
         if (successCount > 0) {
+            console.log(`[Webhook] Successfully sent ${successCount} pushes for notification ${id}`);
             await supabase.from('notifications').update({ push_status: 'SENT' }).eq('id', id);
         } else if (shouldRetry) {
+            console.log(`[Webhook] Failed but retrying notification ${id}`);
             const newAttemptCount = (attempt_count || 0) + 1;
             if (newAttemptCount >= 5) {
                 await supabase.from('notifications').update({ push_status: 'FAILED', attempt_count: newAttemptCount }).eq('id', id);
@@ -287,6 +297,7 @@ export const deliverWebhook = async (req: Request, res: Response) => {
                 }).eq('id', id);
             }
         } else {
+            console.log(`[Webhook] Failed permanently for notification ${id}`);
             await supabase.from('notifications').update({ push_status: 'FAILED' }).eq('id', id);
         }
 
