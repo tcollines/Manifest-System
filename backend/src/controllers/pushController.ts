@@ -203,14 +203,23 @@ export const deliverWebhook = async (req: Request, res: Response) => {
     }
 
     const notification = payload.record;
+    
+    const result = await processPushDelivery(notification);
+    if (result.status === 403) return res.status(403).json(result.body);
+    if (result.status === 400) return res.status(400).json(result.body);
+    if (result.status === 500) return res.status(500).json(result.body);
+    return res.status(200).json(result.body);
+};
+
+export const processPushDelivery = async (notification: any) => {
     const { id, user_id, message, type, entity_id, url, push_status, attempt_count } = notification;
 
-    console.log(`[Webhook] Processing notification ${id} for user ${user_id}`);
+    console.log(`[Push Delivery] Processing notification ${id} for user ${user_id}`);
 
     // Prevent duplicate push delivery
     if (push_status === 'SENT') {
-        console.log(`[Webhook] Notification ${id} already sent`);
-        return res.status(200).json({ message: 'Already sent' });
+        console.log(`[Push Delivery] Notification ${id} already sent`);
+        return { status: 200, body: { message: 'Already sent' } };
     }
 
     try {
@@ -228,9 +237,9 @@ export const deliverWebhook = async (req: Request, res: Response) => {
         }
 
         if (isOptedOut) {
-            console.log(`[Webhook] User ${user_id} is opted out of ${type} notifications`);
+            console.log(`[Push Delivery] User ${user_id} is opted out of ${type} notifications`);
             await supabase.from('notifications').update({ push_status: 'NOT_APPLICABLE' }).eq('id', id);
-            return res.status(200).json({ message: 'Opted out' });
+            return { status: 200, body: { message: 'Opted out' } };
         }
 
         const { data: subscriptions } = await supabase
@@ -240,9 +249,9 @@ export const deliverWebhook = async (req: Request, res: Response) => {
             .eq('is_active', true);
 
         if (!subscriptions || subscriptions.length === 0) {
-            console.log(`[Webhook] User ${user_id} has no active push subscriptions`);
+            console.log(`[Push Delivery] User ${user_id} has no active push subscriptions`);
             await supabase.from('notifications').update({ push_status: 'NOT_APPLICABLE' }).eq('id', id);
-            return res.status(200).json({ message: 'No subscriptions' });
+            return { status: 200, body: { message: 'No subscriptions' } };
         }
 
         // Payload hardening
@@ -266,21 +275,21 @@ export const deliverWebhook = async (req: Request, res: Response) => {
                 successCount++;
             } catch (err: any) {
                 if (err.statusCode === 410 || err.statusCode === 404) {
-                    console.log(`[Webhook] Subscription ${sub.id} expired. Marking inactive.`);
+                    console.log(`[Push Delivery] Subscription ${sub.id} expired. Marking inactive.`);
                     await supabase.from('user_push_subscriptions').update({ is_active: false }).eq('id', sub.id);
                 } else if (err.statusCode === 429 || err.statusCode >= 500) {
                     shouldRetry = true;
-                    console.error(`[Webhook] FCM push failed temporarily for sub ${sub.id}:`, err.statusCode);
+                    console.error(`[Push Delivery] FCM push failed temporarily for sub ${sub.id}:`, err.statusCode);
                 }
                 failCount++;
             }
         }
 
         if (successCount > 0) {
-            console.log(`[Webhook] Successfully sent ${successCount} pushes for notification ${id}`);
+            console.log(`[Push Delivery] Successfully sent ${successCount} pushes for notification ${id}`);
             await supabase.from('notifications').update({ push_status: 'SENT' }).eq('id', id);
         } else if (shouldRetry) {
-            console.log(`[Webhook] Failed but retrying notification ${id}`);
+            console.log(`[Push Delivery] Failed but retrying notification ${id}`);
             const newAttemptCount = (attempt_count || 0) + 1;
             if (newAttemptCount >= 5) {
                 await supabase.from('notifications').update({ push_status: 'FAILED', attempt_count: newAttemptCount }).eq('id', id);
@@ -297,13 +306,13 @@ export const deliverWebhook = async (req: Request, res: Response) => {
                 }).eq('id', id);
             }
         } else {
-            console.log(`[Webhook] Failed permanently for notification ${id}`);
+            console.log(`[Push Delivery] Failed permanently for notification ${id}`);
             await supabase.from('notifications').update({ push_status: 'FAILED' }).eq('id', id);
         }
 
-        res.status(200).json({ message: 'Processed', successCount, failCount });
+        return { status: 200, body: { message: 'Processed', successCount, failCount } };
     } catch (err: any) {
-        console.error(`[Webhook] Error delivering notification ${id}:`, err);
+        console.error(`[Push Delivery] Error delivering notification ${id}:`, err);
         const newAttemptCount = (attempt_count || 0) + 1;
         const nextRetry = new Date(Date.now() + 60000).toISOString();
         if (newAttemptCount >= 5) {
@@ -311,6 +320,6 @@ export const deliverWebhook = async (req: Request, res: Response) => {
         } else {
             await supabase.from('notifications').update({ push_status: 'PENDING', attempt_count: newAttemptCount, next_retry_at: nextRetry }).eq('id', id);
         }
-        res.status(500).json({ error: 'Processing failed, scheduled retry' });
+        return { status: 500, body: { error: 'Processing failed, scheduled retry' } };
     }
 };

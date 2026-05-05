@@ -39,7 +39,7 @@ export const createNotification = async (
             return;
         }
 
-        const { error } = await supabase.from('notifications').insert([{
+        const { data: newNotification, error } = await supabase.from('notifications').insert([{
             manifest_id: manifestId,
             user_id: userId,
             type,
@@ -48,10 +48,17 @@ export const createNotification = async (
             url: url || null,
             read: false,
             push_status: 'PENDING'
-        }]);
+        }]).select('*').single();
 
         if (error) {
             console.error('[NOTIFICATIONS] Failed to create notification:', error);
+        } else if (newNotification) {
+            // Trigger push delivery internally (bypass flaky Supabase webhooks)
+            import('../controllers/pushController').then(({ processPushDelivery }) => {
+                processPushDelivery(newNotification).catch(err => 
+                    console.error('[NOTIFICATIONS] Background push delivery failed:', err)
+                );
+            });
         }
     } catch (err) {
         console.error('[NOTIFICATIONS] Exception creating notification:', err);
@@ -102,9 +109,17 @@ export const notifyRole = async (
             push_status: 'PENDING'
         }));
 
-        const { error } = await supabase.from('notifications').insert(notifications);
+        const { data: newNotifications, error } = await supabase.from('notifications').insert(notifications).select('*');
         if (error) {
             console.error('[NOTIFICATIONS] Failed to create role notifications:', error);
+        } else if (newNotifications && newNotifications.length > 0) {
+            import('../controllers/pushController').then(({ processPushDelivery }) => {
+                newNotifications.forEach(n => {
+                    processPushDelivery(n).catch(err => 
+                        console.error('[NOTIFICATIONS] Background role push delivery failed:', err)
+                    );
+                });
+            });
         }
     } catch (err) {
         console.error('[NOTIFICATIONS] Exception creating role notifications:', err);
