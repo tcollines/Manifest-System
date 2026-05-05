@@ -22,8 +22,7 @@ self.addEventListener('push', function (event) {
 
     const options = {
         body: data.body,
-        icon: '/icon-192x192.png',
-        badge: '/badge.png',
+        icon: '/favicon.png',
         tag: data.type || 'manifest-notification', // Collapses duplicate type notifications
         renotify: true,                             // Always vibrate/sound even if same tag
         requireInteraction: false,
