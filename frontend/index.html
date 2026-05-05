@@ -3,11 +3,14 @@
 
 <head>
   <meta charset="UTF-8" />
-  <link rel="icon" type="image/png" href="./favicon.png" />
-  <link rel="manifest" href="./manifest.json" />
+  <link rel="icon" type="image/png" href="./MANIFEST.png" />
+  <link rel="apple-touch-icon" href="./MANIFEST.png" />
+  <link rel="manifest" href="./manifest.webmanifest" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#FF5722" />
-  <title>Manifest Management System</title>
+  <meta name="theme-color" content="#000000" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+  <title>Manifest MS</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     // AGGRESSIVE ERROR LOGGER
@@ -151,13 +154,42 @@
       -ms-overflow-style: none;  /* IE and Edge */
       scrollbar-width: none;  /* Firefox */
     }
+
+    /* Splash Screen Animation */
+    @keyframes pulse-logo {
+      0% { transform: scale(0.95); opacity: 0.8; }
+      50% { transform: scale(1.05); opacity: 1; }
+      100% { transform: scale(0.95); opacity: 0.8; }
+    }
+    .splash-container {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background-color: #000000;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+    }
+    .splash-logo {
+      width: 150px;
+      height: 150px;
+      object-fit: contain;
+      animation: pulse-logo 2s ease-in-out infinite;
+    }
   </style>
 
 
 </head>
 
 <body>
-  <div id="root"></div>
+  <div id="root">
+    <div class="splash-container">
+      <img src="./MANIFEST.png" alt="Manifest MS Logo" class="splash-logo" />
+    </div>
+  </div>
 
   <script type="module" src="./index.tsx"></script>
 </body>
