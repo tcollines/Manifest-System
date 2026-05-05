@@ -16,7 +16,15 @@ export const saveSubscription = async (req: Request, res: Response) => {
     const endpoint = subscription.endpoint;
 
     try {
-        // First: mark any existing row for this exact endpoint as active (update)
+        // First: remove this exact endpoint from any OTHER users to prevent notification leakage
+        // when multiple users log into the same device
+        await supabase
+            .from('user_push_subscriptions')
+            .delete()
+            .neq('user_id', userId)
+            .filter('subscription_data->>endpoint', 'eq', endpoint);
+
+        // Next: mark any existing row for this exact endpoint and current user as active (update)
         const { data: existing, error: findError } = await supabase
             .from('user_push_subscriptions')
             .select('id')

@@ -35,7 +35,18 @@ export const NotificationDropdown: React.FC = () => {
       subscribe(user.id);
 
       // Always re-check directly from the browser — don't trust localStorage
-      checkPushStatus().then(setPushEnabled);
+      checkPushStatus().then(async (isEnabled) => {
+        setPushEnabled(isEnabled);
+        if (isEnabled) {
+          try {
+            // Silently sync with backend to ensure the subscription is assigned to the current user
+            // This prevents notifications leaking when users switch accounts on the same device
+            await subscribeToPush();
+          } catch (e) {
+            console.error('Background push sync failed:', e);
+          }
+        }
+      });
       getPushPreferences().then(data => {
         if (data) setPreferences(data);
       }).catch(console.error);
@@ -112,7 +123,7 @@ export const NotificationDropdown: React.FC = () => {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-lg border border-gray-100 z-50 overflow-hidden">
+        <div className="absolute right-[-60px] sm:right-0 mt-2 w-80 bg-white rounded-xl shadow-lg border border-gray-100 z-50 overflow-hidden">
           {!showSettings ? (
             <>
               <div className="p-4 border-b border-gray-50 flex justify-between items-center bg-gray-50/50">
