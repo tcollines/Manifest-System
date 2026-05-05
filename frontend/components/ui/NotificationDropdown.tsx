@@ -207,6 +207,12 @@ export const NotificationDropdown: React.FC = () => {
                     <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-ministry-orange"></div>
                   </label>
                 </div>
+
+                {pushEnabled && (
+                  <p className="text-[10px] text-gray-400 leading-tight mt-1">
+                    Not seeing them? Ensure your browser notifications are enabled in your phone's system settings.
+                  </p>
+                )}
                 
                 {pushEnabled && (
                   <div className="space-y-3 pt-3 border-t border-gray-100">
