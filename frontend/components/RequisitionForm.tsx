@@ -148,11 +148,24 @@ const RequisitionForm: React.FC<RequisitionFormProps> = ({ onClose, onSuccess, c
                         <span className="text-xs text-gray-500">Auto-calculated totals</span>
                     </div>
 
-                    <div className="space-y-3">
+                    <div className="space-y-4 md:space-y-3">
                         {items.map((item, index) => (
-                            <div key={item.id} className="grid grid-cols-12 gap-3 items-end animate-in fade-in slide-in-from-bottom-2 duration-300">
-                                <div className="col-span-5 md:col-span-6">
-                                    <label className="block text-xs text-gray-400 mb-1">{index === 0 ? 'Description' : ''}</label>
+                            <div key={item.id} className="relative bg-white md:bg-transparent p-4 md:p-0 border border-gray-100 md:border-none rounded-xl md:rounded-none grid grid-cols-12 gap-3 items-end animate-in fade-in slide-in-from-bottom-2 duration-300 shadow-sm md:shadow-none">
+                                
+                                {/* Mobile delete button - positioned top right of the card */}
+                                <div className="absolute top-2 right-2 md:hidden">
+                                    <button
+                                        type="button"
+                                        onClick={() => handleRemoveItem(item.id)}
+                                        className="p-2 text-red-400 hover:text-red-600 transition-colors"
+                                        disabled={items.length === 1}
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
+                                </div>
+
+                                <div className="col-span-12 md:col-span-6 pr-6 md:pr-0">
+                                    <label className={`block text-xs text-gray-400 mb-1 ${index !== 0 ? 'md:hidden' : ''}`}>Description</label>
                                     <input
                                         type="text"
                                         placeholder="Item description"
@@ -161,8 +174,8 @@ const RequisitionForm: React.FC<RequisitionFormProps> = ({ onClose, onSuccess, c
                                         onChange={e => handleItemChange(item.id, 'description', e.target.value)}
                                     />
                                 </div>
-                                <div className="col-span-2">
-                                    <label className="block text-xs text-gray-400 mb-1">{index === 0 ? 'Qty' : ''}</label>
+                                <div className="col-span-4 md:col-span-2">
+                                    <label className={`block text-xs text-gray-400 mb-1 ${index !== 0 ? 'md:hidden' : ''}`}>Qty</label>
                                     <input
                                         type="text"
                                         className="w-full border border-gray-300 rounded-lg px-2 py-2 text-sm text-center focus:ring-2 focus:ring-ministry-orange focus:border-transparent"
@@ -174,8 +187,8 @@ const RequisitionForm: React.FC<RequisitionFormProps> = ({ onClose, onSuccess, c
                                         }}
                                     />
                                 </div>
-                                <div className="col-span-3">
-                                    <label className="block text-xs text-gray-400 mb-1">{index === 0 ? 'Unit Cost' : ''}</label>
+                                <div className="col-span-8 md:col-span-3">
+                                    <label className={`block text-xs text-gray-400 mb-1 ${index !== 0 ? 'md:hidden' : ''}`}>Unit Cost</label>
                                     <div className="relative">
                                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs font-medium">UGX</span>
                                         <input
@@ -190,7 +203,8 @@ const RequisitionForm: React.FC<RequisitionFormProps> = ({ onClose, onSuccess, c
                                         />
                                     </div>
                                 </div>
-                                <div className="col-span-2 md:col-span-1 flex justify-center">
+                                {/* Desktop delete button */}
+                                <div className="hidden md:flex col-span-1 justify-center">
                                     <button
                                         type="button"
                                         onClick={() => handleRemoveItem(item.id)}
