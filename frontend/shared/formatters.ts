@@ -38,6 +38,32 @@ export const formatCurrency = (amount: number, currencyCode = 'UGX'): string => 
 };
 
 /**
+ * Formats an integer amount in UGX for display (compact).
+ * e.g. 1500000 → "UGX 1.5M"
+ */
+export const formatCompactCurrency = (amount: number, currencyCode = 'UGX'): string => {
+    if (isNaN(amount)) return `${currencyCode} 0`;
+    return new Intl.NumberFormat('en-UG', {
+        style: 'currency',
+        currency: currencyCode,
+        notation: 'compact',
+        maximumFractionDigits: 2,
+    }).format(amount);
+};
+
+/**
+ * Formats a number compactly.
+ * e.g. 1500000 → "1.5M"
+ */
+export const formatCompactNumber = (amount: number): string => {
+    if (isNaN(amount)) return `0`;
+    return new Intl.NumberFormat('en-US', {
+        notation: 'compact',
+        maximumFractionDigits: 2,
+    }).format(amount);
+};
+
+/**
  * Strips commas and converts a display string to integer cents.
  * "10,000" → 10000
  */

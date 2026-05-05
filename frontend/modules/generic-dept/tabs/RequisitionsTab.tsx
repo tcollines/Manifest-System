@@ -95,40 +95,39 @@ const RequisitionsTab: React.FC<Props> = ({ user }) => {
                 </div>
             ) : (
                 <>
-                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+                    <div className="flex flex-row justify-between items-center mb-8 gap-4">
                         <div>
-                            <h1 className="text-3xl font-bold text-ministry-text flex items-center gap-2">
-                                <FileText className="text-ministry-orange" size={32} />
+                            <h1 className="text-2xl md:text-3xl font-bold text-ministry-text flex items-center gap-2">
+                                <FileText className="text-ministry-orange hidden md:block" size={32} />
                                 Requisitions
                             </h1>
-                            <p className="text-gray-500">
-                                Manage funding requests for your department.
+                            <p className="text-sm text-gray-500 mt-1">
+                                Manage funding requests.
                             </p>
                         </div>
                         {activeTab === 'Pending' && !isTeamLeader && (
                             <button
                                 onClick={() => { setEditingReq(null); setViewMode('create'); }}
-                                className="bg-ministry-text text-white px-5 py-2.5 rounded-xl font-medium hover:bg-gray-800 transition-colors shadow-lg flex items-center space-x-2"
+                                className="w-12 h-12 md:w-14 md:h-14 bg-ministry-text text-white rounded-xl flex items-center justify-center hover:bg-gray-800 transition-colors shadow-lg flex-shrink-0"
                             >
-                                <Plus className="w-5 h-5" />
-                                <span>New Requisition</span>
+                                <Plus className="w-6 h-6 md:w-8 md:h-8 text-ministry-neon" strokeWidth={3} />
                             </button>
                         )}
                     </div>
 
-                    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 flex-1 flex flex-col overflow-hidden">
-                        {/* Sub-tabs — pure local state, never touches URL */}
-                        <div className="flex items-center px-6 py-4 border-b border-gray-100 bg-gray-50/50">
-                            <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg">
+                    <div className="flex-1 flex flex-col overflow-hidden -mx-4 md:mx-0">
+                        {/* Sub-tabs */}
+                        <div className="flex items-center px-4 md:px-0 py-2 mb-4">
+                            <div className="flex space-x-1 bg-gray-200/50 p-1 rounded-xl">
                                 <button
                                     onClick={() => setActiveTab('Pending')}
-                                    className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${activeTab === 'Pending' ? 'bg-white text-ministry-text shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'Pending' ? 'bg-white text-ministry-text shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
                                 >
                                     Pending &amp; Rejected
                                 </button>
                                 <button
                                     onClick={() => setActiveTab('Approved')}
-                                    className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${activeTab === 'Approved' ? 'bg-white text-ministry-text shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'Approved' ? 'bg-white text-ministry-text shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
                                 >
                                     Approved &amp; Paid
                                 </button>
@@ -136,7 +135,7 @@ const RequisitionsTab: React.FC<Props> = ({ user }) => {
                         </div>
 
                         {/* List */}
-                        <div className="flex-1 overflow-y-auto p-6 bg-gray-50/30">
+                        <div className="flex-1 overflow-y-auto px-4 md:px-0 pb-20">
                             {isLoading ? (
                                 <div className="flex justify-center py-12">
                                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-ministry-orange" />
@@ -150,103 +149,79 @@ const RequisitionsTab: React.FC<Props> = ({ user }) => {
                                     <p className="text-gray-500">No {activeTab.toLowerCase()} requisitions to display.</p>
                                 </div>
                             ) : (
-                                <div className="space-y-4">
-                                    {filteredRequisitions.map((req) => (
-                                        <div key={req.id} className="bg-white border border-gray-200 rounded-xl p-5 hover:shadow-md transition-shadow cursor-default group">
-                                            <div className="flex justify-between items-start">
-                                                <div className="flex items-start gap-4">
-                                                    <div className={`mt-1 p-2 rounded-lg ${
-                                                        req.status === REQUISITION_STATUS.APPROVED      ? 'bg-green-100 text-green-600'  :
-                                                        req.status === REQUISITION_STATUS.PAID          ? 'bg-blue-100 text-blue-600'   :
-                                                        req.status === REQUISITION_STATUS.REJECTED      ? 'bg-red-100 text-red-600'     :
-                                                        req.status === REQUISITION_STATUS.FINANCE_BATCH ? 'bg-purple-100 text-purple-600' :
-                                                        'bg-yellow-100 text-yellow-600'
-                                                    }`}>
-                                                        {req.status === REQUISITION_STATUS.APPROVED && (
-                                                            <div className="flex items-center gap-1">
-                                                                <CheckCircle className="w-5 h-5" />
-                                                                <span className="text-xs font-bold whitespace-nowrap">Approved</span>
-                                                            </div>
-                                                        )}
-                                                        {req.status === REQUISITION_STATUS.PAID && (
-                                                            <div className="flex items-center gap-1">
-                                                                <DollarSign className="w-5 h-5" />
-                                                                <span className="text-xs font-bold whitespace-nowrap">Paid</span>
-                                                            </div>
-                                                        )}
-                                                        {req.status === REQUISITION_STATUS.REJECTED && (
-                                                            <div className="flex items-center gap-1">
-                                                                <AlertCircle className="w-5 h-5" />
-                                                                <span className="text-xs font-bold whitespace-nowrap">Rejected</span>
-                                                            </div>
-                                                        )}
-                                                        {req.status === REQUISITION_STATUS.PENDING && (
-                                                            <div className="flex items-center gap-1">
-                                                                <Clock className="w-5 h-5" />
-                                                                <span className="text-xs font-bold whitespace-nowrap">Pending</span>
-                                                            </div>
-                                                        )}
-                                                        {req.status === REQUISITION_STATUS.DRAFT && (
-                                                            <div className="flex items-center gap-1">
-                                                                <Clock className="w-5 h-5" />
-                                                                <span className="text-xs font-bold whitespace-nowrap">Draft</span>
-                                                            </div>
-                                                        )}
-                                                        {req.status === REQUISITION_STATUS.FINANCE_BATCH  && (
-                                                            <div className="flex items-center gap-1">
-                                                                <Clock className="w-5 h-5" />
-                                                                <span className="text-xs font-bold whitespace-nowrap">Finance</span>
-                                                            </div>
-                                                        )}
-                                                        {req.status === REQUISITION_STATUS.TL_APPROVAL && (
-                                                            <div className="flex items-center gap-1">
-                                                                <Clock className="w-5 h-5" />
-                                                                <span className="text-xs font-bold whitespace-nowrap">Team Leader</span>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                    <div>
-                                                        <div className="flex items-center gap-2">
-                                                            <h4 className="font-bold text-gray-900 text-lg">{req.title}</h4>
-                                                            <span className="text-xs font-mono text-gray-400 bg-gray-100 px-2 py-0.5 rounded">{req.requisitionNumber}</span>
+                                <div className="overflow-x-auto pb-4">
+                                    <table className="w-full text-left border-collapse min-w-[800px]">
+                                        <thead>
+                                            <tr className="border-b border-gray-200 text-xs uppercase tracking-wider text-gray-500">
+                                                <th className="py-4 px-4 font-semibold">Status</th>
+                                                <th className="py-4 px-4 font-semibold">Requisition Details</th>
+                                                <th className="py-4 px-4 font-semibold">Date &amp; Items</th>
+                                                <th className="py-4 px-4 font-semibold text-right">Amount</th>
+                                                <th className="py-4 px-4 font-semibold text-center">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-200">
+                                            {filteredRequisitions.map((req) => (
+                                                <tr key={req.id} className="hover:bg-gray-50 transition-colors group">
+                                                    <td className="py-4 px-4 whitespace-nowrap">
+                                                        <div className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg ${
+                                                            req.status === REQUISITION_STATUS.APPROVED      ? 'bg-green-100 text-green-700'  :
+                                                            req.status === REQUISITION_STATUS.PAID          ? 'bg-blue-100 text-blue-700'   :
+                                                            req.status === REQUISITION_STATUS.REJECTED      ? 'bg-red-100 text-red-700'     :
+                                                            req.status === REQUISITION_STATUS.FINANCE_BATCH ? 'bg-purple-100 text-purple-700' :
+                                                            'bg-yellow-100 text-yellow-700'
+                                                        }`}>
+                                                            {req.status === REQUISITION_STATUS.APPROVED && <><CheckCircle className="w-4 h-4" /><span className="text-xs font-bold">Approved</span></>}
+                                                            {req.status === REQUISITION_STATUS.PAID && <><DollarSign className="w-4 h-4" /><span className="text-xs font-bold">Paid</span></>}
+                                                            {req.status === REQUISITION_STATUS.REJECTED && <><AlertCircle className="w-4 h-4" /><span className="text-xs font-bold">Rejected</span></>}
+                                                            {req.status === REQUISITION_STATUS.PENDING && <><Clock className="w-4 h-4" /><span className="text-xs font-bold">Pending</span></>}
+                                                            {req.status === REQUISITION_STATUS.DRAFT && <><Clock className="w-4 h-4" /><span className="text-xs font-bold">Draft</span></>}
+                                                            {req.status === REQUISITION_STATUS.FINANCE_BATCH && <><Clock className="w-4 h-4" /><span className="text-xs font-bold">Finance</span></>}
+                                                            {req.status === REQUISITION_STATUS.TL_APPROVAL && <><Clock className="w-4 h-4" /><span className="text-xs font-bold">Team Leader</span></>}
                                                         </div>
-                                                        <p className="text-sm text-gray-500 mt-1 line-clamp-2">{req.notes || 'No additional notes'}</p>
-                                                        <div className="flex items-center gap-4 mt-3 text-xs text-gray-400">
-                                                            <span>{new Date(req.createdAt).toLocaleDateString()}</span>
-                                                            <span>•</span>
-                                                            <span>{(req.items || []).length} Items</span>
+                                                    </td>
+                                                    <td className="py-4 px-4">
+                                                        <div className="flex items-center gap-2 mb-1">
+                                                            <h4 className="font-bold text-gray-900 text-base">{req.title}</h4>
+                                                            <span className="text-[10px] font-mono text-gray-500 bg-gray-100 px-2 py-0.5 rounded">{req.requisitionNumber}</span>
                                                         </div>
+                                                        <p className="text-sm text-gray-500 line-clamp-1">{req.notes || 'No additional notes'}</p>
                                                         {req.status === REQUISITION_STATUS.REJECTED && req.rejectionReason && (
-                                                            <div className="mt-3 bg-red-50 text-red-700 text-sm p-3 rounded-lg border border-red-100">
-                                                                <strong>Rejected:</strong> {req.rejectionReason}
+                                                            <div className="mt-2 text-xs text-red-600 bg-red-50 p-2 rounded border border-red-100 inline-block">
+                                                                <strong>Reason:</strong> {req.rejectionReason}
                                                             </div>
                                                         )}
-                                                    </div>
-                                                </div>
-                                                <div className="text-right">
-                                                    <p className="text-xs text-gray-400 uppercase tracking-wider mb-1">Amount</p>
-                                                    <p className="text-xl font-black text-gray-900">UGX {req.totalAmount.toLocaleString()}</p>
-
-                                                    {req.status === REQUISITION_STATUS.REJECTED && (
-                                                        <button
-                                                            onClick={() => handleEdit(req)}
-                                                            className="mt-2 text-sm text-ministry-orange font-bold hover:text-orange-700 border border-ministry-orange rounded px-3 py-1 hover:bg-orange-50 transition-colors block w-full text-center"
-                                                        >
-                                                            Edit &amp; Resubmit
-                                                        </button>
-                                                    )}
-                                                    {req.status === REQUISITION_STATUS.DRAFT && (
-                                                        <button
-                                                            onClick={() => handleSubmit(req)}
-                                                            className="mt-2 text-sm bg-ministry-orange text-white font-bold hover:bg-orange-600 rounded px-3 py-1.5 transition-colors block w-full text-center shadow"
-                                                        >
-                                                            Submit
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))}
+                                                    </td>
+                                                    <td className="py-4 px-4 whitespace-nowrap text-sm text-gray-500">
+                                                        <div>{new Date(req.createdAt).toLocaleDateString()}</div>
+                                                        <div className="text-xs mt-0.5">{(req.items || []).length} Items</div>
+                                                    </td>
+                                                    <td className="py-4 px-4 whitespace-nowrap text-right">
+                                                        <div className="text-lg font-black text-gray-900">UGX {req.totalAmount.toLocaleString()}</div>
+                                                    </td>
+                                                    <td className="py-4 px-4 whitespace-nowrap text-center">
+                                                        {req.status === REQUISITION_STATUS.REJECTED ? (
+                                                            <button
+                                                                onClick={() => handleEdit(req)}
+                                                                className="text-xs text-ministry-orange font-bold hover:text-orange-700 border border-ministry-orange rounded px-3 py-1.5 hover:bg-orange-50 transition-colors inline-block"
+                                                            >
+                                                                Edit &amp; Resubmit
+                                                            </button>
+                                                        ) : req.status === REQUISITION_STATUS.DRAFT ? (
+                                                            <button
+                                                                onClick={() => handleSubmit(req)}
+                                                                className="text-xs bg-ministry-orange text-white font-bold hover:bg-orange-600 rounded px-3 py-1.5 transition-colors shadow-sm inline-block"
+                                                            >
+                                                                Submit
+                                                            </button>
+                                                        ) : (
+                                                            <span className="text-xs text-gray-400">—</span>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
                                 </div>
                             )}
                         </div>

@@ -41,6 +41,7 @@ import AdministrationDashboard from './modules/administration/AdministrationDash
 import TeamLeaderDashboard from './components/TeamLeaderDashboard';
 import { NotificationDropdown } from './components/ui/NotificationDropdown';
 import { PushPromptBanner } from './components/ui/PushPromptBanner';
+import { InstallPWAPrompt } from './components/ui/InstallPWAPrompt';
 
 // ── Settings ──────────────────────────────────────────────────────────────────
 import SettingsLayout from './modules/settings/SettingsLayout';
@@ -166,14 +167,8 @@ const App: React.FC = () => {
 
   if (isInitialLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center fade-in">
-        <div className="flex flex-col items-center animate-pulse">
-          <div className="w-16 h-16 bg-ministry-orange rounded-2xl shadow-xl flex items-center justify-center transform rotate-12 mb-6">
-            <span className="text-white font-bold text-3xl -rotate-12">M</span>
-          </div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Manifest</h1>
-          <p className="text-sm text-gray-400 font-medium mt-2">Authenticating session...</p>
-        </div>
+      <div className="splash-container">
+        <img src="/MANIFEST.png" alt="Manifest MS Logo" className="splash-logo" />
       </div>
     );
   }
@@ -385,6 +380,7 @@ const App: React.FC = () => {
       <ProfileModal isOpen={isProfileModalOpen} onClose={() => setIsProfileModalOpen(false)} currentUser={user} />
       <SyncIndicator />
       <PushPromptBanner />
+      <InstallPWAPrompt />
     </div>
   );
 };

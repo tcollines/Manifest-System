@@ -140,34 +140,34 @@ export const AssetsTab: React.FC<AssetsTabProps> = ({ departmentId, currentUser 
     return (
         <div className="space-y-6">
             {/* Header Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex items-center gap-4">
-                    <div className="p-3 bg-blue-50 text-blue-600 rounded-xl">
-                        <Package className="w-8 h-8" />
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-6">
+                <div className="bg-white p-4 md:p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col sm:flex-row items-start sm:items-center gap-3 md:gap-4">
+                    <div className="p-2 md:p-3 bg-blue-50 text-blue-600 rounded-xl">
+                        <Package className="w-5 h-5 md:w-8 md:h-8" />
                     </div>
                     <div>
-                        <p className="text-xs font-bold text-gray-400 uppercase">Total Assets</p>
-                        <p className="text-2xl font-black text-gray-900">{filteredAssets.length}</p>
+                        <p className="text-[10px] md:text-xs font-bold text-gray-400 uppercase">Total Assets</p>
+                        <p className="text-xl md:text-2xl font-black text-gray-900">{filteredAssets.length}</p>
                     </div>
                 </div>
-                <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex items-center gap-4">
-                    <div className="p-3 bg-green-50 text-green-600 rounded-xl">
-                        <DollarSign className="w-8 h-8" />
+                <div className="bg-white p-4 md:p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col sm:flex-row items-start sm:items-center gap-3 md:gap-4">
+                    <div className="p-2 md:p-3 bg-green-50 text-green-600 rounded-xl">
+                        <DollarSign className="w-5 h-5 md:w-8 md:h-8" />
                     </div>
                     <div>
-                        <p className="text-xs font-bold text-gray-400 uppercase">Total Value</p>
-                        <p className="text-2xl font-black text-gray-900">
+                        <p className="text-[10px] md:text-xs font-bold text-gray-400 uppercase">Total Value</p>
+                        <p className="text-xl md:text-2xl font-black text-gray-900 truncate max-w-[100px] md:max-w-none">
                             UGX {totalValue.toLocaleString()}
                         </p>
                     </div>
                 </div>
-                <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex items-center gap-4">
-                    <div className="p-3 bg-orange-50 text-ministry-orange rounded-xl">
-                        <AlertTriangle className="w-8 h-8" />
+                <div className="bg-white p-4 md:p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col sm:flex-row items-start sm:items-center gap-3 md:gap-4 col-span-2 md:col-span-1">
+                    <div className="p-2 md:p-3 bg-orange-50 text-ministry-orange rounded-xl">
+                        <AlertTriangle className="w-5 h-5 md:w-8 md:h-8" />
                     </div>
                     <div>
-                        <p className="text-xs font-bold text-gray-400 uppercase">Needs Repair</p>
-                        <p className="text-2xl font-black text-gray-900">
+                        <p className="text-[10px] md:text-xs font-bold text-gray-400 uppercase">Needs Repair</p>
+                        <p className="text-xl md:text-2xl font-black text-gray-900">
                             {filteredAssets.filter(a => a.current_condition === 'Needs Repair').length}
                         </p>
                     </div>

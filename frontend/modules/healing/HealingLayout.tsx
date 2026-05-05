@@ -69,13 +69,13 @@ const HealingLayout: React.FC = () => {
 
                 {/* ── Mobile Floating Bottom Navigation ───────────────── */}
                 <div className="md:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-sm">
-                    <div className="flex items-center justify-around bg-white/90 backdrop-blur-xl p-1.5 rounded-full border border-gray-100 shadow-[0_8px_30px_rgb(0,0,0,0.12)]">
+                    <div className="flex items-center justify-around bg-white/75 backdrop-blur-2xl p-2 rounded-full border border-gray-100 shadow-[0_8px_30px_rgb(0,0,0,0.12)]">
                         {HEALING_TABS.map(({ id, mobileLabel, icon: Icon }) => (
                             <NavLink
                                 key={id}
                                 to={`${basePath}/${id}`}
                                 className={({ isActive }) =>
-                                    `flex flex-col items-center justify-center flex-1 py-2 rounded-full transition-all duration-300 relative overflow-hidden ${isActive ? 'text-white' : 'text-gray-500'}`
+                                    `flex flex-col items-center justify-center flex-1 py-2 rounded-full transition-all duration-300 relative overflow-hidden ${isActive ? 'text-ministry-neon' : 'text-gray-500'}`
                                 }
                             >
                                 {({ isActive }) => (
@@ -83,7 +83,7 @@ const HealingLayout: React.FC = () => {
                                         {isActive && <div className="absolute inset-0 bg-black rounded-full animate-in zoom-in duration-300" />}
                                         <div className="relative z-10 flex flex-col items-center gap-0.5">
                                             <Icon strokeWidth={isActive ? 2.5 : 2} className={`w-4 h-4 transition-transform duration-300 ${isActive ? 'text-ministry-neon scale-110' : ''}`} />
-                                            <span className={`text-[10px] tracking-wide ${isActive ? 'font-bold text-white' : 'font-medium'}`}>{mobileLabel}</span>
+                                            <span className={`text-[10px] tracking-wide ${isActive ? 'font-bold text-ministry-neon' : 'font-medium'}`}>{mobileLabel}</span>
                                         </div>
                                     </>
                                 )}

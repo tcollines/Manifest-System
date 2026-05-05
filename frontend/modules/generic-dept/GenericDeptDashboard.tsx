@@ -174,8 +174,8 @@ const GenericDeptDashboard: React.FC<DashboardProps> = ({ openModal, onEditUser,
         }
     };
 
-    // Limit bottom nav to max 5 tabs for mobile readability
-    const bottomNavTabs = visibleTabs.slice(0, 5);
+    // Limit bottom nav to max 4 tabs for mobile readability (excluding team)
+    const bottomNavTabs = visibleTabs.filter(t => t.id !== 'team').slice(0, 4);
 
     return (
         <div className="flex flex-col bg-gray-50 min-h-screen">
@@ -228,15 +228,15 @@ const GenericDeptDashboard: React.FC<DashboardProps> = ({ openModal, onEditUser,
             </div>
 
             {/* Tab Content */}
-            <div className="flex-1 p-4 md:p-8 max-w-screen-xl mx-auto w-full mb-20 md:mb-0">
+            <div className="flex-1 px-4 py-4 md:p-8 max-w-screen-xl mx-auto w-full mb-20 md:mb-0">
                 <ErrorBoundary moduleName={`${department.name} — ${safeActiveTab}`}>
                     {renderTab()}
                 </ErrorBoundary>
             </div>
 
             {/* Mobile Floating Bottom Nav */}
-            <nav className="md:hidden fixed bottom-4 left-1/2 -translate-x-1/2 z-40">
-                <div className="flex items-center gap-1 bg-white/90 backdrop-blur-xl rounded-full px-3 py-2 shadow-xl border border-gray-100">
+            <nav className="md:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-40 w-[92%] max-w-sm">
+                <div className="flex items-center justify-between gap-1 bg-white/75 backdrop-blur-2xl rounded-full p-2 shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-gray-100">
                     {bottomNavTabs.map(tab => {
                         const Icon = tab.icon;
                         const isActive = safeActiveTab === tab.id;
@@ -245,14 +245,19 @@ const GenericDeptDashboard: React.FC<DashboardProps> = ({ openModal, onEditUser,
                                 key={tab.id}
                                 onClick={() => handleTabChange(tab.id as DeptTabId)}
                                 className={[
-                                    'flex flex-col items-center gap-0.5 px-3 py-2 rounded-full transition-all duration-200',
+                                    'flex flex-col items-center justify-center w-full py-2 rounded-full transition-all duration-300 relative overflow-hidden',
                                     isActive
-                                        ? 'bg-gray-900 text-white'
-                                        : 'text-gray-400 hover:text-gray-700',
+                                        ? 'text-ministry-neon'
+                                        : 'text-gray-500 hover:text-gray-900',
                                 ].join(' ')}
                             >
-                                <Icon className="w-5 h-5" strokeWidth={isActive ? 2.5 : 1.8} />
-                                <span className="text-[10px] font-medium">{tab.label}</span>
+                                {isActive && (
+                                    <div className="absolute inset-0 bg-black rounded-full scale-100 animate-in zoom-in duration-300" />
+                                )}
+                                <div className="relative z-10 flex flex-col items-center gap-1">
+                                    <Icon className={`w-4 h-4 transition-transform duration-300 ${isActive ? 'text-ministry-neon scale-110' : ''}`} strokeWidth={isActive ? 2.5 : 2} />
+                                    <span className={`text-[10px] tracking-wide transition-all duration-300 ${isActive ? 'font-bold text-ministry-neon' : 'font-medium'}`}>{tab.label}</span>
+                                </div>
                             </button>
                         );
                     })}

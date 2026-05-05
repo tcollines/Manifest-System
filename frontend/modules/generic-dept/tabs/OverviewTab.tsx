@@ -5,7 +5,7 @@ import { DeptChurchMemberStore } from '../../../database/deptChurchMemberStore';
 import { ServiceScheduleStore } from '../../../database/serviceScheduleStore';
 import { WorkplanStore } from '../../../database/workplanStore';
 import { DeptFinanceStore } from '../../../database/deptFinanceStore';
-import { formatCurrency } from '../../../shared/formatters';
+import { formatCurrency, formatCompactCurrency, formatCompactNumber } from '../../../shared/formatters';
 import StatCard from '../../../components/ui/StatCard';
 import LoadingSpinner from '../../../components/ui/LoadingSpinner';
 import { Users, Calendar, ClipboardList, DollarSign, CheckCircle, Clock, XCircle } from 'lucide-react';
@@ -52,36 +52,37 @@ const OverviewTab: React.FC<Props> = ({ department, user, deptRole, systemRole }
 
     return (
         <div className="flex flex-col gap-6">
-            <div>
-                <h2 className="text-lg font-bold text-gray-800 mb-1">{department.name} — Overview</h2>
-                {department.description && <p className="text-sm text-gray-500">{department.description}</p>}
-            </div>
+            {department.description && (
+                <div className="mb-2">
+                    <p className="text-sm text-gray-500">{department.description}</p>
+                </div>
+            )}
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <StatCard
                     title="Team Members"
-                    value={memberCount ?? '—'}
+                    value={memberCount != null ? formatCompactNumber(memberCount) : '—'}
                     icon={Users}
                     iconBg="bg-blue-50"
                     iconColor="text-blue-600"
                 />
                 <StatCard
                     title="Schedules"
-                    value={scheduleCount ?? '—'}
+                    value={scheduleCount != null ? formatCompactNumber(scheduleCount) : '—'}
                     icon={Calendar}
                     iconBg="bg-ministry-orange/10"
                     iconColor="text-ministry-orange"
                 />
                 <StatCard
                     title="Workplans"
-                    value={workplanCount ?? '—'}
+                    value={workplanCount != null ? formatCompactNumber(workplanCount) : '—'}
                     icon={ClipboardList}
                     iconBg="bg-purple-50"
                     iconColor="text-purple-600"
                 />
                 <StatCard
                     title="Net Balance"
-                    value={balance != null ? formatCurrency(balance) : '—'}
+                    value={balance != null ? formatCompactCurrency(balance) : '—'}
                     icon={DollarSign}
                     iconBg="bg-green-50"
                     iconColor="text-green-600"
@@ -94,25 +95,25 @@ const OverviewTab: React.FC<Props> = ({ department, user, deptRole, systemRole }
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <KpiCard
                         label="Approved Budget"
-                        value={formatCurrency(analytics?.approved_budget || 0)}
+                        value={formatCompactCurrency(analytics?.approved_budget || 0)}
                         icon={CheckCircle}
                         isLoading={isLoadingAnalytics}
                     />
                     <KpiCard
                         label="Requested Budget"
-                        value={formatCurrency(analytics?.requested_budget || 0)}
+                        value={formatCompactCurrency(analytics?.requested_budget || 0)}
                         icon={DollarSign}
                         isLoading={isLoadingAnalytics}
                     />
                     <KpiCard
                         label="Items Pending Review"
-                        value={analytics?.items_pending || 0}
+                        value={formatCompactNumber(analytics?.items_pending || 0)}
                         icon={Clock}
                         isLoading={isLoadingAnalytics}
                     />
                     <KpiCard
                         label="Items Rejected"
-                        value={analytics?.items_rejected || 0}
+                        value={formatCompactNumber(analytics?.items_rejected || 0)}
                         icon={XCircle}
                         isLoading={isLoadingAnalytics}
                     />

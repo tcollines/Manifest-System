@@ -382,7 +382,7 @@ const FollowUpLayout: React.FC = () => {
 
             {/* ── Mobile Floating Bottom Navigation ────────────────────────── */}
             <div className="md:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[95%] max-w-lg">
-                <div className="flex items-center justify-between gap-1 bg-white/90 backdrop-blur-xl p-1.5 rounded-full border border-gray-100 shadow-[0_8px_30px_rgb(0,0,0,0.12)]">
+                <div className="flex items-center justify-between gap-1 bg-white/75 backdrop-blur-2xl p-2 rounded-full border border-gray-100 shadow-[0_8px_30px_rgb(0,0,0,0.12)]">
                     {navTabs.map(({ to, icon: Icon, mobileLabel }) => (
                         <NavLink
                             key={to}
@@ -390,7 +390,7 @@ const FollowUpLayout: React.FC = () => {
                             onClick={() => setSelectedEventId(null)}
                             className={({ isActive }) =>
                                 `flex flex-col items-center justify-center w-full py-2 rounded-full transition-all duration-300 relative overflow-hidden ${
-                                    isActive ? 'text-white' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50/50'
+                                    isActive ? 'text-ministry-neon' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50/50'
                                 }`
                             }
                         >
@@ -401,7 +401,7 @@ const FollowUpLayout: React.FC = () => {
                                     )}
                                     <div className="relative z-10 flex flex-col items-center gap-1">
                                         <Icon strokeWidth={isActive ? 2.5 : 2} className={`w-4 h-4 transition-transform duration-300 ${isActive ? 'text-ministry-neon scale-110' : ''}`} />
-                                        <span className={`text-[9px] tracking-wide transition-all duration-300 ${isActive ? 'font-bold text-white' : 'font-medium'}`}>
+                                        <span className={`text-[9px] tracking-wide transition-all duration-300 ${isActive ? 'font-bold text-ministry-neon' : 'font-medium'}`}>
                                             {mobileLabel}
                                         </span>
                                     </div>
