@@ -70,7 +70,7 @@ import auditRoutes from './routes/auditRoutes';
 // pg Client import removed — was only used by the deleted /api/admin/sql endpoint
 
 import pushRoutes from './routes/pushRoutes';
-import { startPushWorker } from './workers/pushWorker';
+import { startRetryWorker } from './workers/retryWorker';
 
 app.use('/api/users', userRoutes);
 app.use('/api/members', memberRoutes);
@@ -100,8 +100,8 @@ app.use('/api/push', pushRoutes);
 app.listen(PORT, async () => {
     console.log(`Server is running on port ${PORT}`);
 
-    // Start Web Push Delivery Worker
-    startPushWorker();
+    // Start Web Push Retry Worker
+    startRetryWorker();
 
     // 1. Startup Self-Check: Database Connectivity & Permissions
     try {
