@@ -428,7 +428,16 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
     });
   };
   const [eventFormType, setEventFormType] = useState<'Service' | 'Event'>('Service');
-  const [eventForm, setEventForm] = useState({
+  const [eventForm, setEventForm] = useState<{
+    title: string;
+    date: string;
+    time: string;
+    location: string;
+    description: string;
+    lat?: number;
+    lng?: number;
+    locationName?: string;
+  }>({
     title: '',
     date: new Date().toISOString().split('T')[0],
     time: '17:00',
@@ -1881,13 +1890,16 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
         location: eventForm.location,
         description: eventForm.description,
         serviceNumber: 1, // Default for new events (DB requires it, 1 is safer than 0)
-        stats: { attendees: 0, firstTimers: 0, soulsWon: 0, students: 0, expenditure: '$0.00', nextGen: 0 }
+        stats: { attendees: 0, firstTimers: 0, soulsWon: 0, students: 0, expenditure: '$0.00', nextGen: 0 },
+        lat: eventForm.lat,
+        lng: eventForm.lng,
+        locationName: eventForm.locationName
       };
 
       await EventStore.add(newEvent);
       if (refreshParentData) refreshParentData(); // Refresh parent data
       setIsAddEventOpen(false);
-      setEventForm({ title: '', date: new Date().toISOString().split('T')[0], time: '17:00', location: 'Phaneroo Grounds', description: '' });
+      setEventForm({ title: '', date: new Date().toISOString().split('T')[0], time: '17:00', location: 'Phaneroo Grounds', description: '', lat: undefined, lng: undefined, locationName: undefined });
       showToast(`${eventFormType} created successfully.`, 'success');
     } catch (error: any) {
       console.error("Error creating event:", error);

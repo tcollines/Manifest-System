@@ -24,6 +24,7 @@ import ParkingCheckInPage from '../modules/parking/ParkingCheckinPage';
 import ParkingDatabasePage from '../modules/parking/ParkingDatabasePage';
 
 import FinanceLayout from '../modules/finance/FinanceLayout';
+import FinanceDashboardPage from '../modules/finance/DashboardPage';
 import IncomePage from '../modules/finance/IncomePage';
 import ExpensesPage from '../modules/finance/ExpensesPage';
 import FinanceRequisitionsPage from '../modules/finance/FinanceRequisitionsPage';
@@ -167,7 +168,8 @@ const DepartmentRouterProxy: React.FC<ProxyProps> = ({ onOpenModal, onEditUser }
             <Routes>
                 <Route element={<ProtectedRoute allowedDepartments={['finance']} />}>
                     <Route element={<FinanceLayout />}>
-                        <Route index element={<RedirectWithParams to="income" />} />
+                        <Route index element={<RedirectWithParams to="overview" />} />
+                        <Route path="overview"     element={<FinanceDashboardPage />} />
                         <Route path="income"       element={<IncomePage />} />
                         <Route path="expenses"     element={<ExpensesPage />} />
                         <Route path="requisitions" element={<FinanceRequisitionsPage />} />

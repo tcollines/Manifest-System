@@ -208,15 +208,15 @@ const ResidencesTab: React.FC = () => {
 
     return (
 
-                <div className="space-y-6">
+                <div className="p-4 md:p-6 space-y-6">
                     <div className="flex justify-between items-center">
                         <h2 className="text-xl font-semibold text-ministry-text">Target Residences</h2>
                         <button
                             onClick={() => setShowAddResidence(!showAddResidence)}
-                            className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 flex items-center text-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-600"
+                            className="w-10 h-10 bg-black rounded-xl flex items-center justify-center hover:bg-gray-800 transition-colors shadow-md shrink-0"
+                            title="Add Residence"
                         >
-                            <Plus className="w-4 h-4 mr-2" />
-                            Add Residence
+                            <Plus className="w-5 h-5 text-ministry-neon" strokeWidth={2.5} />
                         </button>
                     </div>
 

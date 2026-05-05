@@ -23,9 +23,41 @@ const ServicesTab: React.FC = () => {
     // ── Services grid ─────────────────────────────────────────────────────────
     if (!selectedEventId) {
         return (
-            <div className="p-6 space-y-6 animate-in fade-in duration-300">
-                <h2 className="text-xl font-bold text-gray-800">Recent Services</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="p-4 md:p-6 space-y-4 md:space-y-6 animate-in fade-in duration-300">
+                <h2 className="text-lg md:text-xl font-bold text-gray-800">Recent Services</h2>
+
+                {/* Mobile List */}
+                <div className="md:hidden space-y-2">
+                    {services.map(service => (
+                        <div key={service.id} className="bg-white rounded-xl border border-gray-100 p-3 flex items-center gap-3">
+                            <div className="w-10 h-10 bg-orange-50 rounded-lg flex items-center justify-center shrink-0">
+                                <Calendar className="w-5 h-5 text-ministry-orange" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <p className="font-bold text-sm text-gray-900 truncate">{service.title}</p>
+                                <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5">
+                                    <span>{service.date}</span>
+                                    {isServiceClosed(service.date) && (
+                                        <span className="text-[10px] bg-gray-100 px-1.5 py-0.5 rounded text-gray-500 font-bold border border-gray-200">LOCKED</span>
+                                    )}
+                                    <span className="text-ministry-orange font-bold">{souls.filter(s => s.sourceId === service.id).length} souls</span>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setSelectedEventId(service.id)}
+                                className="px-3 py-1.5 bg-gray-900 text-white text-xs font-bold rounded-lg hover:bg-ministry-orange transition-colors shrink-0"
+                            >
+                                Open
+                            </button>
+                        </div>
+                    ))}
+                    {services.length === 0 && (
+                        <div className="text-gray-400 text-center py-10 text-sm">No services found.</div>
+                    )}
+                </div>
+
+                {/* Desktop Card Grid */}
+                <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {services.map(service => (
                         <div key={service.id} className="bg-white rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow overflow-hidden">
                             <div className="p-5 border-b border-gray-50 flex justify-between items-start">
@@ -83,7 +115,7 @@ const ServicesTab: React.FC = () => {
     };
 
     return (
-        <div className="p-6 space-y-6 animate-in fade-in duration-300">
+        <div className="p-4 md:p-6 space-y-4 md:space-y-6 animate-in fade-in duration-300">
             {/* Header */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-gray-100 pb-4">
                 <div className="flex items-center space-x-4">

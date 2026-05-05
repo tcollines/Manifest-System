@@ -179,9 +179,9 @@ export const ActivityTab: React.FC<ActivityTabProps> = ({ category }) => {
     };
 
     return (
-        <div className="overflow-x-auto">
+        <div className="p-4 md:p-0">
             <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-bold text-ministry-text">{displayCategory} Records</h3>
+                <h3 className="text-base md:text-lg font-bold text-ministry-text">{displayCategory} Records</h3>
                 <button
                     onClick={() => {
                         setNewActivity({ category, date: new Date().toISOString().split('T')[0], title: '', location: '', soulsWon: 0, contactsCollected: 0, notes: '' });
@@ -190,61 +190,75 @@ export const ActivityTab: React.FC<ActivityTabProps> = ({ category }) => {
                         setNewContacts([]);
                         setIsAddingActivity(true);
                     }}
-                    className="flex items-center space-x-2 bg-ministry-orange text-white px-4 py-2 rounded font-medium hover:bg-ministry-orange/90 transition-colors"
+                    className="flex items-center gap-1.5 bg-ministry-orange text-white px-3 py-2 rounded-xl font-bold hover:bg-ministry-orange/90 transition-colors text-sm"
                 >
-                    <Plus size={16} />
+                    <Plus size={15} />
                     <span>Add {displayCategory}</span>
                 </button>
             </div>
-            
+
             {filtered.length === 0 ? (
-                <div className="text-center py-10 text-gray-400 bg-gray-50 rounded-lg">No {displayCategory} recorded yet.</div>
+                <div className="text-center py-10 text-gray-400 bg-gray-50 rounded-xl text-sm">No {displayCategory} recorded yet.</div>
             ) : (
-                <table className="w-full text-left border-collapse">
-                    <thead>
-                        <tr className="bg-gray-50 text-gray-500 text-sm border-b border-gray-100">
-                            <th className="p-4 font-medium rounded-tl-lg">Date</th>
-                            <th className="p-4 font-medium">Title</th>
-                            <th className="p-4 font-medium">Location</th>
-                            <th className="p-4 font-medium">Souls Won</th>
-                            <th className="p-4 font-medium rounded-tr-lg">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody className="text-sm">
+                <>
+                    {/* Mobile list */}
+                    <div className="md:hidden flex flex-col divide-y divide-gray-100 bg-white border border-gray-100 rounded-xl overflow-hidden shadow-sm">
                         {filtered.map(act => (
-                            <tr
+                            <div
                                 key={act.id}
-                                className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors cursor-pointer"
+                                className="flex items-center px-4 py-3 gap-3 hover:bg-gray-50 cursor-pointer"
                                 onClick={() => setSelectedActivity(act)}
                             >
-                                <td className="p-4">{new Date(act.date).toLocaleDateString()}</td>
-                                <td className="p-4 font-medium text-ministry-text">{act.title}</td>
-                                <td className="p-4 text-gray-600">{act.location}</td>
-                                <td className="p-4">
-                                    <span className="bg-blue-50 text-blue-700 px-2.5 py-1 rounded-full text-xs font-semibold">{act.soulsWon || 0}</span>
-                                </td>
-                                <td className="p-4">
-                                    <div className="flex items-center space-x-3">
-                                        <button
-                                            onClick={(e) => handleEditActivity(act, e)}
-                                            className="text-gray-400 hover:text-blue-600 transition-colors p-1"
-                                            title="Edit Record"
-                                        >
-                                            <Edit2 size={16} />
-                                        </button>
-                                        <button
-                                            onClick={(e) => handleDeleteActivity(act.id, e)}
-                                            className="text-gray-400 hover:text-red-500 transition-colors p-1"
-                                            title="Delete Record"
-                                        >
-                                            <Trash2 size={16} />
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
+                                <div className="flex-1 min-w-0">
+                                    <p className="font-bold text-sm text-ministry-text truncate">{act.title || act.location}</p>
+                                    <p className="text-xs text-gray-500 mt-0.5">{new Date(act.date).toLocaleDateString()} · {act.location}</p>
+                                </div>
+                                <span className="text-xs font-black bg-blue-50 text-blue-700 px-2 py-1 rounded-full shrink-0">{act.soulsWon || 0} souls</span>
+                                <div className="flex gap-1.5 shrink-0">
+                                    <button onClick={(e) => handleEditActivity(act, e)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"><Edit2 size={14} /></button>
+                                    <button onClick={(e) => handleDeleteActivity(act.id, e)} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={14} /></button>
+                                </div>
+                            </div>
                         ))}
-                    </tbody>
-                </table>
+                    </div>
+
+                    {/* Desktop table */}
+                    <div className="hidden md:block overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                                <tr className="bg-gray-50 text-gray-500 text-sm border-b border-gray-100">
+                                    <th className="p-4 font-medium rounded-tl-lg">Date</th>
+                                    <th className="p-4 font-medium">Title</th>
+                                    <th className="p-4 font-medium">Location</th>
+                                    <th className="p-4 font-medium">Souls Won</th>
+                                    <th className="p-4 font-medium rounded-tr-lg">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody className="text-sm">
+                                {filtered.map(act => (
+                                    <tr
+                                        key={act.id}
+                                        className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors cursor-pointer"
+                                        onClick={() => setSelectedActivity(act)}
+                                    >
+                                        <td className="p-4">{new Date(act.date).toLocaleDateString()}</td>
+                                        <td className="p-4 font-medium text-ministry-text">{act.title}</td>
+                                        <td className="p-4 text-gray-600">{act.location}</td>
+                                        <td className="p-4">
+                                            <span className="bg-blue-50 text-blue-700 px-2.5 py-1 rounded-full text-xs font-semibold">{act.soulsWon || 0}</span>
+                                        </td>
+                                        <td className="p-4">
+                                            <div className="flex items-center space-x-3">
+                                                <button onClick={(e) => handleEditActivity(act, e)} className="text-gray-400 hover:text-blue-600 transition-colors p-1" title="Edit Record"><Edit2 size={16} /></button>
+                                                <button onClick={(e) => handleDeleteActivity(act.id, e)} className="text-gray-400 hover:text-red-500 transition-colors p-1" title="Delete Record"><Trash2 size={16} /></button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </>
             )}
 
             {/* Modals placed inside the tab component to scope state tightly */}

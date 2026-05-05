@@ -18,7 +18,6 @@ export const EventsTab: React.FC = () => {
 
     const [eventPassengers, setEventPassengers] = useState<Passenger[]>([]);
     const [eventFilter, setEventFilter] = useState<'all' | 'first-timers' | 'souls-won'>('all');
-    const [eventTypeFilter, setEventTypeFilter] = useState<'All' | 'Event' | 'Service'>('All');
 
     const loadPassengers = async (eventId: string) => {
         try {
@@ -296,25 +295,57 @@ export const EventsTab: React.FC = () => {
     };
 
     if (!selectedEvent) {
+        // Schools tab shows Events only (not regular services)
         const filteredEventsList = events
-            .filter(e => eventTypeFilter === 'All' || e.type === eventTypeFilter)
+            .filter(e => e.type === 'Event')
             .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
         return (
-            <div className="space-y-6">
-                <div className="flex justify-between items-center bg-gray-50/50 p-4 border border-gray-100 rounded-xl mb-4">
+            <div className="space-y-4 p-4 md:p-6">
+                <div className="flex items-center bg-gray-50/50 px-4 py-3 border border-gray-100 rounded-xl mb-2">
                     <h3 className="font-bold text-gray-700 text-sm">Select an Event</h3>
-                    <select
-                        value={eventTypeFilter}
-                        onChange={(e) => setEventTypeFilter(e.target.value as 'All' | 'Event' | 'Service')}
-                        className="px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-700 font-medium focus:outline-none focus:border-ministry-orange hover:border-gray-300"
-                    >
-                        <option value="All">All Events & Services</option>
-                        <option value="Event">Special Events</option>
-                        <option value="Service">Services</option>
-                    </select>
+                    <span className="ml-auto text-xs text-gray-400 font-medium">{filteredEventsList.length} event{filteredEventsList.length !== 1 ? 's' : ''}</span>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {/* ── Mobile List View ─────────────────────────────────────── */}
+                <div className="md:hidden flex flex-col space-y-3">
+                    {filteredEventsList.map(event => (
+                        <div key={`mobile-${event.id}`} className="bg-white border border-gray-200 rounded-xl p-4 hover:border-ministry-orange/40 transition-all flex flex-col gap-3 shadow-sm">
+                            <div 
+                                className="flex justify-between items-center cursor-pointer"
+                                onClick={() => handleViewEvent(event)}
+                            >
+                                <div className="flex items-center gap-3">
+                                    <div className="bg-gray-50 p-2.5 rounded-lg border border-gray-100">
+                                        <Calendar className="w-5 h-5 text-gray-500" />
+                                    </div>
+                                    <div>
+                                        <h4 className="text-[15px] font-bold text-ministry-text leading-tight">{event.title}</h4>
+                                        <p className="text-xs text-gray-500 mt-0.5">{event.date} • {event.time}</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center pl-2">
+                                    <button 
+                                        onClick={(e) => { 
+                                            e.stopPropagation(); 
+                                            handleViewEvent(event); 
+                                        }} 
+                                        className="bg-black text-ministry-neon px-4 py-1.5 rounded-lg text-sm font-bold shadow-sm"
+                                    >
+                                        View
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                    {filteredEventsList.length === 0 && (
+                        <div className="py-12 text-center text-gray-400 bg-white rounded-xl border border-dashed border-gray-300">
+                            No matching events found.
+                        </div>
+                    )}
+                </div>
+
+                {/* ── Desktop Grid View ────────────────────────────────────── */}
+                <div className="hidden md:grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {filteredEventsList.map(event => (
                         <div key={event.id} onClick={() => handleViewEvent(event)} className="bg-white border border-gray-200 p-6 rounded-xl hover:shadow-md hover:border-ministry-orange cursor-pointer transition-all">
                             <div className="flex justify-between items-start mb-4">
@@ -351,21 +382,31 @@ export const EventsTab: React.FC = () => {
     }
 
     return (
-        <div className="space-y-6">
-            <div className="flex items-center justify-between border-b border-gray-100 pb-4 mb-6">
-                <div className="flex items-center space-x-4">
-                    <button onClick={() => setSearchParams(prev => { prev.delete('eventId'); return prev; }, { replace: true })} className="text-sm font-medium text-gray-500 hover:text-ministry-orange transition-colors flex items-center">
-                        <span className="mr-2">←</span> Back to Events
+        <div className="space-y-4 p-4 md:p-6">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-4 mb-4">
+                <div className="flex items-center gap-3 min-w-0">
+                    {/* Arrow-only back button */}
+                    <button
+                        onClick={() => setSearchParams(prev => { prev.delete('eventId'); return prev; }, { replace: true })}
+                        className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-ministry-orange transition-colors shrink-0"
+                        title="Back to Events"
+                    >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" /></svg>
                     </button>
-                    <div>
-                        <h3 className="text-xl font-bold text-ministry-text uppercase tracking-tight">
-                            {selectedEvent.title} <span className="font-light text-gray-400 normal-case tracking-normal">Students List</span>
+                    <div className="min-w-0">
+                        <h3 className="text-base md:text-xl font-bold text-ministry-text uppercase tracking-tight truncate">
+                            {selectedEvent.title}
                         </h3>
+                        <p className="text-xs text-gray-400 font-normal">Students List</p>
                     </div>
                 </div>
-                <button onClick={handleDownloadExcel} className="bg-[#10b981] hover:bg-[#059669] text-white px-4 py-2 rounded font-medium flex items-center shadow-sm transition-colors">
-                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-                    Download Excel
+                {/* Icon-only download button */}
+                <button
+                    onClick={handleDownloadExcel}
+                    className="p-2.5 bg-[#10b981] hover:bg-[#059669] text-white rounded-xl shadow-sm transition-colors shrink-0"
+                    title="Download Excel"
+                >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
                 </button>
             </div>
 

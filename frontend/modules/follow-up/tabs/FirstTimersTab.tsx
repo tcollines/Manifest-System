@@ -10,7 +10,7 @@ import { useFollowUp } from '../FollowUpContext';
 import { useNotification } from '../../../components/ui/NotificationSystem';
 import { MemberStore } from '../../../database/memberStore';
 import * as XLSX from 'xlsx';
-import { Users, Search, Calendar, Clock, ChevronLeft, User as UserIcon } from 'lucide-react';
+import { Users, Search, Calendar, Clock, ChevronLeft, User as UserIcon, Download } from 'lucide-react';
 
 const FirstTimersTab: React.FC = () => {
     const { } = useFollowUp();
@@ -63,7 +63,7 @@ const FirstTimersTab: React.FC = () => {
         const { member, attendedCount, totalServices, history } = selectedFTDetails;
         const score = totalServices > 0 ? Math.round((attendedCount / totalServices) * 100) : 0;
         return (
-            <div className="p-6 space-y-6 animate-in fade-in duration-300">
+            <div className="p-4 md:p-6 space-y-4 md:space-y-6 animate-in fade-in duration-300">
                 <button onClick={() => setViewModeFT('list')} className="flex items-center text-gray-500 hover:text-ministry-text font-bold bg-white px-4 py-2 rounded-lg border border-gray-200 shadow-sm">
                     <ChevronLeft className="w-5 h-5 mr-1" /> Back to Database
                 </button>
@@ -124,30 +124,61 @@ const FirstTimersTab: React.FC = () => {
 
     // ── List view ─────────────────────────────────────────────────────────────
     return (
-        <div className="p-6 animate-in fade-in duration-300">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                <div className="p-5 border-b border-gray-100 flex flex-col md:flex-row justify-between items-center gap-4">
-                    <h2 className="text-lg font-bold text-gray-800 flex items-center">
-                        <Users className="w-5 h-5 mr-2 text-gray-500" />
-                        First Timer Database
-                        <span className="ml-3 bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full text-xs">{currentData.length}</span>
-                    </h2>
-                    <div className="flex space-x-1 bg-gray-100 p-1 rounded-xl w-fit">
-                        <button onClick={() => setSubTab('services')} className={`px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap ${subTab === 'services' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}>Services</button>
-                        <button onClick={() => setSubTab('events')} className={`px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap ${subTab === 'events' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}>Events</button>
+        <div className="md:p-6 animate-in fade-in duration-300">
+            <div className="bg-white md:rounded-xl md:shadow-sm md:border md:border-gray-100 overflow-hidden">
+                {/* Header — compact on mobile */}
+                <div className="p-4 md:p-5 border-b border-gray-100 space-y-3">
+                    <div className="flex items-center justify-between">
+                        <h2 className="text-base md:text-lg font-bold text-gray-800 flex items-center">
+                            <Users className="w-5 h-5 mr-2 text-gray-500" />
+                            First Timers
+                            <span className="ml-2 bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full text-xs">{currentData.length}</span>
+                        </h2>
+                        <button onClick={handleDownloadFT} disabled={loadingFT || currentData.length === 0} className="p-2 md:px-3 md:py-2 text-green-700 hover:bg-green-50 rounded-lg border border-green-200 disabled:opacity-50 flex items-center gap-1.5">
+                            <Download className="w-4 h-4" />
+                            <span className="hidden md:inline text-sm font-bold">Download Excel</span>
+                        </button>
                     </div>
-                    <button onClick={handleDownloadFT} disabled={loadingFT || currentData.length === 0} className="text-sm font-bold text-green-700 hover:bg-green-50 px-3 py-2 rounded-lg flex items-center border border-green-200 disabled:opacity-50">Download Excel</button>
+                    <div className="flex space-x-1 bg-gray-100 p-1 rounded-xl w-fit">
+                        <button onClick={() => setSubTab('services')} className={`px-4 py-1.5 rounded-lg text-sm font-bold whitespace-nowrap ${subTab === 'services' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}>Services</button>
+                        <button onClick={() => setSubTab('events')} className={`px-4 py-1.5 rounded-lg text-sm font-bold whitespace-nowrap ${subTab === 'events' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}>Events</button>
+                    </div>
                 </div>
-                <div className="overflow-x-auto">
+
+                {/* Mobile List */}
+                <div className="md:hidden divide-y divide-gray-50">
+                    {loadingFT ? (
+                        <div className="px-4 py-12 text-center text-gray-400">Loading database...</div>
+                    ) : currentData.length === 0 ? (
+                        <div className="px-4 py-12 text-center text-gray-400">No first timers found for {subTab}.</div>
+                    ) : (
+                        currentData.map(ft => (
+                            <div key={ft.id} className="px-4 py-3 flex items-center gap-3 active:bg-gray-50" onClick={() => handleViewFirstTimer(ft.id)}>
+                                <div className="flex-1 min-w-0">
+                                    <p className="font-bold text-sm text-gray-900 truncate">{ft.name}</p>
+                                    <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5">
+                                        <span className="font-mono">{ft.phone}</span>
+                                        <span>·</span>
+                                        <span className="truncate">{ft.residency}</span>
+                                    </div>
+                                </div>
+                                <Search className="w-4 h-4 text-gray-300 shrink-0" />
+                            </div>
+                        ))
+                    )}
+                </div>
+
+                {/* Desktop Table */}
+                <div className="hidden md:block overflow-x-auto">
                     <table className="w-full text-left text-sm">
                         <thead className="bg-gray-50 text-gray-600 font-medium border-b border-gray-100">
                             <tr><th className="px-6 py-3">Name</th><th className="px-6 py-3">Contact</th><th className="px-6 py-3">Residence</th><th className="px-6 py-3">Source Event</th><th className="px-6 py-3">Date Recorded</th><th className="px-6 py-3 text-right">Actions</th></tr>
                         </thead>
                         <tbody className="divide-y divide-gray-50">
                             {loadingFT ? (
-                                <tr><td colSpan={5} className="px-6 py-12 text-center text-gray-400">Loading database...</td></tr>
+                                <tr><td colSpan={6} className="px-6 py-12 text-center text-gray-400">Loading database...</td></tr>
                             ) : currentData.length === 0 ? (
-                                <tr><td colSpan={5} className="px-6 py-12 text-center text-gray-400">No first timers found for {subTab}.</td></tr>
+                                <tr><td colSpan={6} className="px-6 py-12 text-center text-gray-400">No first timers found for {subTab}.</td></tr>
                             ) : (
                                 currentData.map(ft => (
                                     <tr key={ft.id} className="hover:bg-gray-50/50 transition-colors">

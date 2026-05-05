@@ -26,7 +26,7 @@ const DatabaseTab: React.FC = () => {
         const { member, attendedCount, totalServices, history } = selectedSoulDetails;
         const score = totalServices > 0 ? Math.round((attendedCount / totalServices) * 100) : 0;
         return (
-            <div className="p-6 space-y-6 animate-in fade-in duration-300">
+            <div className="p-4 md:p-6 space-y-4 md:space-y-6 animate-in fade-in duration-300">
                 <button onClick={() => setViewMode('list')} className="flex items-center text-gray-500 hover:text-ministry-text font-bold transition-colors bg-white px-4 py-2 rounded-lg border border-gray-200 shadow-sm">
                     <ChevronLeft className="w-5 h-5 mr-1" /> Back to Souls Database
                 </button>
@@ -100,24 +100,46 @@ const DatabaseTab: React.FC = () => {
     };
 
     return (
-        <div className="p-6 animate-in fade-in duration-300">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                <div className="p-5 border-b border-gray-100 flex flex-col md:flex-row justify-between items-center gap-4">
+        <div className="md:p-6 animate-in fade-in duration-300">
+            <div className="bg-white md:rounded-xl md:shadow-sm md:border md:border-gray-100 overflow-hidden">
+                <div className="p-4 md:p-5 border-b border-gray-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-3 md:gap-4">
                     <h2 className="text-lg font-bold text-gray-800 flex items-center">
                         <Database className="w-5 h-5 mr-2 text-gray-500" />
                         All Souls
                         <span className="ml-3 bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-xs">{soulsToShow.length}</span>
                     </h2>
-                    <div className="flex items-center space-x-2">
-                        <Calendar className="w-4 h-4 text-gray-400" />
-                        <select value={dbEventFilter} onChange={e => setDbEventFilter(e.target.value)} className="text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ministry-orange bg-white min-w-[200px]">
+                    <div className="flex items-center space-x-2 w-full md:w-auto">
+                        <Calendar className="w-4 h-4 text-gray-400 shrink-0" />
+                        <select value={dbEventFilter} onChange={e => setDbEventFilter(e.target.value)} className="text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ministry-orange bg-white w-full md:min-w-[200px]">
                             <option value="">All Events & Services</option>
                             <optgroup label="Services">{services.map(s => <option key={s.id} value={s.id}>{s.title}</option>)}</optgroup>
                             <optgroup label="Events">{events.map(e => <option key={e.id} value={e.id}>{e.title}</option>)}</optgroup>
                         </select>
                     </div>
                 </div>
-                <div className="overflow-x-auto">
+
+                {/* Mobile List */}
+                <div className="md:hidden divide-y divide-gray-50">
+                    {soulsToShow.map(soul => (
+                        <div key={soul.id} className="px-4 py-3 flex items-center gap-3 active:bg-gray-50" onClick={() => handleViewSoul(soul.id || '')}>
+                            <div className="flex-1 min-w-0">
+                                <p className="font-bold text-sm text-gray-900 truncate">{soul.firstName} {soul.lastName}</p>
+                                <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5">
+                                    <span className="font-mono">{soul.phone}</span>
+                                    <span>·</span>
+                                    <span className="truncate">{soul.residence}</span>
+                                </div>
+                            </div>
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold shrink-0 ${soul.status === 'New' ? 'bg-blue-50 text-blue-700' : soul.status === 'Integrated' ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-700'}`}>{soul.status}</span>
+                        </div>
+                    ))}
+                    {soulsToShow.length === 0 && (
+                        <div className="px-4 py-12 text-center text-gray-400">No database records found.</div>
+                    )}
+                </div>
+
+                {/* Desktop Table */}
+                <div className="hidden md:block overflow-x-auto">
                     <table className="w-full text-left text-sm">
                         <thead className="bg-gray-50 text-gray-600 font-medium border-b border-gray-100">
                             <tr>
@@ -153,7 +175,7 @@ const DatabaseTab: React.FC = () => {
                         </tbody>
                     </table>
                 </div>
-                <div className="p-4 border-t border-gray-100 flex justify-between items-center text-sm text-gray-500">
+                <div className="p-3 md:p-4 border-t border-gray-100 flex justify-between items-center text-sm text-gray-500">
                     <span>Showing {soulsToShow.length} results</span>
                     <div className="flex gap-2">
                         <button disabled className="p-1 rounded hover:bg-gray-100 disabled:opacity-50"><ChevronLeft className="w-5 h-5" /></button>

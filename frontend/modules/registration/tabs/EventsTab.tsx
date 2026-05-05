@@ -73,9 +73,9 @@ const EventsTab: React.FC = () => {
               <>
                 {/* LEVEL 1: EVENTS LIST */}
                 {!selectedLogisticsEvent && !selectedStation && viewMode !== 'station-detail' && (
-                  <div className="animate-in fade-in p-4 md:p-0">
+                  <div className="animate-in fade-in">
                     <div className="flex justify-between items-center mb-4">
-                      <h3 className="text-lg font-bold text-gray-800">Select an Event to Manage Stations</h3>
+                      <h3 className="text-lg font-bold text-gray-800">Manage Events</h3>
                       {!isLogisticsRole && (
                         <button
                           onClick={() => { setEventFormType('Event'); setIsAddEventOpen(true); }}
@@ -86,7 +86,69 @@ const EventsTab: React.FC = () => {
                         </button>
                       )}
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    
+                    {/* ── Mobile List View ─────────────────────────────────────── */}
+                    <div className="md:hidden flex flex-col space-y-3">
+                      {logisticsEvents.map(event => {
+                          const isLocked = isEventLocked(event.date);
+                          return (
+                              <div key={`mobile-${event.id}`} className="bg-white border border-gray-200 rounded-xl p-4 hover:border-ministry-orange/40 transition-all flex flex-col gap-3 shadow-sm">
+                                  <div 
+                                      className="flex justify-between items-center cursor-pointer"
+                                      onClick={() => {
+                                        if (isLocked) {
+                                          setHighlightEvent(event);
+                                          setShowHighlights(true);
+                                        } else {
+                                          setSelectedLogisticsEvent(event);
+                                        }
+                                      }}
+                                  >
+                                      <div className="flex items-center gap-3">
+                                          <div className="bg-gray-50 p-2.5 rounded-lg border border-gray-100">
+                                              <Calendar className="w-5 h-5 text-gray-500" />
+                                          </div>
+                                          <div>
+                                              <h4 className="text-[15px] font-bold text-ministry-text leading-tight">{event.title}</h4>
+                                              <p className="text-xs text-gray-500 mt-0.5">{event.date} • {event.time}</p>
+                                          </div>
+                                      </div>
+                                      <div className="flex items-center pl-2">
+                                          {isLocked ? (
+                                              <ChevronRight className="w-5 h-5 text-black" />
+                                          ) : (
+                                              <button 
+                                                  onClick={(e) => { 
+                                                      e.stopPropagation(); 
+                                                      setSelectedLogisticsEvent(event); 
+                                                  }} 
+                                                  className="bg-black text-ministry-neon px-4 py-1.5 rounded-lg text-sm font-bold shadow-sm"
+                                              >
+                                                  View
+                                              </button>
+                                          )}
+                                      </div>
+                                  </div>
+                                  {currentUser.role === 'TeamLeader' && (
+                                      <button
+                                          onClick={(e) => { e.stopPropagation(); handleDeleteEvent(event); }}
+                                          className="w-full py-2 rounded-lg font-bold text-red-500 bg-red-50 hover:bg-red-100 transition-colors flex items-center justify-center border border-red-100 text-sm mt-1"
+                                      >
+                                          <Trash2 className="w-4 h-4 mr-2" /> Delete Event
+                                      </button>
+                                  )}
+                              </div>
+                          );
+                      })}
+                      {logisticsEvents.length === 0 && (
+                          <div className="py-12 text-center text-gray-400 bg-white rounded-xl border border-dashed border-gray-300">
+                              No special events found. Logistics for services are handled via Service Check-In if configured.
+                          </div>
+                      )}
+                    </div>
+
+                    {/* ── Desktop Grid View ────────────────────────────────────── */}
+                    <div className="hidden md:grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                       {logisticsEvents.map(event => (
                         <div key={event.id} className="bg-white border border-gray-200 rounded-xl p-5 hover:shadow-lg transition-all group">
                           <div className="flex justify-between items-start mb-3">
@@ -135,7 +197,7 @@ const EventsTab: React.FC = () => {
 
                 {/* LEVEL 2: STATION LIST (FOR SELECTED EVENT) */}
                 {selectedLogisticsEvent && !selectedStation && (
-                  <div className="animate-in slide-in-from-right-4 p-4 md:p-0">
+                  <div className="animate-in slide-in-from-right-4">
                     <div className="flex justify-between items-center mb-6">
                       <div className="flex items-center space-x-3">
                         <button onClick={handleBackLogistics} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
@@ -148,25 +210,27 @@ const EventsTab: React.FC = () => {
                       </div>
                       <button
                         onClick={() => setIsAddStationOpen(true)}
-                        className="flex items-center space-x-2 bg-ministry-text text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors"
+                        className="w-10 h-10 flex items-center justify-center bg-gray-900 hover:bg-black rounded-xl shadow-sm transition-colors shrink-0"
+                        title="Add Pickup Station"
                       >
-                        <Plus className="w-4 h-4" />
-                        <span>Add Pickup Station</span>
+                        <Plus className="w-6 h-6 text-[#CCFF00]" />
                       </button>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                       {stations.filter(s => s.eventId === selectedLogisticsEvent.id).map(station => (
-                        <div key={station.id} className="bg-white border border-gray-200 rounded-xl p-5 hover:shadow-md transition-all">
-                          <div className="flex justify-between items-start mb-3">
-                            <div className="p-2 bg-blue-50 rounded-lg"><MapPin className="w-5 h-5 text-blue-600" /></div>
-                            <span className="text-xs bg-gray-100 px-2 py-1 rounded font-bold text-gray-600">
+                        <div key={station.id} className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition-all">
+                          <div className="flex items-center gap-3 mb-3">
+                            <div className="p-2 bg-blue-50 rounded-lg shrink-0"><MapPin className="w-5 h-5 text-blue-600" /></div>
+                            <div className="min-w-0 flex-1">
+                              <h4 className="text-base font-bold text-gray-900 leading-tight truncate">{station.name}</h4>
+                              <p className="text-xs text-gray-500 truncate">{station.location}</p>
+                            </div>
+                            <span className="text-xs bg-gray-100 px-2 py-1 rounded font-bold text-gray-600 shrink-0 whitespace-nowrap">
                               {vehicles.filter(v => v.stationId === station.id).length} Vehicles
                             </span>
                           </div>
-                          <h4 className="text-lg font-bold text-gray-900">{station.name}</h4>
-                          <p className="text-sm text-gray-500 mb-4">{station.location}</p>
-                          <div className="flex items-center text-xs text-gray-500 mb-4 bg-gray-50 p-2 rounded">
+                          <div className="flex items-center text-xs text-gray-500 mb-3 bg-gray-50 p-2 rounded">
                             <UserPlus className="w-3 h-3 mr-2" />
                             Coord: {station.coordinatorName || 'None'}
                           </div>
@@ -189,12 +253,12 @@ const EventsTab: React.FC = () => {
 
                 {/* LEVEL 3: STATION DETAILS (VEHICLES & ENTRANTS) */}
                 {selectedStation && !selectedVehicle && (
-                  <div className="animate-in slide-in-from-right-4 space-y-6">
+                  <div className="animate-in slide-in-from-right-4 space-y-4">
 
                     {/* Mobile-Optimized Station Header Card */}
-                    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden mx-4 md:mx-0">
-                      <div className="p-6">
-                        <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+                    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+                      <div className="p-4 md:p-6">
+                        <div className="flex justify-between items-start gap-4">
                           <div className="space-y-1">
                             <div className="flex items-center gap-2">
                               {!isLogisticsRole && (
@@ -206,78 +270,79 @@ const EventsTab: React.FC = () => {
                                 {selectedLogisticsEvent?.title || 'Event'}
                               </span>
                             </div>
-                            <h2 className="text-2xl md:text-3xl font-bold text-gray-900 leading-tight">
+                            <h2 className="text-xl md:text-3xl font-bold text-gray-900 leading-tight">
                               {selectedStation.name}
                             </h2>
-                            <p className="text-gray-500 flex items-center gap-1">
+                            <p className="text-sm text-gray-500 flex items-center gap-1">
                               <MapPin className="w-4 h-4" />
                               {selectedStation.location}
                             </p>
                           </div>
 
                           {/* Stats & Actions */}
-                          <div className="flex items-center justify-between md:flex-col md:items-end gap-4 mt-2 md:mt-0">
-                            <div className="bg-green-50 border border-green-100 text-green-700 px-4 py-2 rounded-xl flex flex-col items-center">
-                              <span className="text-xs font-bold uppercase">Registered</span>
-                              <span className="text-2xl font-bold leading-none">
+                          <div className="flex flex-col items-end gap-3 shrink-0">
+                            <div className="bg-green-50 border border-green-100 text-green-700 px-3 py-1.5 rounded-xl flex flex-col items-center min-w-[70px]">
+                              <span className="text-[10px] font-bold uppercase">Registered</span>
+                              <span className="text-xl font-bold leading-none">
                                 {passengers.filter(p => vehicles.find(v => v.id === p.vehicleId)?.stationId === selectedStation.id).length}
                               </span>
                             </div>
 
-                            {isLogisticsRole && (
-                              <button
-                                onClick={() => {
-                                  setVehicleForm({
-                                    number_plate: '',
-                                    driverName: '',
-                                    driverContact: '256',
-                                    driverNin: '',
-                                    type: 'Taxi',
-                                    capacity: '',
-                                    coordinator: '',
-                                    id: ''
-                                  });
-                                  setIsAddVehicleOpen(true);
-                                }}
-                                className="flex items-center justify-center space-x-2 bg-ministry-orange text-white px-6 py-3 rounded-xl hover:bg-orange-600 shadow-lg shadow-orange-200 transition-transform active:scale-95 font-bold"
-                              >
-                                <Plus className="w-5 h-5" />
-                                <span>Add Vehicle</span>
-                              </button>
-                            )}
-
-                            {canDeleteLogistics && (
-                              <div className="flex space-x-2 mt-2 md:mt-0">
+                            <div className="flex flex-col gap-2 items-end">
+                              {canDeleteLogistics && (
+                                <div className="flex space-x-2">
+                                  <button
+                                    onClick={() => {
+                                      setStationForm({
+                                        id: selectedStation.id,
+                                        name: selectedStation.name,
+                                        location: selectedStation.location,
+                                        coordinatorName: selectedStation.coordinatorName || '',
+                                        coordinatorContact: selectedStation.coordinatorContact || '',
+                                        // Pre-fill first entrant if available
+                                        entrantName: stationEntrants[0] ? stationEntrants[0].name : '',
+                                        entrantContact: stationEntrants[0] ? stationEntrants[0].contact || '' : '',
+                                        entrantUsername: stationEntrants[0] ? stationEntrants[0].username || '' : '',
+                                        entrantPassword: stationEntrants[0] ? stationEntrants[0].password || '' : ''
+                                      });
+                                      setIsAddStationOpen(true);
+                                    }}
+                                    className="bg-gray-100 text-gray-700 p-2 rounded-xl hover:bg-gray-200 transition-colors"
+                                    title="Edit Station"
+                                   >
+                                    <Settings className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    onClick={handleDeleteStation}
+                                    className="bg-red-50 text-red-600 p-2 rounded-xl hover:bg-red-100 transition-colors border border-red-100"
+                                    title="Delete Station"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              )}
+                              {isLogisticsRole && (
                                 <button
                                   onClick={() => {
-                                    setStationForm({
-                                      id: selectedStation.id,
-                                      name: selectedStation.name,
-                                      location: selectedStation.location,
-                                      coordinatorName: selectedStation.coordinatorName || '',
-                                      coordinatorContact: selectedStation.coordinatorContact || '',
-                                      // Pre-fill first entrant if available
-                                      entrantName: stationEntrants[0] ? stationEntrants[0].name : '',
-                                      entrantContact: stationEntrants[0] ? stationEntrants[0].contact || '' : '',
-                                      entrantUsername: stationEntrants[0] ? stationEntrants[0].username || '' : '',
-                                      entrantPassword: stationEntrants[0] ? stationEntrants[0].password || '' : ''
+                                    setVehicleForm({
+                                      number_plate: '',
+                                      driverName: '',
+                                      driverContact: '256',
+                                      driverNin: '',
+                                      type: 'Taxi',
+                                      capacity: '',
+                                      coordinator: '',
+                                      id: ''
                                     });
-                                    setIsAddStationOpen(true);
+                                    setIsAddVehicleOpen(true);
                                   }}
-                                  className="bg-gray-100 text-gray-700 p-3 rounded-xl hover:bg-gray-200 transition-colors"
-                                  title="Edit Station"
-                                 >
-                                  <Settings className="w-5 h-5" />
-                                </button>
-                                <button
-                                  onClick={handleDeleteStation}
-                                  className="bg-red-50 text-red-600 p-3 rounded-xl hover:bg-red-100 transition-colors border border-red-100"
-                                  title="Delete Station"
+                                  className="flex items-center justify-center space-x-1 bg-ministry-orange text-white px-3 py-2 rounded-xl hover:bg-orange-600 shadow-md shadow-orange-200 transition-transform active:scale-95 font-bold text-sm"
                                 >
-                                  <Trash2 className="w-5 h-5" />
+                                  <Plus className="w-4 h-4" />
+                                  <span className="hidden md:inline">Add Vehicle</span>
                                 </button>
-                              </div>
-                            )}
+                              )}
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -289,7 +354,7 @@ const EventsTab: React.FC = () => {
 
                     {/* ENTRANT MANAGEMENT (ADMIN ONLY) */}
                     {!isLogisticsRole && (
-                      <div className="mb-8 bg-gray-50 p-6 rounded-2xl border border-gray-200 mx-4 md:mx-0">
+                      <div className="mb-8 bg-gray-50 p-6 rounded-2xl border border-gray-200">
                         <div className="flex justify-between items-center mb-4">
                           <h3 className="text-lg font-bold text-gray-800 flex items-center">
                             <Users className="w-5 h-5 mr-2 text-ministry-orange" />
@@ -297,9 +362,10 @@ const EventsTab: React.FC = () => {
                           </h3>
                           <button
                             onClick={() => setIsAddEntrantOpen(true)}
-                            className="text-sm font-bold text-ministry-text hover:text-ministry-orange flex items-center bg-white border border-gray-200 px-3 py-2 rounded-lg shadow-sm"
+                            className="w-10 h-10 flex items-center justify-center bg-gray-900 hover:bg-black rounded-xl shadow-sm transition-colors"
+                            title="Add Data Entrant"
                           >
-                            <Plus className="w-4 h-4 mr-1" /> Add Entrant
+                            <Plus className="w-6 h-6 text-[#CCFF00]" />
                           </button>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -323,18 +389,11 @@ const EventsTab: React.FC = () => {
                             </div>
                           )}
                         </div>
-                        {/* Add Entrant Button */}
-                        <button
-                          onClick={() => setIsAddEntrantOpen(true)}
-                          className="mt-4 w-full py-2 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 font-bold hover:border-ministry-orange hover:text-ministry-orange transition-colors flex items-center justify-center text-sm"
-                        >
-                          <Plus className="w-4 h-4 mr-1" /> Add Data Entrant
-                        </button>
                       </div>
                     )}
 
                     {/* VEHICLE LIST */}
-                    <div className="px-4 md:px-0">
+                    <div>
                       <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center"><Bus className="w-5 h-5 mr-2 text-ministry-orange" /> Registered Vehicles</h3>
                       {/* DEBUG: Vehicle List */}
                       {console.log("Rendering Vehicles:", {
@@ -402,7 +461,7 @@ const EventsTab: React.FC = () => {
                 {selectedVehicle && (() => {
                   const isLocked = selectedVehicle.approvals?.registration === 'Approved';
                   return (
-                    <div className="animate-in slide-in-from-right-4 p-4 md:p-0">
+                    <div className="animate-in slide-in-from-right-4">
                       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 gap-4">
                         <div className="flex items-center space-x-3">
                           <button onClick={handleBackLogistics} className="p-2 hover:bg-gray-100 rounded-full transition-colors">

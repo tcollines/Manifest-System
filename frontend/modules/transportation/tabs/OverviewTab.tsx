@@ -174,7 +174,7 @@ const CoordinatorView: React.FC = () => {
     const currentStageIndex = stages.indexOf(myVehicle.currentStage || 'Onboarding');
 
     return (
-        <div className="p-4 md:p-8 animate-in slide-in-from-bottom-4 duration-500 pb-20">
+        <div className="animate-in slide-in-from-bottom-4 duration-500">
             {/* Header */}
             <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center space-x-3">
@@ -439,7 +439,7 @@ const HodOverview: React.FC = () => {
     const totalPeopleCount = passengers.length + vehicles.reduce((sum, v) => sum + (v.childrenCount || 0), 0);
 
     return (
-        <div className="p-8 space-y-6 animate-in fade-in duration-500">
+        <div className="space-y-6 animate-in fade-in duration-500">
             {/* Header */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
                 <div>
@@ -449,9 +449,9 @@ const HodOverview: React.FC = () => {
                     </div>
                     <p className="text-gray-500">Real-time fleet tracking and coordinator dispatch.</p>
                 </div>
-                <div className="flex items-center gap-4">
+                <div className="flex items-stretch gap-3">
                     {adminViewMode === 'list' && (
-                        <div className="bg-white border border-gray-200 rounded-xl px-4 py-2 shadow-sm">
+                        <div className="bg-white border border-gray-200 rounded-xl px-4 py-2 shadow-sm flex flex-col justify-center">
                             <label className="block text-xs font-bold text-gray-400 uppercase">Active Operation</label>
                             <select
                                 value={selectedEventId}
@@ -465,8 +465,8 @@ const HodOverview: React.FC = () => {
                         </div>
                     )}
                     {adminViewMode === 'list' && selectedEvent && isEventLocked(selectedEvent.date) && (
-                        <button onClick={() => setShowHighlights(true)} className="bg-gray-900 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-black transition-all flex items-center shadow-lg">
-                            <Activity className="w-4 h-4 mr-2 text-ministry-neon" /> View Highlights
+                        <button onClick={() => setShowHighlights(true)} className="bg-gray-900 text-white px-4 md:px-5 rounded-xl text-sm font-bold hover:bg-black transition-all flex items-center justify-center shadow-lg whitespace-nowrap">
+                            <Activity className="w-5 h-5 md:mr-2 text-ministry-neon" /> <span className="hidden md:inline">View Highlights</span>
                         </button>
                     )}
                 </div>

@@ -161,12 +161,12 @@ export const CheckInTab: React.FC<CheckInTabProps> = ({
         <>
             {/* SERVICE LIST */}
             {viewMode === 'list' && (
-                <div className="space-y-6">
+                <div className="space-y-4">
                     <div className="flex justify-between items-center">
                         <h3 className="text-lg font-bold text-gray-800">Select Service for Parking</h3>
                     </div>
                     {services.length === 0 ? (
-                        <div className="col-span-1 md:col-span-2 lg:col-span-3 py-12 text-center bg-gray-50 border-2 border-dashed border-gray-200 rounded-xl">
+                        <div className="py-12 text-center bg-gray-50 border-2 border-dashed border-gray-200 rounded-xl">
                             <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-4" />
                             <h3 className="text-lg font-bold text-gray-500 mb-2">No Active Services Found</h3>
                             <p className="text-sm text-gray-400 max-w-sm mx-auto">
@@ -174,35 +174,71 @@ export const CheckInTab: React.FC<CheckInTabProps> = ({
                             </p>
                         </div>
                     ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {services.map(service => {
-                                const isPast = isServiceClosed(service.date);
-                                return (
-                                    <div key={service.id} className="bg-white border border-gray-200 rounded-xl p-5 hover:border-ministry-orange/40 hover:shadow-md transition-all group">
-                                        <div className="flex justify-between items-start mb-3">
-                                            <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded-full ${isPast ? 'bg-gray-100 text-gray-500' : 'bg-green-100 text-green-700'}`}>
-                                                {isPast ? 'Past Service' : 'Active / Upcoming'}
-                                            </span>
-                                            <Calendar className="w-4 h-4 text-gray-400" />
+                        <>
+                            {/* Desktop Grid */}
+                            <div className="hidden md:grid grid-cols-2 lg:grid-cols-3 gap-6">
+                                {services.map(service => {
+                                    const isPast = isServiceClosed(service.date);
+                                    return (
+                                        <div key={service.id} className="bg-white border border-gray-200 rounded-xl p-5 hover:border-ministry-orange/40 hover:shadow-md transition-all group">
+                                            <div className="flex justify-between items-start mb-3">
+                                                <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded-full ${isPast ? 'bg-gray-100 text-gray-500' : 'bg-green-100 text-green-700'}`}>
+                                                    {isPast ? 'Past Service' : 'Active / Upcoming'}
+                                                </span>
+                                                <Calendar className="w-4 h-4 text-gray-400" />
+                                            </div>
+                                            <h4 className="text-lg font-bold text-ministry-text mb-1">{service.title}</h4>
+                                            <p className="text-sm text-gray-500 mb-4 flex items-center">
+                                                <Clock className="w-3 h-3 mr-1" /> {service.date} at {service.time}
+                                            </p>
+                                            <button
+                                                onClick={() => handleOpenService(service)}
+                                                className={`w-full py-2.5 rounded-lg font-bold flex items-center justify-center transition-colors ${isPast
+                                                    ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                                    : 'bg-ministry-text text-white hover:bg-ministry-orange'
+                                                    }`}
+                                            >
+                                                <Car className="w-4 h-4 mr-2" />
+                                                {isPast ? 'View Records' : 'Open Check-In'}
+                                            </button>
                                         </div>
-                                        <h4 className="text-lg font-bold text-ministry-text mb-1">{service.title}</h4>
-                                        <p className="text-sm text-gray-500 mb-4 flex items-center">
-                                            <Clock className="w-3 h-3 mr-1" /> {service.date} at {service.time}
-                                        </p>
-                                        <button
+                                    );
+                                })}
+                            </div>
+
+                            {/* Mobile Compact List */}
+                            <div className="md:hidden bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden divide-y divide-gray-100">
+                                {services.map(service => {
+                                    const isPast = isServiceClosed(service.date);
+                                    return (
+                                        <div
+                                            key={service.id}
+                                            className="flex items-center gap-3 px-4 py-3.5 active:bg-gray-50 transition-colors cursor-pointer"
                                             onClick={() => handleOpenService(service)}
-                                            className={`w-full py-2.5 rounded-lg font-bold flex items-center justify-center transition-colors ${isPast
-                                                ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                                : 'bg-ministry-text text-white hover:bg-ministry-orange'
-                                                }`}
                                         >
-                                            <Car className="w-4 h-4 mr-2" />
-                                            {isPast ? 'View Records' : 'Open Check-In'}
-                                        </button>
-                                    </div>
-                                );
-                            })}
-                        </div>
+                                            {/* Status dot */}
+                                            <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${isPast ? 'bg-gray-100' : 'bg-green-50'}`}>
+                                                <Car className={`w-4 h-4 ${isPast ? 'text-gray-400' : 'text-green-600'}`} />
+                                            </div>
+                                            {/* Info */}
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-1.5">
+                                                    <p className="font-semibold text-gray-900 text-sm truncate">{service.title}</p>
+                                                    <span className={`shrink-0 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${isPast ? 'bg-gray-100 text-gray-500' : 'bg-green-100 text-green-700'}`}>
+                                                        {isPast ? 'PAST' : 'LIVE'}
+                                                    </span>
+                                                </div>
+                                                <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1">
+                                                    <Clock className="w-3 h-3" /> {service.date} at {service.time}
+                                                </p>
+                                            </div>
+                                            {/* Chevron */}
+                                            <svg className="w-4 h-4 text-gray-300 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path></svg>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </>
                     )}
                 </div>
             )}

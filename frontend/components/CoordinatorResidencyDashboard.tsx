@@ -12,7 +12,7 @@ interface CoordinatorResidencyDashboardProps {
 }
 
 const CoordinatorResidencyDashboard: React.FC<CoordinatorResidencyDashboardProps> = ({ currentUser }) => {
-    const { residences, fetchResidences, fetchResidenceMembers, addReport } = useResidentStore();
+    const { residences, fetchResidences, fetchResidenceMembers, addReport, reports, fetchReports } = useResidentStore();
     const { showToast } = useNotification();
     const [myResidence, setMyResidence] = useState<Residence | null>(null);
     const [events, setEvents] = useState<MinistryEvent[]>([]); // New state for events
@@ -22,6 +22,17 @@ const CoordinatorResidencyDashboard: React.FC<CoordinatorResidencyDashboardProps
     const [members, setMembers] = useState<Member[]>([]);
     const [isLoadingInit, setIsLoadingInit] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    useEffect(() => {
+        fetchReports();
+    }, [fetchReports]);
+
+    const totalSoulsWon = useMemo(() => {
+        if (!myResidence?.id || !reports) return 0;
+        return reports
+            .filter(r => r.residenceId === myResidence.id || (r as any).residence_id === myResidence.id)
+            .reduce((sum, r) => sum + (Number(r.soulsWon) || Number((r as any).souls_won) || 0), 0);
+    }, [reports, myResidence]);
 
     const [newReport, setNewReport] = useState<Partial<ResidenceOutreachReport>>({
         date: new Date().toISOString().split('T')[0],
@@ -206,6 +217,10 @@ const CoordinatorResidencyDashboard: React.FC<CoordinatorResidencyDashboardProps
                             <span>{members.length} Members</span>
                         </div>
                         <div className="flex items-center gap-1.5 bg-white/10 px-3 py-1.5 rounded-full backdrop-blur-sm">
+                            <Target className="w-4 h-4 text-orange-400" />
+                            <span className="font-semibold text-white">{totalSoulsWon} Souls Won</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 bg-white/10 px-3 py-1.5 rounded-full backdrop-blur-sm">
                             <ClipboardList className="w-4 h-4" />
                             <span>Coordinator View</span>
                         </div>
@@ -226,10 +241,10 @@ const CoordinatorResidencyDashboard: React.FC<CoordinatorResidencyDashboardProps
             </div>
 
             {/* Navigation Tabs */}
-            <div className="flex space-x-1 bg-gray-100 p-1.5 rounded-xl w-fit overflow-x-auto">
+            <div className="flex space-x-1 bg-white/60 backdrop-blur-md p-1.5 rounded-full max-w-full overflow-x-auto hide-scrollbar shadow-sm border border-gray-200/50">
                 <button
                     onClick={() => setActiveTab('reports')}
-                    className={`flex items-center space-x-2 px-6 py-2.5 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${activeTab === 'reports' ? 'bg-white text-gray-900 shadow-sm border border-gray-200' : 'text-gray-500 hover:text-gray-900'
+                    className={`flex items-center space-x-2 px-6 py-2.5 rounded-full text-sm font-semibold transition-all whitespace-nowrap ${activeTab === 'reports' ? 'bg-white text-gray-900 shadow-sm border border-gray-200' : 'text-gray-500 hover:text-gray-900'
                         }`}
                 >
                     <ClipboardList className={`w-4 h-4 ${activeTab === 'reports' ? 'text-ministry-orange' : ''}`} />
@@ -237,7 +252,7 @@ const CoordinatorResidencyDashboard: React.FC<CoordinatorResidencyDashboardProps
                 </button>
                 <button
                     onClick={() => { setActiveTab('members'); setSelectedEvent(null); }}
-                    className={`flex items-center space-x-2 px-6 py-2.5 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${activeTab === 'members' ? 'bg-white text-gray-900 shadow-sm border border-gray-200' : 'text-gray-500 hover:text-gray-900'
+                    className={`flex items-center space-x-2 px-6 py-2.5 rounded-full text-sm font-semibold transition-all whitespace-nowrap ${activeTab === 'members' ? 'bg-white text-gray-900 shadow-sm border border-gray-200' : 'text-gray-500 hover:text-gray-900'
                         }`}
                 >
                     <Users className={`w-4 h-4 ${activeTab === 'members' ? 'text-ministry-orange' : ''}`} />
@@ -245,7 +260,7 @@ const CoordinatorResidencyDashboard: React.FC<CoordinatorResidencyDashboardProps
                 </button>
                 <button
                     onClick={() => { setActiveTab('events'); setSelectedEvent(null); }}
-                    className={`flex items-center space-x-2 px-6 py-2.5 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${activeTab === 'events' ? 'bg-white text-gray-900 shadow-sm border border-gray-200' : 'text-gray-500 hover:text-gray-900'
+                    className={`flex items-center space-x-2 px-6 py-2.5 rounded-full text-sm font-semibold transition-all whitespace-nowrap ${activeTab === 'events' ? 'bg-white text-gray-900 shadow-sm border border-gray-200' : 'text-gray-500 hover:text-gray-900'
                         }`}
                 >
                     <Calendar className={`w-4 h-4 ${activeTab === 'events' ? 'text-ministry-orange' : ''}`} />

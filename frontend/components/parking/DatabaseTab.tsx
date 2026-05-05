@@ -37,6 +37,7 @@ export const DatabaseTab: React.FC<DatabaseTabProps> = ({
     };
     const [formData, setFormData] = useState(initialFormState);
     const [bulkText, setBulkText] = useState('');
+    const [currentPage, setCurrentPage] = useState(1);
 
     const handleBack = () => {
         setViewMode('list');
@@ -219,77 +220,146 @@ export const DatabaseTab: React.FC<DatabaseTabProps> = ({
             )}
 
             {/* VEHICLE DATABASE TAB (LIST) */}
-            {viewMode === 'list' && (
-                <div className="space-y-6 border-transparent">
-                    <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+            {viewMode === 'list' && (() => {
+                const itemsPerPage = 50;
+                const totalVehicles = filteredVehicles.length;
+                const totalPages = Math.max(1, Math.ceil(totalVehicles / itemsPerPage));
+                const paginatedVehicles = filteredVehicles.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+                return (
+                <div className="space-y-4">
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                         <div>
-                            <h3 className="text-xl font-bold text-gray-800">Vehicle Database</h3>
+                            <h3 className="text-lg font-bold text-gray-800">Vehicle Database</h3>
                             <p className="text-sm text-gray-500">Manage all registered personal vehicles</p>
                         </div>
-                        <div className="flex gap-2">
-                            <button
-                                onClick={() => { setViewMode('bulk-add'); setSearchParams(prev => { prev.set('view', 'bulk'); return prev; }, { replace: true }); }}
-                                className="px-4 py-2 border border-gray-300 rounded-lg font-bold text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-                            >
-                                <Upload className="w-4 h-4" /> Import CSV
-                            </button>
+                        <div className="flex gap-2 w-full md:w-auto">
                             <button
                                 onClick={() => { setViewMode('add-vehicle-db'); setSearchParams(prev => { prev.set('view', 'add-vehicle'); return prev; }, { replace: true }); }}
-                                className="px-4 py-2 bg-ministry-text text-white rounded-lg font-bold hover:bg-ministry-orange flex items-center gap-2 shadow-sm"
+                                className="flex-1 md:flex-none flex items-center justify-center space-x-2 bg-ministry-text text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors shadow-sm text-sm"
                             >
-                                <Plus className="w-4 h-4" /> Add Vehicle
+                                <Plus className="w-4 h-4" />
+                                <span className="whitespace-nowrap">Add Vehicle</span>
+                            </button>
+                            <button
+                                onClick={() => { setViewMode('bulk-add'); setSearchParams(prev => { prev.set('view', 'bulk'); return prev; }, { replace: true }); }}
+                                className="flex-1 md:flex-none flex items-center justify-center space-x-2 bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors shadow-sm font-medium text-sm"
+                            >
+                                <Upload className="w-4 h-4" />
+                                <span className="whitespace-nowrap">Import</span>
                             </button>
                         </div>
                     </div>
 
                     {/* Search Bar */}
-                    <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+                    <div className="relative flex-1 w-full">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                         <input
-                            className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-xl focus:border-ministry-orange outline-none font-mono uppercase"
-                            placeholder="Search Database by Plate or Name..."
+                            className="w-full pl-9 pr-4 py-2 bg-gray-100 border-none rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ministry-orange transition-all"
+                            placeholder="Search database..."
                             value={searchQuery}
-                            onChange={e => setSearchQuery(e.target.value)}
+                            onChange={e => { setSearchQuery(e.target.value); setCurrentPage(1); }}
                         />
                     </div>
 
-                    {/* Vehicle Table */}
-                    <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
-                        <table className="w-full text-left">
-                            <thead className="bg-gray-50 border-b border-gray-200">
-                                <tr>
-                                    <th className="p-4 font-bold text-gray-600 text-xs uppercase tracking-wider">Plate Number</th>
-                                    <th className="p-4 font-bold text-gray-600 text-xs uppercase tracking-wider">Owner / Driver</th>
-                                    <th className="p-4 font-bold text-gray-600 text-xs uppercase tracking-wider">Contact</th>
-                                    <th className="p-4 font-bold text-gray-600 text-xs uppercase tracking-wider">Status</th>
-                                    <th className="p-4 font-bold text-gray-600 text-xs uppercase tracking-wider">Registered</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-100">
-                                {filteredVehicles.length > 0 ? filteredVehicles.map(v => (
-                                    <tr key={v.id} className="hover:bg-gray-50 transition-colors">
-                                        <td className="p-4 font-mono font-bold text-gray-800">{v.number_plate}</td>
-                                        <td className="p-4 text-gray-700">{v.driverName}</td>
-                                        <td className="p-4 text-gray-500 font-mono text-sm">{v.driverContact}</td>
-                                        <td className="p-4">
-                                            <span className={`px-2 py-1 rounded-full text-xs font-bold ${v.status === 'Checked In' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-                                                {v.status}
-                                            </span>
-                                        </td>
-                                        <td className="p-4 text-gray-500 text-sm">{v.registeredDate}</td>
-                                    </tr>
-                                )) : (
+                    {/* Pagination Controls */}
+                    <div className="flex justify-between items-center bg-white p-3 rounded-xl border border-gray-200 shadow-sm sticky top-0 z-10">
+                        <div>
+                            <span className="text-sm text-gray-600">Showing </span>
+                            <span className="font-bold text-gray-900">
+                                {totalVehicles > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0} - {Math.min(currentPage * itemsPerPage, totalVehicles)}
+                            </span>
+                            <span className="text-sm text-gray-600"> of <span className="font-bold text-ministry-orange">{totalVehicles}</span> vehicles</span>
+                        </div>
+                        <div className="flex space-x-2">
+                            <button
+                                disabled={currentPage === 1}
+                                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                className="px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed font-bold text-sm text-gray-700 transition-colors"
+                            >
+                                Previous
+                            </button>
+                            <button
+                                disabled={currentPage >= totalPages}
+                                onClick={() => setCurrentPage(p => p + 1)}
+                                className="px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed font-bold text-sm text-gray-700 transition-colors"
+                            >
+                                Next
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Desktop Table */}
+                    <div className="hidden md:flex flex-col bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm max-h-[70vh]">
+                        <div className="overflow-y-auto flex-1">
+                            <table className="w-full text-left relative">
+                                <thead className="bg-gray-50 border-b border-gray-100 sticky top-0 z-20 shadow-sm">
                                     <tr>
-                                        <td colSpan={5} className="p-8 text-center text-gray-400">
-                                            No vehicles found matching your search.
-                                        </td>
+                                        <th className="p-4 font-bold text-gray-500 text-xs uppercase tracking-wider">Plate Number</th>
+                                        <th className="p-4 font-bold text-gray-500 text-xs uppercase tracking-wider">Owner / Driver</th>
+                                        <th className="p-4 font-bold text-gray-500 text-xs uppercase tracking-wider">Contact</th>
+                                        <th className="p-4 font-bold text-gray-500 text-xs uppercase tracking-wider">Status</th>
+                                        <th className="p-4 font-bold text-gray-500 text-xs uppercase tracking-wider">Registered</th>
                                     </tr>
-                                )}
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                    {paginatedVehicles.length > 0 ? paginatedVehicles.map(v => (
+                                        <tr key={v.id} className="hover:bg-gray-50 transition-colors">
+                                            <td className="p-4 font-mono font-bold text-gray-800">{v.number_plate}</td>
+                                            <td className="p-4 text-gray-700">{v.driverName}</td>
+                                            <td className="p-4 text-gray-500 font-mono text-sm">{v.driverContact}</td>
+                                            <td className="p-4">
+                                                <span className={`px-2 py-1 rounded-full text-xs font-bold ${v.status === 'Checked In' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                                                    {v.status}
+                                                </span>
+                                            </td>
+                                            <td className="p-4 text-gray-500 text-sm">{v.registeredDate}</td>
+                                        </tr>
+                                    )) : (
+                                        <tr>
+                                            <td colSpan={5} className="p-8 text-center text-gray-400">
+                                                No vehicles found matching your search.
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                        <div className="flex justify-center py-3 border-t border-gray-100">
+                            <span className="text-xs text-gray-500">Page {currentPage} of {totalPages}</span>
+                        </div>
+                    </div>
+
+                    {/* Mobile Compact List */}
+                    <div className="md:hidden bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col max-h-[65vh]">
+                        <div className="overflow-y-auto flex-1 divide-y divide-gray-100">
+                            {paginatedVehicles.length > 0 ? paginatedVehicles.map(v => (
+                                <div key={v.id} className="flex items-center gap-3 px-4 py-3">
+                                    {/* Plate badge */}
+                                    <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
+                                        <span className="text-[10px] font-bold text-gray-600 font-mono">{v.number_plate.slice(0, 2)}</span>
+                                    </div>
+                                    {/* Info */}
+                                    <div className="flex-1 min-w-0">
+                                        <p className="font-bold text-gray-900 text-sm font-mono">{v.number_plate}</p>
+                                        <p className="text-xs text-gray-400 mt-0.5 truncate">{v.driverName} • {v.driverContact}</p>
+                                    </div>
+                                    {/* Status */}
+                                    <span className={`shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded ${v.status === 'Checked In' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                                        {v.status === 'Checked In' ? 'IN' : 'OUT'}
+                                    </span>
+                                </div>
+                            )) : (
+                                <div className="p-8 text-center text-gray-400 text-sm">No vehicles found.</div>
+                            )}
+                        </div>
+                        <div className="flex justify-center py-2.5 border-t border-gray-100">
+                            <span className="text-xs text-gray-500">Page {currentPage} of {totalPages}</span>
+                        </div>
                     </div>
                 </div>
-            )}
+                );
+            })()}
         </>
     );
 };

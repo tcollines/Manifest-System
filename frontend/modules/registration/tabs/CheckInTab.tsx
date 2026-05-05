@@ -26,7 +26,7 @@ import React from 'react';
 import {
     Calendar, CalendarPlus, ArrowLeft, Users, UserPlus, Search, CheckCircle,
     Trash2, Download, Baby, Heart, Lock, Copy, Save, Ticket, CreditCard,
-    Upload
+    Upload, ChevronRight
 } from 'lucide-react';
 import PhoneInput from '../../../components/PhoneInput';
 import { useRegistration } from '../RegistrationContext';
@@ -79,7 +79,7 @@ export default function CheckInTab() {
         <>
             {/* ── 1. SERVICES LIST ───────────────────────────────────────── */}
             {viewMode === 'list' && (
-                <div className="space-y-6 p-4 md:p-0">
+                <div className="space-y-6">
                     <div className="flex justify-between items-center">
                         <h3 className="text-lg font-bold text-gray-800">Active Services</h3>
                         {canCreateService && (
@@ -94,7 +94,58 @@ export default function CheckInTab() {
                         )}
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {/* ── Mobile List View ─────────────────────────────────────── */}
+                    <div className="md:hidden flex flex-col space-y-3">
+                        {services.filter(s => elevatedRoles.includes(currentUser.role) || !isServiceClosed(s.date)).map(service => {
+                            const isClosed = isServiceClosed(service.date);
+                            return (
+                                <div key={`mobile-${service.id}`} className="bg-white border border-gray-200 rounded-xl p-4 hover:border-ministry-orange/40 transition-all flex flex-col gap-3 shadow-sm">
+                                    <div 
+                                        className="flex justify-between items-center cursor-pointer"
+                                        onClick={() => handleOpenService(service)}
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <div className="bg-gray-50 p-2.5 rounded-lg border border-gray-100">
+                                                <Calendar className="w-5 h-5 text-gray-500" />
+                                            </div>
+                                            <div>
+                                                <h4 className="text-[15px] font-bold text-ministry-text leading-tight">{service.title}</h4>
+                                                <p className="text-xs text-gray-500 mt-0.5">{service.date} • {service.time}</p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center pl-2">
+                                            {isClosed ? (
+                                                <ChevronRight className="w-5 h-5 text-black" />
+                                            ) : (
+                                                <button 
+                                                    onClick={(e) => { e.stopPropagation(); handleOpenService(service); }} 
+                                                    className="bg-black text-ministry-neon px-4 py-1.5 rounded-lg text-sm font-bold shadow-sm"
+                                                >
+                                                    View
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                    {currentUser.role === 'TeamLeader' && (
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); handleDeleteEvent(service); }}
+                                            className="w-full py-2 rounded-lg font-bold text-red-500 bg-red-50 hover:bg-red-100 transition-colors flex items-center justify-center border border-red-100 text-sm mt-1"
+                                        >
+                                            <Trash2 className="w-4 h-4 mr-2" /> Delete Service
+                                        </button>
+                                    )}
+                                </div>
+                            );
+                        })}
+                        {services.filter(s => elevatedRoles.includes(currentUser.role) || !isServiceClosed(s.date)).length === 0 && (
+                            <div className="py-12 text-center text-gray-400 bg-white rounded-xl border border-dashed border-gray-300">
+                                No active service
+                            </div>
+                        )}
+                    </div>
+
+                    {/* ── Desktop Grid View ────────────────────────────────────── */}
+                    <div className="hidden md:grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {services.filter(s => elevatedRoles.includes(currentUser.role) || !isServiceClosed(s.date)).map(service => {
                             const isClosed = isServiceClosed(service.date);
                             return (
@@ -135,7 +186,7 @@ export default function CheckInTab() {
 
             {/* ── 2. ACTIVE SERVICE VIEW ─────────────────────────────────── */}
             {viewMode === 'service-active' && selectedService && (
-                <div className="space-y-6 p-4 md:p-0">
+                <div className="space-y-6">
                     <div className="flex items-center justify-between border-b border-gray-100 pb-4">
                         <div className="flex items-center space-x-3">
                             <button onClick={handleBackRegistration} className="p-2 hover:bg-gray-100 rounded-full transition-colors">

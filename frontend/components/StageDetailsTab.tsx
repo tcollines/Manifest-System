@@ -77,57 +77,57 @@ export const StageDetailsTab: React.FC<StageDetailsTabProps> = ({ vehicles, pass
     const avgPerStage = totalStages > 0 ? Math.round(totalPeople / totalStages) : 0;
 
     return (
-        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
-            {/* Header Totals */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm relative overflow-hidden group">
+        <div className="space-y-4 lg:space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
+            {/* Header Totals — 2-col on mobile, 4-col on desktop */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 lg:gap-4">
+                <div className="bg-white p-3 lg:p-5 rounded-2xl border border-gray-100 shadow-sm relative overflow-hidden group">
                     <div className="absolute top-0 right-0 w-24 h-24 bg-ministry-orange/5 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
-                    <div className="flex items-center gap-4 relative">
-                        <div className="p-3 bg-ministry-orange/10 text-ministry-orange rounded-xl">
-                            <Users className="w-6 h-6" />
+                    <div className="flex items-center gap-3 relative">
+                        <div className="p-2 lg:p-3 bg-ministry-orange/10 text-ministry-orange rounded-xl">
+                            <Users className="w-5 h-5 lg:w-6 lg:h-6" />
                         </div>
                         <div>
-                            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Total People</p>
-                            <p className="text-2xl font-black text-ministry-text">{totalPeople.toLocaleString()}</p>
+                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Total People</p>
+                            <p className="text-xl lg:text-2xl font-black text-ministry-text">{totalPeople.toLocaleString()}</p>
                         </div>
                     </div>
                 </div>
 
-                <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm relative overflow-hidden group">
+                <div className="bg-white p-3 lg:p-5 rounded-2xl border border-gray-100 shadow-sm relative overflow-hidden group">
                     <div className="absolute top-0 right-0 w-24 h-24 bg-blue-50 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
-                    <div className="flex items-center gap-4 relative">
-                        <div className="p-3 bg-blue-100 text-blue-600 rounded-xl">
-                            <Bus className="w-6 h-6" />
+                    <div className="flex items-center gap-3 relative">
+                        <div className="p-2 lg:p-3 bg-blue-100 text-blue-600 rounded-xl">
+                            <Bus className="w-5 h-5 lg:w-6 lg:h-6" />
                         </div>
                         <div>
-                            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Total Fleet</p>
-                            <p className="text-2xl font-black text-ministry-text">{totalFleet.toLocaleString()}</p>
+                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Total Fleet</p>
+                            <p className="text-xl lg:text-2xl font-black text-ministry-text">{totalFleet.toLocaleString()}</p>
                         </div>
                     </div>
                 </div>
 
-                <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm relative overflow-hidden group">
+                <div className="bg-white p-3 lg:p-5 rounded-2xl border border-gray-100 shadow-sm relative overflow-hidden group">
                     <div className="absolute top-0 right-0 w-24 h-24 bg-green-50 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
-                    <div className="flex items-center gap-4 relative">
-                        <div className="p-3 bg-green-100 text-green-600 rounded-xl">
-                            <MapPin className="w-6 h-6" />
+                    <div className="flex items-center gap-3 relative">
+                        <div className="p-2 lg:p-3 bg-green-100 text-green-600 rounded-xl">
+                            <MapPin className="w-5 h-5 lg:w-6 lg:h-6" />
                         </div>
                         <div>
-                            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Active Stages</p>
-                            <p className="text-2xl font-black text-ministry-text">{totalStages.toLocaleString()}</p>
+                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Active Stages</p>
+                            <p className="text-xl lg:text-2xl font-black text-ministry-text">{totalStages.toLocaleString()}</p>
                         </div>
                     </div>
                 </div>
 
-                <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm relative overflow-hidden group">
+                <div className="bg-white p-3 lg:p-5 rounded-2xl border border-gray-100 shadow-sm relative overflow-hidden group">
                     <div className="absolute top-0 right-0 w-24 h-24 bg-purple-50 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
-                    <div className="flex items-center gap-4 relative">
-                        <div className="p-3 bg-purple-100 text-purple-600 rounded-xl">
-                            <TrendingUp className="w-6 h-6" />
+                    <div className="flex items-center gap-3 relative">
+                        <div className="p-2 lg:p-3 bg-purple-100 text-purple-600 rounded-xl">
+                            <TrendingUp className="w-5 h-5 lg:w-6 lg:h-6" />
                         </div>
                         <div>
-                            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Avg Per Stage</p>
-                            <p className="text-2xl font-black text-ministry-text">
+                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Avg Per Stage</p>
+                            <p className="text-xl lg:text-2xl font-black text-ministry-text">
                                 {avgPerStage.toLocaleString()}
                             </p>
                         </div>
@@ -135,12 +135,12 @@ export const StageDetailsTab: React.FC<StageDetailsTabProps> = ({ vehicles, pass
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Stage Breakdown Table */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
+                {/* Stage Breakdown */}
                 <div className="lg:col-span-2 space-y-4">
                     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                        <div className="p-5 border-b border-gray-50 flex justify-between items-center bg-gray-50/50">
-                            <h3 className="font-bold text-ministry-text flex items-center gap-2">
+                        <div className="p-4 lg:p-5 border-b border-gray-50 flex justify-between items-center bg-gray-50/50">
+                            <h3 className="font-bold text-ministry-text flex items-center gap-2 text-sm lg:text-base">
                                 <MapPin className="w-4 h-4 text-ministry-orange" />
                                 People Transported Per Stage
                             </h3>
@@ -148,7 +148,9 @@ export const StageDetailsTab: React.FC<StageDetailsTabProps> = ({ vehicles, pass
                                 Live Data
                             </span>
                         </div>
-                        <div className="overflow-x-auto">
+
+                        {/* Desktop Table */}
+                        <div className="hidden md:block overflow-x-auto">
                             <table className="w-full text-left">
                                 <thead>
                                     <tr className="bg-gray-50/30">
@@ -214,22 +216,52 @@ export const StageDetailsTab: React.FC<StageDetailsTabProps> = ({ vehicles, pass
                                 </tbody>
                             </table>
                         </div>
+
+                        {/* Mobile Card List */}
+                        <div className="md:hidden divide-y divide-gray-50">
+                            {stageStats.map(stage => (
+                                <div key={stage.id} className="p-3 flex items-center gap-3">
+                                    <div className="w-9 h-9 bg-gray-100 rounded-lg flex items-center justify-center text-ministry-text shrink-0">
+                                        <MapPin className="w-4 h-4" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="font-bold text-sm text-gray-800 truncate">{stage.name}</p>
+                                        <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5">
+                                            <span className="flex items-center gap-1"><Bus className="w-3 h-3" />{stage.vehicleCount}</span>
+                                            <span>·</span>
+                                            <span>{stage.breakdown.passengers} adults</span>
+                                            <span>·</span>
+                                            <span className="text-purple-600">{stage.breakdown.children} kids</span>
+                                        </div>
+                                    </div>
+                                    <div className="bg-gray-900 text-white px-2.5 py-1 rounded-full font-black text-xs shrink-0">
+                                        {stage.totalPeople}
+                                    </div>
+                                </div>
+                            ))}
+                            {stageStats.length === 0 && (
+                                <div className="p-8 text-center">
+                                    <Info className="w-8 h-8 text-gray-200 mx-auto mb-2" />
+                                    <p className="text-sm text-gray-400 font-bold">No stages data available</p>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
 
                 {/* Vehicle Kind Summary */}
-                <div className="space-y-6">
-                    <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-                        <h3 className="font-black text-ministry-text mb-6 uppercase text-xs tracking-widest flex items-center gap-2 border-b border-gray-50 pb-4">
+                <div className="space-y-4 lg:space-y-6">
+                    <div className="bg-white p-4 lg:p-6 rounded-2xl border border-gray-100 shadow-sm">
+                        <h3 className="font-black text-ministry-text mb-4 lg:mb-6 uppercase text-xs tracking-widest flex items-center gap-2 border-b border-gray-50 pb-3 lg:pb-4">
                             <IdCard className="w-4 h-4 text-blue-500" />
                             Vehicle Kind Summary
                         </h3>
-                        <div className="space-y-4">
+                        <div className="space-y-3 lg:space-y-4">
                             {['Bus', 'Coaster', 'Taxi', 'Car'].map(type => {
                                 const count = vehicleSummary[type] || 0;
                                 const percentage = vehicles.length > 0 ? (count / vehicles.length) * 100 : 0;
                                 return (
-                                    <div key={type} className="space-y-2">
+                                    <div key={type} className="space-y-1.5 lg:space-y-2">
                                         <div className="flex justify-between items-center text-sm">
                                             <div className="flex items-center gap-2">
                                                 <div className={`w-2 h-2 rounded-full ${type === 'Bus' ? 'bg-indigo-500' :
@@ -254,7 +286,7 @@ export const StageDetailsTab: React.FC<StageDetailsTabProps> = ({ vehicles, pass
                             })}
                         </div>
 
-                        <div className="mt-8 p-4 bg-gray-900 rounded-xl relative overflow-hidden group">
+                        <div className="mt-6 lg:mt-8 p-3 lg:p-4 bg-gray-900 rounded-xl relative overflow-hidden group">
                             <div className="absolute top-0 right-0 w-16 h-16 bg-white/5 rounded-full -mr-8 -mt-8" />
                             <div className="relative">
                                 <p className="text-[10px] font-bold text-gray-500 uppercase mb-1">Fleet Capacity</p>
@@ -269,7 +301,7 @@ export const StageDetailsTab: React.FC<StageDetailsTabProps> = ({ vehicles, pass
                         </div>
                     </div>
 
-                    <div className="bg-gradient-to-br from-ministry-orange to-orange-600 p-6 rounded-2xl shadow-xl shadow-orange-500/20 text-white relative overflow-hidden">
+                    <div className="bg-gradient-to-br from-ministry-orange to-orange-600 p-4 lg:p-6 rounded-2xl shadow-xl shadow-orange-500/20 text-white relative overflow-hidden">
                         <div className="absolute top-0 right-0 p-4 opacity-20">
                             <Info className="w-12 h-12" />
                         </div>

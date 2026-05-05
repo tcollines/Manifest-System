@@ -51,70 +51,17 @@ const CoordinatorsTab: React.FC = () => {
     };
 
     return (
-        <div className="p-8">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                {/* ── Coordinator list ── */}
-                <div className="bg-ministry-card border border-gray-200 rounded-2xl shadow-sm p-6">
-                    <div className="flex justify-between items-start mb-4">
-                        <h2 className="text-xl font-bold text-gray-800 flex items-center">
-                            <IdCard className="w-5 h-5 mr-2 text-ministry-orange" />
-                            Coordinators
-                        </h2>
-                        <span className="text-xs bg-ministry-neon text-black px-2 py-1 rounded font-bold">
-                            {selectedEvent?.title}
-                        </span>
-                    </div>
-
-                    {coordinators.length === 0 ? (
-                        <div className="text-center py-10 text-gray-400 bg-gray-50 rounded-xl border border-dashed border-gray-200">
-                            No coordinators found for this operation. Add one to get started.
-                        </div>
-                    ) : (
-                        <div className="space-y-3">
-                            {coordinators.map(c => (
-                                <div key={c.id} className="flex items-center justify-between p-4 bg-white border border-gray-100 rounded-xl hover:shadow-sm transition-shadow">
-                                    <div className="flex items-center space-x-3">
-                                        <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center font-bold text-gray-600">
-                                            {c.name.charAt(0)}
-                                        </div>
-                                        <div className="flex-1">
-                                            <p className="font-bold text-gray-900">{c.name}</p>
-                                            <p className="text-xs text-gray-400">@{c.username}</p>
-                                            <div className="mt-1 flex flex-wrap gap-2">
-                                                {c.role === 'Stage Coordinator' || c.stationId ? (
-                                                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 border border-blue-200">
-                                                        Stage: {dbStations.find(s => s.id === c.stationId)?.name || 'Unknown Station'}
-                                                    </span>
-                                                ) : (
-                                                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-orange-100 text-ministry-orange border border-orange-200">
-                                                        Vehicle Coordinator
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <button
-                                        onClick={() => handleDeleteCoordinator(c.id)}
-                                        disabled={eventLocked}
-                                        className={`p-2 rounded-lg transition-colors ${eventLocked ? 'text-gray-200 cursor-not-allowed' : 'text-gray-400 hover:text-red-600 hover:bg-red-50'}`}
-                                        title="Delete Coordinator"
-                                    >
-                                        <Trash2 className="w-4 h-4" />
-                                    </button>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
-
-                {/* ── Add form or Locked state ── */}
+        <div>
+            <div className="flex flex-col lg:grid lg:grid-cols-2 gap-4 lg:gap-8">
+                {/* ── Add form or Locked state ── (mobile: first, desktop: second column) */}
+                <div className="order-1 lg:order-2">
                 {!eventLocked ? (
-                    <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6 h-fit">
-                        <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
+                    <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-4 lg:p-6 h-fit">
+                        <h2 className="text-lg lg:text-xl font-bold text-gray-800 mb-3 lg:mb-4 flex items-center">
                             <UserPlus className="w-5 h-5 mr-2 text-ministry-orange" />
                             Add Coordinator
                         </h2>
-                        <p className="text-sm text-gray-500 mb-6">
+                        <p className="text-sm text-gray-500 mb-4 lg:mb-6">
                             Create credentials for coordinators for <strong>{selectedEvent?.title}</strong>.
                         </p>
 
@@ -214,7 +161,7 @@ const CoordinatorsTab: React.FC = () => {
                         </form>
                     </div>
                 ) : (
-                    <div className="bg-gray-50 border border-gray-200 rounded-2xl shadow-sm p-6 flex flex-col items-center justify-center text-center h-full">
+                    <div className="bg-gray-50 border border-gray-200 rounded-2xl shadow-sm p-4 lg:p-6 flex flex-col items-center justify-center text-center h-full">
                         <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mb-4">
                             <ShieldAlert className="w-8 h-8 text-gray-400" />
                         </div>
@@ -223,6 +170,61 @@ const CoordinatorsTab: React.FC = () => {
                         <button onClick={() => setShowHighlights(true)} className="mt-6 text-ministry-orange font-bold hover:underline">View Highlights</button>
                     </div>
                 )}
+                </div>
+
+                {/* ── Coordinator list ── (mobile: second, desktop: first column) */}
+                <div className="order-2 lg:order-1 bg-ministry-card border border-gray-200 rounded-2xl shadow-sm p-4 lg:p-6">
+                    <div className="flex justify-between items-center mb-3 lg:mb-4">
+                        <h2 className="text-lg lg:text-xl font-bold text-gray-800 flex items-center">
+                            <IdCard className="w-5 h-5 mr-2 text-ministry-orange" />
+                            Coordinators
+                        </h2>
+                        <span className="text-xs bg-ministry-neon text-black px-2 py-1 rounded font-bold">
+                            {selectedEvent?.title}
+                        </span>
+                    </div>
+
+                    {coordinators.length === 0 ? (
+                        <div className="text-center py-8 lg:py-10 text-gray-400 bg-gray-50 rounded-xl border border-dashed border-gray-200 text-sm">
+                            No coordinators found for this operation. Add one to get started.
+                        </div>
+                    ) : (
+                        <div className="space-y-2">
+                            {coordinators.map(c => (
+                                <div key={c.id} className="flex items-center justify-between p-3 lg:p-4 bg-white border border-gray-100 rounded-xl hover:shadow-sm transition-shadow">
+                                    <div className="flex items-center gap-3 min-w-0">
+                                        <div className="w-9 h-9 lg:w-10 lg:h-10 bg-gray-100 rounded-full flex items-center justify-center font-bold text-gray-600 shrink-0 text-sm">
+                                            {c.name.charAt(0)}
+                                        </div>
+                                        <div className="min-w-0 flex-1">
+                                            <p className="font-bold text-gray-900 text-sm truncate">{c.name}</p>
+                                            <p className="text-xs text-gray-400 truncate">@{c.username}</p>
+                                            <div className="mt-0.5 flex flex-wrap gap-1">
+                                                {c.role === 'Stage Coordinator' || c.stationId ? (
+                                                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 border border-blue-200">
+                                                        Stage: {dbStations.find(s => s.id === c.stationId)?.name || 'Unknown Station'}
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-orange-100 text-ministry-orange border border-orange-200">
+                                                        Vehicle Coordinator
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={() => handleDeleteCoordinator(c.id)}
+                                        disabled={eventLocked}
+                                        className={`p-2 rounded-lg transition-colors shrink-0 ${eventLocked ? 'text-gray-200 cursor-not-allowed' : 'text-gray-400 hover:text-red-600 hover:bg-red-50'}`}
+                                        title="Delete Coordinator"
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     );

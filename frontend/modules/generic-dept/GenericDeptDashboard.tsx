@@ -7,6 +7,7 @@ import { Department, User, ModalType } from '../../types';
 import { DeptRole } from '../../shared/enums';
 import ErrorBoundary from '../../components/ui/ErrorBoundary';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
+import { LayoutDashboard, Users, FileText, ClipboardList, Package, Calendar, DollarSign, BarChart2 } from 'lucide-react';
 
 // Tab pages
 import OverviewTab       from './tabs/OverviewTab';
@@ -20,15 +21,15 @@ import ReportsTab        from './tabs/ReportsTab';
 
 // ─── Tab Map ──────────────────────────────────────────────────────────────────
 
-const ALL_TABS: { id: DeptTabId; label: string }[] = [
-    { id: 'overview',     label: 'Overview' },
-    { id: 'team',         label: 'Team' },
-    { id: 'requisitions', label: 'Requisitions' },
-    { id: 'workplans',    label: 'Monthly Workplans' },
-    { id: 'assets',       label: 'Assets' },
-    { id: 'schedule',     label: 'Service Schedule' },
-    { id: 'finances',     label: 'Dept Finances' },
-    { id: 'reports',      label: 'Monthly Reports' },
+const ALL_TABS: { id: DeptTabId; label: string; icon: React.ElementType }[] = [
+    { id: 'overview',     label: 'Overview',         icon: LayoutDashboard },
+    { id: 'team',         label: 'Team',             icon: Users },
+    { id: 'requisitions', label: 'Requisitions',     icon: FileText },
+    { id: 'workplans',    label: 'Workplans',        icon: ClipboardList },
+    { id: 'assets',       label: 'Assets',           icon: Package },
+    { id: 'schedule',     label: 'Schedule',         icon: Calendar },
+    { id: 'finances',     label: 'Finances',         icon: DollarSign },
+    { id: 'reports',      label: 'Reports',          icon: BarChart2 },
 ];
 
 const VALID_TABS = ALL_TABS.map(t => t.id);
@@ -173,10 +174,13 @@ const GenericDeptDashboard: React.FC<DashboardProps> = ({ openModal, onEditUser,
         }
     };
 
+    // Limit bottom nav to max 5 tabs for mobile readability
+    const bottomNavTabs = visibleTabs.slice(0, 5);
+
     return (
-        <div className="flex flex-col bg-gray-50">
+        <div className="flex flex-col bg-gray-50 min-h-screen">
             {/* Page Header */}
-            <div className="bg-white border-b border-gray-100 px-6 py-5 md:px-8">
+            <div className="bg-white border-b border-gray-100 px-4 py-4 md:px-8 md:py-5">
                 <div className="max-w-screen-xl mx-auto flex items-start justify-between gap-4">
                     <div className="flex items-center gap-3">
                         {['Super Admin', 'Administrator'].includes(user?.role ?? '') && (
@@ -200,35 +204,60 @@ const GenericDeptDashboard: React.FC<DashboardProps> = ({ openModal, onEditUser,
                     )}
                 </div>
 
-                {/* Tabs — visible to Manifest admins/Team Leader only; dept users use sidebar */}
+                {/* Desktop Tab Bar — admins/TL only */}
                 {showInlineTabBar && (
-                <div className="max-w-screen-xl mx-auto mt-4">
-                    <div className="flex gap-1 overflow-x-auto">
-                        {visibleTabs.map(tab => (
-                            <button
-                                key={tab.id}
-                                onClick={() => handleTabChange(tab.id as DeptTabId)}
-                                className={[
-                                    'flex-shrink-0 px-4 py-2 rounded-xl text-sm font-semibold transition-colors',
-                                    safeActiveTab === tab.id
-                                        ? 'bg-ministry-orange/10 text-ministry-orange'
-                                        : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100',
-                                ].join(' ')}
-                            >
-                                {tab.label}
-                            </button>
-                        ))}
+                    <div className="max-w-screen-xl mx-auto mt-4 hidden md:block">
+                        <div className="flex gap-1 overflow-x-auto">
+                            {visibleTabs.map(tab => (
+                                <button
+                                    key={tab.id}
+                                    onClick={() => handleTabChange(tab.id as DeptTabId)}
+                                    className={[
+                                        'flex-shrink-0 px-4 py-2 rounded-xl text-sm font-semibold transition-colors',
+                                        safeActiveTab === tab.id
+                                            ? 'bg-ministry-orange/10 text-ministry-orange'
+                                            : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100',
+                                    ].join(' ')}
+                                >
+                                    {tab.label}
+                                </button>
+                            ))}
+                        </div>
                     </div>
-                </div>
                 )}
             </div>
 
             {/* Tab Content */}
-            <div className="flex-1 px-4 py-6 md:px-8 max-w-screen-xl mx-auto w-full">
+            <div className="flex-1 p-4 md:p-8 max-w-screen-xl mx-auto w-full mb-20 md:mb-0">
                 <ErrorBoundary moduleName={`${department.name} — ${safeActiveTab}`}>
                     {renderTab()}
                 </ErrorBoundary>
             </div>
+
+            {/* Mobile Floating Bottom Nav */}
+            <nav className="md:hidden fixed bottom-4 left-1/2 -translate-x-1/2 z-40">
+                <div className="flex items-center gap-1 bg-white/90 backdrop-blur-xl rounded-full px-3 py-2 shadow-xl border border-gray-100">
+                    {bottomNavTabs.map(tab => {
+                        const Icon = tab.icon;
+                        const isActive = safeActiveTab === tab.id;
+                        return (
+                            <button
+                                key={tab.id}
+                                onClick={() => handleTabChange(tab.id as DeptTabId)}
+                                className={[
+                                    'flex flex-col items-center gap-0.5 px-3 py-2 rounded-full transition-all duration-200',
+                                    isActive
+                                        ? 'bg-gray-900 text-white'
+                                        : 'text-gray-400 hover:text-gray-700',
+                                ].join(' ')}
+                            >
+                                <Icon className="w-5 h-5" strokeWidth={isActive ? 2.5 : 1.8} />
+                                <span className="text-[10px] font-medium">{tab.label}</span>
+                            </button>
+                        );
+                    })}
+                </div>
+            </nav>
         </div>
     );
 };

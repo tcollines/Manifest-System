@@ -63,7 +63,7 @@ export const ReportsTab: React.FC = () => {
 
     if (isAddingReport) {
         return (
-            <form onSubmit={handleSubmitReport} className="max-w-3xl mx-auto space-y-6">
+            <form onSubmit={handleSubmitReport} className="max-w-3xl mx-auto space-y-6 p-4 md:p-6">
                 <div className="flex items-center justify-between border-b pb-4">
                     <h3 className="text-xl font-bold">New Outreach Report</h3>
                     <button type="button" onClick={() => setIsAddingReport(false)} className="text-gray-500 hover:text-black">Cancel</button>
@@ -159,7 +159,7 @@ export const ReportsTab: React.FC = () => {
     }
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-4 p-4 md:p-6">
             <div className="flex flex-col md:flex-row justify-between items-center gap-4">
                 <div className="flex items-center space-x-4 w-full md:w-auto">
                     <h3 className="text-lg font-bold text-gray-800 whitespace-nowrap">Recent Reports</h3>

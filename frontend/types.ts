@@ -74,6 +74,9 @@ export interface MinistryEvent {
   stats: EventStats;
   serviceNumber?: number;
   createdAt?: string; // Mapped from DB created_at, useful for sorting
+  lat?: number;
+  lng?: number;
+  locationName?: string;
 }
 
 export interface User {

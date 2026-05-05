@@ -22,7 +22,7 @@ const MembersTab: React.FC = () => {
     // ── Member detail view ────────────────────────────────────────────────────
     if (viewMode === 'member-detail' && selectedMemberDetails) {
         return (
-            <div className="p-6 space-y-6 animate-in fade-in duration-300">
+            <div className="p-4 md:p-6 space-y-4 md:space-y-6 animate-in fade-in duration-300">
                 <div className="flex items-center justify-between border-b border-gray-100 pb-4">
                     <button onClick={() => setViewMode('list')} className="flex items-center space-x-2 text-gray-500 hover:text-gray-800 p-2 hover:bg-gray-50 rounded-lg">
                         <ChevronLeft className="w-5 h-5" /><span className="font-bold">Back to Database</span>
@@ -30,24 +30,23 @@ const MembersTab: React.FC = () => {
                 </div>
 
                 {/* Stats */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 flex items-center gap-4">
-                        <div className="p-3 bg-blue-50 rounded-full"><Users className="w-8 h-8 text-blue-600" /></div>
-                        <div><p className="text-xs uppercase font-bold text-gray-400">Total Attended</p><p className="text-2xl font-black text-gray-900">{selectedMemberDetails.attendedCount} Services</p></div>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-6">
+                    <div className="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-200 flex items-center gap-3 md:gap-4">
+                        <div className="p-2 md:p-3 bg-blue-50 rounded-full"><Users className="w-6 h-6 md:w-8 md:h-8 text-blue-600" /></div>
+                        <div><p className="text-[10px] md:text-xs uppercase font-bold text-gray-400">Attended</p><p className="text-lg md:text-2xl font-black text-gray-900">{selectedMemberDetails.attendedCount}</p></div>
                     </div>
-                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 flex items-center gap-4">
-                        <div className="p-3 bg-purple-50 rounded-full"><Database className="w-8 h-8 text-purple-600" /></div>
+                    <div className="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-200 flex items-center gap-3 md:gap-4">
+                        <div className="p-2 md:p-3 bg-purple-50 rounded-full"><Database className="w-6 h-6 md:w-8 md:h-8 text-purple-600" /></div>
                         <div>
-                            <p className="text-xs uppercase font-bold text-gray-400">Expected Services</p>
-                            <p className="text-2xl font-black text-gray-900">{selectedMemberDetails.totalServices} Held</p>
-                            <p className="text-xs text-gray-500">Since Joined ({new Date(selectedMemberDetails.member.joinedDate || '').toLocaleDateString()})</p>
+                            <p className="text-[10px] md:text-xs uppercase font-bold text-gray-400">Expected</p>
+                            <p className="text-lg md:text-2xl font-black text-gray-900">{selectedMemberDetails.totalServices}</p>
                         </div>
                     </div>
-                    <div className="bg-ministry-text text-white p-6 rounded-2xl shadow-lg flex items-center gap-4">
-                        <div className="p-3 bg-white/10 rounded-full"><Calendar className="w-8 h-8 text-white" /></div>
+                    <div className="col-span-2 md:col-span-1 bg-ministry-text text-white p-4 md:p-6 rounded-2xl shadow-lg flex items-center gap-3 md:gap-4">
+                        <div className="p-2 md:p-3 bg-white/10 rounded-full"><Calendar className="w-6 h-6 md:w-8 md:h-8 text-white" /></div>
                         <div>
-                            <p className="text-xs uppercase font-bold text-gray-400">Attendance Score</p>
-                            <p className="text-3xl font-black">
+                            <p className="text-[10px] md:text-xs uppercase font-bold text-gray-400">Score</p>
+                            <p className="text-2xl md:text-3xl font-black">
                                 {selectedMemberDetails.totalServices > 0
                                     ? Math.round((selectedMemberDetails.attendedCount / selectedMemberDetails.totalServices) * 100)
                                     : 0}%
@@ -58,7 +57,7 @@ const MembersTab: React.FC = () => {
 
                 <div className="flex flex-col lg:flex-row gap-6">
                     {/* Profile */}
-                    <div className="flex-1 bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+                    <div className="flex-1 bg-white border border-gray-200 rounded-xl p-4 md:p-6 shadow-sm">
                         <div className="flex justify-between items-center mb-6 border-b border-gray-100 pb-4">
                             <h3 className="font-bold text-lg text-gray-800">Member Profile</h3>
                             <button onClick={() => setIsEditingMember(!isEditingMember)} className={`px-4 py-2 rounded-lg text-xs font-bold shadow-sm ${isEditingMember ? 'bg-red-50 text-red-600 border border-red-100' : 'bg-gray-50 text-gray-700 border border-gray-200 hover:bg-gray-100'}`}>
@@ -97,7 +96,7 @@ const MembersTab: React.FC = () => {
                     </div>
 
                     {/* History */}
-                    <div className="w-full lg:w-1/3 bg-white border border-gray-200 rounded-xl p-6 shadow-sm h-fit">
+                    <div className="w-full lg:w-1/3 bg-white border border-gray-200 rounded-xl p-4 md:p-6 shadow-sm h-fit">
                         <h3 className="font-bold text-lg text-gray-800 mb-4 flex items-center gap-2"><Clock className="w-5 h-5 text-gray-400" /> Recent Activity</h3>
                         <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2">
                             {selectedMemberDetails.history.map((record: any, idx: number) => (
@@ -128,46 +127,69 @@ const MembersTab: React.FC = () => {
     const totalPages = Math.max(1, Math.ceil(totalMembersDb / itemsPerPage));
 
     return (
-        <div className="p-6 space-y-6 animate-in fade-in duration-300">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <h3 className="text-lg font-bold text-gray-800 flex items-center"><Database className="w-5 h-5 mr-2 text-gray-500" />Member Database Dashboard</h3>
-            </div>
+        <div className="md:p-6 animate-in fade-in duration-300">
+            <div className="bg-white md:rounded-xl md:shadow-sm md:border md:border-gray-100 overflow-hidden">
+                {/* Header */}
+                <div className="p-4 md:p-5 border-b border-gray-100 space-y-3">
+                    <h3 className="text-base md:text-lg font-bold text-gray-800 flex items-center">
+                        <Database className="w-5 h-5 mr-2 text-gray-500" />Member Database
+                        <span className="ml-2 bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-xs">{totalMembersDb}</span>
+                    </h3>
 
-            {/* Search */}
-            <div className="relative flex-1 w-full">
-                <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${isSearchingMembersDb ? 'text-ministry-orange animate-pulse' : 'text-gray-400'}`} />
-                <input
-                    type="text"
-                    placeholder="Search native member database by name, phone, or tags..."
-                    value={membersDbQuery}
-                    onChange={e => { setMembersDbQuery(e.target.value); setMembersDbPage(1); }}
-                    className="w-full pl-9 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-ministry-orange"
-                />
-            </div>
+                    {/* Search */}
+                    <div className="relative w-full">
+                        <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${isSearchingMembersDb ? 'text-ministry-orange animate-pulse' : 'text-gray-400'}`} />
+                        <input
+                            type="text"
+                            placeholder="Search by name, phone, or tags..."
+                            value={membersDbQuery}
+                            onChange={e => { setMembersDbQuery(e.target.value); setMembersDbPage(1); }}
+                            className="w-full pl-9 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-ministry-orange"
+                        />
+                    </div>
 
-            {/* Pagination controls */}
-            <div className="flex justify-between items-center bg-white p-4 rounded-xl border border-gray-200 shadow-sm sticky top-0 z-10">
-                <div>
-                    <span className="text-sm font-medium text-gray-500">Showing </span>
-                    <span className="font-bold text-ministry-text mx-1">
-                        {totalMembersDb === 0 ? 0 : (membersDbPage - 1) * itemsPerPage + 1} - {Math.min(membersDbPage * itemsPerPage, totalMembersDb)}
-                    </span>
-                    <span className="text-sm font-medium text-gray-500">of {totalMembersDb} members</span>
+                    {/* Pagination */}
+                    <div className="flex justify-between items-center">
+                        <div className="text-xs md:text-sm text-gray-500">
+                            <span className="font-bold text-gray-800">{totalMembersDb === 0 ? 0 : (membersDbPage - 1) * itemsPerPage + 1}–{Math.min(membersDbPage * itemsPerPage, totalMembersDb)}</span> of {totalMembersDb}
+                        </div>
+                        <div className="flex gap-1.5">
+                            <button disabled={membersDbPage === 1} onClick={() => setMembersDbPage(p => Math.max(1, p - 1))} className="px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg hover:bg-white disabled:opacity-50 font-bold text-xs text-gray-700">
+                                <ChevronLeft className="w-4 h-4 inline" /> Prev
+                            </button>
+                            <button disabled={membersDbPage * itemsPerPage >= totalMembersDb} onClick={() => setMembersDbPage(p => p + 1)} className="px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg hover:bg-white disabled:opacity-50 font-bold text-xs text-gray-700">
+                                Next <ChevronRight className="w-4 h-4 inline" />
+                            </button>
+                        </div>
+                    </div>
                 </div>
-                <div className="flex space-x-2">
-                    <button disabled={membersDbPage === 1} onClick={() => setMembersDbPage(p => Math.max(1, p - 1))} className="px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg hover:bg-white hover:border-ministry-orange hover:text-ministry-orange disabled:opacity-50 font-bold text-sm text-gray-700 shadow-sm">
-                        <ChevronLeft className="w-4 h-4 inline" /> Prev
-                    </button>
-                    <button disabled={membersDbPage * itemsPerPage >= totalMembersDb} onClick={() => setMembersDbPage(p => p + 1)} className="px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg hover:bg-white hover:border-ministry-orange hover:text-ministry-orange disabled:opacity-50 font-bold text-sm text-gray-700 shadow-sm">
-                        Next <ChevronRight className="w-4 h-4 inline" />
-                    </button>
-                </div>
-            </div>
 
-            {/* Table */}
-            <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm flex flex-col max-h-[70vh]">
-                <div className="overflow-x-auto overflow-y-auto flex-1">
-                    <table className="w-full text-left relative min-w-[700px]">
+                {/* Mobile List */}
+                <div className="md:hidden divide-y divide-gray-50">
+                    {membersDb.map(member => (
+                        <div key={member.id} className="px-4 py-3 flex items-center gap-3 active:bg-gray-50" onClick={() => handleViewMemberDb(member.id)}>
+                            <div className="flex-1 min-w-0">
+                                <p className="font-bold text-sm text-gray-900 truncate">{member.name}</p>
+                                <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5">
+                                    <span className="font-mono">{member.phone}</span>
+                                    <span>·</span>
+                                    <span className="truncate">{member.residency || 'N/A'}</span>
+                                </div>
+                            </div>
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold shrink-0 bg-gray-100 text-gray-700">{member.category || 'Member'}</span>
+                        </div>
+                    ))}
+                    {membersDb.length === 0 && !isSearchingMembersDb && (
+                        <div className="px-4 py-12 text-center text-gray-400">No members found matching your search.</div>
+                    )}
+                    {membersDb.length === 0 && isSearchingMembersDb && (
+                        <div className="px-4 py-12 text-center font-bold text-ministry-orange animate-pulse">Running extensive database query...</div>
+                    )}
+                </div>
+
+                {/* Desktop Table */}
+                <div className="hidden md:block overflow-x-auto">
+                    <table className="w-full text-left min-w-[700px]">
                         <thead className="bg-gray-50 border-b border-gray-100 sticky top-0 z-20 shadow-sm">
                             <tr>
                                 <th className="px-6 py-4 text-xs font-black text-gray-500 uppercase tracking-wider">Member Name</th>
@@ -197,7 +219,9 @@ const MembersTab: React.FC = () => {
                         </tbody>
                     </table>
                 </div>
-                <div className="flex justify-center py-4 bg-gray-50 border-t border-gray-100">
+
+                {/* Footer */}
+                <div className="flex justify-center py-3 bg-gray-50 border-t border-gray-100">
                     <div className="text-xs font-bold font-mono text-gray-500 uppercase tracking-widest">Page {membersDbPage} / {totalPages}</div>
                 </div>
             </div>

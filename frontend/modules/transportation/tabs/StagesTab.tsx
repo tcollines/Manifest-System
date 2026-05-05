@@ -19,7 +19,7 @@ const StagesTab: React.FC = () => {
     const eventStations = dbStations.filter(s => s.eventId === selectedEventId);
 
     return (
-        <div className="p-8">
+        <div>
             <StageDetailsTab
                 vehicles={vehicles}
                 passengers={passengers}

@@ -125,30 +125,32 @@ const ReportsView: React.FC<ReportsViewProps> = ({ currentUser, isGlobal = false
       </div>
 
       {/* Tabs */}
-      <div className="flex space-x-1 bg-gray-100 p-1.5 rounded-xl w-fit">
-        {[
-          { id: 'department', label: 'Monthly Department Reports', icon: ClipboardList },
-          { id: 'service', label: 'Service Analytics', icon: FileText, adminOnly: true },
-          { id: 'financial', label: 'Financial Analytics', icon: DollarSign, adminOnly: true },
-          { id: 'souls', label: 'Souls Analytics', icon: Heart, adminOnly: true },
-        ].filter(tab => !tab.adminOnly || (isGlobal && ['Administrator', 'TeamLeader'].includes(currentUser?.role || '')))
-          .map((tab) => {
-            const Icon = tab.icon;
-            const isActive = activeReport === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveReport(tab.id as ReportType)}
-                className={`flex items-center space-x-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all ${isActive
-                  ? 'bg-white text-ministry-text shadow-sm'
-                  : 'text-gray-500 hover:text-gray-900'
-                  }`}
-              >
-                <Icon className={`w-4 h-4 ${isActive ? 'text-ministry-orange' : ''}`} />
-                <span>{tab.label}</span>
-              </button>
-            );
-          })}
+      <div className="w-full overflow-x-auto hide-scrollbar pb-2 -mb-2">
+        <div className="flex space-x-1 bg-white/60 backdrop-blur-md p-1.5 rounded-full w-max border border-gray-100 shadow-sm">
+          {[
+            { id: 'department', label: 'Monthly Department Reports', icon: ClipboardList },
+            { id: 'service', label: 'Service Analytics', icon: FileText, adminOnly: true },
+            { id: 'financial', label: 'Financial Analytics', icon: DollarSign, adminOnly: true },
+            { id: 'souls', label: 'Souls Analytics', icon: Heart, adminOnly: true },
+          ].filter(tab => !tab.adminOnly || (isGlobal && ['Administrator', 'TeamLeader'].includes(currentUser?.role || '')))
+            .map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeReport === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveReport(tab.id as ReportType)}
+                  className={`flex items-center space-x-2 px-5 py-2.5 rounded-full text-sm font-semibold transition-all whitespace-nowrap ${isActive
+                    ? 'bg-white text-ministry-text shadow-sm ring-1 ring-gray-200/50'
+                    : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50/50'
+                    }`}
+                >
+                  <Icon className={`w-4 h-4 ${isActive ? 'text-ministry-orange' : ''}`} />
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
+        </div>
       </div>
 
       {activeReport === 'department' ? (

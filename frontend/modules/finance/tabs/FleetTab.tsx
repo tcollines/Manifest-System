@@ -30,7 +30,7 @@ const FleetTab: React.FC = () => {
     const eventVehicles = getEventVehicles();
 
     return (
-        <div className="p-6 space-y-6 animate-in fade-in duration-300">
+        <div className="p-4 md:p-6 space-y-4 animate-in fade-in duration-300">
             {/* Events Grid View */}
             {fleetViewMode === 'events' && (
                 <div className="space-y-6">
@@ -49,43 +49,102 @@ const FleetTab: React.FC = () => {
                         </button>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {events.filter(e => e.type === 'Event').map(event => {
-                            const isLocked = isEventLocked(event.date);
-                            return (
-                                <div
-                                    key={event.id}
-                                    onClick={() => handleOpenEventFleet(event)}
-                                    className="bg-white border border-gray-200 p-6 rounded-xl hover:shadow-lg hover:border-ministry-orange/40 transition-all cursor-pointer group"
-                                >
-                                    <div className="flex justify-between items-start mb-4">
-                                        <div className="p-3 bg-gray-100 rounded-full group-hover:bg-ministry-orange group-hover:text-white transition-colors">
-                                            {event.type === 'Service' ? <Calendar className="w-6 h-6" /> : <Bus className="w-6 h-6" />}
+                    {/* Mobile List View & Desktop Grid View wrapper */}
+                    <div>
+                        {/* Mobile List View */}
+                        <div className="md:hidden flex flex-col space-y-3">
+                            {events.filter(e => e.type === 'Event').map(event => {
+                                const isLocked = isEventLocked(event.date);
+                                return (
+                                    <div
+                                        key={`mobile-${event.id}`}
+                                        onClick={() => handleOpenEventFleet(event)}
+                                        className="bg-white border border-gray-200 rounded-xl p-4 hover:border-ministry-orange/40 transition-all flex flex-col gap-3 shadow-sm cursor-pointer"
+                                    >
+                                        <div className="flex justify-between items-center w-full">
+                                            <div className="flex items-center gap-3 truncate pr-2">
+                                                <div className="bg-gray-50 p-2.5 rounded-lg border border-gray-100 flex-shrink-0">
+                                                    {event.type === 'Service' ? <Calendar className="w-5 h-5 text-gray-500" /> : <Bus className="w-5 h-5 text-gray-500" />}
+                                                </div>
+                                                <div className="truncate">
+                                                    <h4 className="text-[15px] font-bold text-ministry-text leading-tight truncate">{event.title}</h4>
+                                                    <p className="text-xs text-gray-500 mt-0.5">{event.date}</p>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-2 flex-shrink-0">
+                                                {isLocked && (
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setSelectedFleetEvent(event);
+                                                            handlePrintFleetReport();
+                                                        }}
+                                                        className="p-1.5 text-gray-500 hover:text-gray-900 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200"
+                                                        title="Print Report"
+                                                    >
+                                                        <Printer className="w-4 h-4" />
+                                                    </button>
+                                                )}
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleOpenEventFleet(event);
+                                                    }}
+                                                    className="bg-black text-ministry-neon px-4 py-1.5 rounded-lg text-sm font-bold shadow-sm"
+                                                >
+                                                    View
+                                                </button>
+                                            </div>
                                         </div>
-                                        <span className="text-xs font-bold bg-gray-100 px-2 py-1 rounded text-gray-600">{event.date}</span>
                                     </div>
-                                    <h4 className="text-lg font-bold text-gray-900 mb-1 group-hover:text-ministry-orange transition-colors">{event.title}</h4>
-                                    <p className="text-sm text-gray-500">{event.type}</p>
-
-                                    {isLocked && (
-                                        <div className="mt-4 pt-4 border-t border-gray-100" onClick={e => e.stopPropagation()}>
-                                            <button
-                                                onClick={() => { setSelectedFleetEvent(event); handlePrintFleetReport(); }}
-                                                className="w-full flex items-center justify-center space-x-2 bg-gray-900 text-white py-2 rounded-lg text-sm font-bold hover:bg-black transition-colors"
-                                            >
-                                                <Printer className="w-4 h-4" /><span>Print Report</span>
-                                            </button>
-                                        </div>
-                                    )}
+                                );
+                            })}
+                            {events.filter(e => e.type === 'Event').length === 0 && (
+                                <div className="py-12 text-center text-gray-400 bg-white rounded-xl border border-dashed border-gray-300">
+                                    No events found. Create an event first.
                                 </div>
-                            );
-                        })}
+                            )}
+                        </div>
 
-                        {events.filter(e => e.type === 'Event').length === 0 && (
-                            <div className="col-span-3 p-12 text-center text-gray-400 border border-dashed border-gray-200 rounded-xl">
-                                No events found. Create an event first.
-                            </div>
-                        )}
+                        {/* Desktop Grid View */}
+                        <div className="hidden md:grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {events.filter(e => e.type === 'Event').map(event => {
+                                const isLocked = isEventLocked(event.date);
+                                return (
+                                    <div
+                                        key={`desktop-${event.id}`}
+                                        onClick={() => handleOpenEventFleet(event)}
+                                        className="bg-white border border-gray-200 p-6 rounded-xl hover:shadow-lg hover:border-ministry-orange/40 transition-all cursor-pointer group"
+                                    >
+                                        <div className="flex justify-between items-start mb-4">
+                                            <div className="p-3 bg-gray-100 rounded-full group-hover:bg-ministry-orange group-hover:text-white transition-colors">
+                                                {event.type === 'Service' ? <Calendar className="w-6 h-6" /> : <Bus className="w-6 h-6" />}
+                                            </div>
+                                            <span className="text-xs font-bold bg-gray-100 px-2 py-1 rounded text-gray-600">{event.date}</span>
+                                        </div>
+                                        <h4 className="text-lg font-bold text-gray-900 mb-1 group-hover:text-ministry-orange transition-colors">{event.title}</h4>
+                                        <p className="text-sm text-gray-500">{event.type}</p>
+
+                                        {isLocked && (
+                                            <div className="mt-4 pt-4 border-t border-gray-100" onClick={e => e.stopPropagation()}>
+                                                <button
+                                                    onClick={() => { setSelectedFleetEvent(event); handlePrintFleetReport(); }}
+                                                    className="w-full flex items-center justify-center space-x-2 bg-gray-900 text-white py-2 rounded-lg text-sm font-bold hover:bg-black transition-colors"
+                                                >
+                                                    <Printer className="w-4 h-4" /><span>Print Report</span>
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+
+                            {events.filter(e => e.type === 'Event').length === 0 && (
+                                <div className="col-span-3 p-12 text-center text-gray-400 border border-dashed border-gray-200 rounded-xl">
+                                    No events found. Create an event first.
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
             )}
@@ -112,7 +171,7 @@ const FleetTab: React.FC = () => {
                             </button>
                         </div>
 
-                        <div className="flex bg-gray-100 p-1 rounded-lg w-full md:w-auto">
+                        <div className="flex bg-gray-100 p-1 rounded-lg w-full md:w-auto overflow-x-auto hide-scrollbar">
                             {([
                                 { id: 'Ongoing', icon: ArrowUpRight, label: 'Ongoing' },
                                 { id: 'Return', icon: ArrowDownLeft, label: 'Return' },
@@ -122,14 +181,14 @@ const FleetTab: React.FC = () => {
                                 <button
                                     key={tab.id}
                                     onClick={() => setFleetJourneyTab(tab.id)}
-                                    className={`flex-1 md:flex-none px-5 py-2 rounded-md text-sm font-bold transition-all flex items-center justify-center gap-1 ${fleetJourneyTab === tab.id ? 'bg-white shadow text-ministry-orange' : 'text-gray-500'}`}
+                                    className={`whitespace-nowrap flex-shrink-0 px-5 py-2 rounded-md text-sm font-bold transition-all flex items-center justify-center gap-1 ${fleetJourneyTab === tab.id ? 'bg-white shadow text-ministry-orange' : 'text-gray-500'}`}
                                 >
                                     <tab.icon className="w-3.5 h-3.5" /> {tab.label}
                                 </button>
                             ))}
                             <button
                                 onClick={handlePrintFleetReport}
-                                className="px-4 py-2 rounded-md text-sm font-bold text-gray-500 hover:text-gray-900 transition-all flex items-center border-l border-gray-200 ml-1"
+                                className="whitespace-nowrap flex-shrink-0 px-4 py-2 rounded-md text-sm font-bold text-gray-500 hover:text-gray-900 transition-all flex items-center border-l border-gray-200 ml-1"
                                 title="Print Fleet Report"
                             >
                                 <Printer className="w-4 h-4" />

@@ -461,22 +461,69 @@ const TransportationLayout: React.FC = () => {
 
     return (
         <TransportContext.Provider value={contextValue}>
-            <div className="flex flex-col min-h-full bg-gray-50">
+            <div className="flex flex-col min-h-full bg-gray-50 pb-24 md:pb-0">
+                {/* ── Desktop Tabs (Hidden on mobile) ────────────────────────── */}
                 {showNav && (
-                    <div className="bg-white border-b border-gray-200 px-6 py-3 flex items-center gap-2 flex-wrap sticky top-0 z-20">
-                        <NavLink to="overview" className={({ isActive }) => `flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${isActive ? 'bg-black text-white' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`}>
-                            <Navigation className="w-4 h-4" /> Fleet Overview
-                        </NavLink>
-                        <NavLink to="coordinators" className={({ isActive }) => `flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${isActive ? 'bg-black text-white' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`}>
-                            <Users className="w-4 h-4" /> Coordinators
-                        </NavLink>
-                        <NavLink to="stages" className={({ isActive }) => `flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${isActive ? 'bg-black text-white' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`}>
-                            <LayoutList className="w-4 h-4" /> Stage Details
-                        </NavLink>
+                    <div className="hidden md:block w-full overflow-x-auto hide-scrollbar pt-6 px-6">
+                        <div className="inline-flex items-center gap-1 bg-white/60 backdrop-blur-md p-1.5 rounded-full border border-gray-100 shadow-sm">
+                            <NavLink to="overview" className={({ isActive }) => `flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold transition-all duration-300 whitespace-nowrap ${isActive ? 'bg-black text-white shadow-md ring-1 ring-gray-200/50' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50/50'}`}>
+                                {({ isActive }) => (<><Navigation strokeWidth={2.5} className={`w-4 h-4 ${isActive ? 'text-ministry-neon' : ''}`} /> Fleet Overview</>)}
+                            </NavLink>
+                            <NavLink to="coordinators" className={({ isActive }) => `flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold transition-all duration-300 whitespace-nowrap ${isActive ? 'bg-black text-white shadow-md ring-1 ring-gray-200/50' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50/50'}`}>
+                                {({ isActive }) => (<><Users strokeWidth={2.5} className={`w-4 h-4 ${isActive ? 'text-ministry-neon' : ''}`} /> Coordinators</>)}
+                            </NavLink>
+                            <NavLink to="stages" className={({ isActive }) => `flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold transition-all duration-300 whitespace-nowrap ${isActive ? 'bg-black text-white shadow-md ring-1 ring-gray-200/50' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50/50'}`}>
+                                {({ isActive }) => (<><LayoutList strokeWidth={2.5} className={`w-4 h-4 ${isActive ? 'text-ministry-neon' : ''}`} /> Stage Details</>)}
+                            </NavLink>
+                        </div>
                     </div>
                 )}
-                <div className="flex-1"><Outlet /></div>
+
+                {/* ── Active page content ────────────────────────────────────── */}
+                <div className="flex-1 relative p-4 md:p-6 mb-20 md:mb-0">
+                    <Outlet />
+                </div>
             </div>
+
+            {/* ── Mobile Floating Bottom Navigation ────────────────────────── */}
+            {showNav && (
+                <div className="md:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-sm">
+                    <div className="flex items-center justify-between gap-1 bg-white/90 backdrop-blur-xl p-1.5 rounded-full border border-gray-100 shadow-[0_8px_30px_rgb(0,0,0,0.12)]">
+                        {[
+                            { to: 'overview', icon: Navigation, label: 'Fleet Overview' },
+                            { to: 'coordinators', icon: Users, label: 'Coordinators' },
+                            { to: 'stages', icon: LayoutList, label: 'Stage Details' }
+                        ].map((tab) => {
+                            const Icon = tab.icon;
+                            return (
+                                <NavLink
+                                    key={tab.to}
+                                    to={tab.to}
+                                    className={({ isActive }) =>
+                                        `flex flex-col items-center justify-center w-full py-2 rounded-full transition-all duration-300 relative overflow-hidden ${
+                                            isActive ? 'text-white' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50/50'
+                                        }`
+                                    }
+                                >
+                                    {({ isActive }) => (
+                                        <>
+                                            {isActive && (
+                                                <div className="absolute inset-0 bg-black rounded-full scale-100 animate-in zoom-in duration-300" />
+                                            )}
+                                            <div className="relative z-10 flex flex-col items-center gap-1">
+                                                <Icon strokeWidth={isActive ? 2.5 : 2} className={`w-4 h-4 transition-transform duration-300 ${isActive ? 'text-ministry-neon scale-110' : ''}`} />
+                                                <span className={`text-[10px] tracking-wide transition-all duration-300 ${isActive ? 'font-bold text-white' : 'font-medium'}`}>
+                                                    {tab.label}
+                                                </span>
+                                            </div>
+                                        </>
+                                    )}
+                                </NavLink>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
             <EventDetailsModal
                 event={showHighlights ? selectedEvent || null : null}
                 onClose={() => setShowHighlights(false)}

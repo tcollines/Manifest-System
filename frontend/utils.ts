@@ -155,7 +155,7 @@ export const getDashboardForUser = (user: User): string => {
     if (user.role === 'Logistics') return '/registration';
     if (user.role === 'Vehicle Coordinator') return '/transportation';
     if (user.role === 'Stage Coordinator') return '/departments/4630e48a-f97e-48fd-a901-864b591c282f/stage-dashboard';
-    if (user.role === 'Resident Coordinator') return '/my-residency';
+    if (user.role === 'Resident Coordinator') return '/departments/c1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d/my-residency';
     if (user.role === 'Coordinator') {
         if (user.stationId) return '/departments/4630e48a-f97e-48fd-a901-864b591c282f/stage-dashboard';
         return '/transportation';

@@ -26,7 +26,7 @@ const EventsTab: React.FC = () => {
             e.location.toLowerCase().includes(searchTerm.toLowerCase())
         );
         return (
-            <div className="p-6 space-y-6 animate-in fade-in duration-300">
+            <div className="p-4 md:p-6 space-y-4 md:space-y-6 animate-in fade-in duration-300">
                 <div className="flex justify-between items-center">
                     <h2 className="text-xl font-bold text-gray-800">Ministry Events</h2>
                     <div className="relative">
@@ -39,7 +39,49 @@ const EventsTab: React.FC = () => {
                         />
                     </div>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {/* ── Mobile List View ─────────────────────────────────────── */}
+                <div className="md:hidden flex flex-col space-y-3">
+                    {filtered.map(event => {
+                        const isLocked = isEventLocked(event.date);
+                        return (
+                            <div key={`mobile-${event.id}`} className="bg-white border border-gray-200 rounded-xl p-4 hover:border-ministry-orange/40 transition-all flex flex-col gap-3 shadow-sm">
+                                <div 
+                                    className="flex justify-between items-center cursor-pointer"
+                                    onClick={() => setSelectedEventId(event.id)}
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className="bg-gray-50 p-2.5 rounded-lg border border-gray-100">
+                                            <Calendar className="w-5 h-5 text-gray-500" />
+                                        </div>
+                                        <div>
+                                            <h4 className="text-[15px] font-bold text-ministry-text leading-tight">{event.title}</h4>
+                                            <p className="text-xs text-gray-500 mt-0.5">{event.date} • {event.location}</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center pl-2">
+                                        <button 
+                                            onClick={(e) => { 
+                                                e.stopPropagation(); 
+                                                setSelectedEventId(event.id); 
+                                            }} 
+                                            className="bg-gray-900 text-white px-4 py-1.5 rounded-lg text-sm font-bold shadow-sm"
+                                        >
+                                            {isLocked ? 'View' : 'View'}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })}
+                    {filtered.length === 0 && (
+                        <div className="py-12 text-center text-gray-400 bg-white rounded-xl border border-dashed border-gray-300">
+                            No matching events found.
+                        </div>
+                    )}
+                </div>
+
+                {/* ── Desktop Grid View ────────────────────────────────────── */}
+                <div className="hidden md:grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {filtered.map(event => {
                         const isLocked = isEventLocked(event.date);
                         return (
@@ -125,7 +167,7 @@ const EventDetailView: React.FC<{
     };
 
     return (
-        <div className="p-6 space-y-6 animate-in fade-in duration-300">
+        <div className="p-4 md:p-6 space-y-4 md:space-y-6 animate-in fade-in duration-300">
             {/* Header */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-gray-100 pb-4">
                 <div className="flex items-center space-x-4">

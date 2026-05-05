@@ -6,6 +6,7 @@ import NumberPlateInput from '../../../components/NumberPlateInput';
 import ManualCountModal from '../../../components/ManualCountModal';
 import { validateDriverIdentity } from '../../../utils';
 import { useRegistration } from '../RegistrationContext';
+import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
 
 const RegistrationModals: React.FC = () => {
     const {
@@ -54,7 +55,14 @@ const RegistrationModals: React.FC = () => {
         childrenForm,
         setChildrenForm,
         handleUpdateChildrenCount,
+        isAddEntrantOpen,
+        setIsAddEntrantOpen,
+        newEntrant,
+        setNewEntrant,
+        handleAddExtraEntrant,
     } = useRegistration();
+
+    const { isLoaded } = useJsApiLoader({ id: 'google-map-script', googleMapsApiKey: 'AIzaSyCZSpPjUuv2sILESSb2yqYNxhzr9CfCtzs' });
 
     // Reconstruct the initial forms to reset correctly on close
     const initialStationForm = {
@@ -177,13 +185,41 @@ const RegistrationModals: React.FC = () => {
                                 </div>
                             </div>
                             <div className="space-y-1">
-                                <label className="text-sm font-bold text-gray-700">Location</label>
+                                <label className="text-sm font-bold text-gray-700">Location Name</label>
                                 <input
-                                    value={eventForm.location}
-                                    onChange={e => setEventForm({ ...eventForm, location: e.target.value })}
+                                    value={eventForm.locationName || eventForm.location}
+                                    onChange={e => setEventForm({ ...eventForm, locationName: e.target.value, location: e.target.value })}
                                     className="w-full p-3 border border-gray-200 rounded-xl focus:outline-none focus:border-ministry-orange"
                                     placeholder="e.g. Phaneroo Grounds"
                                 />
+                            </div>
+                            
+                            <div className="space-y-1">
+                                <label className="text-sm font-bold text-gray-700">Select Location on Map</label>
+                                <div className="w-full h-64 rounded-xl overflow-hidden border border-gray-200">
+                                    {isLoaded ? (
+                                        <GoogleMap
+                                            mapContainerStyle={{ width: '100%', height: '100%' }}
+                                            center={eventForm.lat && eventForm.lng ? { lat: eventForm.lat, lng: eventForm.lng } : { lat: 0.347596, lng: 32.582520 }}
+                                            zoom={eventForm.lat ? 15 : 11}
+                                            onClick={(e) => {
+                                                if (e.latLng) {
+                                                    setEventForm({ ...eventForm, lat: e.latLng.lat(), lng: e.latLng.lng() });
+                                                }
+                                            }}
+                                            options={{ mapTypeId: 'roadmap', streetViewControl: false, mapTypeControl: false }}
+                                        >
+                                            {eventForm.lat && eventForm.lng && (
+                                                <Marker position={{ lat: eventForm.lat, lng: eventForm.lng }} />
+                                            )}
+                                        </GoogleMap>
+                                    ) : (
+                                        <div className="w-full h-full bg-gray-100 flex items-center justify-center text-gray-400">Loading Map...</div>
+                                    )}
+                                </div>
+                                {eventForm.lat && eventForm.lng && (
+                                    <p className="text-xs text-gray-500 mt-1">Coordinates: {eventForm.lat.toFixed(6)}, {eventForm.lng.toFixed(6)}</p>
+                                )}
                             </div>
                             <div className="space-y-1">
                                 <label className="text-sm font-bold text-gray-700">Description</label>
@@ -301,6 +337,67 @@ const RegistrationModals: React.FC = () => {
                                     className="px-6 py-2.5 rounded-xl font-bold text-white bg-ministry-orange hover:bg-orange-600 shadow-md transition-colors"
                                 >
                                     {stationForm.id ? 'Save Changes' : 'Add Station'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+            
+            {/* Add Extra Data Entrant Modal */}
+            {isAddEntrantOpen && (
+                <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4 backdrop-blur-sm">
+                    <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-sm w-full border border-gray-200">
+                        <div className="flex items-center justify-between mb-6">
+                            <h3 className="text-xl font-bold text-gray-900">Add Data Entrant</h3>
+                            <button
+                                onClick={() => { setIsAddEntrantOpen(false); setNewEntrant({ name: '', username: '', password: '' }); }}
+                                className="p-2 hover:bg-gray-100 rounded-full text-gray-400 hover:text-gray-700 transition-colors"
+                            >✕</button>
+                        </div>
+                        <form onSubmit={handleAddExtraEntrant} className="space-y-4">
+                            <div className="space-y-1">
+                                <label className="text-sm font-bold text-gray-700">Full Name <span className="text-red-500">*</span></label>
+                                <input
+                                    required
+                                    value={newEntrant.name}
+                                    onChange={e => setNewEntrant({ ...newEntrant, name: e.target.value })}
+                                    className="w-full p-3 border border-gray-200 rounded-xl focus:outline-none focus:border-ministry-orange focus:ring-1 focus:ring-ministry-orange text-sm"
+                                    placeholder="e.g. John Doe"
+                                />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-sm font-bold text-gray-700">Username <span className="text-red-500">*</span></label>
+                                <input
+                                    required
+                                    value={newEntrant.username}
+                                    onChange={e => setNewEntrant({ ...newEntrant, username: e.target.value })}
+                                    className="w-full p-3 border border-gray-200 rounded-xl focus:outline-none focus:border-ministry-orange text-sm"
+                                    placeholder="Username"
+                                />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-sm font-bold text-gray-700">Password <span className="text-red-500">*</span></label>
+                                <input
+                                    required
+                                    type="password"
+                                    value={newEntrant.password}
+                                    onChange={e => setNewEntrant({ ...newEntrant, password: e.target.value })}
+                                    className="w-full p-3 border border-gray-200 rounded-xl focus:outline-none focus:border-ministry-orange text-sm"
+                                    placeholder="Password"
+                                />
+                            </div>
+                            <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
+                                <button
+                                    type="button"
+                                    onClick={() => { setIsAddEntrantOpen(false); setNewEntrant({ name: '', username: '', password: '' }); }}
+                                    className="px-5 py-2.5 rounded-xl font-bold text-gray-600 hover:bg-gray-100 transition-colors"
+                                >Cancel</button>
+                                <button
+                                    type="submit"
+                                    className="px-6 py-2.5 rounded-xl font-bold text-white bg-ministry-orange hover:bg-orange-600 shadow-md transition-colors"
+                                >
+                                    Add Entrant
                                 </button>
                             </div>
                         </form>

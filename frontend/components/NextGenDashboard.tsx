@@ -694,7 +694,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
     };
 
     return (
-        <div className="p-4 md:p-8 space-y-8 animate-in fade-in duration-500">
+        <div className="p-3 md:p-8 space-y-8 animate-in fade-in duration-500 pb-24 md:pb-8">
             <ConfirmationModal
                 isOpen={confirmModal.isOpen}
                 onClose={closeConfirmModal}
@@ -717,49 +717,98 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
             </div>
 
             {/* Navigation Tabs */}
+            {/* Navigation Tabs - Desktop */}
             {(viewMode === 'list' || viewMode === 'child-detail') && (
-                <div className="flex space-x-1 bg-gray-100 p-1.5 rounded-xl w-full md:w-fit overflow-x-auto scrollbar-hide">
-                    <button
-                        onClick={() => { setActiveTab('checkin'); setViewMode('list'); }}
-                        className={`flex items-center space-x-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${activeTab === 'checkin'
-                            ? 'bg-black text-white shadow-md'
-                            : 'text-gray-500 hover:text-gray-900'
-                            }`}
-                    >
-                        <CheckCircle className={`w-4 h-4 ${activeTab === 'checkin' ? 'text-ministry-neon' : ''}`} />
-                        <span>Check-In</span>
-                    </button>
-
-
-                    {!isRestrictedUser && (
+                <div className="hidden md:flex w-full overflow-x-auto hide-scrollbar pb-2 -mb-2">
+                    <div className="flex space-x-1 bg-white/60 backdrop-blur-md p-1.5 rounded-full w-max border border-gray-100 shadow-sm">
                         <button
-                            onClick={() => { setActiveTab('souls'); setViewMode('list'); }}
-                            className={`flex items-center space-x-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${activeTab === 'souls'
-                                ? 'bg-black text-white shadow-md'
-                                : 'text-gray-500 hover:text-gray-900'
+                            onClick={() => { setActiveTab('checkin'); setViewMode('list'); }}
+                            className={`flex items-center space-x-2 px-5 py-2.5 rounded-full text-sm font-semibold transition-all whitespace-nowrap ${activeTab === 'checkin'
+                                ? 'bg-black text-white shadow-md ring-1 ring-gray-200/50'
+                                : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50/50'
                                 }`}
                         >
-                            <Heart className={`w-4 h-4 ${activeTab === 'souls' ? 'text-ministry-neon' : ''}`} />
-                            <span>Souls DB</span>
+                            <CheckCircle className={`w-4 h-4 ${activeTab === 'checkin' ? 'text-ministry-neon' : ''}`} />
+                            <span>Check-In</span>
                         </button>
-                    )}
-                    {!isRestrictedUser && (
+                        {!isRestrictedUser && (
+                            <button
+                                onClick={() => { setActiveTab('souls'); setViewMode('list'); }}
+                                className={`flex items-center space-x-2 px-5 py-2.5 rounded-full text-sm font-semibold transition-all whitespace-nowrap ${activeTab === 'souls'
+                                    ? 'bg-black text-white shadow-md ring-1 ring-gray-200/50'
+                                    : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50/50'
+                                    }`}
+                            >
+                                <Heart className={`w-4 h-4 ${activeTab === 'souls' ? 'text-ministry-neon' : ''}`} />
+                                <span>Souls DB</span>
+                            </button>
+                        )}
+                        {!isRestrictedUser && (
+                            <button
+                                onClick={() => { setActiveTab('database'); setViewMode('list'); }}
+                                className={`flex items-center space-x-2 px-5 py-2.5 rounded-full text-sm font-semibold transition-all whitespace-nowrap ${activeTab === 'database'
+                                    ? 'bg-black text-white shadow-md ring-1 ring-gray-200/50'
+                                    : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50/50'
+                                    }`}
+                            >
+                                <Users className={`w-4 h-4 ${activeTab === 'database' ? 'text-ministry-neon' : ''}`} />
+                                <span>Children DB</span>
+                            </button>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {/* Navigation Tabs - Mobile Floating Bottom Bar (matches Registration style) */}
+            {(viewMode === 'list' || viewMode === 'child-detail') && (
+                <div className="md:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-sm">
+                    <div className="flex items-center justify-between gap-1 bg-white/90 backdrop-blur-xl p-1.5 rounded-full border border-gray-100 shadow-[0_8px_30px_rgb(0,0,0,0.12)]">
                         <button
-                            onClick={() => { setActiveTab('database'); setViewMode('list'); }}
-                            className={`flex items-center space-x-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${activeTab === 'database'
-                                ? 'bg-black text-white shadow-md'
-                                : 'text-gray-500 hover:text-gray-900'
-                                }`}
+                            onClick={() => { setActiveTab('checkin'); setViewMode('list'); }}
+                            className={`flex flex-col items-center justify-center w-full py-2 rounded-full transition-all duration-300 relative overflow-hidden ${activeTab === 'checkin' ? 'text-white' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50/50'}`}
                         >
-                            <Users className={`w-4 h-4 ${activeTab === 'database' ? 'text-ministry-neon' : ''}`} />
-                            <span>Children DB</span>
+                            {activeTab === 'checkin' && (
+                                <div className="absolute inset-0 bg-black rounded-full scale-100 animate-in zoom-in duration-300" />
+                            )}
+                            <div className="relative z-10 flex flex-col items-center gap-1">
+                                <CheckCircle strokeWidth={activeTab === 'checkin' ? 2.5 : 2} className={`w-4 h-4 transition-transform duration-300 ${activeTab === 'checkin' ? 'text-ministry-neon scale-110' : ''}`} />
+                                <span className={`text-[10px] tracking-wide transition-all duration-300 ${activeTab === 'checkin' ? 'font-bold text-white' : 'font-medium'}`}>Check-In</span>
+                            </div>
                         </button>
-                    )}
+                        {!isRestrictedUser && (
+                            <button
+                                onClick={() => { setActiveTab('souls'); setViewMode('list'); }}
+                                className={`flex flex-col items-center justify-center w-full py-2 rounded-full transition-all duration-300 relative overflow-hidden ${activeTab === 'souls' ? 'text-white' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50/50'}`}
+                            >
+                                {activeTab === 'souls' && (
+                                    <div className="absolute inset-0 bg-black rounded-full scale-100 animate-in zoom-in duration-300" />
+                                )}
+                                <div className="relative z-10 flex flex-col items-center gap-1">
+                                    <Heart strokeWidth={activeTab === 'souls' ? 2.5 : 2} className={`w-4 h-4 transition-transform duration-300 ${activeTab === 'souls' ? 'text-ministry-neon scale-110' : ''}`} />
+                                    <span className={`text-[10px] tracking-wide transition-all duration-300 ${activeTab === 'souls' ? 'font-bold text-white' : 'font-medium'}`}>Souls DB</span>
+                                </div>
+                            </button>
+                        )}
+                        {!isRestrictedUser && (
+                            <button
+                                onClick={() => { setActiveTab('database'); setViewMode('list'); }}
+                                className={`flex flex-col items-center justify-center w-full py-2 rounded-full transition-all duration-300 relative overflow-hidden ${activeTab === 'database' ? 'text-white' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50/50'}`}
+                            >
+                                {activeTab === 'database' && (
+                                    <div className="absolute inset-0 bg-black rounded-full scale-100 animate-in zoom-in duration-300" />
+                                )}
+                                <div className="relative z-10 flex flex-col items-center gap-1">
+                                    <Users strokeWidth={activeTab === 'database' ? 2.5 : 2} className={`w-4 h-4 transition-transform duration-300 ${activeTab === 'database' ? 'text-ministry-neon scale-110' : ''}`} />
+                                    <span className={`text-[10px] tracking-wide transition-all duration-300 ${activeTab === 'database' ? 'font-bold text-white' : 'font-medium'}`}>Children DB</span>
+                                </div>
+                            </button>
+                        )}
+                    </div>
                 </div>
             )}
 
             {/* Content Area */}
-            <div className="bg-ministry-card border border-gray-200 rounded-2xl p-6 shadow-sm min-h-[500px]">
+            <div className="md:bg-ministry-card md:border md:border-gray-200 md:rounded-2xl md:p-6 md:shadow-sm min-h-[500px]">
 
                 {/* --- SERVICE LIST (Shared for Check-In and Check-Out) --- */}
                 {(activeTab === 'checkin' || activeTab === 'checkout') && viewMode === 'list' && (
@@ -769,7 +818,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                                 {activeTab === 'checkin' ? 'Select Service for Check-In' : 'Select Service for Check-Out'}
                             </h3>
                         </div>
-                        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-6">
                             {services.map(service => {
                                 const serviceDate = new Date(service.date);
                                 const today = new Date();
@@ -778,36 +827,63 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                                 const isPast = serviceDate < today;
 
                                 return (
-                                    <div key={service.id} className="bg-white border border-gray-200 rounded-xl p-5 hover:border-ministry-orange/40 hover:shadow-md transition-all group">
-                                        <div className="flex justify-between items-start mb-3">
-                                            <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded-full ${isPast ? 'bg-gray-100 text-gray-500' : 'bg-green-100 text-green-700'}`}>
-                                                {isPast ? 'Past Service' : 'Active / Upcoming'}
-                                            </span>
-                                            <Calendar className="w-4 h-4 text-gray-400" />
+                                    <div key={service.id} className="bg-white border border-gray-200 rounded-xl p-4 md:p-5 hover:border-ministry-orange/40 hover:shadow-md transition-all group flex flex-col md:block cursor-pointer md:cursor-default" onClick={() => { if (window.innerWidth < 768) handleOpenService(service); }}>
+                                        {/* Desktop View */}
+                                        <div className="hidden md:block">
+                                            <div className="flex justify-between items-start mb-3">
+                                                <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded-full ${isPast ? 'bg-gray-100 text-gray-500' : 'bg-green-100 text-green-700'}`}>
+                                                    {isPast ? 'Past Service' : 'Active / Upcoming'}
+                                                </span>
+                                                <Calendar className="w-4 h-4 text-gray-400" />
+                                            </div>
+                                            <h4 className="text-lg font-bold text-ministry-text mb-1">{service.title}</h4>
+                                            <p className="text-sm text-gray-500 mb-4 flex items-center">
+                                                <Clock className="w-3 h-3 mr-1" /> {service.date} at {service.time}
+                                            </p>
+                                            {isServiceClosed(service.date) ? (
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); handleOpenService(service); }}
+                                                    className="w-full text-gray-600 bg-gray-100 py-2.5 rounded-lg font-bold flex items-center justify-center transition-colors hover:bg-gray-200"
+                                                >
+                                                    <Activity className="w-4 h-4 mr-2" /> View Highlights
+                                                </button>
+                                            ) : (
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); handleOpenService(service); }}
+                                                    className={`w-full text-white py-2.5 rounded-lg font-bold flex items-center justify-center transition-colors ${activeTab === 'checkout' ? 'bg-gray-800 hover:bg-gray-900' : 'bg-ministry-text hover:bg-ministry-orange'}`}
+                                                >
+                                                    {activeTab === 'checkout' ? (
+                                                        <><LogOut className="w-4 h-4 mr-2" /> Manage Check-Out</>
+                                                    ) : (
+                                                        <><CheckCircle className="w-4 h-4 mr-2" /> Manage Check-In</>
+                                                    )}
+                                                </button>
+                                            )}
                                         </div>
-                                        <h4 className="text-lg font-bold text-ministry-text mb-1">{service.title}</h4>
-                                        <p className="text-sm text-gray-500 mb-4 flex items-center">
-                                            <Clock className="w-3 h-3 mr-1" /> {service.date} at {service.time}
-                                        </p>
-                                        {isServiceClosed(service.date) ? (
-                                            <button
-                                                onClick={() => handleOpenService(service)}
-                                                className="w-full text-gray-600 bg-gray-100 py-2.5 rounded-lg font-bold flex items-center justify-center transition-colors hover:bg-gray-200"
-                                            >
-                                                <Activity className="w-4 h-4 mr-2" /> View Highlights
-                                            </button>
-                                        ) : (
-                                            <button
-                                                onClick={() => handleOpenService(service)}
-                                                className={`w-full text-white py-2.5 rounded-lg font-bold flex items-center justify-center transition-colors ${activeTab === 'checkout' ? 'bg-gray-800 hover:bg-gray-900' : 'bg-ministry-text hover:bg-ministry-orange'}`}
-                                            >
-                                                {activeTab === 'checkout' ? (
-                                                    <><LogOut className="w-4 h-4 mr-2" /> Manage Check-Out</>
+
+                                        {/* Mobile List View */}
+                                        <div className="md:hidden flex items-center justify-between w-full">
+                                            <div className="flex-1">
+                                                <h4 className="text-base font-bold text-ministry-text line-clamp-1">{service.title}</h4>
+                                                <p className="text-xs text-gray-500 flex items-center mt-1">
+                                                    {service.date} &bull; {service.time}
+                                                </p>
+                                            </div>
+                                            <div className="ml-3 shrink-0">
+                                                {isServiceClosed(service.date) ? (
+                                                    <button onClick={(e) => { e.stopPropagation(); handleOpenService(service); }} className="p-2 text-black flex items-center justify-center">
+                                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path></svg>
+                                                    </button>
                                                 ) : (
-                                                    <><CheckCircle className="w-4 h-4 mr-2" /> Manage Check-In</>
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); handleOpenService(service); }}
+                                                        className={`text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm ${activeTab === 'checkout' ? 'bg-gray-800' : 'bg-ministry-orange'}`}
+                                                    >
+                                                        View
+                                                    </button>
                                                 )}
-                                            </button>
-                                        )}
+                                            </div>
+                                        </div>
                                     </div>
                                 );
                             })}
@@ -911,38 +987,38 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                 {activeTab === 'database' && viewMode === 'list' && (
                     <div className="space-y-6">
                         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                            <h3 className="text-lg font-bold text-gray-800">Children's Database</h3>
-                            <div className="flex space-x-3 w-full md:w-auto">
-                                <button
-                                    onClick={handleExportToExcel}
-                                    className="flex-1 md:flex-none flex items-center justify-center space-x-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors shadow-sm font-medium"
-                                >
-                                    <Download className="w-4 h-4" />
-                                    <span className="hidden md:inline">Export Excel</span>
-                                </button>
+                            <h3 className="text-lg font-bold text-gray-800">Children’s Database</h3>
+                            <div className="flex gap-2 w-full md:w-auto">
                                 <button
                                     onClick={() => setViewMode('add-child')}
-                                    className="flex-1 md:flex-none flex items-center justify-center space-x-2 bg-ministry-text text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors"
+                                    className="flex-1 md:flex-none flex items-center justify-center space-x-2 bg-ministry-text text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors shadow-sm text-sm"
                                 >
                                     <UserPlus className="w-4 h-4" />
-                                    <span>Add Child</span>
+                                    <span className="whitespace-nowrap">Add Child</span>
                                 </button>
                                 <button
                                     onClick={() => setViewMode('bulk-import')}
-                                    className="flex-1 md:flex-none flex items-center justify-center space-x-2 bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors shadow-sm font-medium"
+                                    className="flex-1 md:flex-none flex items-center justify-center space-x-2 bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors shadow-sm font-medium text-sm"
                                 >
                                     <FileText className="w-4 h-4" />
-                                    <span>Bulk Import</span>
+                                    <span className="whitespace-nowrap">Import</span>
+                                </button>
+                                <button
+                                    onClick={handleExportToExcel}
+                                    className="flex-none flex items-center justify-center p-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
+                                    title="Export"
+                                >
+                                    <Download className="w-5 h-5" />
                                 </button>
                             </div>
                         </div>
 
                         <div className="flex flex-col md:flex-row gap-4 items-center">
-                            <div className="relative group max-w-lg flex-1 w-full">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                            <div className="relative flex-1 w-full">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                                 <input
-                                    className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:border-ministry-orange focus:ring-1 focus:ring-ministry-orange transition-all"
-                                    placeholder="Search by Child, Parent, or Contact..."
+                                    className="w-full pl-9 pr-4 py-2 bg-gray-100 border-none rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ministry-orange transition-all"
+                                    placeholder="Search database..."
                                     value={searchQuery}
                                     onChange={e => { setSearchQuery(e.target.value); setCurrentPage(1); }}
                                 />
@@ -988,57 +1064,33 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
                             </div>
                         </div>
 
-                        {/* Mobile View (Cards) */}
-                        <div className="md:hidden space-y-4">
+                        {/* Mobile View (Compact List) */}
+                        <div className="md:hidden bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden divide-y divide-gray-100">
                             {paginatedChildren.length > 0 ? paginatedChildren.map(c => (
-                                <div key={c.id} className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm relative">
-                                    {/* Selection Checkbox Absolute */}
-                                    <div className="absolute top-4 right-4">
-                                        <input
-                                            type="checkbox"
-                                            className="rounded border-gray-300 w-5 h-5 text-ministry-orange focus:ring-ministry-orange"
-                                            checked={selectedChildIds.has(c.id)}
-                                            onChange={() => handleSelectOne(c.id)}
-                                        />
+                                <div
+                                    key={c.id}
+                                    className="flex items-center gap-3 px-4 py-3 active:bg-gray-50 transition-colors cursor-pointer"
+                                    onClick={() => handleViewChild(c)}
+                                >
+                                    {/* Avatar circle */}
+                                    <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
+                                        <span className="text-sm font-bold text-gray-600">{c.name.charAt(0)}</span>
                                     </div>
-
-                                    <div className="pr-8">
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <h4 className="font-bold text-gray-900 text-lg">{c.name}</h4>
-                                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${c.category === 'First Timer' ? 'bg-orange-100 text-orange-700' : 'bg-gray-100 text-gray-600'}`}>
-                                                {c.category || 'Member'}
+                                    {/* Info */}
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-1.5">
+                                            <p className="font-semibold text-gray-900 text-sm truncate">{c.name}</p>
+                                            <span className={`shrink-0 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${c.category === 'First Timer' ? 'bg-orange-100 text-orange-700' : 'bg-gray-100 text-gray-500'}`}>
+                                                {c.category === 'First Timer' ? '1ST' : 'MBR'}
                                             </span>
                                         </div>
-                                        <div className="text-sm text-gray-600 mb-2">
-                                            {c.age} yrs • {c.gender}
-                                        </div>
-
-                                        <div className="bg-gray-50 p-2 rounded-lg text-xs text-gray-500 mb-3">
-                                            <div className="flex items-center gap-1 mb-1">
-                                                <UserIcon size={12} /> {c.parentName}
-                                            </div>
-                                            <div className="flex items-center gap-1">
-                                                <PhoneInput value={c.parentContact} onChange={() => { }} className="bg-transparent border-none p-0 h-auto text-xs" />
-                                            </div>
-                                        </div>
-
-                                        <div className="flex justify-between items-center">
-                                            <span className={`px-2 py-1 rounded-full text-xs font-bold ${c.status === 'Checked In' ? 'bg-green-100 text-green-700' :
-                                                c.status === 'Checked Out' ? 'bg-gray-100 text-gray-600' : 'bg-red-50 text-red-600'
-                                                }`}>
-                                                {c.status}
-                                            </span>
-                                            <button
-                                                onClick={() => handleViewChild(c)}
-                                                className="text-ministry-blue font-bold text-sm hover:underline bg-blue-50 px-3 py-1.5 rounded-lg flex items-center gap-1"
-                                            >
-                                                View Profile
-                                            </button>
-                                        </div>
+                                        <p className="text-xs text-gray-400 mt-0.5 truncate">{c.age}y • {c.gender} • {c.parentName}</p>
                                     </div>
+                                    {/* Chevron */}
+                                    <svg className="w-4 h-4 text-gray-300 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path></svg>
                                 </div>
                             )) : (
-                                <div className="p-8 text-center text-gray-500 italic">No records found.</div>
+                                <div className="p-8 text-center text-gray-400 text-sm">No records found.</div>
                             )}
                         </div>
 

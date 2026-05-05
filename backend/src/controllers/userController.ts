@@ -196,9 +196,13 @@ export const updateUser = async (req: Request, res: Response) => {
         const payload = {
             ...req.body,
             department_id: req.body.departmentId || req.body.department_id || null,
-            station_id: req.body.stationId || req.body.station_id || null,
-            event_id: req.body.eventId || req.body.event_id || null,
+            station_id:    req.body.stationId    || req.body.station_id    || null,
+            event_id:      req.body.eventId      || req.body.event_id      || null,
         };
+        // Strip fields that must NEVER be mutated via this endpoint
+        delete payload.id;
+        delete payload.manifest_id;
+        delete payload.created_by;
         delete payload.departmentId;
         delete payload.stationId;
         delete payload.eventId;

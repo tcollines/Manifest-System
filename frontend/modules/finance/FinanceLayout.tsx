@@ -25,8 +25,6 @@ import { UserStore } from '../../database/userStore';
 import { supabase } from '../../services/supabaseClient';
 import { Transaction, Requisition, Vehicle, Passenger, MinistryEvent } from '../../types';
 import { FinanceContext, FinanceContextValue } from './FinanceContext';
-import { useFinanceAnalytics } from '../../services/analyticsService';
-import { KpiCard } from '../../components/ui/KpiCard';
 
 // ─── Layout ───────────────────────────────────────────────────────────────────
 
@@ -414,34 +412,48 @@ const FinanceLayout: React.FC = () => {
         handlePrintFleetReport, handlePrintAccountability, handlePrintBatchAccountability,
     };
 
-    const { data: financeStats, isLoading: isFinanceStatsLoading } = useFinanceAnalytics();
+    const navTabs = [
+        { to: 'overview', label: 'Dashboard', icon: DollarSign },
+        { to: 'income', label: 'Income', icon: TrendingUp },
+        { to: 'expenses', label: 'Expenses', icon: CreditCard },
+        { to: 'requisitions', label: 'Requests', icon: FileText },
+        { to: 'fleet', label: 'Fleet', icon: Bus },
+    ];
 
     return (
         <FinanceContext.Provider value={contextValue}>
             <div className="flex flex-col min-h-full bg-gray-50">
-                {/* Top Nav */}
-                <div className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between flex-wrap sticky top-0 z-20 gap-4">
-                    <div className="flex items-center gap-2">
-                        <NavLink to="income" className={({ isActive }) => `flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${isActive ? 'bg-black text-white' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`}>
-                            <TrendingUp className="w-4 h-4" /> Income
-                        </NavLink>
-                        <NavLink to="expenses" className={({ isActive }) => `flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${isActive ? 'bg-black text-white' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`}>
-                            <CreditCard className="w-4 h-4" /> Expenses
-                        </NavLink>
-                        <NavLink to="requisitions" className={({ isActive }) => `flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${isActive ? 'bg-black text-white' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`}>
-                            <FileText className="w-4 h-4" /> Requisitions
-                        </NavLink>
-                        <NavLink to="fleet" className={({ isActive }) => `flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${isActive ? 'bg-black text-white' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`}>
-                            <Bus className="w-4 h-4" /> Fleet Logistics
-                        </NavLink>
-                    </div>
+                {/* Desktop Top Nav — hidden on mobile */}
+                <div className="hidden md:block w-full overflow-x-auto hide-scrollbar pt-6 px-6">
+                    <div className="flex items-center gap-4">
+                        <div className="inline-flex items-center gap-1 bg-white/60 backdrop-blur-md p-1.5 rounded-full border border-gray-100 shadow-sm">
+                            {navTabs.map((tab) => {
+                                const Icon = tab.icon;
+                                return (
+                                    <NavLink
+                                        key={tab.to}
+                                        to={tab.to}
+                                        className={({ isActive }) =>
+                                            `flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold transition-all duration-300 whitespace-nowrap ${isActive ? 'bg-black text-white shadow-md ring-1 ring-gray-200/50' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50/50'}`
+                                        }
+                                    >
+                                        {({ isActive }) => (
+                                            <>
+                                                <Icon strokeWidth={2.5} className={`w-4 h-4 ${isActive ? 'text-ministry-neon' : ''}`} />
+                                                {tab.label}
+                                            </>
+                                        )}
+                                    </NavLink>
+                                );
+                            })}
+                        </div>
 
                     {/* Event Selector */}
                     {events.length > 0 && (
-                        <select 
-                            value={selectedEventId} 
+                        <select
+                            value={selectedEventId}
                             onChange={e => setSelectedEventId(e.target.value)}
-                            className="px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm font-bold text-gray-700 outline-none focus:border-ministry-orange"
+                            className="px-4 py-2.5 bg-white border border-gray-200 rounded-full text-sm font-bold text-gray-700 outline-none focus:border-ministry-orange shadow-sm"
                         >
                             <option value="">-- View All (Global) --</option>
                             {events.map((ev) => (
@@ -451,37 +463,45 @@ const FinanceLayout: React.FC = () => {
                             ))}
                         </select>
                     )}
+                    </div>
                 </div>
 
-                {/* KPI Summary Strip using new KpiCard */}
-                <div className="bg-white border-b border-gray-200 px-6 py-4 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                    <KpiCard 
-                        label="Total Income" 
-                        value={formatMoney(financeStats?.total_income ?? 0)} 
-                        icon={TrendingUp} 
-                        isLoading={isFinanceStatsLoading} 
-                    />
-                    <KpiCard 
-                        label="Total Expenses" 
-                        value={formatMoney(financeStats?.total_expenses ?? 0)} 
-                        icon={CreditCard} 
-                        isLoading={isFinanceStatsLoading} 
-                    />
-                    <KpiCard 
-                        label="Net Balance" 
-                        value={formatMoney((financeStats?.total_income ?? 0) - (financeStats?.total_expenses ?? 0))} 
-                        icon={DollarSign} 
-                        isLoading={isFinanceStatsLoading} 
-                    />
-                    <KpiCard 
-                        label="Requisitions Pending" 
-                        value={financeStats?.requisitions_pending ?? 0} 
-                        icon={FileText} 
-                        isLoading={isFinanceStatsLoading} 
-                    />
-                </div>
+                {/* Content — no padding on mobile (edge-to-edge), padded on desktop */}
+                <div className="flex-1 pb-28 md:pb-0"><Outlet /></div>
+            </div>
 
-                <div className="flex-1"><Outlet /></div>
+            {/* ── Mobile Floating Bottom Navigation ────────────────────────── */}
+            <div className="md:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-md">
+                <div className="flex items-center justify-between gap-0.5 bg-white/90 backdrop-blur-xl p-1 rounded-full border border-gray-100 shadow-[0_8px_30px_rgb(0,0,0,0.12)]">
+                    {navTabs.map((tab) => {
+                        const Icon = tab.icon;
+                        return (
+                            <NavLink
+                                key={tab.to}
+                                to={tab.to}
+                                className={({ isActive }) =>
+                                    `flex flex-col items-center justify-center w-full py-1.5 rounded-full transition-all duration-300 relative overflow-hidden ${
+                                        isActive ? 'text-white' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50/50'
+                                    }`
+                                }
+                            >
+                                {({ isActive }) => (
+                                    <>
+                                        {isActive && (
+                                            <div className="absolute inset-0 bg-black rounded-full scale-100 animate-in zoom-in duration-300" />
+                                        )}
+                                        <div className="relative z-10 flex flex-col items-center gap-0.5">
+                                            <Icon strokeWidth={isActive ? 2.5 : 2} className={`w-4 h-4 transition-transform duration-300 ${isActive ? 'text-ministry-neon scale-110' : ''}`} />
+                                            <span className={`text-[10px] tracking-wide transition-all duration-300 ${isActive ? 'font-bold text-white' : 'font-medium'}`}>
+                                                {tab.label}
+                                            </span>
+                                        </div>
+                                    </>
+                                )}
+                            </NavLink>
+                        );
+                    })}
+                </div>
             </div>
 
             {/* ── Transaction Modal ──────────────────────────────────────────── */}

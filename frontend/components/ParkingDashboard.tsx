@@ -129,47 +129,54 @@ const ParkingDashboard: React.FC<ParkingDashboardProps> = ({ currentUser, events
         });
     });
 
+    const parkingTabs = [
+        { key: 'checkin' as ParkingTab, icon: CheckCircle, label: 'Check-In' },
+        { key: 'database' as ParkingTab, icon: Database, label: 'Vehicle DB' },
+    ];
+
     return (
-        <div className="p-8 space-y-8 animate-in fade-in duration-500">
+        <div className="p-4 md:p-8 space-y-6 md:space-y-8 animate-in fade-in duration-500 pb-28 md:pb-8">
             {/* Header */}
             <div className="flex justify-between items-center">
                 <div>
-                    <h1 className="text-3xl font-bold text-ministry-text flex items-center gap-3">
-                        <Car className="w-8 h-8 text-ministry-orange" />
+                    <h1 className="text-2xl md:text-3xl font-bold text-ministry-text flex items-center gap-3">
+                        <Car className="w-7 h-7 md:w-8 md:h-8 text-ministry-orange" />
                         Parking Management
                     </h1>
-                    <p className="text-gray-500">Vehicle registration, access control, and service check-ins.</p>
+                    <p className="text-gray-500 text-sm md:text-base">Vehicle registration, access control, and service check-ins.</p>
                 </div>
             </div>
 
-            {/* Navigation Tabs */}
+            {/* Desktop Navigation Tabs (hidden on mobile) */}
             {viewMode === 'list' && (
-                <div className="flex space-x-1 bg-gray-100 p-1.5 rounded-xl w-fit">
-                    <button
-                        onClick={() => switchTab('checkin')}
-                        className={`flex items-center space-x-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all ${activeTab === 'checkin'
-                            ? 'bg-black text-white shadow-md'
-                            : 'text-gray-500 hover:text-gray-900'
-                            }`}
-                    >
-                        <CheckCircle className={`w-4 h-4 ${activeTab === 'checkin' ? 'text-ministry-neon' : ''}`} />
-                        <span>Check-In</span>
-                    </button>
-                    <button
-                        onClick={() => switchTab('database')}
-                        className={`flex items-center space-x-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all ${activeTab === 'database'
-                            ? 'bg-black text-white shadow-md'
-                            : 'text-gray-500 hover:text-gray-900'
-                            }`}
-                    >
-                        <Database className={`w-4 h-4 ${activeTab === 'database' ? 'text-ministry-neon' : ''}`} />
-                        <span>Vehicle Database</span>
-                    </button>
+                <div className="hidden md:block w-full overflow-x-auto hide-scrollbar pb-2 -mb-2">
+                    <div className="flex space-x-1 bg-white/60 backdrop-blur-md p-1.5 rounded-full w-max border border-gray-100 shadow-sm">
+                        <button
+                            onClick={() => switchTab('checkin')}
+                            className={`flex items-center space-x-2 px-5 py-2.5 rounded-full text-sm font-semibold transition-all whitespace-nowrap ${activeTab === 'checkin'
+                                ? 'bg-black text-white shadow-md ring-1 ring-gray-200/50'
+                                : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50/50'
+                                }`}
+                        >
+                            <CheckCircle className={`w-4 h-4 ${activeTab === 'checkin' ? 'text-ministry-neon' : ''}`} />
+                            <span>Check-In</span>
+                        </button>
+                        <button
+                            onClick={() => switchTab('database')}
+                            className={`flex items-center space-x-2 px-5 py-2.5 rounded-full text-sm font-semibold transition-all whitespace-nowrap ${activeTab === 'database'
+                                ? 'bg-black text-white shadow-md ring-1 ring-gray-200/50'
+                                : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50/50'
+                                }`}
+                        >
+                            <Database className={`w-4 h-4 ${activeTab === 'database' ? 'text-ministry-neon' : ''}`} />
+                            <span>Vehicle Database</span>
+                        </button>
+                    </div>
                 </div>
             )}
 
-            {/* Content Area */}
-            <div className="bg-ministry-card border border-gray-200 rounded-2xl p-6 shadow-sm min-h-[500px]">
+            {/* Content Area — no card wrapper on mobile */}
+            <div className="md:bg-ministry-card md:border md:border-gray-200 md:rounded-2xl md:p-6 md:shadow-sm min-h-[500px]">
                 {activeTab === 'checkin' && (
                     <CheckInTab
                         services={services}
@@ -197,6 +204,37 @@ const ParkingDashboard: React.FC<ParkingDashboardProps> = ({ currentUser, events
                     />
                 )}
             </div>
+
+            {/* ── Mobile Floating Bottom Navigation ────────────────────────── */}
+            {viewMode === 'list' && (
+                <div className="md:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-sm">
+                    <div className="flex items-center justify-between gap-1 bg-white/90 backdrop-blur-xl p-1.5 rounded-full border border-gray-100 shadow-[0_8px_30px_rgb(0,0,0,0.12)]">
+                        {parkingTabs.map((tab) => {
+                            const Icon = tab.icon;
+                            const isActive = activeTab === tab.key;
+                            return (
+                                <button
+                                    key={tab.key}
+                                    onClick={() => switchTab(tab.key)}
+                                    className={`flex flex-col items-center justify-center w-full py-2 rounded-full transition-all duration-300 relative overflow-hidden ${
+                                        isActive ? 'text-white' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50/50'
+                                    }`}
+                                >
+                                    {isActive && (
+                                        <div className="absolute inset-0 bg-black rounded-full scale-100 animate-in zoom-in duration-300" />
+                                    )}
+                                    <div className="relative z-10 flex flex-col items-center gap-1">
+                                        <Icon strokeWidth={isActive ? 2.5 : 2} className={`w-4 h-4 transition-transform duration-300 ${isActive ? 'text-ministry-neon scale-110' : ''}`} />
+                                        <span className={`text-[10px] tracking-wide transition-all duration-300 ${isActive ? 'font-bold text-white' : 'font-medium'}`}>
+                                            {tab.label}
+                                        </span>
+                                    </div>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

@@ -4,6 +4,7 @@ import { User, ModalType, Passenger } from '../../types';
 import { UserStore } from '../../database/userStore';
 import { VehicleStore, mapVehicleFromDB } from '../../database/vehicleStore';
 import { LogisticsStore, ExtendedStation } from '../../database/logisticsStore';
+import { EventStore } from '../../database/eventStore';
 import { supabase } from '../../services/supabaseClient';
 import { useNotification } from '../../components/ui/NotificationSystem';
 import {
@@ -19,7 +20,7 @@ import {
 import PhoneInput from '../../components/PhoneInput';
 import { useAuth } from '../../context/AuthContext';
 import { TrackedVehicle } from './types';
-import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
+import { GoogleMap, useJsApiLoader, Marker, Polyline } from '@react-google-maps/api';
 
 const mapContainerStyle = {
     width: '100%',
@@ -41,6 +42,7 @@ const StageCoordinatorDashboard: React.FC = () => {
     const [passengerCounts, setPassengerCounts] = useState<Record<string, number>>({});
     const [allCoordinators, setAllCoordinators] = useState<User[]>([]);
     const [activeTab, setActiveTab] = useState<'overview' | 'staff' | 'vehicles' | 'map'>('overview');
+    const [eventLocation, setEventLocation] = useState<{lat: number, lng: number} | null>(null);
 
     // Forms
     const [newUser, setNewUser] = useState({ name: '', username: '', password: '', contact: '', role: 'Vehicle Coordinator' });
@@ -77,6 +79,20 @@ const StageCoordinatorDashboard: React.FC = () => {
             setStation(myStation || null);
 
             if (!myStation) return;
+
+            // 1.5 Get Event Details to find the destination
+            let destLoc = { lat: 0.3278, lng: 32.5936 }; // Fallback destination
+            if (myStation.eventId) {
+                const eventRes = await EventStore.getAll();
+                const events = eventRes.status === 'success' ? eventRes.data : [];
+                const thisEvent = events.find(e => e.id === myStation.eventId);
+                if (thisEvent && thisEvent.lat && thisEvent.lng) {
+                    destLoc = { lat: thisEvent.lat, lng: thisEvent.lng };
+                    setEventLocation(destLoc);
+                } else {
+                    setEventLocation(destLoc);
+                }
+            }
 
             // 2. Get Vehicles for this event/station (Server-scoped)
             const vehicleRes = await VehicleStore.getVehicles({ eventId: myStation.eventId });
@@ -130,6 +146,47 @@ const StageCoordinatorDashboard: React.FC = () => {
             showToast("Failed to load dashboard data", "error");
         }
     };
+
+    // Vehicle Simulation Effect
+    useEffect(() => {
+        if (!eventLocation) return;
+        
+        const interval = setInterval(() => {
+            setVehicles(prevVehicles => prevVehicles.map(v => {
+                // Determine if vehicle should be moving
+                const isMoving = v.status === 'En Route' || v.currentStage === 'Transit';
+                if (!isMoving) return v;
+                
+                if (!v.location) return v;
+                
+                const targetLat = eventLocation.lat;
+                const targetLng = eventLocation.lng;
+                
+                const dLat = targetLat - v.location.lat;
+                const dLng = targetLng - v.location.lng;
+                
+                const dist = Math.sqrt(dLat * dLat + dLng * dLng);
+                if (dist < 0.0001) {
+                    // Close enough to destination
+                    return { ...v, status: 'Arrived', currentStage: 'Arrived' } as any;
+                }
+                
+                // Simulation step (speed)
+                const step = 0.0002; 
+                const moveRatio = Math.min(step / dist, 1);
+                
+                return {
+                    ...v,
+                    location: {
+                        lat: v.location.lat + dLat * moveRatio,
+                        lng: v.location.lng + dLng * moveRatio
+                    }
+                };
+            }));
+        }, 100);
+        
+        return () => clearInterval(interval);
+    }, [eventLocation]);
 
     // Realtime Subscriptions
     useEffect(() => {
@@ -462,6 +519,29 @@ const StageCoordinatorDashboard: React.FC = () => {
                                     title="My Station"
                                 />
 
+                                {/* Event Destination Marker */}
+                                {eventLocation && (
+                                    <Marker
+                                        position={eventLocation}
+                                        title="Event Destination"
+                                        icon={{
+                                            url: "http://maps.google.com/mapfiles/ms/icons/purple-dot.png"
+                                        }}
+                                    />
+                                )}
+
+                                {/* Route Line */}
+                                {eventLocation && (
+                                    <Polyline
+                                        path={[center, eventLocation]}
+                                        options={{
+                                            strokeColor: '#000000',
+                                            strokeOpacity: 0.8,
+                                            strokeWeight: 4,
+                                        }}
+                                    />
+                                )}
+
                                 {/* Vehicle Markers */}
                                 {vehicles.map(v => (
                                     v.location && (
@@ -471,16 +551,15 @@ const StageCoordinatorDashboard: React.FC = () => {
                                             title={`${v.number_plate} (${v.driverName})`}
                                             label={{
                                                 text: `${v.coordinator || 'Unassigned'}`,
-                                                color: "white",
+                                                color: "black",
                                                 fontWeight: "bold",
                                                 fontSize: "12px",
-                                                className: "bg-gray-800 px-2 py-1 rounded shadow-md"
+                                                className: "bg-white px-2 py-1 rounded shadow-md mt-8"
                                             }}
                                             icon={{
-                                                url: v.status === 'Arrived' ? "http://maps.google.com/mapfiles/ms/icons/green-dot.png" :
-                                                    v.status === 'En Route' ? "http://maps.google.com/mapfiles/ms/icons/blue-dot.png" :
-                                                        "http://maps.google.com/mapfiles/ms/icons/red-dot.png",
-                                                labelOrigin: (window as any).google ? new (window as any).google.maps.Point(16, -20) : undefined
+                                                url: '/Pin.png',
+                                                scaledSize: (window as any).google ? new (window as any).google.maps.Size(40, 40) : undefined,
+                                                labelOrigin: (window as any).google ? new (window as any).google.maps.Point(20, 50) : undefined
                                             }}
                                         />
                                     )

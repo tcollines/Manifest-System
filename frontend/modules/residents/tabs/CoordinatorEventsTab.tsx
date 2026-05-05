@@ -26,7 +26,49 @@ const CoordinatorEventsTab: React.FC = () => {
                     <p className="text-sm text-gray-500">Select an event to build your confirmed list</p>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {/* ── Mobile List View ─────────────────────────────────────── */}
+                <div className="md:hidden flex flex-col space-y-3">
+                    {events.map(event => (
+                        <div key={`mobile-${event.id}`} className="bg-white border border-gray-200 rounded-xl p-4 hover:border-ministry-orange/40 transition-all flex flex-col gap-3 shadow-sm">
+                            <div 
+                                className="flex justify-between items-center cursor-pointer"
+                                onClick={() => setSelectedEvent(event)}
+                            >
+                                <div className="flex items-center gap-3">
+                                    <div className="bg-gray-50 p-2.5 rounded-lg border border-gray-100">
+                                        <Calendar className="w-5 h-5 text-gray-500" />
+                                    </div>
+                                    <div>
+                                        <h4 className="text-[15px] font-bold text-gray-900 leading-tight">{event.title}</h4>
+                                        <p className="text-xs text-gray-500 mt-0.5">{event.date} • {event.location}</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center pl-2">
+                                    <button 
+                                        onClick={(e) => { 
+                                            e.stopPropagation(); 
+                                            setSelectedEvent(event); 
+                                        }} 
+                                        className="bg-black text-ministry-neon px-4 py-1.5 rounded-lg text-sm font-bold shadow-sm"
+                                    >
+                                        Build
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+
+                    {events.length === 0 && (
+                        <div className="py-12 text-center bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                            <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                            <h3 className="text-lg font-medium text-gray-900">No Events Found</h3>
+                            <p className="text-sm text-gray-500 mt-1">There are no upcoming events currently listed.</p>
+                        </div>
+                    )}
+                </div>
+
+                {/* ── Desktop Grid View ────────────────────────────────────── */}
+                <div className="hidden md:grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {events.map(event => (
                         <div
                             key={event.id}

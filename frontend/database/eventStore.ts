@@ -13,7 +13,10 @@ export const mapEventFromDB = (e: any): MinistryEvent => ({
   description: e.description,
   stats: e.stats || { attendees: 0, firstTimers: 0, soulsWon: 0, students: 0, expenditure: '$0.00', nextGen: 0 },
   serviceNumber: e.service_number,
-  createdAt: e.created_at
+  createdAt: e.created_at,
+  lat: e.latitude ? parseFloat(e.latitude) : undefined,
+  lng: e.longitude ? parseFloat(e.longitude) : undefined,
+  locationName: e.location_name
 });
 
 const mapEventToDB = (e: MinistryEvent) => ({
@@ -25,7 +28,10 @@ const mapEventToDB = (e: MinistryEvent) => ({
   location: e.location,
   description: e.description,
   stats: e.stats,
-  service_number: e.serviceNumber
+  service_number: e.serviceNumber,
+  latitude: e.lat,
+  longitude: e.lng,
+  location_name: e.locationName
 });
 
 export const EventStore = {

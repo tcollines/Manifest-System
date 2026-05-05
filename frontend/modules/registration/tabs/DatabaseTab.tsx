@@ -53,30 +53,30 @@ export default function DatabaseTab() {
     <>
       <div className="space-y-6">
         {viewMode === 'list' && (
-          <div className="space-y-6 p-4 md:p-0">
+          <div className="space-y-6">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
               <h3 className="text-lg font-bold text-gray-800">Member Database</h3>
               <div className="flex gap-2 w-full md:w-auto">
                 <button
                   onClick={() => { setSelectedService(null); setViewMode('register-new'); }}
-                  className="flex-1 md:flex-none flex items-center justify-center space-x-2 bg-ministry-text text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors shadow-sm"
+                  className="flex-1 md:flex-none flex items-center justify-center space-x-2 bg-ministry-text text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors shadow-sm text-sm"
                 >
                   <Plus className="w-4 h-4" />
-                  <span>Add Member</span>
+                  <span className="whitespace-nowrap">Add Member</span>
                 </button>
                 <button
                   onClick={() => setViewMode('bulk-import-members')}
-                  className="flex-1 md:flex-none flex items-center justify-center space-x-2 bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors shadow-sm font-medium"
+                  className="flex-1 md:flex-none flex items-center justify-center space-x-2 bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors shadow-sm font-medium text-sm"
                 >
                   <FileSpreadsheet className="w-4 h-4" />
-                  <span>Bulk Import</span>
+                  <span className="whitespace-nowrap">Import</span>
                 </button>
                 <button
                   onClick={handleExportMembers}
-                  className="flex-1 md:flex-none flex items-center justify-center space-x-2 bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors shadow-sm font-medium"
+                  className="flex-none flex items-center justify-center p-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
+                  title="Export"
                 >
-                  <Download className="w-4 h-4" />
-                  <span>Export</span>
+                  <Download className="w-5 h-5" />
                 </button>
               </div>
             </div>
