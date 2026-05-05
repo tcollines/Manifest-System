@@ -104,17 +104,17 @@ const SettingsView: React.FC<SettingsViewProps> = ({ openModal, onDeleteUser, on
     useEffect(() => {
         const fetchDepts = async () => {
             try {
-                const { apiFetch } = await import('../services/api');
-                const data = await apiFetch('/departments');
-                if (Array.isArray(data)) {
+                const { DepartmentStore } = await import('../database/departmentStore');
+                const res = await DepartmentStore.getAll();
+                if (res.status === 'success' && res.data) {
                     // Merge: start with static depts, append custom DB-only depts
                     const staticIds = new Set(DEPARTMENTS.map((d: any) => d.id));
-                    const customDepts = data
-                        .filter((d: any) => d.is_custom)
-                        .map((d: any) => ({ id: d.id, name: d.name, slug: d.slug }));
+                    const customDepts = res.data
+                        .filter(d => d.isCustom)
+                        .map(d => ({ id: d.id, name: d.name, slug: d.slug }));
                     const merged = [
                         ...DEPARTMENTS,
-                        ...customDepts.filter((d: any) => !staticIds.has(d.id)),
+                        ...customDepts.filter(d => !staticIds.has(d.id)),
                     ];
                     setDepartments(merged);
                 }

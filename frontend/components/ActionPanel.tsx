@@ -25,14 +25,14 @@ const ActionPanel: React.FC<ActionPanelProps> = ({ modalType, closeModal, onSave
   const [allDepartments, setAllDepartments] = useState<{ id: string; name: string }[]>(DEPARTMENTS);
 
   useEffect(() => {
-    // Fetch custom departments from DB and append to DEPARTMENTS constant
-    import('../services/api').then(({ apiFetch }) => {
-      apiFetch('/departments')
-        .then((data: any[]) => {
-          if (!Array.isArray(data)) return;
-          const custom = data
-            .filter((d: any) => d.is_custom)
-            .map((d: any) => ({ id: d.id, name: d.name }));
+    // Fetch custom departments from DepartmentStore to ensure consistency
+    import('../database/departmentStore').then(({ DepartmentStore }) => {
+      DepartmentStore.getAll().then(res => {
+        if (res.status === 'success' && res.data) {
+          const custom = res.data
+            .filter(d => d.isCustom)
+            .map(d => ({ id: d.id, name: d.name }));
+          
           if (custom.length > 0) {
             // Merge: static first, then custom, de-duped by id
             const staticIds = new Set(DEPARTMENTS.map(d => d.id));
@@ -42,8 +42,8 @@ const ActionPanel: React.FC<ActionPanelProps> = ({ modalType, closeModal, onSave
             ].sort((a, b) => a.name.localeCompare(b.name));
             setAllDepartments(merged);
           }
-        })
-        .catch(() => { /* fallback: use static */ });
+        }
+      });
     });
   }, []);
 
