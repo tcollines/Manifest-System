@@ -11,6 +11,7 @@ import SetupAccount from './components/SetupAccount';
 import { AssetsTab } from './components/AssetsTab';
 import { ModalType, MinistryEvent, User } from './types';
 import { DEPARTMENTS } from './constants';
+import { getDashboardForUser } from './utils';
 import { UserStore } from './database/userStore';
 import { EventStore } from './database/eventStore';
 import { Bell, Search, Menu } from 'lucide-react';
@@ -74,13 +75,36 @@ const App: React.FC = () => {
     setIsSidebarOpen(false);
   }, [location.key]);
 
+  const isManualLogoutRef = React.useRef(false);
+
+  // ── Force Logout Navigation Handler ──────────────────────────────────────
+  React.useEffect(() => {
+    const handleForceLogoutNavigation = () => {
+      // Note: we don't clear the intended route here because we WANT to restore it 
+      // after they log back in from a forced expiration!
+      // The actual saving of the route and navigation happens in the render block below.
+    };
+    window.addEventListener('auth:force-logout', handleForceLogoutNavigation);
+    return () => window.removeEventListener('auth:force-logout', handleForceLogoutNavigation);
+  }, [navigate]);
+
   // ── Thin login wrappers (navigation only) ────────────────────────────────
+
+  const navigatePostLogin = (authenticatedUser: User) => {
+    const intendedRoute = sessionStorage.getItem('manifest_intended_route');
+    if (intendedRoute) {
+      sessionStorage.removeItem('manifest_intended_route');
+      navigate(intendedRoute, { replace: true });
+    } else {
+      navigate(getDashboardForUser(authenticatedUser), { replace: true });
+    }
+  };
 
   const handleLogin = async (username: string, password: string) => {
     setLoginError(null);
     const result = await login(username, password);
-    if (result.success) {
-      navigate(getDashboard(), { replace: true });
+    if (result.success && result.user) {
+      navigatePostLogin(result.user);
     } else {
       setLoginError(result.error || 'Invalid credentials');
     }
@@ -89,22 +113,26 @@ const App: React.FC = () => {
   const handleGoogleLogin = async (email: string, token: string) => {
     setLoginError(null);
     const result = await googleLogin(email, token);
-    if (result.success) {
-      navigate(getDashboard(), { replace: true });
+    if (result.success && result.user) {
+      navigatePostLogin(result.user);
     } else {
       setLoginError(result.error || 'Google login failed');
     }
   };
 
   const handleLogout = async () => {
+    // Prevent accidental restoration of stale route after manual logout
+    isManualLogoutRef.current = true;
+    sessionStorage.removeItem('manifest_intended_route');
     await logout();
     navigate('/', { replace: true });
+    setTimeout(() => { isManualLogoutRef.current = false; }, 200);
   };
 
   const handleSetupComplete = (updatedUser: User) => {
     UserStore.saveSession(updatedUser);
     showToast('Account setup complete!', 'success');
-    navigate(getDashboard(), { replace: true });
+    navigatePostLogin(updatedUser);
   };
 
   // ── Event handlers (thin wrappers; state lives in EventContext) ───────────
@@ -179,6 +207,12 @@ const App: React.FC = () => {
   }
 
   if (!user) {
+    if (location.pathname !== '/' && location.pathname !== '/setup-account') {
+      if (!isManualLogoutRef.current) {
+        sessionStorage.setItem('manifest_intended_route', location.pathname + location.search);
+      }
+      return <Navigate to="/" replace />;
+    }
     return <SignIn onLogin={handleLogin} onGoogleLogin={handleGoogleLogin} error={loginError} />;
   }
 

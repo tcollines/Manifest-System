@@ -1,5 +1,5 @@
 import React from 'react';
-import { Navigate, Outlet } from 'react-router-dom';
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { User } from '../types';
 import { getDashboardForUser } from '../utils';
@@ -35,6 +35,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     redirectPath = '/',
 }) => {
     const { user, isInitialLoading } = useAuth();
+    const location = useLocation();
 
     // ── Phase 1+2 loading: wait for auth to fully settle ─────────────────────
     // isInitialLoading in AuthContext covers BOTH the Supabase session check AND the
@@ -45,6 +46,11 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 
     // ── Unauthenticated: redirect ─────────────────────────────────────────────
     if (!user) {
+        // Store the intended route so we can return here after login
+        // Only if it's not the root path (to avoid useless re-routing)
+        if (location.pathname !== '/') {
+            sessionStorage.setItem('manifest_intended_route', location.pathname + location.search);
+        }
         return <Navigate to={redirectPath} replace />;
     }
 

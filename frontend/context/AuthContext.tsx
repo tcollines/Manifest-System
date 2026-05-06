@@ -11,8 +11,8 @@ interface AuthContextType {
     user: User | null;
     isInitialLoading: boolean;
     isAuthenticated: boolean;
-    login: (username: string, password: string) => Promise<{ success: boolean; error?: string }>;
-    googleLogin: (email: string, token: string) => Promise<{ success: boolean; error?: string }>;
+    login: (username: string, password: string) => Promise<{ success: boolean; user?: User; error?: string }>;
+    googleLogin: (email: string, token: string) => Promise<{ success: boolean; user?: User; error?: string }>;
     logout: () => Promise<void>;
     refreshUser: () => Promise<void>;
     getDashboard: () => string;
@@ -135,7 +135,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (response.status === 'success' && response.data) {
             setUser(response.data);
             UserStore.saveSession(response.data);
-            return { success: true };
+            return { success: true, user: response.data };
         }
         const errMsg = response.status === 'error' ? response.message : 'Invalid credentials';
         return { success: false, error: errMsg };
@@ -162,7 +162,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (profile?.name) {
                 setUser(profile);
                 UserStore.saveSession(profile);
-                return { success: true };
+                return { success: true, user: profile };
             }
             // Profile exists but has no name → not pre-invited
             return { success: false, error: 'Your Google email is not registered in Manifest. Please ask an Administrator to add you.' };
@@ -192,6 +192,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
         }
         keysToRemove.forEach(k => localStorage.removeItem(k));
+        
+        // Ensure manual logout never resurrects an old intended route
+        sessionStorage.removeItem('manifest_intended_route');
+        
         setUser(null);
     }, []);
 
