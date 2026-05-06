@@ -64,7 +64,7 @@ const SignIn: React.FC<SignInProps> = ({ onLogin, onGoogleLogin, error }) => {
 
 
   return (
-    <div className={`min-h-screen flex items-center justify-center p-4 relative overflow-hidden font-sans transition-colors duration-1000 ${imageFailed ? 'bg-[#008000]' : 'bg-black'}`}>
+    <div className={`min-h-[100dvh] flex items-center justify-center p-4 relative overflow-hidden font-sans transition-colors duration-1000 ${imageFailed ? 'bg-[#008000]' : 'bg-black'}`}>
 
       {/* Background Image Layer - Only render if not failed */}
       {!imageFailed && (

@@ -10,7 +10,7 @@ interface ResidentLayoutProps {
 export const ResidentLayout: React.FC<ResidentLayoutProps> = ({ events }) => (
     <div className="flex flex-col h-full bg-gray-50">
         <ResidentProvider initialEvents={events}>
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1">
                 <Outlet />
             </div>
         </ResidentProvider>

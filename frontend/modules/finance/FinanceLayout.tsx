@@ -471,7 +471,7 @@ const FinanceLayout: React.FC = () => {
             </div>
 
             {/* ── Mobile Floating Bottom Navigation ────────────────────────── */}
-            <div className="md:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-md">
+            <div className="md:hidden fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-md">
                 <div className="flex items-center justify-between gap-0.5 bg-white/75 backdrop-blur-2xl p-2 rounded-full border border-gray-100 shadow-[0_8px_30px_rgb(0,0,0,0.12)]">
                     {navTabs.map((tab) => {
                         const Icon = tab.icon;

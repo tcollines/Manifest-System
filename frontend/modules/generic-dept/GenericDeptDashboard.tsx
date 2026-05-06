@@ -235,7 +235,7 @@ const GenericDeptDashboard: React.FC<DashboardProps> = ({ openModal, onEditUser,
             </div>
 
             {/* Mobile Floating Bottom Nav */}
-            <nav className="md:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-40 w-[92%] max-w-sm">
+            <nav className="md:hidden fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 z-40 w-[92%] max-w-sm">
                 <div className="flex items-center justify-between gap-1 bg-white/75 backdrop-blur-2xl rounded-full p-2 shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-gray-100">
                     {bottomNavTabs.map(tab => {
                         const Icon = tab.icon;

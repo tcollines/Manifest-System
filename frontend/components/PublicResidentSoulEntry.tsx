@@ -116,11 +116,11 @@ const PublicResidentSoulEntry: React.FC = () => {
         setStatus('active');
     };
 
-    if (status === 'loading') return <div className="min-h-screen flex items-center justify-center bg-gray-50 text-gray-500">Loading Residential Area...</div>;
+    if (status === 'loading') return <div className="min-h-[100dvh] flex items-center justify-center bg-gray-50 text-gray-500">Loading Residential Area...</div>;
 
     if (status === 'success') {
         return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+            <div className="min-h-[100dvh] bg-gray-50 flex items-center justify-center p-4">
                 <div className="bg-white p-8 rounded-2xl shadow-xl text-center max-w-md w-full border border-green-100">
                     <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
                         <CheckCircle className="w-8 h-8" />
@@ -138,7 +138,7 @@ const PublicResidentSoulEntry: React.FC = () => {
 
     if (status === 'error') {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+            <div className="min-h-[100dvh] flex items-center justify-center bg-gray-50 p-4">
                 <div className="text-center">
                     <h2 className="text-xl font-bold text-gray-800 mb-2">Link Error</h2>
                     <p className="text-gray-500">{errorMsg}</p>
@@ -148,7 +148,7 @@ const PublicResidentSoulEntry: React.FC = () => {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 font-sans pb-20">
+        <div className="min-h-[100dvh] bg-gray-50 font-sans pb-20">
             <div className="bg-black text-white p-4 sticky top-0 z-10 shadow-md">
                 <div className="max-w-md mx-auto flex items-center justify-between">
                     <div className="flex items-center space-x-2">

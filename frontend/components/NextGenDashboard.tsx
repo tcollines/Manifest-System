@@ -761,7 +761,7 @@ const NextGenDashboard: React.FC<NextGenDashboardProps> = ({ events = [], onOpen
 
             {/* Navigation Tabs - Mobile Floating Bottom Bar (matches Registration style) */}
             {(viewMode === 'list' || viewMode === 'child-detail') && (
-                <div className="md:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-sm">
+                <div className="md:hidden fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-sm">
                     <div className="flex items-center justify-between gap-1 bg-white/90 backdrop-blur-xl p-1.5 rounded-full border border-gray-100 shadow-[0_8px_30px_rgb(0,0,0,0.12)]">
                         <button
                             onClick={() => { setActiveTab('checkin'); setViewMode('list'); }}

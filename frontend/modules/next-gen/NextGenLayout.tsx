@@ -9,7 +9,7 @@ interface NextGenLayoutProps {
 
 export const NextGenLayout: React.FC<NextGenLayoutProps> = () => (
   <div className="flex flex-col h-full bg-gray-50">
-    <div className="flex-1 overflow-y-auto scroll-smooth">
+    <div className="flex-1 w-full">
       <Outlet />
     </div>
   </div>

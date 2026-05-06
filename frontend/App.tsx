@@ -69,6 +69,11 @@ const App: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
+  // ── Auto-close sidebar on navigation ─────────────────────────────────────
+  React.useEffect(() => {
+    setIsSidebarOpen(false);
+  }, [location.key]);
+
   // ── Thin login wrappers (navigation only) ────────────────────────────────
 
   const handleLogin = async (username: string, password: string) => {
@@ -183,7 +188,7 @@ const App: React.FC = () => {
 
   // ── Authenticated layout ──────────────────────────────────────────────────
   return (
-    <div className="flex min-h-screen bg-ministry-black text-ministry-text font-sans selection:bg-ministry-neon selection:text-black">
+    <div className="flex min-h-[100dvh] bg-ministry-black text-ministry-text font-sans selection:bg-ministry-neon selection:text-black">
       {/* Mobile overlay */}
       {isSidebarOpen && (
         <div
@@ -199,7 +204,7 @@ const App: React.FC = () => {
         onClose={() => setIsSidebarOpen(false)}
       />
 
-      <main className="flex-1 flex flex-col min-h-screen md:ml-64 transition-all duration-300 w-full">
+      <main id="main-content" tabIndex={-1} className="flex-1 flex flex-col min-h-[100dvh] md:ml-64 transition-all duration-300 w-full outline-none">
         {/* Top header */}
         <header className="h-20 border-b border-gray-200 flex items-center justify-between px-4 md:px-8 bg-ministry-dark/95 backdrop-blur-md sticky top-0 z-30">
           <div className="flex items-center w-full md:w-96">
@@ -251,7 +256,7 @@ const App: React.FC = () => {
         </header>
 
         {/* Routes */}
-        <div className="flex-1 overflow-y-auto scroll-smooth">
+        <div className="flex-1 w-full relative">
           <Routes>
             <Route index element={<RoleRedirect user={user} />} />
 

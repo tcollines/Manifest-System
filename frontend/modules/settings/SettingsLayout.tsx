@@ -22,7 +22,7 @@ export const SettingsLayout: React.FC<SettingsLayoutProps> = () => (
         <ModuleTabs tabs={TABS} />
       </div>
     </div>
-    <div className="flex-1 overflow-y-auto w-full h-full relative">
+    <div className="flex-1 w-full relative">
       <Outlet />
     </div>
   </div>

@@ -207,7 +207,7 @@ const ParkingDashboard: React.FC<ParkingDashboardProps> = ({ currentUser, events
 
             {/* ── Mobile Floating Bottom Navigation ────────────────────────── */}
             {viewMode === 'list' && (
-                <div className="md:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-sm">
+                <div className="md:hidden fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-sm">
                     <div className="flex items-center justify-between gap-1 bg-white/90 backdrop-blur-xl p-1.5 rounded-full border border-gray-100 shadow-[0_8px_30px_rgb(0,0,0,0.12)]">
                         {parkingTabs.map((tab) => {
                             const Icon = tab.icon;
