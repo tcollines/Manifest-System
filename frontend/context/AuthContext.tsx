@@ -3,6 +3,7 @@ import { User } from '../types';
 import { UserStore } from '../database/userStore';
 import { supabase } from '../services/supabaseClient';
 import { getDashboardForUser } from '../utils';
+import { unsubscribeFromPush } from '../services/pushService';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -172,6 +173,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // ── Logout ────────────────────────────────────────────────────────────────
     const logout = useCallback(async () => {
+        try {
+            await unsubscribeFromPush();
+        } catch (e) {
+            console.warn('[AuthContext] unsubscribe push error (non-critical):', e);
+        }
+        
         try {
             await supabase.auth.signOut();
         } catch (e) {
