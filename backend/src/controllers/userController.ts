@@ -123,7 +123,7 @@ export const createUser = async (req: Request, res: Response) => {
 
         // --- NEW: Auto-Provision Auth Identity ---
         let authUserId = null;
-        if (payload.username && payload.password) {
+        if (payload.password && (payload.email || payload.username)) {
             // Generate unique synthetic email if none provided to prevent collisions with soft-deleted users
             const synthSuffix = Date.now().toString(36) + Math.random().toString(36).substring(2, 6);
             const targetEmail = payload.email || `${payload.username.toLowerCase().replace(/\s+/g, '')}_${synthSuffix}@manifest.local`;

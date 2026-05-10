@@ -55,6 +55,13 @@ export const WorkplanStore = {
             'Failed to generate global workplans'
         ),
 
+    /** Fetch global submission status for a specific month */
+    getGlobalStatus: async (month: string): Promise<ServiceResponse<any>> =>
+        safeFetch(
+            () => apiFetch(`/workplans/global-status/${month}`),
+            'Failed to fetch global workplan status'
+        ),
+
     /** Populate an existing Draft Workplan with items */
     populateDraft: async (workplanId: string, activities: any[]): Promise<ServiceResponse<any>> =>
         safeFetch(

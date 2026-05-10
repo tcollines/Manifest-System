@@ -83,15 +83,31 @@ export const normalizeUsername = (value: string): string =>
 
 // ─── Dates ────────────────────────────────────────────────────────────────────
 
-/**
- * Formats an ISO date string to a human-readable date.
- * e.g. "2026-04-03" → "3 Apr 2026"
- */
 export const formatDate = (iso: string | null | undefined): string => {
     if (!iso) return '—';
     const d = new Date(iso);
     if (isNaN(d.getTime())) return '—';
     return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+};
+
+/**
+ * Formats an ISO date string to a human-readable date with an ordinal suffix.
+ * e.g. "2026-04-03" → "3rd Apr 2026"
+ */
+export const formatDateOrdinal = (iso: string | null | undefined): string => {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return '—';
+    
+    const day = d.getDate();
+    const ordinal = (day % 10 === 1 && day !== 11) ? 'st' :
+                    (day % 10 === 2 && day !== 12) ? 'nd' :
+                    (day % 10 === 3 && day !== 13) ? 'rd' : 'th';
+                    
+    const month = d.toLocaleDateString('en-GB', { month: 'short' });
+    const year = d.getFullYear();
+    
+    return `${day}${ordinal} ${month} ${year}`;
 };
 
 /**

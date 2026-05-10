@@ -32,24 +32,55 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Until both are done, no component may make navigation decisions.
     const [isInitialLoading, setIsInitialLoading] = useState(true);
 
-    // Prevent the SIGNED_IN listener from double-fetching on token-refresh events
+    // Deduplication refs
     const isHandlingSignIn = useRef(false);
+    const profileFetchPromise = useRef<Promise<any> | null>(null);
+
+    // Centralized profile fetch with deduplication
+    const fetchAndSyncProfile = async (email: string, token?: string) => {
+        if (profileFetchPromise.current) return profileFetchPromise.current;
+        
+        profileFetchPromise.current = (async () => {
+            try {
+                const profile = await UserStore.getByEmail(email, token);
+                if (profile) {
+                    setUser(profile);
+                    UserStore.saveSession(profile);
+                }
+                return profile;
+            } finally {
+                profileFetchPromise.current = null;
+            }
+        })();
+        
+        return profileFetchPromise.current;
+    };
 
     // ── Phase 1+2: Session restoration on mount ───────────────────────────────
-    // This runs once on cold load (page refresh). It covers the case where the
-    // user is already authenticated in localStorage.
+    // Optimistic Hydration: render UI immediately if we have a valid cached session
     useEffect(() => {
         const restoreSession = async () => {
+            // 1. Optimistic Hydration
+            const cachedUser = UserStore.getSession();
+            if (cachedUser) {
+                setUser(cachedUser);
+                setIsInitialLoading(false); // Unblock splash screen instantly!
+            }
+
+            // 2. Background Validation
             try {
                 const { data: { session } } = await supabase.auth.getSession();
                 if (session?.user?.email) {
-                    const profile = await UserStore.getByEmail(session.user.email);
-                    if (profile) setUser(profile);
+                    await fetchAndSyncProfile(session.user.email, session.access_token);
+                } else if (cachedUser) {
+                    // Cache is stale/invalid, clear it out
+                    setUser(null);
+                    UserStore.clearSession();
                 }
             } catch (e) {
-                console.warn('[AuthContext] Session restore failed:', e);
+                console.warn('[AuthContext] Background session restore failed:', e);
             } finally {
-                // Phase 1+2 complete for the cold-load case
+                // Failsafe unblock if optimistic hydration didn't run
                 setIsInitialLoading(false);
             }
         };
@@ -72,14 +103,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 isHandlingSignIn.current = true;
 
                 try {
-                    const profile = await UserStore.getByEmail(
-                        session.user.email,
-                        session.access_token
-                    );
-                    if (profile) {
-                        setUser(profile);
-                        UserStore.saveSession(profile);
-                    }
+                    await fetchAndSyncProfile(session.user.email, session.access_token);
                 } catch (e) {
                     console.warn('[AuthContext] SIGNED_IN profile fetch failed:', e);
                 } finally {

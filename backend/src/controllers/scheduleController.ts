@@ -86,6 +86,100 @@ export const deleteSchedule = async (req: Request, res: Response) => {
     } catch { res.status(500).json({ error: 'An internal server error occurred.' }); }
 };
 
+export const generateGlobalSchedules = async (req: Request, res: Response) => {
+    const manifestId = guard(req, res); if (!manifestId) return;
+    const userId = (req as any).userId;
+    const { title, weekStart } = req.body;
+    
+    if (!title || !weekStart) return res.status(400).json({ error: 'title and weekStart are required' });
+
+    try {
+        const { data: departments, error: deptError } = await supabase
+            .from('departments')
+            .select('id')
+            .eq('manifest_id', manifestId)
+            .ilike('status', 'active');
+            
+        if (deptError) throw deptError;
+        if (!departments || departments.length === 0) return res.status(400).json({ error: 'No active departments found.' });
+
+        const { data: existingSchedules, error: existingError } = await supabase
+            .from('service_schedules')
+            .select('department_id')
+            .eq('manifest_id', manifestId)
+            .eq('week_start', weekStart);
+
+        if (existingError) throw existingError;
+
+        const existingDeptIds = new Set(existingSchedules.map(s => s.department_id));
+
+        const newSchedules = departments
+            .filter(dept => !existingDeptIds.has(dept.id))
+            .map(dept => ({
+                id: uuidv4(),
+                manifest_id: manifestId,
+                department_id: dept.id,
+                title,
+                week_start: weekStart,
+                status: 'Draft',
+                created_by: userId
+            }));
+
+        if (newSchedules.length === 0) {
+            return res.status(200).json({ message: 'All departments already have a schedule for this week.' });
+        }
+
+        const { error: insertError } = await supabase
+            .from('service_schedules')
+            .insert(newSchedules);
+            
+        if (insertError) throw insertError;
+
+        res.status(201).json({ message: `Successfully generated ${newSchedules.length} draft schedules.` });
+    } catch (err) { 
+        console.error('[generateGlobalSchedules]', err); 
+        res.status(500).json({ error: 'An internal server error occurred.' }); 
+    }
+};
+
+export const getGlobalStatus = async (req: Request, res: Response) => {
+    const manifestId = guard(req, res); if (!manifestId) return;
+    const { weekStart } = req.params;
+    try {
+        const { data: activeDepts, error: deptError } = await supabase
+            .from('departments')
+            .select('id, name')
+            .eq('manifest_id', manifestId)
+            .ilike('status', 'active')
+            .order('name');
+        
+        if (deptError) throw deptError;
+
+        const { data: schedules, error: schedError } = await supabase
+            .from('service_schedules')
+            .select('department_id, status')
+            .eq('manifest_id', manifestId)
+            .eq('week_start', weekStart);
+
+        if (schedError) throw schedError;
+
+        const submittedDepts = new Set(schedules.filter(s => s.status !== 'Draft').map(s => s.department_id));
+        const hasDraftDepts = new Set(schedules.filter(s => s.status === 'Draft').map(s => s.department_id));
+
+        const result = {
+            total: activeDepts.length,
+            submitted: activeDepts.filter(d => submittedDepts.has(d.id)),
+            draft: activeDepts.filter(d => hasDraftDepts.has(d.id) && !submittedDepts.has(d.id)),
+            missing: activeDepts.filter(d => !submittedDepts.has(d.id) && !hasDraftDepts.has(d.id))
+        };
+
+        res.json(result);
+    } catch (err) {
+        console.error('[getGlobalScheduleStatus]', err);
+        res.status(500).json({ error: 'An internal server error occurred.' });
+    }
+};
+
 // ─── Sessions ─────────────────────────────────────────────────
 
 export const addSession = async (req: Request, res: Response) => {

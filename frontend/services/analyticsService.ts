@@ -44,6 +44,16 @@ export const analyticsService = {
         }
     },
 
+    fetchDashboardBootstrap: async () => {
+        try {
+            const data = await apiFetch('/analytics/dashboard/bootstrap');
+            return data;
+        } catch (error) {
+            console.error('Error fetching dashboard bootstrap:', error);
+            return null;
+        }
+    },
+
     // Phase 3: Workflow Analytics
     fetchWorkflowSummary: async (from?: string, to?: string) => {
         const query = new URLSearchParams();

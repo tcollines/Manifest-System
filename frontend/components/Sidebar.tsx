@@ -153,12 +153,12 @@ const Sidebar: React.FC<SidebarProps> = ({ onLogout, isOpen, onClose }) => {
       sections.push({ title: 'My Department', items: myDeptItems });
   }
 
-  // 2. Global Operations & Approvals (Team Leader / Systems Admins)
+  // 2. Manifest Operations & Approvals (Team Leader / Systems Admins)
   if (isTeamLeader || isSystemAdmin) {
       const globalApprovalItems = [
-          { id: 'global-reports', label: 'Global Reports', icon: BarChart2, path: '/reports' },
-          { id: 'global-assets', label: 'Global Assets', icon: Package, path: '/assets' },
-          { id: 'global-schedules', label: 'Global Service Schedule', icon: Calendar, path: '/schedules' },
+          { id: 'global-reports', label: 'Manifest Reports', icon: BarChart2, path: '/reports' },
+          { id: 'global-assets', label: 'Manifest Assets', icon: Package, path: '/assets' },
+          { id: 'global-schedules', label: 'Manifest Service Schedule', icon: Calendar, path: '/schedules' },
           { id: 'global-workplans', label: 'Review Workplans', icon: FileCheck, path: '/approvals/workplans' }
       ];
       
@@ -166,16 +166,16 @@ const Sidebar: React.FC<SidebarProps> = ({ onLogout, isOpen, onClose }) => {
       if (isTeamLeader) {
           globalApprovalItems.splice(1, 0, { id: 'global-requisitions', label: 'Requisitions Queue', icon: FileText, path: '/approvals/requisitions' });
       } else if (isSystemAdmin) {
-          globalApprovalItems.splice(1, 0, { id: 'admin-requisitions', label: 'Global Requisitions', icon: FileText, path: '/approvals/adhoc-requisitions' });
+          globalApprovalItems.splice(1, 0, { id: 'admin-requisitions', label: 'Manifest Requisitions', icon: FileText, path: '/approvals/adhoc-requisitions' });
       }
 
       sections.push({
-          title: 'Global Approvals',
+          title: 'Manifest Approvals',
           items: globalApprovalItems
       });
   }
 
-  // 3. Global Finance (Finance specific workers)
+  // 3. Manifest Finance (Finance specific workers)
   const financeItems = [];
   
   // Req processing is designated ONLY for Global Finance workers to batch.
@@ -190,7 +190,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onLogout, isOpen, onClose }) => {
 
   if (financeItems.length > 0) {
       sections.push({
-          title: 'Global Finance',
+          title: 'Manifest Finance',
           items: financeItems
       });
   }
@@ -206,7 +206,13 @@ const Sidebar: React.FC<SidebarProps> = ({ onLogout, isOpen, onClose }) => {
       });
   }
 
-  const handleItemClick = () => { if (window.innerWidth < 768) onClose(); };
+  const handleItemClick = () => { 
+    if (window.innerWidth < 768) {
+      React.startTransition(() => {
+        onClose();
+      });
+    }
+  };
 
   return (
     <>

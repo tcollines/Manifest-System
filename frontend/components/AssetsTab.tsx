@@ -7,8 +7,8 @@ import {
     User as UserIcon, CheckCircle, AlertTriangle, X
 } from 'lucide-react';
 import { Asset, AssetStore } from '../database/assetStore';
-import { User } from '../types';
-import { DEPARTMENTS } from '../constants';
+import { User, Department } from '../types';
+import { DepartmentStore } from '../database/departmentStore';
 import { departmentMap } from '../constants/departmentMap';
 
 interface AssetsTabProps {
@@ -19,6 +19,7 @@ interface AssetsTabProps {
 export const AssetsTab: React.FC<AssetsTabProps> = ({ departmentId, currentUser }) => {
     const { showToast, confirm: askConfirm } = useNotification();
     const [assets, setAssets] = useState<Asset[]>([]);
+    const [departments, setDepartments] = useState<Department[]>([]);
     const [loading, setLoading] = useState(true);
     const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
     const [searchQuery, setSearchQuery] = useState('');
@@ -59,6 +60,11 @@ export const AssetsTab: React.FC<AssetsTabProps> = ({ departmentId, currentUser 
                 data = await AssetStore.getAll();
             }
             setAssets(data);
+
+            const deptRes = await DepartmentStore.getAll();
+            if (deptRes.status === 'success') {
+                setDepartments(deptRes.data.filter(d => d.status.toLowerCase() === 'active'));
+            }
         } catch (error) {
             console.error("Error fetching assets:", error);
         } finally {
@@ -196,7 +202,7 @@ export const AssetsTab: React.FC<AssetsTabProps> = ({ departmentId, currentUser 
                             className="w-full md:w-48 py-2 px-3 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-ministry-orange"
                         >
                             <option value="">All Departments</option>
-                            {DEPARTMENTS.map(dept => (
+                            {departments.map(dept => (
                                 <option key={dept.id} value={dept.id}>{dept.name}</option>
                             ))}
                         </select>
@@ -261,7 +267,7 @@ export const AssetsTab: React.FC<AssetsTabProps> = ({ departmentId, currentUser 
                                     </td>
                                     <td className="p-4">
                                         <span className="text-sm font-bold text-gray-700 px-2 py-1 bg-gray-100 rounded-lg">
-                                            {DEPARTMENTS.find(d => d.id === asset.department_id)?.name || asset.department_id}
+                                            {departments.find(d => d.id === asset.department_id)?.name || asset.department_id}
                                         </span>
                                     </td>
                                     <td className="p-4">
@@ -351,7 +357,7 @@ export const AssetsTab: React.FC<AssetsTabProps> = ({ departmentId, currentUser 
                                         className={`w-full p-3 border rounded-xl bg-white ${!(currentUser.role === 'Administrator' || currentUser.role === 'Super Admin' || currentUser.role === 'TeamLeader') ? 'opacity-70 bg-gray-100' : ''}`}
                                     >
                                         <option value="">Select Department...</option>
-                                        {DEPARTMENTS.map(dept => (
+                                        {departments.map(dept => (
                                             <option key={dept.id} value={dept.id}>{dept.name}</option>
                                         ))}
                                     </select>

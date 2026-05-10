@@ -221,4 +221,4 @@ const DepartmentList: React.FC<DepartmentListProps> = () => {
     );
 };
 
-export default DepartmentList;
+export default React.memo(DepartmentList);

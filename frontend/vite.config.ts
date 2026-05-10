@@ -19,6 +19,19 @@ export default defineConfig(({ mode }) => {
       alias: {
         '@': path.resolve(__dirname, '.'),
       }
+    },
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            vendor: ['react', 'react-dom', 'react-router-dom'],
+            lucide: ['lucide-react'],
+            supabase: ['@supabase/supabase-js'],
+            charts: ['recharts'],
+            maps: ['mapbox-gl'],
+          }
+        }
+      }
     }
   };
 });

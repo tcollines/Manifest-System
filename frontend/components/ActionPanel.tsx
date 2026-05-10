@@ -7,19 +7,21 @@ import { X, Save, UserPlus, Calendar, Briefcase, Target, Lock, Phone, Mail, Load
 import { DEPARTMENTS } from '../constants';
 import { supabase } from '../services/supabaseClient';
 import { ManifestStore } from '../database/manifestStore';
+import { EventStore } from '../database/eventStore';
+import { useEvent } from '../context/EventContext';
 
 interface ActionPanelProps {
   modalType: ModalType;
   closeModal: () => void;
-  onSave?: (data: any) => void;
   onSaveUser?: (data: User) => void;
   onUpdateUser?: (data: User) => void;
   currentUser?: User | null;
   targetUser?: User | null;
 }
 
-const ActionPanel: React.FC<ActionPanelProps> = ({ modalType, closeModal, onSave, onSaveUser, onUpdateUser, currentUser, targetUser }) => {
+const ActionPanel: React.FC<ActionPanelProps> = ({ modalType, closeModal, onSaveUser, onUpdateUser, currentUser, targetUser }) => {
   const { showToast } = useNotification();
+  const { addEvent, refreshEvents } = useEvent();
 
   // Merged static + dynamic departments for the dropdown
   const [allDepartments, setAllDepartments] = useState<{ id: string; name: string }[]>(DEPARTMENTS);
@@ -164,7 +166,22 @@ const ActionPanel: React.FC<ActionPanelProps> = ({ modalType, closeModal, onSave
         stats: { attendees: 0, firstTimers: 0, soulsWon: 0, nextGen: 0, students: 0, expenditure: '$0.00' },
         serviceNumber: formData.serviceNumber ? parseInt(formData.serviceNumber) : undefined
       };
-      if (onSave) onSave(newEvent);
+      
+      setIsSubmitting(true);
+      try {
+        addEvent(newEvent);             // optimistic update in context
+        await EventStore.add(newEvent);
+        await refreshEvents();          // reconcile from DB
+        showToast(`${newEvent.type} created successfully!`, 'success');
+        closeModal();
+      } catch (error: any) {
+        console.error('Failed to save event:', error);
+        showToast(`Failed to save event: ${error.message || 'Unknown error'}`, 'error');
+        refreshEvents();
+      } finally {
+        setIsSubmitting(false);
+      }
+      return;
     } else if (modalType === ModalType.SET_TARGETS) {
       setIsSubmitting(true);
       try {

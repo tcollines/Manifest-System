@@ -11,6 +11,8 @@ import {
     addAssignment,
     deleteAssignment,
     getMemberServingHistory,
+    generateGlobalSchedules,
+    getGlobalStatus
 } from '../controllers/scheduleController';
 
 const router = Router();
@@ -18,6 +20,8 @@ const router = Router();
 // Schedules
 router.get('/',                                                    getAllSchedules);
 router.get('/department/:departmentId',                            getSchedulesByDepartment);
+router.get('/global-status/:weekStart',                            getGlobalStatus);
+router.post('/global-generate',                                    generateGlobalSchedules);
 router.post('/',                                                   createSchedule);
 router.patch('/:scheduleId',                                       updateSchedule);
 router.delete('/:scheduleId',                                      deleteSchedule);

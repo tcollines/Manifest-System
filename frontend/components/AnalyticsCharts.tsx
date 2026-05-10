@@ -23,38 +23,54 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   return null;
 };
 
-const AnalyticsCharts: React.FC = () => {
-  const [attendanceData, setAttendanceData] = React.useState<any[]>(ATTENDANCE_DATA);
-  const [soulsData, setSoulsData] = React.useState<any[]>(SOUL_WINNING_DATA);
+interface AnalyticsChartsProps {
+  initialAttendanceData?: any[];
+  initialSoulsData?: any[];
+}
+
+const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({ initialAttendanceData, initialSoulsData }) => {
+  const [attendanceData, setAttendanceData] = React.useState<any[]>(initialAttendanceData || ATTENDANCE_DATA);
+  const [soulsData, setSoulsData] = React.useState<any[]>(initialSoulsData || SOUL_WINNING_DATA);
   const [totalSouls, setTotalSouls] = React.useState<number>(0);
   const [selectedMonth, setSelectedMonth] = React.useState<string>('All');
   const [availableMonths, setAvailableMonths] = React.useState<string[]>([]);
 
   // Fetch data on mount
   React.useEffect(() => {
+    let isMounted = true;
     const loadData = async () => {
       try {
         const { analyticsService } = await import('../services/analyticsService');
-        const attData = await analyticsService.fetchAttendanceAnalytics();
-        const sData = await analyticsService.fetchSoulWinningAnalytics();
-
-        if (attData) {
-          setAttendanceData(attData);
-
-          // Extract unique months from data (assuming name format "Jan 4", "Feb 1", etc. or fullDate)
-          const months = Array.from(new Set(attData.map((item: any) => {
-            // item.name is like "Jan 1" (week) or "Jan 4" (date) 
-            // Logic: Extract "Jan", "Feb" etc.
-            const month = item.name.split(' ')[0];
-            return month;
-          })));
-          setAvailableMonths(['All', ...months]);
+        
+        let attData = initialAttendanceData;
+        if (!attData) {
+            attData = await analyticsService.fetchAttendanceAnalytics();
         }
 
-        if (sData && sData.length > 0) {
-          setSoulsData(sData);
-          const total = sData.reduce((acc: number, curr: any) => acc + (curr.value || 0), 0);
-          setTotalSouls(total);
+        let sData = initialSoulsData;
+        if (!sData) {
+            sData = await analyticsService.fetchSoulWinningAnalytics();
+        }
+
+        if (isMounted) {
+          if (attData) {
+            setAttendanceData(attData);
+
+            // Extract unique months from data (assuming name format "Jan 4", "Feb 1", etc. or fullDate)
+            const months = Array.from(new Set(attData.map((item: any) => {
+              // item.name is like "Jan 1" (week) or "Jan 4" (date) 
+              // Logic: Extract "Jan", "Feb" etc.
+              const month = item.name.split(' ')[0];
+              return month;
+            })));
+            setAvailableMonths(['All', ...months]);
+          }
+
+          if (sData && sData.length > 0) {
+            setSoulsData(sData);
+            const total = sData.reduce((acc: number, curr: any) => acc + (curr.value || 0), 0);
+            setTotalSouls(total);
+          }
         }
       } catch (error) {
         console.error("Failed to load analytics data:", error);
@@ -62,6 +78,7 @@ const AnalyticsCharts: React.FC = () => {
     };
 
     loadData();
+    return () => { isMounted = false; };
   }, []);
 
   const filteredData = React.useMemo(() => {
@@ -183,4 +200,4 @@ const AnalyticsCharts: React.FC = () => {
   );
 };
 
-export default AnalyticsCharts;
+export default React.memo(AnalyticsCharts);

@@ -8,6 +8,7 @@ import LoadingSpinner from '../../../components/ui/LoadingSpinner';
 import EmptyState from '../../../components/ui/EmptyState';
 import { formatDate } from '../../../shared/formatters';
 import { ClipboardList, Plus, X, ChevronDown, ChevronUp, Trash2, CheckCircle2, XCircle, Settings2 } from 'lucide-react';
+import SubmissionStatusWidget from '../../../components/SubmissionStatusWidget';
 
 interface Props { department: Department; user: User | null; deptRole: DeptRole | null; systemRole: any; }
 
@@ -395,6 +396,8 @@ const WorkplansTab: React.FC<Props> = ({ department, user, deptRole, systemRole 
                     <p className="text-sm text-gray-500">Wait for System Admin to generate the draft for the month, then populate it.</p>
                 </div>
             </div>
+
+            <SubmissionStatusWidget type="workplan" periodId={workplans[0]?.month ?? ''} />
 
             {populatingWp && (
                 <PopulateWorkplanForm

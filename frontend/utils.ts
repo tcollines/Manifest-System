@@ -193,7 +193,7 @@ export const getDashboardForUser = (user: User): string => {
     if (id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
         return `/departments/${id}/dashboard`;
     }
-    // Truly unknown — prompt setup
-    return '/setup-account';
+    // Truly unknown — send to root to re-evaluate
+    return '/';
 };
 

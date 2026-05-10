@@ -231,8 +231,8 @@ export const getFollowUpAnalysis = async (req: Request, res: Response) => {
     if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
 
     try {
-        // 1. Get the last 3 services
-        const { data: recentServices, error: eventsError } = await supabase
+        // Run independent queries in parallel
+        const p_recentServices = supabase
             .from('ministry_events')
             .select('id, date')
             .eq('manifest_id', manifestId)
@@ -240,31 +240,33 @@ export const getFollowUpAnalysis = async (req: Request, res: Response) => {
             .order('date', { ascending: false })
             .limit(3);
 
+        const p_allServices = supabase
+            .from('ministry_events')
+            .select('id, date')
+            .eq('manifest_id', manifestId)
+            .eq('type', 'Service');
+
+        const p_members = supabase
+            .from('members')
+            .select('id, name, phone, attended_service_ids, follow_up_status, follow_up_notes')
+            .eq('manifest_id', manifestId);
+
+        const [
+            { data: recentServices, error: eventsError },
+            { data: allServices },
+            { data: members, error: membersError }
+        ] = await Promise.all([p_recentServices, p_allServices, p_members]);
+
         if (eventsError) throw eventsError;
         if (!recentServices || recentServices.length === 0) {
             return res.json([]);
         }
 
         const recentServiceIds = recentServices.map(s => s.id);
-
-        // 2. Build a map of all services to get their dates for "Last service attended"
-        const { data: allServices } = await supabase
-            .from('ministry_events')
-            .select('id, date')
-            .eq('manifest_id', manifestId)
-            .eq('type', 'Service');
-            
         const serviceDateMap = new Map<string, string>();
         if (allServices) {
             allServices.forEach(s => serviceDateMap.set(s.id, s.date));
         }
-
-        // 3. Query Members
-        // We fetch members and filter in JS to avoid complex array Postgres syntaxes that occasionally fail in JS clients
-        const { data: members, error: membersError } = await supabase
-            .from('members')
-            .select('id, name, phone, attended_service_ids, follow_up_status, follow_up_notes')
-            .eq('manifest_id', manifestId);
 
         if (membersError) throw membersError;
 

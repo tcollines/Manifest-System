@@ -58,6 +58,20 @@ export const ServiceScheduleStore = {
             (data) => (Array.isArray(data) ? data : []).map(mapSchedule),
         ),
 
+    /** Generate Global Draft Schedules for all active departments */
+    generateGlobal: async (payload: { title: string; weekStart: string; }): Promise<ServiceResponse<any>> =>
+        safeFetch(
+            () => apiFetch('/schedules/global-generate', { method: 'POST', body: JSON.stringify(payload) }),
+            'Failed to generate global schedules'
+        ),
+
+    /** Fetch global submission status for a specific week */
+    getGlobalStatus: async (weekStart: string): Promise<ServiceResponse<any>> =>
+        safeFetch(
+            () => apiFetch(`/schedules/global-status/${weekStart}`),
+            'Failed to fetch global schedule status'
+        ),
+
     /** Create a new schedule */
     create: async (payload: {
         departmentId: string;

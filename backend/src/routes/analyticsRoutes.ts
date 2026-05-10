@@ -2,7 +2,12 @@ import express from 'express';
 import { getServiceAttendance, getSoulsWon, getDashboardKPIs, getFollowUpAnalysis } from '../controllers/analyticsController';
 import { getWorkflowSummary, getDepartmentAnalytics, getFinanceAnalytics, getTeamLeaderAnalytics } from '../controllers/workflowAnalyticsController';
 
+import { getDashboardBootstrap } from '../controllers/dashboardBootstrapController';
+
 const router = express.Router();
+
+// Phase 3: Bootstrap Endpoint (Aggregates multiple queries)
+router.get('/dashboard/bootstrap', getDashboardBootstrap);
 
 // Existing
 router.get('/attendance', getServiceAttendance);

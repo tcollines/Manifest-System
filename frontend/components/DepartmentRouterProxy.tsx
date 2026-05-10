@@ -109,16 +109,28 @@ const DepartmentRouterProxy: React.FC<ProxyProps> = ({ onOpenModal, onEditUser }
 
     // ── Registration (d1) ────────────────────────────────────────────────────────
     if (dept?.slug === 'registration') {
+        const isElevated = currentUser ? ['Administrator', 'Super Admin', 'Head of Dept', 'HOD', 'Department Head', 'Dept Admin', 'Reg. Admin', 'Registration Admin', 'Registration Head', 'TeamLeader'].includes(currentUser.role) : false;
+        
         return (
             <Routes>
                 <Route element={<ProtectedRoute allowedDepartments={['registration']} bypassRoles={['Logistics']} />}>
                     <Route element={<RegistrationLayout />}>
                         <Route index element={<RedirectWithParams to={hasLogisticsAccess(user) ? 'events' : 'check-in'} />} />
                         <Route path="check-in" element={<CheckInPage />} />
-                        <Route path="events"   element={<EventsPage />} />
-                        <Route path="database" element={<DatabasePage />} />
+                        {(isElevated || hasLogisticsAccess(user)) && (
+                            <Route path="events"   element={<EventsPage />} />
+                        )}
+                        {isElevated && (
+                            <Route path="database" element={<DatabasePage />} />
+                        )}
+                        {/* Fallback for unauthorized navigation */}
+                        {!isElevated && !hasLogisticsAccess(user) && (
+                            <Route path="*" element={<Navigate to="check-in" replace />} />
+                        )}
                     </Route>
-                    <Route path="dashboard/*" element={<GenericDeptDashboard currentUser={currentUser} openModal={onOpenModal} onEditUser={onEditUser} />} />
+                    {isElevated && (
+                        <Route path="dashboard/*" element={<GenericDeptDashboard currentUser={currentUser} openModal={onOpenModal} onEditUser={onEditUser} />} />
+                    )}
                 </Route>
             </Routes>
         );

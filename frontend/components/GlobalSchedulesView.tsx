@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { ServiceSchedule } from '../types';
+import { ServiceSchedule, Department } from '../types';
 import { ServiceScheduleStore } from '../database/serviceScheduleStore';
+import { DepartmentStore } from '../database/departmentStore';
 import { Calendar, ChevronDown, ChevronUp, Clock, AlertCircle } from 'lucide-react';
 import Badge, { statusVariant } from './ui/Badge';
-import { formatDate, formatDayLabel } from '../shared/formatters';
-import { DEPARTMENTS } from '../constants';
+import { formatDateOrdinal, formatDayLabel } from '../shared/formatters';
 
 const GlobalSchedulesView: React.FC = () => {
   const [schedules, setSchedules] = useState<ServiceSchedule[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // Nested expansion state
@@ -15,24 +16,58 @@ const GlobalSchedulesView: React.FC = () => {
   const [expandedScheduleId, setExpandedScheduleId] = useState<string | null>(null);
   const [showMissingForWeek, setShowMissingForWeek] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchSchedules = async () => {
-      setIsLoading(true);
-      try {
-        const result = await ServiceScheduleStore.getAll();
-        if (result.status === 'success') {
-          setSchedules(result.data || []);
-        } else {
-          console.error("Failed to load schedules", result.message);
-        }
-      } catch (error) {
-        console.error("Error loading schedules", error);
-      } finally {
-        setIsLoading(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [newTitle, setNewTitle] = useState('');
+  const [newWeekStart, setNewWeekStart] = useState('');
+
+  const fetchData = async () => {
+    setIsLoading(true);
+    try {
+      const [schedRes, deptRes] = await Promise.all([
+          ServiceScheduleStore.getAll(),
+          DepartmentStore.getAll()
+      ]);
+      
+      if (schedRes.status === 'success') {
+        setSchedules(schedRes.data || []);
+      } else {
+        console.error("Failed to load schedules", schedRes.message);
       }
-    };
-    fetchSchedules();
+
+      if (deptRes.status === 'success') {
+        setDepartments(deptRes.data || []);
+      } else {
+        console.error("Failed to load departments", deptRes.message);
+      }
+    } catch (error) {
+      console.error("Error loading data", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
   }, []);
+
+  const handleGenerate = async () => {
+      if (!newTitle || !newWeekStart) return;
+      setIsGenerating(true);
+      try {
+          const res = await ServiceScheduleStore.generateGlobal({ title: newTitle, weekStart: newWeekStart });
+          if (res.status === 'success') {
+              setNewTitle('');
+              setNewWeekStart('');
+              fetchData();
+          } else {
+              alert(res.message || 'Failed to generate schedules');
+          }
+      } catch (err) {
+          console.error(err);
+      } finally {
+          setIsGenerating(false);
+      }
+  };
 
   // Group schedules by Week
   const groupedByWeek = useMemo(() => {
@@ -49,10 +84,49 @@ const GlobalSchedulesView: React.FC = () => {
 
   return (
     <div className="p-8 space-y-8 animate-in fade-in duration-500">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold text-ministry-text mb-1">Global Service Schedules</h1>
           <p className="text-gray-500">Review weekly schedules and rosters created by all departments.</p>
+        </div>
+        <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-wrap items-end gap-3 w-full xl:w-auto">
+          <div>
+            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Title</label>
+            <input 
+              type="text" 
+              className="px-3 py-2 border border-gray-200 rounded-lg text-sm w-40 bg-gray-50 text-gray-500 cursor-not-allowed outline-none" 
+              placeholder="Auto-generated" 
+              value={newTitle}
+              readOnly
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Week Start (Mon)</label>
+            <input 
+              type="date" 
+              className="px-3 py-2 border rounded-lg text-sm w-40" 
+              value={newWeekStart}
+              onChange={e => {
+                  const val = e.target.value;
+                  setNewWeekStart(val);
+                  if (val) {
+                      const d = new Date(val);
+                      const month = d.toLocaleString('default', { month: 'long' });
+                      const week = Math.ceil(d.getDate() / 7);
+                      setNewTitle(`${month} Week ${week}`);
+                  }
+              }}
+              step="7"
+              min="2024-01-01"
+            />
+          </div>
+          <button 
+            className="bg-ministry-orange hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm disabled:opacity-50 transition-colors whitespace-nowrap"
+            onClick={handleGenerate}
+            disabled={isGenerating || !newTitle || !newWeekStart}
+          >
+            {isGenerating ? 'Generating...' : 'Generate Schedules'}
+          </button>
         </div>
       </div>
 
@@ -68,8 +142,9 @@ const GlobalSchedulesView: React.FC = () => {
       ) : (
         <div className="flex flex-col gap-4">
             {Object.entries(groupedByWeek).map(([week, weekSchedules]) => {
+                const actualSubmittedCount = weekSchedules.filter(s => s.status !== 'Draft').length;
                 const submittedDeptIds = new Set(weekSchedules.map(s => s.departmentId));
-                const missingDepts = DEPARTMENTS.filter(d => d.status === 'Active' && !submittedDeptIds.has(d.id));
+                const missingDepts = departments.filter(d => d.status.toLowerCase() === 'active' && !submittedDeptIds.has(d.id));
                 const isWeekExpanded = expandedWeek === week;
 
                 return (
@@ -84,9 +159,9 @@ const GlobalSchedulesView: React.FC = () => {
                             }}
                         >
                             <div>
-                                <h3 className="text-lg font-bold text-gray-800">Week of {formatDate(week)}</h3>
-                                <p className="text-sm text-gray-500 font-medium mt-0.5 text-ministry-orange">
-                                    {weekSchedules.length} Department{weekSchedules.length !== 1 ? 's' : ''} Submitted
+                                <h3 className="text-lg font-bold text-gray-800">Week of {formatDateOrdinal(week)}</h3>
+                                <p className="text-sm font-medium mt-0.5 text-ministry-orange">
+                                    {actualSubmittedCount === 0 ? 'No department has submitted' : `${actualSubmittedCount} Department${actualSubmittedCount !== 1 ? 's' : ''} Submitted`}
                                 </p>
                             </div>
                             <div className="flex items-center justify-center w-10 h-10 rounded-full bg-gray-50 group-hover:bg-gray-100 transition-colors">
@@ -101,7 +176,7 @@ const GlobalSchedulesView: React.FC = () => {
                                 {/* Header Toggle for Missing Depts */}
                                 <div className="flex justify-between items-center">
                                     <span className="text-sm font-bold text-gray-800 uppercase tracking-wider">
-                                        Submitted Schedules
+                                        Generated Schedules
                                     </span>
                                     <button 
                                         onClick={(e) => {
@@ -115,7 +190,7 @@ const GlobalSchedulesView: React.FC = () => {
                                         }`}
                                     >
                                         <AlertCircle className={`w-3.5 h-3.5 ${showMissingForWeek === week ? 'text-amber-600' : 'text-gray-400'}`} />
-                                        {showMissingForWeek === week ? 'Hide Missing' : `${missingDepts.length} Missing Departments`}
+                                        {showMissingForWeek === week ? 'Hide Missing' : `${missingDepts.length} Missing Schedule${missingDepts.length !== 1 ? 's' : ''}`}
                                     </button>
                                 </div>
 
@@ -123,7 +198,7 @@ const GlobalSchedulesView: React.FC = () => {
                                 {showMissingForWeek === week && (
                                     <div className="bg-amber-50/70 border border-amber-100 rounded-xl p-5 mb-2 animate-in slide-in-from-top-2 duration-300">
                                         <h4 className="text-xs font-bold text-amber-800 uppercase tracking-wider mb-3 flex items-center gap-2">
-                                            <AlertCircle className="w-4 h-4" /> Pending Submission ({missingDepts.length})
+                                            <AlertCircle className="w-4 h-4" /> Schedules Not Generated ({missingDepts.length})
                                         </h4>
                                         {missingDepts.length === 0 ? (
                                             <p className="text-sm text-amber-700">All departments have submitted schedules for this week!</p>

@@ -14,13 +14,15 @@ import {
     resubmitWorkplan,
     getGlobalQueue,
     processAdminReviewCompletion,
-    addWorkplanItem
+    addWorkplanItem,
+    getGlobalStatus
 } from '../controllers/workplanController';
 
 const router = Router();
 
 // HOD scoped endpoints
 router.get('/department/:departmentId', getWorkplansByDepartment);
+router.get('/global-status/:month', getGlobalStatus);
 router.post('/:workplanId/populate', requireDepartmentOwnership, populateDraftWorkplan);
 router.delete('/:workplanId', requireDepartmentOwnership, deleteWorkplan);
 

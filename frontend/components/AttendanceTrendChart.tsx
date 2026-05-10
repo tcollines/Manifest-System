@@ -5,19 +5,28 @@ import {
 import { Activity } from 'lucide-react';
 import { ATTENDANCE_DATA } from '../constants'; // Fallback if needed
 
-const AttendanceTrendChart: React.FC = () => {
-  const [attendanceData, setAttendanceData] = React.useState<any[]>(ATTENDANCE_DATA);
+interface AttendanceTrendChartProps {
+  initialAttendanceData?: any[];
+}
+
+const AttendanceTrendChart: React.FC<AttendanceTrendChartProps> = ({ initialAttendanceData }) => {
+  const [attendanceData, setAttendanceData] = React.useState<any[]>(initialAttendanceData || ATTENDANCE_DATA);
   const [selectedMonth, setSelectedMonth] = React.useState<string>('All');
   const [selectedServiceType, setSelectedServiceType] = React.useState<string>('All');
   const [availableMonths, setAvailableMonths] = React.useState<string[]>([]);
 
   React.useEffect(() => {
+    let isMounted = true;
     const loadData = async () => {
       try {
         const { analyticsService } = await import('../services/analyticsService');
-        const attData = await analyticsService.fetchAttendanceAnalytics();
+        
+        let attData = initialAttendanceData;
+        if (!attData) {
+            attData = await analyticsService.fetchAttendanceAnalytics();
+        }
 
-        if (attData && attData.length > 0) {
+        if (isMounted && attData && attData.length > 0) {
           // Sort the data by fullDate to ensure the trendline is chronological
           const sortedData = [...attData].sort((a: any, b: any) => new Date(a.fullDate).getTime() - new Date(b.fullDate).getTime());
           setAttendanceData(sortedData);
@@ -33,6 +42,7 @@ const AttendanceTrendChart: React.FC = () => {
     };
 
     loadData();
+    return () => { isMounted = false; };
   }, []);
 
   const filteredData = React.useMemo(() => {
@@ -142,4 +152,4 @@ const AttendanceTrendChart: React.FC = () => {
   );
 };
 
-export default AttendanceTrendChart;
+export default React.memo(AttendanceTrendChart);

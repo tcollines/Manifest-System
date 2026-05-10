@@ -13,6 +13,7 @@ import {
     Plus, Send, Trash2, ChevronDown, ChevronUp,
     Users, CheckCircle2, Search, X, Calendar, Clock, Pencil
 } from 'lucide-react';
+import SubmissionStatusWidget from '../../../components/SubmissionStatusWidget';
 
 interface Props { department: Department; user: User | null; deptRole: DeptRole | null; systemRole: any; }
 
@@ -304,16 +305,7 @@ const TimePicker: React.FC<TimePickerProps> = ({ value, onChange, placeholder, c
 
 
 interface DraftMember { _key: string; role: string; memberName: string; memberId?: string; }
-interface DraftSession {
-    _key: string;
-    label: string;
-    date: string;
-    arrivalTime: string;
-    members: DraftMember[];
-}
-
 const newMember   = (): DraftMember  => ({ _key: crypto.randomUUID(), role: '', memberName: '', memberId: undefined });
-const newSession  = (): DraftSession => ({ _key: crypto.randomUUID(), label: '', date: '', arrivalTime: '', members: [newMember()] });
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ScheduleTab
@@ -337,13 +329,12 @@ const ScheduleTab: React.FC<Props> = ({ department, user, deptRole, systemRole }
     const [editSessionDate, setEditSessionDate] = useState('');
     const [editArrivalTime, setEditArrivalTime] = useState('');
 
-    // ── Create form (all-in-one) ─────────────────────────────────────────────
-    const [showCreate, setShowCreate] = useState(false);
-    const [creating, setCreating]     = useState(false);
-    const [title, setTitle]           = useState('');
-    const [weekStart, setWeekStart]   = useState('');
-    const [notes, setNotes]           = useState('');
-    const [sessions, setSessions]     = useState<DraftSession[]>([newSession()]);
+    // ── Adding sessions inline ──────────────────────────────────────────────────
+    const [addingSessionScheduleId, setAddingSessionScheduleId] = useState<string | null>(null);
+    const [newSessionLabel, setNewSessionLabel] = useState('');
+    const [newSessionDate, setNewSessionDate] = useState('');
+    const [newSessionArrival, setNewSessionArrival] = useState('');
+    const [savingNewSession, setSavingNewSession] = useState(false);
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -358,89 +349,28 @@ const ScheduleTab: React.FC<Props> = ({ department, user, deptRole, systemRole }
 
     useEffect(() => { load(); }, [load]);
 
-    // ── Draft session/member helpers ─────────────────────────────────────────
-    const updateSession = (key: string, patch: Partial<DraftSession>) =>
-        setSessions(ss => ss.map(s => s._key === key ? { ...s, ...patch } : s));
 
-    const updateMember = (sessionKey: string, memberKey: string, patch: Partial<DraftMember>) =>
-        setSessions(ss => ss.map(s => s._key === sessionKey
-            ? { ...s, members: s.members.map(m => m._key === memberKey ? { ...m, ...patch } : m) }
-            : s));
 
-    const addMemberRow = (sessionKey: string) =>
-        setSessions(ss => ss.map(s => s._key === sessionKey ? { ...s, members: [...s.members, newMember()] } : s));
-
-    const removeMemberRow = (sessionKey: string, memberKey: string) =>
-        setSessions(ss => ss.map(s => s._key === sessionKey
-            ? { ...s, members: s.members.length > 1 ? s.members.filter(m => m._key !== memberKey) : s.members }
-            : s));
-
-    const addSessionRow    = () => setSessions(ss => [...ss, newSession()]);
-    const removeSessionRow = (key: string) => setSessions(ss => ss.length > 1 ? ss.filter(s => s._key !== key) : ss);
-
-    // ── Create schedule (all-in-one) ─────────────────────────────────────────
-    const handleCreate = async () => {
-        if (!title.trim() || !weekStart) { showToast('Title and Week Start are required', 'error'); return; }
-
-        setCreating(true);
-        try {
-            // 0. Pre-validate assignments
-            for (const session of sessions) {
-                if (!session.label.trim() || !session.date || !session.arrivalTime) continue;
-                for (const member of session.members) {
-                    if (member.memberName.trim() && !member.memberId) {
-                        showToast(`"${member.memberName}" in session "${session.label || 'Session'}" must be selected from the team list.`, 'error');
-                        setCreating(false);
-                        return;
-                    }
-                }
-            }
-
-            // 1. Create the schedule header
-            const schedRes = await ServiceScheduleStore.create({
-                departmentId: department.id,
-                title: title.trim(),
-                weekStart,
-                notes: notes.trim() || undefined,
-            });
-            if (schedRes.status !== 'success') { showToast(schedRes.message, 'error'); return; }
-            const scheduleId = schedRes.data.id;
-
-            // 2. For each session, create it then create its member assignments
-            for (const session of sessions) {
-                if (!session.label.trim() || !session.date || !session.arrivalTime) continue; // skip blank sessions
-
-                const sessRes = await ServiceScheduleStore.addSession(scheduleId, {
-                    sessionLabel: session.label.trim(),
-                    sessionDate:  session.date,
-                    arrivalTime:  session.arrivalTime,
-                });
-                if (sessRes.status !== 'success') continue;
-                const sessionId = sessRes.data.id;
-
-                // For each filled-in member row, add the assignment
-                for (const member of session.members) {
-                    if (!member.role.trim() || !member.memberName.trim() || !member.memberId) continue;
-                    await ServiceScheduleStore.addAssignment(sessionId, {
-                        roleLabel:    member.role.trim(),
-                        ministerName: member.memberName.trim(),
-                        memberId:     member.memberId,
-                    });
-                }
-            }
-
-            showToast('Schedule created!', 'success');
-            setShowCreate(false);
-            resetForm();
-            load();
-        } finally {
-            setCreating(false);
+    // ── Adding sessions inline handler ───────────────────────────────────────
+    const handleAddSession = async (scheduleId: string) => {
+        if (!newSessionLabel.trim() || !newSessionDate || !newSessionArrival.trim()) {
+            showToast('All session fields are required', 'error'); return;
         }
-    };
-
-    const resetForm = () => {
-        setTitle(''); setWeekStart(''); setNotes('');
-        setSessions([newSession()]);
+        setSavingNewSession(true);
+        const res = await ServiceScheduleStore.addSession(scheduleId, {
+            sessionLabel: newSessionLabel.trim(),
+            sessionDate: newSessionDate,
+            arrivalTime: newSessionArrival.trim(),
+        });
+        setSavingNewSession(false);
+        if (res.status === 'success') {
+            showToast('Session added!', 'success');
+            setAddingSessionScheduleId(null);
+            setNewSessionLabel(''); setNewSessionDate(''); setNewSessionArrival('');
+            load();
+        } else {
+            showToast(res.message, 'error');
+        }
     };
 
     // ── Other handlers ───────────────────────────────────────────────────────
@@ -526,140 +456,12 @@ const ScheduleTab: React.FC<Props> = ({ department, user, deptRole, systemRole }
                         </p>
                     )}
                 </div>
-                {canEdit && !showCreate && (
-                    <button onClick={() => { setShowCreate(true); resetForm(); }}
-                        className="inline-flex items-center gap-2 bg-gray-900 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-gray-700 transition-colors">
-                        <Plus className="w-4 h-4" /> New Schedule
-                    </button>
-                )}
             </div>
 
-            {/* ── All-in-one creation form ────────────────────────────────── */}
-            {showCreate && (
-                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-                    {/* Form header */}
-                    <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50">
-                        <p className="font-bold text-gray-800">New Schedule</p>
-                        <button onClick={() => { setShowCreate(false); resetForm(); }} className="text-gray-400 hover:text-gray-600">
-                            <X className="w-5 h-5" />
-                        </button>
-                    </div>
-
-                    <div className="p-6 flex flex-col gap-6">
-                        {/* Schedule header fields */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div className="md:col-span-2 flex flex-col gap-1">
-                                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Schedule Title *</label>
-                                <input type="text" value={title} onChange={e => setTitle(e.target.value)}
-                                    placeholder="e.g. April Week 1 Service Roster"
-                                    className="border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200" />
-                            </div>
-                            <div className="flex flex-col gap-1">
-                                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Week Start (Mon) *</label>
-                                <input type="date" value={weekStart} onChange={e => setWeekStart(e.target.value)}
-                                    className="border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200" />
-                            </div>
-                        </div>
-
-                        {/* Sessions */}
-                        <div className="flex flex-col gap-4">
-                            <div className="flex items-center justify-between">
-                                <p className="text-sm font-bold text-gray-700 flex items-center gap-2">
-                                    <Calendar className="w-4 h-4 text-gray-400" /> Sessions & Members
-                                </p>
-                                <button onClick={addSessionRow}
-                                    className="text-xs text-blue-600 font-semibold hover:underline flex items-center gap-1">
-                                    <Plus className="w-3.5 h-3.5" /> Add session
-                                </button>
-                            </div>
-
-                            {sessions.map((session, si) => (
-                                <div key={session._key} className="border border-gray-100 rounded-2xl overflow-hidden">
-                                    {/* Session header row */}
-                                    <div className="bg-gray-50 px-4 py-3 flex items-center gap-3 flex-wrap">
-                                        <span className="text-xs font-bold text-gray-500 w-20 shrink-0">Session {si + 1}</span>
-                                        <input type="text" value={session.label}
-                                            onChange={e => updateSession(session._key, { label: e.target.value })}
-                                            placeholder="Label  (e.g. Sunday First Service)"
-                                            className="flex-1 min-w-[160px] border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200" />
-                                        <input type="date" value={session.date}
-                                            onChange={e => updateSession(session._key, { date: e.target.value })}
-                                            className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200" />
-                                        <TimePicker
-                                            value={session.arrivalTime}
-                                            onChange={v => updateSession(session._key, { arrivalTime: v })}
-                                            placeholder="Arrival time"
-                                        />
-                                        {sessions.length > 1 && (
-                                            <button onClick={() => removeSessionRow(session._key)}
-                                                className="text-red-300 hover:text-red-500 ml-auto">
-                                                <X className="w-4 h-4" />
-                                            </button>
-                                        )}
-                                    </div>
-
-                                    {/* Member rows */}
-                                    <div className="px-4 py-3 flex flex-col gap-2">
-                                        {/* Column labels */}
-                                        <div className="grid grid-cols-[1fr_1fr_auto] gap-2 px-1">
-                                            <span className="text-xs font-semibold text-gray-400">Role / Responsibility</span>
-                                            <span className="text-xs font-semibold text-gray-400">Member (from team)</span>
-                                            <span className="w-5" />
-                                        </div>
-
-                                        {session.members.map(member => (
-                                            <div key={member._key} className="grid grid-cols-[1fr_1fr_auto] gap-2 items-center">
-                                                <input type="text" value={member.role}
-                                                    onChange={e => updateMember(session._key, member._key, { role: e.target.value })}
-                                                    placeholder="e.g. Worship Leader"
-                                                    className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200" />
-                                                <MemberPicker
-                                                    teamMembers={teamMembers}
-                                                    value={member.memberName}
-                                                    selectedId={member.memberId}
-                                                    onChange={(name, id) => updateMember(session._key, member._key, { memberName: name, memberId: id })}
-                                                />
-                                                <button onClick={() => removeMemberRow(session._key, member._key)}
-                                                    className="text-gray-300 hover:text-red-400 p-1">
-                                                    <X className="w-3.5 h-3.5" />
-                                                </button>
-                                            </div>
-                                        ))}
-
-                                        <button onClick={() => addMemberRow(session._key)}
-                                            className="self-start mt-1 text-xs text-blue-600 font-semibold hover:underline flex items-center gap-1">
-                                            <Plus className="w-3 h-3" /> Add member
-                                        </button>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-
-                        {/* Hint if no team members */}
-                        {teamMembers.length === 0 && (
-                            <div className="bg-amber-50 border border-amber-100 rounded-xl px-4 py-3 text-xs text-amber-700 flex items-center gap-2">
-                                <Users className="w-4 h-4 shrink-0" />
-                                No team members added yet. Go to <strong>Team Management</strong> first, or type names manually.
-                            </div>
-                        )}
-
-                        {/* Actions */}
-                        <div className="flex gap-3 pt-2 border-t border-gray-100">
-                            <button onClick={handleCreate} disabled={creating}
-                                className="bg-gray-900 text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-gray-700 disabled:opacity-50 transition-colors">
-                                {creating ? 'Creating…' : 'Create Schedule'}
-                            </button>
-                            <button onClick={() => { setShowCreate(false); resetForm(); }}
-                                className="text-gray-500 px-4 py-2.5 text-sm hover:bg-gray-100 rounded-xl">
-                                Cancel
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <SubmissionStatusWidget type="schedule" periodId={schedules[0]?.weekStart ?? ''} />
 
             {/* ── Schedule list ───────────────────────────────────────────── */}
-            {schedules.length === 0 && !showCreate ? <EmptyState variant="schedule" /> : (
+            {schedules.length === 0 ? <EmptyState variant="schedule" /> : (
                 <div className="flex flex-col gap-4">
                     {schedules.map(schedule => (
                         <div key={schedule.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-visible">
@@ -821,6 +623,35 @@ const ScheduleTab: React.FC<Props> = ({ department, user, deptRole, systemRole }
                                         </div>
                                     ))}
 
+                                    {/* Add Session UI */}
+                                    {canEdit && (
+                                        <div className="px-5 py-3 bg-white">
+                                            {addingSessionScheduleId === schedule.id ? (
+                                                <div className="flex flex-col gap-2 p-3 bg-blue-50/50 rounded-lg border border-blue-100 shadow-sm" onClick={e => e.stopPropagation()}>
+                                                    <p className="text-xs font-bold text-gray-700 mb-1">Add New Session</p>
+                                                    <div className="flex flex-wrap gap-2">
+                                                        <input type="text" value={newSessionLabel} onChange={e => setNewSessionLabel(e.target.value)} placeholder="Label (e.g. Sunday Service)" className="border border-gray-200 rounded-lg px-2 py-1 text-sm flex-1 min-w-[150px]" />
+                                                        <input type="date" value={newSessionDate} onChange={e => setNewSessionDate(e.target.value)} className="border border-gray-200 rounded-lg px-2 py-1 text-sm" />
+                                                        <TimePicker value={newSessionArrival} onChange={setNewSessionArrival} placeholder="Arrival" />
+                                                    </div>
+                                                    <div className="flex gap-2 justify-end mt-1">
+                                                        <button onClick={() => { setAddingSessionScheduleId(null); setNewSessionLabel(''); setNewSessionDate(''); setNewSessionArrival(''); }} className="text-gray-500 text-xs hover:bg-gray-100 px-3 py-1.5 rounded-lg font-semibold">Cancel</button>
+                                                        <button onClick={() => handleAddSession(schedule.id)} disabled={savingNewSession} className="bg-blue-600 text-white text-xs hover:bg-blue-700 px-3 py-1.5 rounded-lg font-semibold disabled:opacity-50">
+                                                            {savingNewSession ? 'Adding...' : 'Add Session'}
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <button onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setAddingSessionScheduleId(schedule.id);
+                                                    setNewSessionLabel(''); setNewSessionDate(''); setNewSessionArrival('');
+                                                }} className="flex items-center gap-1.5 text-xs text-blue-600 font-semibold hover:bg-blue-50 px-3 py-2 rounded-lg transition-colors border border-dashed border-blue-200 w-full justify-center">
+                                                    <Plus className="w-3.5 h-3.5" /> Add Session
+                                                </button>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>

@@ -690,3 +690,46 @@ export const processAdminReviewCompletion = async (req: Request, res: Response) 
     } catch (err) { res.status(500).json({ error: 'Failed to complete evaluation.' }); }
 };
 
+export const getGlobalStatus = async (req: Request, res: Response) => {
+    const manifestId = guard(req, res); if (!manifestId) return;
+    const { month } = req.params;
+    
+    // In workplans, 'month' might be passed as 'YYYY-MM' but stored as 'YYYY-MM-01'. 
+    // workplanController handles it in generateGlobalWorkplans: 
+    const monthDate = month.length === 7 ? `${month}-01` : month;
+
+    try {
+        const { data: activeDepts, error: deptError } = await supabase
+            .from('departments')
+            .select('id, name')
+            .eq('manifest_id', manifestId)
+            .ilike('status', 'active')
+            .order('name');
+        
+        if (deptError) throw deptError;
+
+        const { data: workplans, error: wpError } = await supabase
+            .from('monthly_workplans')
+            .select('department_id, status')
+            .eq('manifest_id', manifestId)
+            .eq('month', monthDate);
+
+        if (wpError) throw wpError;
+
+        const submittedDepts = new Set(workplans.filter(wp => wp.status !== WORKPLAN_STATUS.DRAFT).map(wp => wp.department_id));
+        const hasDraftDepts = new Set(workplans.filter(wp => wp.status === WORKPLAN_STATUS.DRAFT).map(wp => wp.department_id));
+
+        const result = {
+            total: activeDepts.length,
+            submitted: activeDepts.filter(d => submittedDepts.has(d.id)),
+            draft: activeDepts.filter(d => hasDraftDepts.has(d.id) && !submittedDepts.has(d.id)),
+            missing: activeDepts.filter(d => !submittedDepts.has(d.id) && !hasDraftDepts.has(d.id))
+        };
+
+        res.json(result);
+    } catch (err) {
+        console.error('[getGlobalWorkplanStatus]', err);
+        res.status(500).json({ error: 'An internal server error occurred.' });
+    }
+};
+

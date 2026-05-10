@@ -6,10 +6,10 @@ import AnalyticsCharts from './AnalyticsCharts';
 import AttendanceTrendChart from './AttendanceTrendChart';
 import DepartmentList from './DepartmentList';
 import { ModalType, MinistryEvent } from '../types';
+import { useQuery } from '@tanstack/react-query';
 import { Plus, UserPlus, Target, FileText, Download, Sparkles, Map, Maximize2, Package, FileCheck, CheckCircle, ClipboardList, DollarSign } from 'lucide-react';
 import { useEventLifecycle } from '../hooks/useEventLifecycle';
-import { EventStore } from '../database/eventStore';
-import { useWorkflowSummaryAnalytics } from '../services/analyticsService';
+import { analyticsService } from '../services/analyticsService';
 import { KpiCard } from './ui/KpiCard';
 
 
@@ -31,20 +31,23 @@ const Dashboard: React.FC<DashboardProps> = ({ openModal }) => {
       }
    }, [events, selectedEventId]);
 
+   const { data: bootstrapData, isLoading: isLoadingBootstrap } = useQuery({
+      queryKey: ['dashboard_bootstrap'],
+      queryFn: () => analyticsService.fetchDashboardBootstrap(),
+      staleTime: 5 * 60 * 1000, // Keep fresh for 5 minutes
+   });
+
+   // Sync events when bootstrap data arrives (or from cache)
    React.useEffect(() => {
-      const fetchEvents = async () => {
-         const res = await EventStore.getAll();
-         if (res.status === 'success' && res.data.length > 0) {
-            setEvents(res.data);
-         }
-      };
-      fetchEvents();
-   }, []);
+      if (bootstrapData?.events) {
+         setEvents(bootstrapData.events);
+      }
+   }, [bootstrapData?.events]);
 
    useEventLifecycle();
 
-   // New Phase 3 visibility layer
-   const { data: workflowStats, isLoading: isLoadingWorkflow } = useWorkflowSummaryAnalytics();
+   const workflowStats = bootstrapData?.workflowStats || null;
+   const isLoadingWorkflow = isLoadingBootstrap;
 
    return (
       <div className="p-4 md:p-8">
@@ -109,17 +112,20 @@ const Dashboard: React.FC<DashboardProps> = ({ openModal }) => {
             </div>
 
             {/* KPI Section */}
-            <KPIGrid eventId={selectedEventId} />
+            <KPIGrid eventId={selectedEventId} initialData={bootstrapData?.kpiStats} />
 
             {/* Main Content Grid */}
             <div className="grid grid-cols-1 xl:grid-cols-4 gap-8">
 
                {/* Left Column: Analytics */}
                <div className="xl:col-span-3 space-y-8">
-                  <AnalyticsCharts />
+                  <AnalyticsCharts 
+                     initialAttendanceData={bootstrapData?.attendanceData} 
+                     initialSoulsData={bootstrapData?.soulsData} 
+                  />
 
                   {/* Attendance Trend Chart (Replaces Map) */}
-                  <AttendanceTrendChart />
+                  <AttendanceTrendChart initialAttendanceData={bootstrapData?.attendanceData} />
 
                   <DepartmentList />
                </div>

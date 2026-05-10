@@ -36,18 +36,23 @@ const RegistrationLayout: React.FC = () => {
 
     const tabs = isLogisticsRole
         ? [{ to: 'events', icon: Calendar, label: 'Logistics Entry' }]
-        : [
-            { to: 'check-in',  icon: ClipboardCheck, label: 'Check-In' },
-            { to: 'events',    icon: Calendar,       label: 'Events' },
-            { to: 'database',  icon: Database,       label: 'Database' },
-          ];
+        : isElevated
+            ? [
+                { to: 'check-in',  icon: ClipboardCheck, label: 'Check-In' },
+                { to: 'events',    icon: Calendar,       label: 'Events' },
+                { to: 'database',  icon: Database,       label: 'Database' },
+              ]
+            : [
+                { to: 'check-in',  icon: ClipboardCheck, label: 'Check-In' }
+              ];
 
     return (
         <RegistrationProvider>
             <div className="flex flex-col min-h-full bg-gray-50 pb-24 md:pb-0">
                 {/* ── Desktop Tabs (Hidden on mobile) ────────────────────────── */}
-                <div className="hidden md:block w-full overflow-x-auto hide-scrollbar pt-6 px-6">
-                    <div className="inline-flex items-center gap-1 bg-white/60 backdrop-blur-md p-1.5 rounded-full border border-gray-100 shadow-sm">
+                {tabs.length > 1 && (
+                    <div className="hidden md:block w-full overflow-x-auto hide-scrollbar pt-6 px-6">
+                        <div className="inline-flex items-center gap-1 bg-white/60 backdrop-blur-md p-1.5 rounded-full border border-gray-100 shadow-sm">
                         {tabs.map((tab) => {
                             const Icon = tab.icon;
                             return (
@@ -73,6 +78,7 @@ const RegistrationLayout: React.FC = () => {
                         })}
                     </div>
                 </div>
+                )}
 
                 {/* ── Active page content ────────────────────────────────────── */}
                 <div className="flex-1 relative p-4 md:p-6 mb-20 md:mb-0">
@@ -81,8 +87,9 @@ const RegistrationLayout: React.FC = () => {
             </div>
 
             {/* ── Mobile Floating Bottom Navigation ────────────────────────── */}
-            <div className="md:hidden fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-sm">
-                <div className="flex items-center justify-between gap-1 bg-white/75 backdrop-blur-2xl p-2 rounded-full border border-gray-100 shadow-[0_8px_30px_rgb(0,0,0,0.12)]">
+            {tabs.length > 1 && (
+                <div className="md:hidden fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-sm">
+                    <div className="flex items-center justify-between gap-1 bg-white/75 backdrop-blur-2xl p-2 rounded-full border border-gray-100 shadow-[0_8px_30px_rgb(0,0,0,0.12)]">
                     {tabs.map((tab) => {
                         const Icon = tab.icon;
                         return (
@@ -113,6 +120,7 @@ const RegistrationLayout: React.FC = () => {
                     })}
                 </div>
             </div>
+            )}
             
             {/* ── Modals Layer ───────────────────────────────────────────── */}
             <RegistrationModals />

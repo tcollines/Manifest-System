@@ -42,6 +42,9 @@ app.get('/', (req, res) => {
 // Any previous functionality this provided must be performed via Supabase Dashboard only.
 
 // Protect all /api routes below this line
+import { timeLogger } from './middleware/timeLogger';
+
+app.use('/api', timeLogger);
 app.use('/api', authenticate);
 
 import userRoutes from './routes/userRoutes';

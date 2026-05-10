@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { MonitoringReport, ReportSubmission } from '../../types';
+import { DepartmentStore } from '../../database/departmentStore';
 import { ArrowLeft, Check, X, Clock, Eye } from 'lucide-react';
 
 interface ReportMonitorProps {
@@ -12,26 +13,23 @@ const ReportMonitor: React.FC<ReportMonitorProps> = ({ report, onBack }) => {
     const [stats, setStats] = useState<any[]>([]); // Derived from departments + submissions
     const [selectedSubmission, setSelectedSubmission] = useState<ReportSubmission | null>(null);
     const [filterStatus, setFilterStatus] = useState<string>('All');
-
-    // Hardcoded departments list since we don't have an endpoint for it yet or assume generic
-    const DEPARTMENTS = [
-        { id: 'd1', name: 'Registration' },
-        { id: 'd2', name: 'Next Gen' },
-        { id: 'd3', name: 'Parking' },
-        { id: 'd4', name: 'Finance' },
-        { id: 'd5', name: 'Transportation' },
-        { id: 'd6', name: 'Follow Up' },
-        { id: 'd7', name: 'Schools' },
-        { id: 'd8', name: 'Healing Dept' },
-    ];
+    const [departments, setDepartments] = useState<any[]>([]);
 
     useEffect(() => {
-        if (report) {
+        DepartmentStore.getAll().then(res => {
+            if (res.status === 'success') {
+                setDepartments(res.data.filter(d => d.status.toLowerCase() === 'active'));
+            }
+        });
+    }, []);
+
+    useEffect(() => {
+        if (report && departments.length > 0) {
             // @ts-ignore - report_submissions might not be in the type definition yet but is in the object
             const submissions = report.report_submissions || [];
 
-            // Map departments to their submission status
-            const merged = DEPARTMENTS.map(dept => {
+            // Map active departments to their submission status
+            const merged = departments.map(dept => {
                 const sub = submissions.find((s: any) => s.department_id === dept.id);
                 return {
                     ...dept,
@@ -41,7 +39,7 @@ const ReportMonitor: React.FC<ReportMonitorProps> = ({ report, onBack }) => {
             });
             setStats(merged);
         }
-    }, [report]);
+    }, [report, departments]);
 
     const filteredStats = stats.filter(dept =>
         filterStatus === 'All' ? true : dept.status === filterStatus

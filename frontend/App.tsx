@@ -1,35 +1,19 @@
 import React, { useState } from 'react';
 import { useNotification } from './components/ui/NotificationSystem';
 import Sidebar from './components/Sidebar';
-import Dashboard from './components/Dashboard';
-import DepartmentsView from './components/DepartmentsView';
-import EventsView from './components/EventsView';
-import ReportsView from './components/ReportsView';
-import GlobalSchedulesView from './components/GlobalSchedulesView';
 import SignIn from './components/SignIn';
-import SetupAccount from './components/SetupAccount';
-import { AssetsTab } from './components/AssetsTab';
 import { ModalType, MinistryEvent, User } from './types';
 import { DEPARTMENTS } from './constants';
 import { getDashboardForUser } from './utils';
 import { UserStore } from './database/userStore';
 import { EventStore } from './database/eventStore';
 import { Bell, Search, Menu } from 'lucide-react';
-import TeamLeaderRequisitions from './components/TeamLeaderRequisitions';
 
 import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import RoleRedirect from './components/RoleRedirect';
 import ProtectedRoute from './components/ProtectedRoute';
 import ProfileModal from './components/ProfileModal';
-import ActionPanel from './components/ActionPanel';
-import MinistryAI from './components/MinistryAI';
-import PublicSoulEntry from './components/PublicSoulEntry';
-import DepartmentRouterProxy from './components/DepartmentRouterProxy';
 import { isTeamLeader } from './domain/rbac';
-
-import WorkplanQueue from './components/WorkplanQueue';
-import RequisitionQueue from './components/RequisitionQueue';
-import AdminRequisitionQueue from './components/AdminRequisitionQueue';
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 import { useAuth } from './context/AuthContext';
@@ -38,27 +22,46 @@ import { useAuth } from './context/AuthContext';
 import { useEvent } from './context/EventContext';
 
 // ── Modules ───────────────────────────────────────────────────────────────────
-import AdministrationDashboard from './modules/administration/AdministrationDashboard';
-import TeamLeaderDashboard from './components/TeamLeaderDashboard';
 import { NotificationDropdown } from './components/ui/NotificationDropdown';
 import { PushPromptBanner } from './components/ui/PushPromptBanner';
 import { InstallPWAPrompt } from './components/ui/InstallPWAPrompt';
-
-// ── Settings ──────────────────────────────────────────────────────────────────
-import SettingsLayout from './modules/settings/SettingsLayout';
-import SettingsMapPage from './modules/settings/SettingsMapPage';
-import SettingsManifestPage from './modules/settings/SettingsManifestPage';
 
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useBackgroundSync } from './hooks/useBackgroundSync';
 import { SyncIndicator } from './components/SyncIndicator';
 
+// ── Lazy Loaded Routes ───────────────────────────────────────────────────────
+const Dashboard = React.lazy(() => import('./components/Dashboard'));
+const DepartmentsView = React.lazy(() => import('./components/DepartmentsView'));
+const EventsView = React.lazy(() => import('./components/EventsView'));
+const ReportsView = React.lazy(() => import('./components/ReportsView'));
+const GlobalSchedulesView = React.lazy(() => import('./components/GlobalSchedulesView'));
+const AssetsTab = React.lazy(() => import('./components/AssetsTab').then(m => ({ default: m.AssetsTab })));
+const TeamLeaderRequisitions = React.lazy(() => import('./components/TeamLeaderRequisitions'));
+const ActionPanel = React.lazy(() => import('./components/ActionPanel'));
+const MinistryAI = React.lazy(() => import('./components/MinistryAI'));
+const PublicSoulEntry = React.lazy(() => import('./components/PublicSoulEntry'));
+const DepartmentRouterProxy = React.lazy(() => import('./components/DepartmentRouterProxy'));
+const WorkplanQueue = React.lazy(() => import('./components/WorkplanQueue'));
+const RequisitionQueue = React.lazy(() => import('./components/RequisitionQueue'));
+const AdminRequisitionQueue = React.lazy(() => import('./components/AdminRequisitionQueue'));
+const AdministrationDashboard = React.lazy(() => import('./modules/administration/AdministrationDashboard'));
+const TeamLeaderDashboard = React.lazy(() => import('./components/TeamLeaderDashboard'));
+const SettingsLayout = React.lazy(() => import('./modules/settings/SettingsLayout'));
+const SettingsMapPage = React.lazy(() => import('./modules/settings/SettingsMapPage'));
+const SettingsManifestPage = React.lazy(() => import('./modules/settings/SettingsManifestPage'));
+
+const RouteFallback = () => (
+  <div className="flex items-center justify-center h-full w-full min-h-[50vh]">
+    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-ministry-orange"></div>
+  </div>
+);
+
 const App: React.FC = () => {
   useBackgroundSync(); // Global injection of offline queue flusher
   const { showToast } = useNotification();
   const { user, isInitialLoading, login, googleLogin, logout, getDashboard } = useAuth();
-  const { addEvent, refreshEvents } = useEvent();
 
   // ── UI state only ────────────────────────────────────────────────────────
   const [loginError, setLoginError]             = useState<string | null>(null);
@@ -129,26 +132,7 @@ const App: React.FC = () => {
     setTimeout(() => { isManualLogoutRef.current = false; }, 200);
   };
 
-  const handleSetupComplete = (updatedUser: User) => {
-    UserStore.saveSession(updatedUser);
-    showToast('Account setup complete!', 'success');
-    navigatePostLogin(updatedUser);
-  };
 
-  // ── Event handlers (thin wrappers; state lives in EventContext) ───────────
-
-  const handleSaveEvent = async (newEvent: MinistryEvent) => {
-    try {
-      addEvent(newEvent);             // optimistic update in context
-      await EventStore.add(newEvent);
-      await refreshEvents();          // reconcile from DB
-      showToast(`${newEvent.type} created successfully!`, 'success');
-    } catch (error: any) {
-      console.error('Failed to save event:', error);
-      showToast(`Failed to save event: ${error.message || 'Unknown error'}`, 'error');
-      refreshEvents();
-    }
-  };
 
   // ── User CRUD handlers (used only by ActionPanel/Settings/Administration) ─
   // These stay in App.tsx minimally because ActionPanel is a global modal
@@ -207,7 +191,7 @@ const App: React.FC = () => {
   }
 
   if (!user) {
-    if (location.pathname !== '/' && location.pathname !== '/setup-account') {
+    if (location.pathname !== '/') {
       if (!isManualLogoutRef.current) {
         sessionStorage.setItem('manifest_intended_route', location.pathname + location.search);
       }
@@ -216,14 +200,10 @@ const App: React.FC = () => {
     return <SignIn onLogin={handleLogin} onGoogleLogin={handleGoogleLogin} error={loginError} />;
   }
 
-  if (location.pathname === '/setup-account') {
-    return <SetupAccount currentUser={user} onComplete={handleSetupComplete} onLogout={handleLogout} />;
-  }
-
   // ── Authenticated layout ──────────────────────────────────────────────────
   return (
-    <div className="flex min-h-[100dvh] bg-ministry-black text-ministry-text font-sans selection:bg-ministry-neon selection:text-black">
-      {/* Mobile overlay */}
+      <div className="flex min-h-[100dvh] bg-ministry-black text-ministry-text font-sans selection:bg-ministry-neon selection:text-black">
+        {/* Mobile overlay */}
       {isSidebarOpen && (
         <div
           className="fixed inset-0 bg-black/50 z-40 md:hidden backdrop-blur-sm transition-opacity"
@@ -291,8 +271,9 @@ const App: React.FC = () => {
 
         {/* Routes */}
         <div className="flex-1 w-full relative">
-          <Routes>
-            <Route index element={<RoleRedirect user={user} />} />
+          <React.Suspense fallback={<RouteFallback />}>
+            <Routes>
+              <Route index element={<RoleRedirect user={user} />} />
 
             {/* Admin dashboard */}
             <Route element={<ProtectedRoute allowedDepartments={['d0']} allowedRoles={['Super Admin', 'Administrator']} />}>
@@ -306,11 +287,13 @@ const App: React.FC = () => {
             {/* Administration — self-manages user list internally */}
             <Route element={<ProtectedRoute allowedDepartments={['d0']} allowedRoles={['Super Admin', 'Administrator', 'TeamLeader']} />}>
               <Route path="administration/*" element={
-                <AdministrationDashboard
-                  openModal={setModalType}
-                  onDeleteUser={handleDeleteUser}
-                  onEditUser={(u) => { setTargetUser(u); setModalType(ModalType.EDIT_USER); }}
-                />
+                <React.Suspense fallback={<RouteFallback />}>
+                  <AdministrationDashboard
+                    openModal={setModalType}
+                    onDeleteUser={handleDeleteUser}
+                    onEditUser={(u) => { setTargetUser(u); setModalType(ModalType.EDIT_USER); }}
+                  />
+                </React.Suspense>
               } />
             </Route>
 
@@ -400,22 +383,24 @@ const App: React.FC = () => {
               </div>
             } />
           </Routes>
+          </React.Suspense>
         </div>
       </main>
 
       {/* Modals */}
-      {modalType !== ModalType.NONE && (
-        <ActionPanel
-          modalType={modalType}
-          closeModal={() => setModalType(ModalType.NONE)}
-          onSave={handleSaveEvent}
-          onSaveUser={handleSaveUser}
-          onUpdateUser={handleUpdateUser}
-          currentUser={user}
-          targetUser={targetUser}
-        />
-      )}
-      {modalType === ModalType.AI_INSIGHTS && <MinistryAI onClose={() => setModalType(ModalType.NONE)} />}
+      <React.Suspense fallback={null}>
+        {modalType !== ModalType.NONE && modalType !== ModalType.AI_INSIGHTS && (
+          <ActionPanel
+            modalType={modalType}
+            closeModal={() => setModalType(ModalType.NONE)}
+            onSaveUser={handleSaveUser}
+            onUpdateUser={handleUpdateUser}
+            currentUser={user}
+            targetUser={targetUser}
+          />
+        )}
+        {modalType === ModalType.AI_INSIGHTS && <MinistryAI onClose={() => setModalType(ModalType.NONE)} />}
+      </React.Suspense>
       <ProfileModal isOpen={isProfileModalOpen} onClose={() => setIsProfileModalOpen(false)} currentUser={user} />
       <SyncIndicator />
       <PushPromptBanner />

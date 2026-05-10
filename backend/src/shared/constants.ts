@@ -1,8 +1,8 @@
 export const WORKPLAN_STATUS = {
-  DRAFT: "DRAFT",
-  ADMIN_REVIEW: "ADMIN_REVIEW",
-  TL_REVIEW: "TL_REVIEW",
-  FINALIZED: "FINALIZED"
+  DRAFT: "Draft",
+  ADMIN_REVIEW: "Admin_Review",
+  TL_REVIEW: "TL_Review",
+  FINALIZED: "Finalized"
 } as const;
 
 export const REQUISITION_STATUS = {
