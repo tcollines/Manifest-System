@@ -37,6 +37,9 @@ export const subscribeToPush = async () => {
     const registration = await navigator.serviceWorker.ready;
 
     // Ask permission
+    if (!('Notification' in window)) {
+        throw new Error('Push notifications are not supported by this browser');
+    }
     const permission = await Notification.requestPermission();
     if (permission !== 'granted') {
         throw new Error('Push notification permission denied');
@@ -90,7 +93,7 @@ export const updatePushPreferences = async (preferences: any) => {
 
 export const checkPushStatus = async () => {
     if (!('serviceWorker' in navigator)) return false;
-    if (Notification.permission !== 'granted') return false;
+    if (!('Notification' in window) || Notification.permission !== 'granted') return false;
 
     const registration = await navigator.serviceWorker.ready;
     const subscription = await registration.pushManager.getSubscription();

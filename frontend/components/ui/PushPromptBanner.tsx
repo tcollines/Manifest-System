@@ -21,7 +21,7 @@ export const PushPromptBanner: React.FC = () => {
         // Only run on browsers that support push
         if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
         // Don't show if permission already denied — system won't let us ask again
-        if (Notification.permission === 'denied') return;
+        if ('Notification' in window && Notification.permission === 'denied') return;
 
         const dismissedUntil = localStorage.getItem(DISMISS_KEY);
         if (dismissedUntil && Date.now() < Number(dismissedUntil)) return;
