@@ -226,7 +226,8 @@ const RequisitionQueue: React.FC<Props> = ({ systemRole }) => {
                 ) : (
                     <div className="space-y-6 animate-in fade-in duration-300">
                         {pendingTLBatches.map(batch => {
-                            const totalAmount = batch.requisitions?.reduce((sum, req) => sum + Number(req.totalAmount), 0) || 0;
+                            const activeReqs = batch.requisitions?.filter(req => req.status !== REQUISITION_STATUS.REJECTED) || [];
+                            const totalAmount = activeReqs.reduce((sum, req) => sum + Number(req.totalAmount), 0);
                             const isExpanded = expandedBatches.has(batch.id);
 
                             return (
@@ -305,7 +306,8 @@ const RequisitionQueue: React.FC<Props> = ({ systemRole }) => {
                 ) : (
                     <div className="space-y-6 animate-in fade-in duration-300">
                         {awaitingPaymentBatches.map(batch => {
-                            const totalAmount = batch.requisitions?.reduce((sum, req) => sum + Number(req.totalAmount), 0) || 0;
+                            const activeReqs = batch.requisitions?.filter(req => req.status !== REQUISITION_STATUS.REJECTED) || [];
+                            const totalAmount = activeReqs.reduce((sum, req) => sum + Number(req.totalAmount), 0);
                             const isExpanded = expandedBatches.has(batch.id);
 
                             return (
@@ -375,7 +377,7 @@ const RequisitionQueue: React.FC<Props> = ({ systemRole }) => {
                                                             </td>
                                                             <td className="py-3 pl-4 text-right font-black text-gray-900">{Number(req.totalAmount).toLocaleString()}</td>
                                                             <td className="py-3 pl-4 text-right">
-                                                                {req.status !== REQUISITION_STATUS.PAID && batch.status !== REQUISITION_STATUS.REJECTED && (
+                                                                {req.status !== REQUISITION_STATUS.PAID && req.status !== REQUISITION_STATUS.REJECTED && batch.status !== REQUISITION_STATUS.REJECTED && (
                                                                     <button
                                                                         onClick={() => handleMarkReqPaid(req)}
                                                                         className="flex items-center gap-1 bg-green-600 text-white px-3 py-1.5 rounded-lg text-sm font-bold hover:bg-green-700 transition-colors shadow-sm ml-auto"

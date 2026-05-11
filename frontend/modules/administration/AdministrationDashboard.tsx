@@ -6,6 +6,7 @@ interface Props {
   openModal: (t: ModalType) => void;
   onDeleteUser: (id: string) => void;
   onEditUser: (u: any) => void;
+  refreshTrigger?: number;
 }
 
 const AdministrationDashboard: React.FC<Props> = (props) => {

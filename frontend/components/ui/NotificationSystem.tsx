@@ -18,9 +18,18 @@ interface ConfirmOptions {
     isDestructive?: boolean;
 }
 
+interface PromptOptions {
+    title: string;
+    message: string;
+    defaultValue?: string;
+    confirmText?: string;
+    cancelText?: string;
+}
+
 interface NotificationContextType {
     showToast: (message: string, type?: NotificationType) => void;
     confirm: (message: React.ReactNode, options?: Partial<ConfirmOptions>) => Promise<boolean>;
+    prompt: (message: string, options?: Partial<PromptOptions>) => Promise<string | null>;
 }
 
 // --- Context ---
@@ -125,6 +134,74 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({ isOpen, options, onConfir
     );
 };
 
+// 3. Prompt Modal Component
+interface PromptDialogProps {
+    isOpen: boolean;
+    options: PromptOptions;
+    onConfirm: (value: string) => void;
+    onCancel: () => void;
+}
+
+const PromptDialog: React.FC<PromptDialogProps> = ({ isOpen, options, onConfirm, onCancel }) => {
+    const [value, setValue] = useState(options.defaultValue || '');
+    
+    useEffect(() => {
+        if (isOpen) {
+            setValue(options.defaultValue || '');
+        }
+    }, [isOpen, options.defaultValue]);
+
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform animate-in zoom-in-95 duration-200 scale-100 p-6 border border-gray-100">
+                <div className="flex items-start mb-4">
+                    <div className="p-3 rounded-full mr-4 bg-gray-100">
+                        <Info className="w-6 h-6 text-ministry-text" />
+                    </div>
+                    <div className="flex-1 w-full">
+                        <h3 className="text-xl font-bold text-gray-900 mb-2">{options.title}</h3>
+                        <p className="text-gray-600 leading-relaxed text-sm mb-4">
+                            {options.message}
+                        </p>
+                        <input 
+                            type="text" 
+                            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-ministry-orange focus:border-ministry-orange outline-none transition-shadow text-gray-900"
+                            value={value}
+                            onChange={e => setValue(e.target.value)}
+                            autoFocus
+                            placeholder="Enter here..."
+                            onKeyDown={e => {
+                                if (e.key === 'Enter' && value.trim()) onConfirm(value);
+                                if (e.key === 'Escape') onCancel();
+                            }}
+                        />
+                    </div>
+                </div>
+
+                <div className="flex justify-end gap-3 mt-6">
+                    <button
+                        onClick={onCancel}
+                        className="px-5 py-2.5 rounded-xl font-bold text-gray-600 hover:bg-gray-100 transition-colors text-sm"
+                    >
+                        {options.cancelText || 'Cancel'}
+                    </button>
+                    <button
+                        onClick={() => {
+                            if (value.trim()) onConfirm(value);
+                        }}
+                        disabled={!value.trim()}
+                        className="px-6 py-2.5 rounded-xl font-bold text-white shadow-lg transition-all transform active:scale-95 text-sm bg-ministry-text hover:bg-ministry-orange disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        {options.confirmText || 'Submit'}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 // --- Provider ---
 export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [toasts, setToasts] = useState<Toast[]>([]);
@@ -133,6 +210,11 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     const [confirmOpen, setConfirmOpen] = useState(false);
     const [confirmOptions, setConfirmOptions] = useState<ConfirmOptions>({ title: '', message: '' });
     const resolveRef = useRef<((value: boolean) => void) | null>(null);
+
+    // Prompt State
+    const [promptOpen, setPromptOpen] = useState(false);
+    const [promptOptions, setPromptOptions] = useState<PromptOptions>({ title: '', message: '' });
+    const promptResolveRef = useRef<((value: string | null) => void) | null>(null);
 
     // Toast Logic
     const showToast = useCallback((message: string, type: NotificationType = 'info') => {
@@ -175,8 +257,39 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         }
     };
 
+    // Prompt Logic
+    const prompt = useCallback((message: string, options?: Partial<PromptOptions>): Promise<string | null> => {
+        return new Promise((resolve) => {
+            setPromptOptions({
+                title: options?.title || 'Input Required',
+                message: message,
+                defaultValue: options?.defaultValue || '',
+                confirmText: options?.confirmText || 'Submit',
+                cancelText: options?.cancelText || 'Cancel'
+            });
+            setPromptOpen(true);
+            promptResolveRef.current = resolve;
+        });
+    }, []);
+
+    const handlePromptConfirm = (value: string) => {
+        setPromptOpen(false);
+        if (promptResolveRef.current) {
+            promptResolveRef.current(value);
+            promptResolveRef.current = null;
+        }
+    };
+
+    const handlePromptCancel = () => {
+        setPromptOpen(false);
+        if (promptResolveRef.current) {
+            promptResolveRef.current(null);
+            promptResolveRef.current = null;
+        }
+    };
+
     return (
-        <NotificationContext.Provider value={{ showToast, confirm }}>
+        <NotificationContext.Provider value={{ showToast, confirm, prompt }}>
             {children}
 
             {/* Toast Container */}
@@ -192,6 +305,14 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
                 options={confirmOptions}
                 onConfirm={handleConfirm}
                 onCancel={handleCancel}
+            />
+
+            {/* Prompt Modal */}
+            <PromptDialog
+                isOpen={promptOpen}
+                options={promptOptions}
+                onConfirm={handlePromptConfirm}
+                onCancel={handlePromptCancel}
             />
         </NotificationContext.Provider>
     );

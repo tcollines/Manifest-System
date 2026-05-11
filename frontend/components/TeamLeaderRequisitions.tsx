@@ -5,17 +5,19 @@ import { RequisitionBatch } from '../types';
 import { REQUISITION_STATUS } from '../shared/constants';
 import { CheckCircle, XCircle, FileText, Clock, Layers, ChevronDown, ChevronUp } from 'lucide-react';
 import { StatusBadge } from './ui/StatusBadge';
+import { DepartmentStore } from '../database/departmentStore';
 
 interface TeamLeaderRequisitionsProps {
     currentUser: any;
 }
 
 const TeamLeaderRequisitions: React.FC<TeamLeaderRequisitionsProps> = ({ currentUser }) => {
-    const { showToast, confirm: askConfirm } = useNotification();
+    const { showToast, confirm: askConfirm, prompt: askPrompt } = useNotification();
     const [batches, setBatches] = useState<RequisitionBatch[]>([]);
     const [activeTab, setActiveTab] = useState<'Pending' | 'History'>('Pending');
     const [isLoading, setIsLoading] = useState(false);
     const [expandedBatches, setExpandedBatches] = useState<Set<string>>(new Set());
+    const [departments, setDepartments] = useState<Record<string, string>>({});
 
     useEffect(() => {
         fetchBatches();
@@ -24,10 +26,20 @@ const TeamLeaderRequisitions: React.FC<TeamLeaderRequisitionsProps> = ({ current
     const fetchBatches = async () => {
         setIsLoading(true);
         try {
+            const deptsRes = await DepartmentStore.getAll();
+            if (deptsRes.status === 'success' && deptsRes.data) {
+                const deptMap = deptsRes.data.reduce((acc, obj) => {
+                     acc[obj.id] = obj.name;
+                     return acc;
+                }, {} as Record<string, string>);
+                setDepartments(deptMap);
+            }
+
             const data = await RequisitionStore.getQueue();
             setBatches([...data.tl.pending_approval, ...data.tl.history]);
         } catch (e) {
-            console.error("Failed to fetch batches", e);
+            console.error(e);
+            showToast('Failed to load requisitions', 'error');
         } finally {
             setIsLoading(false);
         }
@@ -43,29 +55,6 @@ const TeamLeaderRequisitions: React.FC<TeamLeaderRequisitionsProps> = ({ current
         }
     });
 
-    const handleApproveBatch = async (batch: RequisitionBatch) => {
-        if (!await askConfirm("Approve Batch?", `Approve Batch "${batch.batchNumber}"? This will natively finalize all ${batch.requisitions?.length || 0} nested requests.`)) return;
-        try {
-            await RequisitionStore.updateBatchStatus(batch.id, REQUISITION_STATUS.APPROVED);
-            showToast(`Batch ${batch.batchNumber} approved!`, 'success');
-            fetchBatches();
-        } catch (e: any) {
-            showToast('Error approving batch: ' + e.message, 'error');
-        }
-    };
-
-    const handleRejectBatch = async (batch: RequisitionBatch) => {
-        const reason = prompt(`Reason for rejecting Batch "${batch.batchNumber}":`);
-        if (!reason) return;
-        try {
-            await RequisitionStore.updateBatchStatus(batch.id, REQUISITION_STATUS.REJECTED, reason);
-            showToast(`Batch ${batch.batchNumber} rejected.`, 'success');
-            fetchBatches();
-        } catch (e: any) {
-            showToast('Error rejecting batch: ' + e.message, 'error');
-        }
-    };
-
     const toggleExpand = (batchId: string) => {
         setExpandedBatches(prev => {
             const next = new Set(prev);
@@ -73,6 +62,65 @@ const TeamLeaderRequisitions: React.FC<TeamLeaderRequisitionsProps> = ({ current
             else next.add(batchId);
             return next;
         });
+    };
+
+    const handleApproveItem = async (req: any, batch: any) => {
+        if (!await askConfirm("Approve Item?", `Approve "${req.title}"?`)) return;
+        try {
+            await RequisitionStore.updateStatus(req.id, REQUISITION_STATUS.APPROVED);
+            showToast(`Item ${req.title} approved!`, 'success');
+            
+            // Auto-finalize batch
+            const pendingItems = batch.requisitions.filter((r: any) => 
+                r.id !== req.id && 
+                r.status !== REQUISITION_STATUS.APPROVED && 
+                r.status !== REQUISITION_STATUS.REJECTED
+            );
+            if (pendingItems.length === 0) {
+                const allRejected = batch.requisitions.every((r: any) => 
+                    r.id === req.id ? false : r.status === REQUISITION_STATUS.REJECTED
+                );
+                if (allRejected) {
+                    await RequisitionStore.updateBatchStatus(batch.id, REQUISITION_STATUS.REJECTED, "All items rejected");
+                } else {
+                    await RequisitionStore.updateBatchStatus(batch.id, REQUISITION_STATUS.APPROVED);
+                }
+            }
+
+            fetchBatches();
+        } catch (e: any) {
+            showToast('Error approving item: ' + e.message, 'error');
+        }
+    };
+
+    const handleRejectItem = async (req: any, batch: any) => {
+        const reason = await askPrompt(`Please provide a reason for rejecting "${req.title}":`, { title: "Reject Item" });
+        if (!reason) return;
+        try {
+            await RequisitionStore.updateStatus(req.id, REQUISITION_STATUS.REJECTED, reason);
+            showToast(`Item ${req.title} rejected.`, 'success');
+
+            // Auto-finalize batch
+            const pendingItems = batch.requisitions.filter((r: any) => 
+                r.id !== req.id && 
+                r.status !== REQUISITION_STATUS.APPROVED && 
+                r.status !== REQUISITION_STATUS.REJECTED
+            );
+            if (pendingItems.length === 0) {
+                const allRejected = batch.requisitions.every((r: any) => 
+                    r.id === req.id ? true : r.status === REQUISITION_STATUS.REJECTED
+                );
+                if (allRejected) {
+                    await RequisitionStore.updateBatchStatus(batch.id, REQUISITION_STATUS.REJECTED, "All items rejected");
+                } else {
+                    await RequisitionStore.updateBatchStatus(batch.id, REQUISITION_STATUS.APPROVED);
+                }
+            }
+
+            fetchBatches();
+        } catch (e: any) {
+            showToast('Error rejecting item: ' + e.message, 'error');
+        }
     };
 
     const formatCurrency = (amount: number) => {
@@ -127,7 +175,8 @@ const TeamLeaderRequisitions: React.FC<TeamLeaderRequisitionsProps> = ({ current
             ) : (
                 <div className="space-y-6">
                     {filteredBatches.map(batch => {
-                        const totalAmount = batch.requisitions?.reduce((sum, req) => sum + Number(req.totalAmount), 0) || 0;
+                        const activeReqs = batch.requisitions?.filter(req => req.status !== REQUISITION_STATUS.REJECTED) || [];
+                        const totalAmount = activeReqs.reduce((sum, req) => sum + Number(req.totalAmount), 0);
                         const isExpanded = expandedBatches.has(batch.id);
 
                         return (
@@ -156,24 +205,6 @@ const TeamLeaderRequisitions: React.FC<TeamLeaderRequisitionsProps> = ({ current
                                         <div className="font-mono text-2xl font-black text-ministry-text">
                                             {formatCurrency(totalAmount)}
                                         </div>
-                                        {activeTab === 'Pending' && (
-                                            <div className="flex gap-2">
-                                                <button
-                                                    onClick={() => handleRejectBatch(batch)}
-                                                    className="flex items-center gap-2 bg-white border-2 border-red-100 text-red-600 px-4 py-2 rounded-xl font-bold hover:bg-red-50 transition-colors"
-                                                >
-                                                    <XCircle className="w-4 h-4" />
-                                                    Reject
-                                                </button>
-                                                <button
-                                                    onClick={() => handleApproveBatch(batch)}
-                                                    className="flex items-center gap-2 bg-ministry-text text-white px-5 py-2 rounded-xl font-bold hover:bg-gray-900 transition-colors shadow-sm"
-                                                >
-                                                    <CheckCircle className="w-4 h-4" />
-                                                    Approve Batch
-                                                </button>
-                                            </div>
-                                        )}
                                     </div>
                                 </div>
 
@@ -183,16 +214,18 @@ const TeamLeaderRequisitions: React.FC<TeamLeaderRequisitionsProps> = ({ current
                                         <table className="w-full text-sm text-left">
                                             <thead className="text-gray-400 font-bold uppercase tracking-wider text-xs border-b border-gray-100">
                                                 <tr>
-                                                    <th className="pb-3 pr-4">Requisition</th>
+                                                    <th className="pb-3 pr-4">Department</th>
                                                     <th className="pb-3 px-4">Subject</th>
                                                     <th className="pb-3 px-4 text-center">Type</th>
                                                     <th className="pb-3 pl-4 text-right">Amount (UGX)</th>
+                                                    <th className="pb-3 px-4 text-center">Status</th>
+                                                    {activeTab === 'Pending' && <th className="pb-3 pl-4 text-right">Actions</th>}
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-gray-50">
                                                 {batch.requisitions.map(req => (
                                                     <tr key={req.id} className="group/row hover:bg-gray-50/50">
-                                                        <td className="py-3 pr-4 text-gray-500 font-mono text-xs">{req.requisitionNumber || '-'}</td>
+                                                        <td className="py-3 pr-4 text-gray-500 font-medium text-sm">{departments[req.departmentId] || 'Unknown'}</td>
                                                         <td className="py-3 px-4">
                                                             <p className="font-bold text-gray-900">{req.title}</p>
                                                         </td>
@@ -202,6 +235,25 @@ const TeamLeaderRequisitions: React.FC<TeamLeaderRequisitionsProps> = ({ current
                                                             </span>
                                                         </td>
                                                         <td className="py-3 pl-4 text-right font-black text-gray-900">{Number(req.totalAmount).toLocaleString()}</td>
+                                                        <td className="py-3 px-4 text-center">
+                                                            <StatusBadge status={req.status} />
+                                                        </td>
+                                                        {activeTab === 'Pending' && (
+                                                            <td className="py-3 pl-4 text-right">
+                                                                {req.status === REQUISITION_STATUS.TL_APPROVAL || req.status === REQUISITION_STATUS.PENDING ? (
+                                                                    <div className="flex justify-end gap-2">
+                                                                        <button onClick={(e) => { e.stopPropagation(); handleApproveItem(req, batch); }} className="p-1 text-green-600 hover:bg-green-50 rounded-lg transition-colors" title="Approve">
+                                                                            <CheckCircle className="w-5 h-5" />
+                                                                        </button>
+                                                                        <button onClick={(e) => { e.stopPropagation(); handleRejectItem(req, batch); }} className="p-1 text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Reject">
+                                                                            <XCircle className="w-5 h-5" />
+                                                                        </button>
+                                                                    </div>
+                                                                ) : (
+                                                                    <span className="text-xs text-gray-400 font-bold uppercase">{req.status}</span>
+                                                                )}
+                                                            </td>
+                                                        )}
                                                     </tr>
                                                 ))}
                                             </tbody>

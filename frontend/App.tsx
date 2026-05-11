@@ -69,6 +69,7 @@ const App: React.FC = () => {
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [modalType, setModalType]               = useState<ModalType>(ModalType.NONE);
   const [targetUser, setTargetUser]             = useState<User | null>(null);
+  const [refreshUsersCounter, setRefreshUsersCounter] = useState(0);
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -157,6 +158,7 @@ const App: React.FC = () => {
       if (response.status !== 'success') {
         throw new Error(response.status === 'error' ? response.message : 'Failed to add user');
       }
+      setRefreshUsersCounter(c => c + 1);
     } catch (e: any) {
       showToast(e.message || 'Failed to add user', 'error');
       throw e;
@@ -165,6 +167,7 @@ const App: React.FC = () => {
 
   const handleDeleteUser = async (userId: string) => {
     await UserStore.remove(userId);
+    setRefreshUsersCounter(c => c + 1);
   };
 
   const handleUpdateUser = async (updatedUser: User) => {
@@ -173,6 +176,7 @@ const App: React.FC = () => {
       if (response.status !== 'success') {
         throw new Error(response.status === 'error' ? response.message : 'Failed to update user');
       }
+      setRefreshUsersCounter(c => c + 1);
       showToast('User updated successfully!', 'success');
     } catch (e: any) {
       showToast(e.message || 'Failed to update user', 'error');
@@ -292,6 +296,7 @@ const App: React.FC = () => {
                     openModal={setModalType}
                     onDeleteUser={handleDeleteUser}
                     onEditUser={(u) => { setTargetUser(u); setModalType(ModalType.EDIT_USER); }}
+                    refreshTrigger={refreshUsersCounter}
                   />
                 </React.Suspense>
               } />

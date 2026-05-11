@@ -31,9 +31,12 @@ export const createNotification = async (
     type: string,
     message: string,
     entityId?: string,
-    url?: string
+    url?: string,
+    excludeUserId?: string
 ) => {
     try {
+        if (excludeUserId && userId === excludeUserId) return;
+
         if (await isDuplicate(userId, type, message, entityId)) {
             console.log(`[NOTIFICATIONS] Blocked duplicate notification for user ${userId} (${type})`);
             return;
@@ -74,7 +77,8 @@ export const notifyRole = async (
     type: string,
     message: string,
     entityId?: string,
-    url?: string
+    url?: string,
+    excludeUserId?: string
 ) => {
     try {
         // Fetch users with the specified role
@@ -89,6 +93,8 @@ export const notifyRole = async (
 
         const validUsers = [];
         for (const u of users) {
+            if (excludeUserId && u.id === excludeUserId) continue;
+
             if (!(await isDuplicate(u.id, type, message, entityId))) {
                 validUsers.push(u);
             } else {

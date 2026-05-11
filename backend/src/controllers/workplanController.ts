@@ -117,7 +117,7 @@ export const generateGlobalWorkplans = async (req: Request, res: Response) => {
                 month: monthDate,
                 objectives,
                 status: WORKPLAN_STATUS.DRAFT,
-                created_by: userId
+                created_by: null
             }));
 
         if (newWorkplans.length === 0) {
@@ -256,7 +256,11 @@ export const submitWorkplan = async (req: Request, res: Response) => {
 
         const { data, error } = await supabase
             .from('monthly_workplans')
-            .update({ status: nextStatus, updated_at: new Date().toISOString() })
+            .update({ 
+                status: nextStatus, 
+                created_by: req.user?.id,
+                updated_at: new Date().toISOString() 
+            })
             .eq('id', workplanId)
             .in('status', [WORKPLAN_STATUS.DRAFT, WORKPLAN_STATUS.ADMIN_REVIEW, WORKPLAN_STATUS.TL_REVIEW]) // Concurrency control
             .select()
@@ -271,10 +275,10 @@ export const submitWorkplan = async (req: Request, res: Response) => {
         // Fire notifications
         import('../utils/notifications').then(({ notifyRole }) => {
             if (nextStatus === WORKPLAN_STATUS.ADMIN_REVIEW) {
-                notifyRole(manifestId, 'Administrator', 'WORKPLAN_REVIEW', `A workplan has been submitted for Admin Review.`);
-                notifyRole(manifestId, 'Super Admin', 'WORKPLAN_REVIEW', `A workplan has been submitted for Admin Review.`);
+                notifyRole(manifestId, 'Administrator', 'WORKPLAN_REVIEW', `A workplan has been submitted for Admin Review.`, workplanId, '/approvals/workplans');
+                notifyRole(manifestId, 'Super Admin', 'WORKPLAN_REVIEW', `A workplan has been submitted for Admin Review.`, workplanId, '/approvals/workplans');
             } else if (nextStatus === WORKPLAN_STATUS.TL_REVIEW) {
-                notifyRole(manifestId, 'TeamLeader', 'WORKPLAN_REVIEW', `A workplan is pending your Team Leader Review.`);
+                notifyRole(manifestId, 'TeamLeader', 'WORKPLAN_REVIEW', `A workplan is pending your Team Leader Review.`, workplanId, '/approvals/workplans');
             }
         }).catch(err => console.error('Error importing notifyRole', err));
 
@@ -392,7 +396,7 @@ export const processTLItemDecision = async (req: Request, res: Response) => {
             .eq('status', 'ADMIN_APPROVED');
             
         if (!countError && count === 0) {
-            const { error: finalizeError } = await supabase
+            const { data: updatedWp, error: finalizeError } = await supabase
                 .from('monthly_workplans')
                 .update({ 
                     status: WORKPLAN_STATUS.FINALIZED, 
@@ -400,7 +404,18 @@ export const processTLItemDecision = async (req: Request, res: Response) => {
                     updated_at: new Date().toISOString() 
                 })
                 .eq('id', workplanId)
-                .eq('status', WORKPLAN_STATUS.TL_REVIEW); // Concurrency Control
+                .eq('status', WORKPLAN_STATUS.TL_REVIEW)
+                .select()
+                .single();
+                
+            if (updatedWp) {
+                import('../utils/notifications').then(({ notifyRole, createNotification }) => {
+                    if (updatedWp.created_by) {
+                        createNotification(manifestId, updatedWp.created_by, 'WORKPLAN_REVIEW', `Your workplan has been completely finalized.`, workplanId, `/departments/${updatedWp.department_id}/dashboard?tab=workplans`);
+                    }
+                    notifyRole(manifestId, 'Finance', 'WORKPLAN_REVIEW', `A workplan has been finalized. Budgets can now be executed.`, workplanId, '/finance/dashboard');
+                }).catch(err => console.error('Error importing notifyRole', err));
+            }
         }
 
         await import('../utils/logger').then(({ logAction }) => {
@@ -448,9 +463,9 @@ export const finalizeWorkplan = async (req: Request, res: Response) => {
 
         import('../utils/notifications').then(({ notifyRole, createNotification }) => {
             if (data?.created_by) {
-                createNotification(manifestId, data.created_by, 'WORKPLAN_REVIEW', `Your workplan has been completely finalized.`);
+                createNotification(manifestId, data.created_by, 'WORKPLAN_REVIEW', `Your workplan has been completely finalized.`, workplanId, `/departments/${data.department_id}/dashboard?tab=workplans`);
             }
-            notifyRole(manifestId, 'Finance', 'WORKPLAN_REVIEW', `A workplan has been finalized. Budgets can now be executed.`);
+            notifyRole(manifestId, 'Finance', 'WORKPLAN_REVIEW', `A workplan has been finalized. Budgets can now be executed.`, workplanId, '/finance/dashboard');
         }).catch(err => console.error('Error importing notifyRole', err));
 
         res.json(data);
@@ -578,10 +593,10 @@ export const resubmitWorkplan = async (req: Request, res: Response) => {
         // Fire notifications
         import('../utils/notifications').then(({ notifyRole }) => {
             if (nextStatus === 'Admin_Review' || nextStatus === 'ADMIN_REVIEW') {
-                notifyRole(manifestId, 'Administrator', 'WORKPLAN_REVIEW', `A workplan has been resubmitted for Admin Review.`);
-                notifyRole(manifestId, 'Super Admin', 'WORKPLAN_REVIEW', `A workplan has been resubmitted for Admin Review.`);
+                notifyRole(manifestId, 'Administrator', 'WORKPLAN_REVIEW', `A workplan has been resubmitted for Admin Review.`, workplanId, '/approvals/workplans');
+                notifyRole(manifestId, 'Super Admin', 'WORKPLAN_REVIEW', `A workplan has been resubmitted for Admin Review.`, workplanId, '/approvals/workplans');
             } else if (nextStatus === 'TL_Review' || nextStatus === 'TL_REVIEW') {
-                notifyRole(manifestId, 'TeamLeader', 'WORKPLAN_REVIEW', `A workplan is pending your Team Leader Review after resubmission.`);
+                notifyRole(manifestId, 'TeamLeader', 'WORKPLAN_REVIEW', `A workplan is pending your Team Leader Review after resubmission.`, workplanId, '/approvals/workplans');
             }
         }).catch(err => console.error('Error importing notifyRole', err));
 
@@ -680,9 +695,9 @@ export const processAdminReviewCompletion = async (req: Request, res: Response) 
 
         import('../utils/notifications').then(({ notifyRole, createNotification }) => {
             if (nextStatus === WORKPLAN_STATUS.TL_REVIEW) {
-                notifyRole(manifestId, 'TeamLeader', 'WORKPLAN_REVIEW', `A workplan has completed Admin Review and is pending your Team Leader Review.`);
+                notifyRole(manifestId, 'TeamLeader', 'WORKPLAN_REVIEW', `A workplan has completed Admin Review and is pending your Team Leader Review.`, workplanId, '/approvals/workplans');
             } else if (nextStatus === WORKPLAN_STATUS.DRAFT && data?.created_by) {
-                createNotification(manifestId, data.created_by, 'WORKPLAN_REVIEW', `Your workplan has been returned to DRAFT due to rejected items.`);
+                createNotification(manifestId, data.created_by, 'WORKPLAN_REVIEW', `Your workplan has been returned to DRAFT due to rejected items.`, workplanId, `/departments/${data.department_id}/dashboard?tab=workplans`);
             }
         }).catch(err => console.error('Error importing notifyRole', err));
 

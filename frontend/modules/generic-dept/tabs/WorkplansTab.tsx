@@ -20,7 +20,7 @@ const blankActivity = (): any => ({
 
 // ─── New Workplan Populate Form ────────────────────────────────────────────────────────
 interface PopulateWorkplanFormProps { workplan: MonthlyWorkplan; department: Department; onSaved: () => void; onCancel: () => void; }
-const DURATION_OPTIONS = ['Once', 'Monthly', 'Weekly', 'Quarterly', 'Annually'];
+const DURATION_OPTIONS = ['Once', 'Daily', 'Weekly'];
 const NO_SPINNER = '[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none';
 
 const PopulateWorkplanForm: React.FC<PopulateWorkplanFormProps> = ({ workplan, department, onSaved, onCancel }) => {

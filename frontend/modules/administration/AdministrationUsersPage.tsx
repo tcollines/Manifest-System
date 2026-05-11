@@ -10,9 +10,10 @@ interface Props {
   openModal: (t: ModalType) => void;
   onDeleteUser: (id: string) => void;
   onEditUser: (u: User) => void;
+  refreshTrigger?: number;
 }
 
-const AdministrationUsersPage: React.FC<Props> = ({ openModal, onDeleteUser, onEditUser }) => {
+const AdministrationUsersPage: React.FC<Props> = ({ openModal, onDeleteUser, onEditUser, refreshTrigger }) => {
   const { user: currentUser } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [localUsers, setLocalUsers] = useState<User[]>([]);
@@ -41,7 +42,7 @@ const AdministrationUsersPage: React.FC<Props> = ({ openModal, onDeleteUser, onE
       setLoading(false);
     };
     fetchUsersAndDepts();
-  }, []);
+  }, [refreshTrigger]);
   
   const isAdmin = currentUser?.role === 'Administrator' || currentUser?.role === 'Super Admin' || currentUser?.role === 'TeamLeader';
 

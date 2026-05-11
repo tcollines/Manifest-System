@@ -109,10 +109,15 @@ const Sidebar: React.FC<SidebarProps> = ({ onLogout, isOpen, onClose }) => {
       myDeptItems.push({ id: 'fin-req', label: 'Requisitions', icon: FileText, path: `/departments/${dId}/requisitions` });
       myDeptItems.push({ id: 'fin-fleet', label: 'Fleet Management', icon: Bus, path: `/departments/${dId}/fleet` });
   } else if (checkCode('d5', 'transportation')) {
-      myDeptItems.push({ id: 'tr-overview', label: 'Overview', icon: LayoutDashboard, path: `/departments/${dId}/overview` });
-      myDeptItems.push({ id: 'tr-coordinators', label: 'Coordinators', icon: Users, path: `/departments/${dId}/coordinators` });
-      myDeptItems.push({ id: 'tr-stages', label: 'Stages', icon: Map, path: `/departments/${dId}/stages` });
-      myDeptItems.push({ id: 'tr-stage-dash', label: 'Stage Dashboard', icon: LayoutDashboard, path: `/departments/${dId}/stage-dashboard` });
+      const isStageCoordinator = currentUser.role === 'Stage Coordinator' || (currentUser.role === 'Coordinator' && !!currentUser.stationId);
+      
+      if (isStageCoordinator) {
+          myDeptItems.push({ id: 'tr-stage-dash', label: 'Stage Dashboard', icon: LayoutDashboard, path: `/departments/${dId}/stage-dashboard` });
+      } else {
+          myDeptItems.push({ id: 'tr-overview', label: 'Overview', icon: LayoutDashboard, path: `/departments/${dId}/overview` });
+          myDeptItems.push({ id: 'tr-coordinators', label: 'Coordinators', icon: Users, path: `/departments/${dId}/coordinators` });
+          myDeptItems.push({ id: 'tr-stages', label: 'Stages', icon: Map, path: `/departments/${dId}/stages` });
+      }
   } else if (checkCode('d6', 'follow-up')) {
       myDeptItems.push({ id: 'fu-services', label: 'Services', icon: ClipboardCheck, path: `/departments/${dId}/services` });
       myDeptItems.push({ id: 'fu-events', label: 'Events', icon: Calendar, path: `/departments/${dId}/events` });

@@ -61,7 +61,9 @@ const RequisitionsTab: React.FC<Props> = ({ user }) => {
     const handleSubmit = async (req: Requisition) => {
         setIsLoading(true);
         try {
-            await RequisitionStore.updateStatus(req.id, REQUISITION_STATUS.PENDING);
+            // WORKPLAN requisitions bypass the ADHOC approval pipeline since they are pre-approved
+            const nextStatus = req.type === 'WORKPLAN' ? REQUISITION_STATUS.APPROVED : REQUISITION_STATUS.PENDING;
+            await RequisitionStore.updateStatus(req.id, nextStatus);
             showToast('Requisition submitted successfully!', 'success');
             fetchRequisitions();
         } catch (e: any) {

@@ -64,9 +64,13 @@ const WorkplanQueue: React.FC<Props> = ({ systemRole }) => {
             .filter(g => {
                 if (g.workplans.length > 0) {
                     g.workplans.sort((a, b) => {
+                        const aIsDraft = a.status === 'Draft' ? 1 : 0;
+                        const bIsDraft = b.status === 'Draft' ? 1 : 0;
+                        if (aIsDraft !== bIsDraft) return aIsDraft - bIsDraft;
+
                         const dateA = new Date((a as any).updatedAt || (a as any).createdAt || 0).getTime();
                         const dateB = new Date((b as any).updatedAt || (b as any).createdAt || 0).getTime();
-                        return dateA - dateB;
+                        return dateB - dateA;
                     });
                     return true;
                 }

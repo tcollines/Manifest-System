@@ -75,15 +75,15 @@ export const createBatch = async (req: Request, res: Response) => {
 
         // Fire notifications
         import('../utils/notifications').then(({ notifyRole, createNotification }) => {
-            notifyRole(manifestId, 'TeamLeader', 'REQUISITION_APPROVAL', `A new requisition batch (${batchNumber}) is pending your approval.`, batchData.id, '/approvals/requisitions');
-            notifyRole(manifestId, 'Finance', 'FINANCE_ACTION', `A new requisition batch (${batchNumber}) has been submitted from a department.`, batchData.id, '/finance/processing');
+            notifyRole(manifestId, 'TeamLeader', 'REQUISITION_APPROVAL', `A new requisition batch (${batchNumber}) is pending your approval.`, batchData.id, '/approvals/requisitions', req.user?.id);
+            notifyRole(manifestId, 'Finance', 'FINANCE_ACTION', `A new requisition batch (${batchNumber}) has been submitted from a department.`, batchData.id, '/finance/processing', req.user?.id);
             
             if (reqsToNotify) {
                 reqsToNotify.forEach(req => {
                     if (req.requester_id) {
                         const reqUrl = req.department_id ? `/departments/${req.department_id}/dashboard?tab=requisitions` : '/dashboard';
                         const reqName = req.title || req.requisition_number || `Req ${req.id.slice(0, 6)}`;
-                        createNotification(manifestId, req.requester_id, 'REQUISITION_ACTION', `Your requisition "${reqName}" has been grouped into batch ${batchNumber} and is pending Team Leader approval.`, req.id, reqUrl);
+                        createNotification(manifestId, req.requester_id, 'REQUISITION_ACTION', `Your requisition "${reqName}" has been grouped into batch ${batchNumber} and is pending Team Leader approval.`, req.id, reqUrl, req.user?.id);
                     }
                 });
             }
@@ -163,7 +163,7 @@ export const createRequisition = async (req: Request, res: Response) => {
 
         import('../utils/notifications').then(({ notifyRole }) => {
             const reqName = requisition.title || reqNumber;
-            notifyRole(manifestId, 'Administrator', 'REQUISITION_ACTION', `A new requisition "${reqName}" requires your approval.`, reqData.id, '/approvals/adhoc-requisitions');
+            notifyRole(manifestId, 'Administrator', 'REQUISITION_ACTION', `A new requisition "${reqName}" requires your approval.`, reqData.id, '/approvals/adhoc-requisitions', req.user?.id);
         }).catch(err => console.error('Error importing notifyRole', err));
 
         res.status(201).json({ message: 'Requisition created' });
@@ -218,7 +218,7 @@ export const updateRequisition = async (req: Request, res: Response) => {
 
         import('../utils/notifications').then(({ notifyRole }) => {
             const reqName = requisition.title || requisition.requisition_number || `Req ${id.slice(0, 6)}`;
-            notifyRole(manifestId, 'Administrator', 'REQUISITION_ACTION', `Requisition "${reqName}" has been resubmitted and requires your approval.`, id, '/approvals/adhoc-requisitions');
+            notifyRole(manifestId, 'Administrator', 'REQUISITION_ACTION', `Requisition "${reqName}" has been resubmitted and requires your approval.`, id, '/approvals/adhoc-requisitions', req.user?.id);
         }).catch(err => console.error('Error importing notifyRole', err));
 
         res.json({ message: 'Requisition updated' });
@@ -266,16 +266,16 @@ export const updateStatus = async (req: Request, res: Response) => {
             const reqUrl = reqCheck.department_id ? `/departments/${reqCheck.department_id}/dashboard?tab=requisitions` : '/dashboard';
 
             if (status === REQUISITION_STATUS.FINANCE_BATCH || status === REQUISITION_STATUS.APPROVED) {
-                notifyRole(manifestId, 'Finance', 'FINANCE_ACTION', `Requisition "${reqName}" has been approved and is ready for payment.`);
+                notifyRole(manifestId, 'Finance', 'FINANCE_ACTION', `Requisition "${reqName}" has been approved and is ready for payment.`, id, '/finance/processing', req.user?.id);
                 
                 // Also notify the requester that their requisition was approved
                 if (reqCheck.requester_id) {
-                    createNotification(manifestId, reqCheck.requester_id, 'REQUISITION_ACTION', `Your requisition "${reqName}" has been approved by the Administrator.`, id, reqUrl);
+                    createNotification(manifestId, reqCheck.requester_id, 'REQUISITION_ACTION', `Your requisition "${reqName}" has been approved by the Administrator.`, id, reqUrl, req.user?.id);
                 }
             } else if (status === REQUISITION_STATUS.REJECTED && reqCheck.requester_id) {
-                createNotification(manifestId, reqCheck.requester_id, 'REQUISITION_ACTION', `Your requisition "${reqName}" has been rejected.`, id, reqUrl);
+                createNotification(manifestId, reqCheck.requester_id, 'REQUISITION_ACTION', `Your requisition "${reqName}" has been rejected.`, id, reqUrl, req.user?.id);
             } else if (status === REQUISITION_STATUS.PAID && reqCheck.requester_id) {
-                createNotification(manifestId, reqCheck.requester_id, 'REQUISITION_ACTION', `Your requisition "${reqName}" has been paid!`, id, reqUrl);
+                createNotification(manifestId, reqCheck.requester_id, 'REQUISITION_ACTION', `Your requisition "${reqName}" has been paid!`, id, reqUrl, req.user?.id);
             }
         }).catch(err => console.error('Error importing notifyRole', err));
 
@@ -345,9 +345,9 @@ export const addPayment = async (req: Request, res: Response) => {
             const reqUrl = reqCheck.department_id ? `/departments/${reqCheck.department_id}/dashboard?tab=requisitions` : '/dashboard';
 
             if (isFullPayment && reqCheck.requester_id) {
-                createNotification(manifestId, reqCheck.requester_id, 'PAYMENT', `Requisition "${reqName}" has been paid in full.`, id, reqUrl);
+                createNotification(manifestId, reqCheck.requester_id, 'PAYMENT', `Requisition "${reqName}" has been paid in full.`, id, reqUrl, req.user?.id);
             } else if (reqCheck.requester_id) {
-                createNotification(manifestId, reqCheck.requester_id, 'PAYMENT', `A partial payment of ${payment.amount} was recorded for requisition "${reqName}".`, id, reqUrl);
+                createNotification(manifestId, reqCheck.requester_id, 'PAYMENT', `A partial payment of ${payment.amount} was recorded for requisition "${reqName}".`, id, reqUrl, req.user?.id);
             }
         }).catch(err => console.error('Error importing createNotification', err));
 
@@ -464,7 +464,7 @@ export const updateBatchStatus = async (req: Request, res: Response) => {
             }]);
             
             import('../utils/notifications').then(({ notifyRole, createNotification }) => {
-                notifyRole(manifestId, 'Administrator', 'REQUISITION_ACTION', `Batch ${batch?.batch_number || batchId.slice(0,8)} has been rejected by the Team Leader.`);
+                notifyRole(manifestId, 'Administrator', 'REQUISITION_ACTION', `Batch ${batch?.batch_number || batchId.slice(0,8)} has been rejected by the Team Leader.`, batchId, '/approvals/requisitions');
                 
                 if (batchReqs) {
                     const uniqueRequesters = Array.from(new Set(batchReqs.filter(r => r.requester_id).map(r => r.requester_id)));
@@ -473,7 +473,7 @@ export const updateBatchStatus = async (req: Request, res: Response) => {
                         const deptId = userReqs[0]?.department_id;
                         const reqUrl = deptId ? `/departments/${deptId}/dashboard?tab=requisitions` : '/dashboard';
                         const reqNames = userReqs.map(r => r.title || r.requisition_number || `Req ${r.id.slice(0, 6)}`).join(', ');
-                        createNotification(manifestId, requesterId, 'REQUISITION_ACTION', `Your requisition(s) [${reqNames}] in batch ${batch?.batch_number || batchId.slice(0,8)} have been rejected.`, batchId, reqUrl);
+                        createNotification(manifestId, requesterId, 'REQUISITION_ACTION', `Your requisition(s) [${reqNames}] in batch ${batch?.batch_number || batchId.slice(0,8)} have been rejected.`, batchId, reqUrl, req.user?.id);
                     });
                 }
             }).catch(err => console.error('Error importing notifyRole', err));
@@ -508,7 +508,8 @@ export const updateBatchStatus = async (req: Request, res: Response) => {
                 .from('requisitions')
                 .update(reqUpdateData)
                 .eq('manifest_id', manifestId)
-                .eq('batch_id', batchId);
+                .eq('batch_id', batchId)
+                .neq('status', REQUISITION_STATUS.REJECTED);
 
             if (reqError) throw reqError;
 
@@ -524,7 +525,7 @@ export const updateBatchStatus = async (req: Request, res: Response) => {
             
             import('../utils/notifications').then(({ notifyRole, createNotification }) => {
                 if (status === REQUISITION_STATUS.APPROVED) {
-                    notifyRole(manifestId, 'Finance', 'FINANCE_ACTION', `Batch ${batch.batch_number || batchId.slice(0,8)} has been approved and is ready for payment.`);
+                    notifyRole(manifestId, 'Finance', 'FINANCE_ACTION', `Batch ${batch.batch_number || batchId.slice(0,8)} has been approved and is ready for payment.`, batchId, '/finance/processing');
                 }
 
                 if (batchReqs) {
@@ -534,7 +535,7 @@ export const updateBatchStatus = async (req: Request, res: Response) => {
                         const deptId = userReqs[0]?.department_id;
                         const reqUrl = deptId ? `/departments/${deptId}/dashboard?tab=requisitions` : '/dashboard';
                         const reqNames = userReqs.map(r => r.title || r.requisition_number || `Req ${r.id.slice(0, 6)}`).join(', ');
-                        createNotification(manifestId, requesterId, 'REQUISITION_ACTION', `Your requisition(s) [${reqNames}] in batch ${batch.batch_number || batchId.slice(0,8)} are now in status: ${status}.`, batchId, reqUrl);
+                        createNotification(manifestId, requesterId, 'REQUISITION_ACTION', `Your requisition(s) [${reqNames}] in batch ${batch.batch_number || batchId.slice(0,8)} are now in status: ${status}.`, batchId, reqUrl, req.user?.id);
                     });
                 }
             }).catch(err => console.error('Error importing notifyRole', err));
