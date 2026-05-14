@@ -339,22 +339,24 @@ export async function migrateFormToId(
 }
 
 /**
- * Scans the ENTIRE responses collection (auth required) and returns all
- * response documents whose form_id is NOT the canonical target ID.
- * These are "orphaned" responses saved under old stale form IDs.
+ * Scans the ENTIRE responses collection (auth required) and returns:
+ * - all orphaned responses (form_id !== canonicalFormId)
+ * - total count of ALL response documents found
+ * - all distinct form_ids found across the collection
  */
 export async function findOrphanedResponses(
   canonicalFormId: string,
-): Promise<{ responses: FormResponse[]; formIds: string[] }> {
+): Promise<{ responses: FormResponse[]; formIds: string[]; totalCount: number; allFormIds: string[] }> {
   try {
     const snap = await getDocs(responsesCol);
     const all = snap.docs.map(d => toResponse(d.data() as Record<string, unknown>));
     const orphans = all.filter(r => r.form_id !== canonicalFormId);
     const formIds = [...new Set(orphans.map(r => r.form_id))];
-    return { responses: orphans, formIds };
+    const allFormIds = [...new Set(all.map(r => r.form_id))];
+    return { responses: orphans, formIds, totalCount: all.length, allFormIds };
   } catch (e) {
     console.error('findOrphanedResponses error:', e);
-    return { responses: [], formIds: [] };
+    return { responses: [], formIds: [], totalCount: -1, allFormIds: [] };
   }
 }
 

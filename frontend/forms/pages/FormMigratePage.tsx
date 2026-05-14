@@ -37,6 +37,8 @@ const FormMigratePage: React.FC = () => {
   const [respStep, setRespStep]         = useState<RespStep>('idle');
   const [orphans, setOrphans]           = useState<FormResponse[]>([]);
   const [orphanFormIds, setOrphanFIds]  = useState<string[]>([]);
+  const [allFormIds, setAllFormIds]     = useState<string[]>([]);
+  const [totalCount, setTotalCount]     = useState<number>(0);
   const [respMsg, setRespMsg]           = useState('');
 
   // ── Step 1: Scan forms ────────────────────────────────────────────────────
@@ -67,10 +69,17 @@ const FormMigratePage: React.FC = () => {
   // ── Response recovery: scan ───────────────────────────────────────────────
   const scanResponses = async () => {
     setRespStep('scanning');
-    const { responses, formIds } = await findOrphanedResponses(CANONICAL_ID);
+    const { responses, formIds, totalCount: tc, allFormIds: afids } = await findOrphanedResponses(CANONICAL_ID);
     setOrphans(responses);
     setOrphanFIds(formIds);
-    setRespStep(responses.length > 0 ? 'found' : 'none');
+    setTotalCount(tc);
+    setAllFormIds(afids);
+    if (tc === -1) {
+      setRespMsg('Scan failed — check browser console for details. The collection may be inaccessible.');
+      setRespStep('error');
+    } else {
+      setRespStep(responses.length > 0 ? 'found' : 'none');
+    }
   };
 
   // ── Response recovery: migrate ────────────────────────────────────────────
@@ -213,12 +222,49 @@ const FormMigratePage: React.FC = () => {
           )}
 
           {respStep === 'none' && (
-            <div className="flex items-center gap-3 p-3 bg-gray-50 border border-gray-200 rounded-xl">
-              <CheckCircle2 className="w-5 h-5 text-gray-400 shrink-0" />
-              <div>
-                <p className="text-gray-700 text-sm font-semibold">No orphaned responses found</p>
-                <p className="text-gray-400 text-xs">All responses are already linked to <code className="font-mono">{CANONICAL_ID}</code>.</p>
+            <div className="space-y-3">
+              <div className="p-3 bg-gray-50 border border-gray-200 rounded-xl space-y-2">
+                <p className="text-gray-700 text-sm font-semibold">
+                  📊 Scan complete — {totalCount} total document{totalCount !== 1 ? 's' : ''} in responses collection
+                </p>
+                {totalCount === 0 ? (
+                  <p className="text-red-600 text-xs font-semibold">
+                    ⚠️ The responses collection is completely empty — responses were never written to Firestore.
+                  </p>
+                ) : (
+                  <>
+                    <p className="text-green-700 text-xs font-semibold">
+                      ✅ {totalCount} response{totalCount !== 1 ? 's' : ''} already linked to <code className="font-mono">{CANONICAL_ID}</code>
+                    </p>
+                    <p className="text-gray-400 text-xs">
+                      All form IDs in collection: {allFormIds.map(id => (
+                        <code key={id} className="font-mono bg-gray-100 px-1 rounded ml-1">{id}</code>
+                      ))}
+                    </p>
+                  </>
+                )}
               </div>
+              <a
+                href="https://console.firebase.google.com/project/manifest-forms/firestore/data/responses"
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center justify-center gap-2 w-full py-2 border border-blue-200 text-blue-600 text-xs font-bold rounded-xl hover:bg-blue-50 transition-all"
+              >
+                <Database className="w-3.5 h-3.5" />
+                Open Firebase Console → responses collection ↗
+              </a>
+              {totalCount > 0 && (
+                <div className="flex gap-3 pt-1">
+                  <a href={CANONICAL_URL} target="_blank" rel="noreferrer"
+                    className="flex-1 text-center py-2.5 bg-green-600 hover:bg-green-500 text-white font-bold rounded-xl transition-all text-sm">
+                    Open Public Form ↗
+                  </a>
+                  <button onClick={() => navigate(`/forms/responses/${CANONICAL_ID}`)}
+                    className="flex-1 py-2.5 bg-orange-500 hover:bg-orange-400 text-white font-bold rounded-xl transition-all text-sm">
+                    View Responses
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
