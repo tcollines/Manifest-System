@@ -280,6 +280,7 @@ const FormResponsesPage: React.FC = () => {
             <p className="text-gray-400 text-sm">Publish your form and share the link to start collecting data.</p>
           </div>
         ) : (
+          <>
           <div className="flex-1 overflow-auto rounded-2xl border border-gray-200 bg-white shadow-sm">
             <table className="min-w-full text-sm border-collapse">
               <thead className="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
@@ -355,6 +356,7 @@ const FormResponsesPage: React.FC = () => {
               </button>
             </div>
           )}
+          </>
         )}
       </main>
     </div>
