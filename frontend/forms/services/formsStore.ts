@@ -17,8 +17,14 @@ import {
   query,
   where,
   orderBy,
+  limit,
+  startAfter,
   serverTimestamp,
   Timestamp,
+  writeBatch,
+  increment,
+  QueryDocumentSnapshot,
+  DocumentData,
 } from 'firebase/firestore';
 import { formsDb } from './firebaseConfig';
 import type { Form, FormResponse, FormStatus, AnswerValue } from '../types/forms.types';
@@ -168,10 +174,23 @@ export async function deleteForm(ownerUid: string, formId: string): Promise<void
     unpublishSnapshot(formId),
   ]);
 
-  // Delete all responses for this form
+  // Delete all responses in batches of 499 (Firestore batch limit is 500)
+  const BATCH_SIZE = 499;
   const q = query(responsesCol, where('form_id', '==', formId));
-  const snap = await getDocs(q);
-  await Promise.all(snap.docs.map(d => deleteDoc(d.ref)));
+  let snap = await getDocs(q);
+  while (!snap.empty) {
+    const batch = writeBatch(formsDb);
+    snap.docs.forEach(d => batch.delete(d.ref));
+    await batch.commit();
+    if (snap.docs.length < BATCH_SIZE) break;
+    // Fetch next page
+    snap = await getDocs(query(
+      responsesCol,
+      where('form_id', '==', formId),
+      startAfter(snap.docs[snap.docs.length - 1]),
+      limit(BATCH_SIZE),
+    ));
+  }
 }
 
 /** Update just the status field on the draft. */
@@ -182,16 +201,33 @@ export async function publishForm(ownerUid: string, formId: string, status: Form
 
 // ─── Responses CRUD ───────────────────────────────────────────────────────────
 
-/** Fetch all responses for a form, newest first. */
-export async function getResponses(formId: string): Promise<FormResponse[]> {
+const PAGE_SIZE = 200; // responses loaded per page
+
+/**
+ * Fetch responses for a form, paginated.
+ * - First call: pass no cursor → returns newest PAGE_SIZE responses
+ * - Next page: pass the last doc snapshot as cursor
+ * Returns { responses, nextCursor } — nextCursor is null when no more pages.
+ */
+export async function getResponses(
+  formId: string,
+  cursor?: QueryDocumentSnapshot<DocumentData> | null,
+): Promise<{ responses: FormResponse[]; nextCursor: QueryDocumentSnapshot<DocumentData> | null }> {
   try {
-    const q = query(responsesCol, where('form_id', '==', formId), orderBy('submitted_at', 'desc'));
-    const snap = await getDocs(q);
-    return snap.docs.map(d => toResponse(d.data() as Record<string, unknown>));
-  } catch { return []; }
+    const constraints = [
+      where('form_id', '==', formId),
+      orderBy('submitted_at', 'desc'),
+      limit(PAGE_SIZE),
+      ...(cursor ? [startAfter(cursor)] : []),
+    ] as const;
+    const snap = await getDocs(query(responsesCol, ...constraints));
+    const responses = snap.docs.map(d => toResponse(d.data() as Record<string, unknown>));
+    const nextCursor = snap.docs.length === PAGE_SIZE ? snap.docs[snap.docs.length - 1] : null;
+    return { responses, nextCursor };
+  } catch { return { responses: [], nextCursor: null }; }
 }
 
-/** Submit a new response. Also increments response_count on the draft form. */
+/** Submit a new response. Uses atomic increment — no read required. */
 export async function addResponse(
   formId: string,
   ownerUid: string,
@@ -206,20 +242,20 @@ export async function addResponse(
     answers,
     ...meta,
   };
-  await setDoc(doc(responsesCol, resp.id), resp);
 
-  // Bump the response_count on the draft form
-  try {
-    const form = await getForm(ownerUid, formId);
-    if (form) {
-      await saveForm({ ...form, response_count: (form.response_count ?? 0) + 1 });
-    }
-  } catch { /* non-critical */ }
+  // Write response + atomically increment counter in one batch (2 ops, no read)
+  const batch = writeBatch(formsDb);
+  batch.set(doc(responsesCol, resp.id), resp);
+  batch.update(doc(formsCol, formId), { response_count: increment(1) });
+  await batch.commit();
 
   return resp;
 }
 
-/** Delete a single response by ID. */
+/** Delete a single response by ID. Decrements response_count atomically. */
 export async function deleteResponse(formId: string, responseId: string): Promise<void> {
-  await deleteDoc(doc(responsesCol, responseId));
+  const batch = writeBatch(formsDb);
+  batch.delete(doc(responsesCol, responseId));
+  batch.update(doc(formsCol, formId), { response_count: increment(-1) });
+  await batch.commit();
 }

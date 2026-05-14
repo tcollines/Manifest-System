@@ -128,13 +128,31 @@ const FormResponsesPage: React.FC = () => {
   const [search, setSearch]       = useState('');
   const [exporting, setExporting] = useState<'excel' | 'pdf' | null>(null);
   const [deleting, setDeleting]   = useState<string | null>(null);
+  const [cursor, setCursor]       = useState<any>(null);
+  const [hasMore, setHasMore]     = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   const uid = formsUser?.uid ?? '';
 
   const reload = async () => {
     if (!formId || !uid) return;
     const f = await getForm(uid, formId);
-    if (f) { setForm(f); setResponses(await getResponses(formId)); }
+    if (!f) return;
+    setForm(f);
+    const { responses: first, nextCursor } = await getResponses(formId);
+    setResponses(first);
+    setCursor(nextCursor);
+    setHasMore(nextCursor !== null);
+  };
+
+  const loadMore = async () => {
+    if (!formId || !cursor || loadingMore) return;
+    setLoadingMore(true);
+    const { responses: more, nextCursor } = await getResponses(formId, cursor);
+    setResponses(prev => [...prev, ...more]);
+    setCursor(nextCursor);
+    setHasMore(nextCursor !== null);
+    setLoadingMore(false);
   };
 
   useEffect(() => { reload(); }, [formId, uid]);
@@ -143,7 +161,7 @@ const FormResponsesPage: React.FC = () => {
     if (!confirm('Delete this response?')) return;
     setDeleting(respId);
     await deleteResponse(formId!, respId);
-    await reload();
+    setResponses(prev => prev.filter(r => r.id !== respId));
     setDeleting(null);
   };
 
@@ -323,6 +341,20 @@ const FormResponsesPage: React.FC = () => {
               </tbody>
             </table>
           </div>
+
+          {/* Load More — shown when more pages exist */}
+          {hasMore && (
+            <div className="flex justify-center py-6">
+              <button
+                onClick={loadMore}
+                disabled={loadingMore}
+                className="inline-flex items-center gap-2 px-5 py-2 rounded-lg border border-orange-200 text-orange-600 text-sm font-semibold hover:bg-orange-50 transition-colors disabled:opacity-60"
+              >
+                {loadingMore ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                {loadingMore ? 'Loading…' : 'Load more responses'}
+              </button>
+            </div>
+          )}
         )}
       </main>
     </div>
