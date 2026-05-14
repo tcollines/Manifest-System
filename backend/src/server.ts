@@ -23,10 +23,12 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 import { authenticate } from './middleware/auth';
 import authRoutes from './routes/authRoutes';
 import publicRoutes from './routes/publicRoutes'; // NEW public routes
+import formsAuthRoutes from './forms/routes/auth.routes';
 
 // Public endpoints
 app.use('/api/auth', authRoutes);
 app.use('/api/public', publicRoutes);
+app.use('/api/forms/auth', formsAuthRoutes);  // Manifest Forms — public, uses service role internally
 
 // Protected endpoints
 // Public Health & Root Routes
