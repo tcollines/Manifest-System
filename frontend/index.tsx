@@ -16,6 +16,16 @@ const queryClient = new QueryClient({
 
 import { registerServiceWorker } from './services/pushService';
 
+// ── Suppress browser's native PWA install prompt on public form links ─────────
+// The prompt fires at the browser level before React mounts, so we intercept
+// it globally here. On /forms/f/* we swallow it entirely — respondents should
+// never see the install banner.
+window.addEventListener('beforeinstallprompt', (e) => {
+  if (window.location.pathname.startsWith('/forms/f/')) {
+    e.preventDefault(); // cancel the native prompt
+  }
+}, { capture: true });
+
 // Initialize the new Push Service Worker
 if ('serviceWorker' in navigator) {
   registerServiceWorker().then(() => {
