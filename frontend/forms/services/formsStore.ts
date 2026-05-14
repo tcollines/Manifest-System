@@ -113,8 +113,13 @@ export async function getPublicForm(formId: string): Promise<Form | null> {
  * This is what the public form page reads.
  */
 export async function publishSnapshot(form: Form): Promise<void> {
+  const normalizedFields = (form.fields ?? []).map(f => ({
+    ...f,
+    required: f.required === true,
+  }));
   await setDoc(doc(liveCol, form.id), sanitize({
     ...form,
+    fields: normalizedFields,
     updated_at: serverTimestamp(),
   }));
 }
@@ -170,7 +175,14 @@ export async function getForms(ownerUid: string): Promise<Form[]> {
 /** Upsert a draft form. Returns the saved form. */
 export async function saveForm(form: Form): Promise<Form> {
   const now = new Date().toISOString();
-  const updated: Form = { ...form, updated_at: now };
+  // Ensure every field always has an explicit boolean `required` before writing
+  // to Firestore. Without this, undefined values get stripped by sanitize() and
+  // the toggle state is "forgotten" on the next read.
+  const normalizedFields = (form.fields ?? []).map(f => ({
+    ...f,
+    required: f.required === true,
+  }));
+  const updated: Form = { ...form, fields: normalizedFields, updated_at: now };
   await setDoc(doc(formsCol, form.id), sanitize(updated));
   return updated;
 }
