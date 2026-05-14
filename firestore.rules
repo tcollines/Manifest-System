@@ -10,7 +10,12 @@ service cloud.firestore {
     // Live snapshots: anyone can read (for public form links), only owner can write
     match /live_forms/{formId} {
       allow read: if true;
-      allow write: if request.auth != null && request.auth.uid == resource.data.owner_uid;
+      // CREATE: document doesn't exist yet — check the incoming data's owner_uid
+      allow create: if request.auth != null
+                    && request.auth.uid == request.resource.data.owner_uid;
+      // UPDATE / DELETE: document exists — check existing owner_uid
+      allow update, delete: if request.auth != null
+                             && request.auth.uid == resource.data.owner_uid;
     }
     // Responses: public can create (anonymous submissions), owner can read/delete
     match /responses/{responseId} {
