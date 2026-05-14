@@ -278,7 +278,7 @@ const FormsDashboard: React.FC = () => {
 
           <div className="flex items-center gap-2.5 pl-3 border-l border-gray-200">
             {formsUser?.avatar_url
-              ? <img src={formsUser.avatar_url} className="w-8 h-8 rounded-full ring-2 ring-orange-500/40" />
+              ? <img src={formsUser.avatar_url} referrerPolicy="no-referrer" className="w-8 h-8 rounded-full ring-2 ring-orange-500/40" />
               : <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center text-xs font-bold text-white">{initials}</div>
             }
             <button onClick={handleSignOut}

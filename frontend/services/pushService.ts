@@ -61,6 +61,9 @@ export const subscribeToPush = async () => {
         method: 'POST',
         body: JSON.stringify({ subscription })
     });
+    
+    // Notify app of state change
+    window.dispatchEvent(new Event('push-status-changed'));
     return subscription;
 };
 
@@ -75,6 +78,7 @@ export const unsubscribeFromPush = async () => {
             body: JSON.stringify({ endpoint: subscription.endpoint })
         });
         await subscription.unsubscribe();
+        window.dispatchEvent(new Event('push-status-changed'));
     }
 };
 

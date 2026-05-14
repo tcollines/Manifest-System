@@ -34,16 +34,29 @@ export const NotificationDropdown: React.FC = () => {
       fetchNotifications();
       subscribe(user.id);
 
-      // Always re-check directly from the browser — don't trust localStorage
+      // Always re-check directly from the browser
       checkPushStatus().then(async (isEnabled) => {
-        setPushEnabled(isEnabled);
         if (isEnabled) {
+          setPushEnabled(true);
           try {
             // Silently sync with backend to ensure the subscription is assigned to the current user
-            // This prevents notifications leaking when users switch accounts on the same device
             await subscribeToPush();
           } catch (e) {
             console.error('Background push sync failed:', e);
+          }
+        } else {
+          // If not currently subscribed, but permission was already granted previously,
+          // we can silently auto-restore the subscription UNLESS they explicitly disabled it.
+          const intentionallyDisabled = localStorage.getItem('push_intentionally_disabled');
+          if (!intentionallyDisabled && 'Notification' in window && Notification.permission === 'granted') {
+            try {
+              await subscribeToPush();
+              setPushEnabled(true);
+            } catch (e) {
+              console.error('Auto-restore failed:', e);
+            }
+          } else {
+            setPushEnabled(false);
           }
         }
       });
@@ -65,6 +78,15 @@ export const NotificationDropdown: React.FC = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Sync push status across components (like PushPromptBanner)
+  useEffect(() => {
+    const handlePushStatusChange = () => {
+      checkPushStatus().then(setPushEnabled);
+    };
+    window.addEventListener('push-status-changed', handlePushStatusChange);
+    return () => window.removeEventListener('push-status-changed', handlePushStatusChange);
+  }, []);
+
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
     return new Intl.RelativeTimeFormat('en', { numeric: 'auto' }).format(
@@ -76,9 +98,11 @@ export const NotificationDropdown: React.FC = () => {
   const handleTogglePush = async () => {
     try {
       if (pushEnabled) {
+        localStorage.setItem('push_intentionally_disabled', 'true');
         await unsubscribeFromPush();
         setPushEnabled(false);
       } else {
+        localStorage.removeItem('push_intentionally_disabled');
         await subscribeToPush();
         // Re-verify the browser actually holds a subscription before marking enabled
         const confirmed = await checkPushStatus();
