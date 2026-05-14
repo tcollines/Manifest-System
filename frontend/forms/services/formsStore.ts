@@ -337,3 +337,53 @@ export async function migrateFormToId(
     return { ok: false, message: `Migration failed: ${e instanceof Error ? e.message : String(e)}` };
   }
 }
+
+/**
+ * Scans the ENTIRE responses collection (auth required) and returns all
+ * response documents whose form_id is NOT the canonical target ID.
+ * These are "orphaned" responses saved under old stale form IDs.
+ */
+export async function findOrphanedResponses(
+  canonicalFormId: string,
+): Promise<{ responses: FormResponse[]; formIds: string[] }> {
+  try {
+    const snap = await getDocs(responsesCol);
+    const all = snap.docs.map(d => toResponse(d.data() as Record<string, unknown>));
+    const orphans = all.filter(r => r.form_id !== canonicalFormId);
+    const formIds = [...new Set(orphans.map(r => r.form_id))];
+    return { responses: orphans, formIds };
+  } catch (e) {
+    console.error('findOrphanedResponses error:', e);
+    return { responses: [], formIds: [] };
+  }
+}
+
+/**
+ * Re-stamps all provided response IDs with a new form_id so they appear
+ * under the canonical form. Runs in batches of 490 to stay within Firestore limits.
+ */
+export async function migrateResponsesToFormId(
+  responseIds: string[],
+  newFormId: string,
+): Promise<{ ok: boolean; count: number; message: string }> {
+  try {
+    const CHUNK = 490;
+    let migrated = 0;
+    for (let i = 0; i < responseIds.length; i += CHUNK) {
+      const chunk = responseIds.slice(i, i + CHUNK);
+      const batch = writeBatch(formsDb);
+      for (const id of chunk) {
+        batch.update(doc(responsesCol, id), { form_id: newFormId });
+      }
+      await batch.commit();
+      migrated += chunk.length;
+    }
+    try {
+      const { updateDoc } = await import('firebase/firestore');
+      await updateDoc(doc(formsCol, newFormId), { response_count: migrated });
+    } catch { /* best effort */ }
+    return { ok: true, count: migrated, message: `${migrated} response(s) re-linked to "${newFormId}".` };
+  } catch (e) {
+    return { ok: false, count: 0, message: `Response migration failed: ${e instanceof Error ? e.message : String(e)}` };
+  }
+}
