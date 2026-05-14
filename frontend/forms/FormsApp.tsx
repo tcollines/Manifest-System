@@ -38,7 +38,7 @@ const FormsApp: React.FC = () => (
 
       {/* Fallback */}
       <Route index element={<Navigate to="/forms/auth" replace />} />
-      <Route path="*" element={<Navigate to="/forms/dashboard" replace />} />
+      <Route path="*" element={<Navigate to="/forms/auth" replace />} />
     </Routes>
   </FormsAuthProvider>
 );

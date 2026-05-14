@@ -210,6 +210,11 @@ const FormsDashboard: React.FC = () => {
     }
   };
 
+  const handleSignOut = async () => {
+    try { await signOut(); } catch (e) { console.error('Sign out error:', e); }
+    navigate('/forms/auth', { replace: true });
+  };
+
   // Filtered + searched
   const visible = forms
     .filter(f => filter === 'all' || f.status === filter)
@@ -276,7 +281,7 @@ const FormsDashboard: React.FC = () => {
               ? <img src={formsUser.avatar_url} className="w-8 h-8 rounded-full ring-2 ring-orange-500/40" />
               : <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center text-xs font-bold text-white">{initials}</div>
             }
-            <button onClick={async () => { await signOut(); navigate('/forms/auth'); }}
+            <button onClick={handleSignOut}
               className="text-gray-400 hover:text-orange-500 transition-colors" title="Sign out">
               <LogOut className="w-4 h-4" />
             </button>
