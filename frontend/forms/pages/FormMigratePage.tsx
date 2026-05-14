@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Loader2, CheckCircle2, AlertCircle, ArrowRight,
-  ArrowLeft, Link2, RefreshCw, Database,
+  ArrowLeft, Link2, RefreshCw, Database, ShieldAlert,
 } from 'lucide-react';
 import { useFormsAuth } from '../context/FormsAuthContext';
 import {
@@ -10,6 +10,7 @@ import {
   migrateFormToId,
   findOrphanedResponses,
   migrateResponsesToFormId,
+  forceClaimForm,
 } from '../services/formsStore';
 import type { Form, FormResponse } from '../types/forms.types';
 
@@ -20,32 +21,40 @@ const FORM_TITLE_FRAG = 'Manifest Locator';
 
 // ─── FormMigratePage ──────────────────────────────────────────────────────────
 
-type FormStep   = 'scanning' | 'found' | 'already_correct' | 'migrating' | 'done' | 'error' | 'not_found';
-type RespStep   = 'idle' | 'scanning' | 'found' | 'none' | 'migrating' | 'done' | 'error';
+type FormStep = 'scanning' | 'found' | 'already_correct' | 'migrating' | 'done' | 'error' | 'not_found';
+type RespStep = 'idle' | 'scanning' | 'found' | 'none' | 'migrating' | 'done' | 'error';
+type ClaimStep = 'idle' | 'claiming' | 'done' | 'error';
 
 const FormMigratePage: React.FC = () => {
   const { formsUser } = useFormsAuth();
   const navigate = useNavigate();
 
   // ── Form migration state ──────────────────────────────────────────────────
-  const [formStep, setFormStep]   = useState<FormStep>('scanning');
-  const [allForms, setAllForms]   = useState<Form[]>([]);
-  const [sourceForm, setSource]   = useState<Form | null>(null);
-  const [formMsg, setFormMsg]     = useState('');
+  const [formStep, setFormStep]  = useState<FormStep>('scanning');
+  const [allForms, setAllForms]  = useState<Form[]>([]);
+  const [sourceForm, setSource]  = useState<Form | null>(null);
+  const [formMsg, setFormMsg]    = useState('');
+
+  // ── Force claim state ─────────────────────────────────────────────────────
+  const [claimStep, setClaimStep] = useState<ClaimStep>('idle');
+  const [claimMsg, setClaimMsg]   = useState('');
 
   // ── Response recovery state ───────────────────────────────────────────────
-  const [respStep, setRespStep]         = useState<RespStep>('idle');
-  const [orphans, setOrphans]           = useState<FormResponse[]>([]);
-  const [orphanFormIds, setOrphanFIds]  = useState<string[]>([]);
-  const [allFormIds, setAllFormIds]     = useState<string[]>([]);
-  const [totalCount, setTotalCount]     = useState<number>(0);
-  const [respMsg, setRespMsg]           = useState('');
+  const [respStep, setRespStep]       = useState<RespStep>('idle');
+  const [orphans, setOrphans]         = useState<FormResponse[]>([]);
+  const [orphanFormIds, setFIds]      = useState<string[]>([]);
+  const [allFormIds, setAllFormIds]   = useState<string[]>([]);
+  const [totalCount, setTotalCount]   = useState<number>(0);
+  const [respMsg, setRespMsg]         = useState('');
+
+  // IMPORTANT: use formsUser.id (Firebase UID) — NOT formsUser.uid (undefined)
+  const uid = formsUser?.id ?? '';
 
   // ── Step 1: Scan forms ────────────────────────────────────────────────────
   useEffect(() => {
-    if (!formsUser) return;
+    if (!uid) return;
     (async () => {
-      const all = await getAllForms(formsUser.uid);
+      const all = await getAllForms(uid);
       setAllForms(all);
 
       const canonical = all.find(f => f.id === CANONICAL_ID);
@@ -55,15 +64,25 @@ const FormMigratePage: React.FC = () => {
       if (match) { setSource(match); setFormStep('found'); }
       else        { setFormStep('not_found'); }
     })();
-  }, [formsUser]);
+  }, [uid]);
 
   // ── Form migration ────────────────────────────────────────────────────────
   const runFormMigration = async () => {
-    if (!formsUser || !sourceForm) return;
+    if (!uid || !sourceForm) return;
     setFormStep('migrating');
-    const r = await migrateFormToId(formsUser.uid, sourceForm.id, CANONICAL_ID);
+    const r = await migrateFormToId(uid, sourceForm.id, CANONICAL_ID);
     setFormMsg(r.message);
     setFormStep(r.ok ? 'done' : 'error');
+  };
+
+  // ── Force Claim ───────────────────────────────────────────────────────────
+  const runForceClaim = async () => {
+    if (!uid) return;
+    setClaimStep('claiming');
+    const r = await forceClaimForm(uid, CANONICAL_ID);
+    setClaimMsg(r.message);
+    setClaimStep(r.ok ? 'done' : 'error');
+    if (r.ok) setFormStep('done');
   };
 
   // ── Response recovery: scan ───────────────────────────────────────────────
@@ -71,11 +90,11 @@ const FormMigratePage: React.FC = () => {
     setRespStep('scanning');
     const { responses, formIds, totalCount: tc, allFormIds: afids } = await findOrphanedResponses(CANONICAL_ID);
     setOrphans(responses);
-    setOrphanFIds(formIds);
+    setFIds(formIds);
     setTotalCount(tc);
     setAllFormIds(afids);
     if (tc === -1) {
-      setRespMsg('Scan failed — check browser console for details. The collection may be inaccessible.');
+      setRespMsg('Scan failed — check browser console for details.');
       setRespStep('error');
     } else {
       setRespStep(responses.length > 0 ? 'found' : 'none');
@@ -85,8 +104,7 @@ const FormMigratePage: React.FC = () => {
   // ── Response recovery: migrate ────────────────────────────────────────────
   const runRespMigration = async () => {
     setRespStep('migrating');
-    const ids = orphans.map(r => r.id);
-    const result = await migrateResponsesToFormId(ids, CANONICAL_ID);
+    const result = await migrateResponsesToFormId(orphans.map(r => r.id), CANONICAL_ID);
     setRespMsg(result.message);
     setRespStep(result.ok ? 'done' : 'error');
   };
@@ -102,19 +120,77 @@ const FormMigratePage: React.FC = () => {
             <Link2 className="w-7 h-7 text-orange-500" />
           </div>
           <h1 className="text-2xl font-bold text-gray-900 mb-1">Form Recovery Tool</h1>
-          <p className="text-gray-500 text-sm">
-            Restore form &amp; responses to permanent link
-          </p>
+          <p className="text-gray-500 text-sm">Restore form & responses to permanent link</p>
           <code className="mt-2 inline-block text-xs bg-orange-50 border border-orange-200 text-orange-700 rounded-lg px-3 py-1.5 font-mono break-all">
             {CANONICAL_URL}
           </code>
+          {uid && (
+            <p className="mt-2 text-[10px] text-gray-400">
+              Your Firebase UID: <code className="font-mono bg-gray-100 px-1 rounded">{uid}</code>
+            </p>
+          )}
         </div>
 
-        {/* ── CARD 1: Form structure migration ─────────────────────────── */}
+        {/* ── CARD 0: Force Claim (always visible) ───────────────────────── */}
+        <div className="bg-white rounded-2xl border border-orange-200 shadow-sm p-6 space-y-4">
+          <h2 className="font-bold text-gray-900 flex items-center gap-2">
+            <span className="w-6 h-6 bg-red-100 text-red-600 rounded-full text-xs font-black flex items-center justify-center">⚡</span>
+            Force Claim Form
+          </h2>
+          <p className="text-gray-500 text-xs">
+            If the form exists at <code className="font-mono bg-gray-100 px-1 rounded">{CANONICAL_ID}</code> but isn't
+            showing in your dashboard, this immediately stamps your Firebase UID as owner — regardless of
+            what was previously stored.
+          </p>
+
+          {claimStep === 'idle' && (
+            <button onClick={runForceClaim}
+              className="w-full flex items-center justify-center gap-2 py-2.5 bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl transition-all text-sm">
+              <ShieldAlert className="w-4 h-4" />
+              Force Claim mp59euhldujwa → My Account
+            </button>
+          )}
+
+          {claimStep === 'claiming' && (
+            <div className="flex items-center gap-3 py-2">
+              <Loader2 className="w-5 h-5 text-red-500 animate-spin" />
+              <p className="text-gray-500 text-sm">Claiming form ownership…</p>
+            </div>
+          )}
+
+          {claimStep === 'done' && (
+            <div className="flex items-center gap-3 p-3 bg-green-50 border border-green-200 rounded-xl">
+              <CheckCircle2 className="w-5 h-5 text-green-500 shrink-0" />
+              <p className="text-green-800 text-sm font-semibold">✅ {claimMsg}</p>
+            </div>
+          )}
+
+          {claimStep === 'error' && (
+            <div className="flex items-start gap-3 p-3 bg-red-50 border border-red-200 rounded-xl">
+              <AlertCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
+              <p className="text-red-700 text-sm">{claimMsg}</p>
+            </div>
+          )}
+
+          {claimStep === 'done' && (
+            <div className="flex gap-3">
+              <button onClick={() => navigate('/forms/dashboard')}
+                className="flex-1 py-2.5 bg-orange-500 hover:bg-orange-400 text-white font-bold rounded-xl transition-all text-sm">
+                Go to Dashboard
+              </button>
+              <a href={CANONICAL_URL} target="_blank" rel="noreferrer"
+                className="flex-1 text-center py-2.5 bg-green-600 hover:bg-green-500 text-white font-bold rounded-xl transition-all text-sm">
+                Open Form ↗
+              </a>
+            </div>
+          )}
+        </div>
+
+        {/* ── CARD 1: Form structure scan ────────────────────────────────── */}
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-4">
           <h2 className="font-bold text-gray-900 flex items-center gap-2">
             <span className="w-6 h-6 bg-orange-100 text-orange-600 rounded-full text-xs font-black flex items-center justify-center">1</span>
-            Form Structure
+            Form Structure Scan
           </h2>
 
           {formStep === 'scanning' && (
@@ -127,7 +203,7 @@ const FormMigratePage: React.FC = () => {
           {formStep === 'found' && sourceForm && (
             <>
               <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-xl text-sm">
-                <p className="text-yellow-800 font-semibold mb-1">⚠️ Form stored under wrong ID</p>
+                <p className="text-yellow-800 font-semibold mb-1">⚠️ Form under wrong ID</p>
                 <code className="text-xs font-mono text-yellow-700 break-all">{sourceForm.id}</code>
               </div>
               <div className="flex items-center gap-2 text-xs">
@@ -142,7 +218,7 @@ const FormMigratePage: React.FC = () => {
                 </div>
               </div>
               <button onClick={runFormMigration}
-                className="w-full py-2.5 bg-orange-500 hover:bg-orange-400 text-white font-bold rounded-xl transition-all text-sm shadow-lg shadow-orange-100">
+                className="w-full py-2.5 bg-orange-500 hover:bg-orange-400 text-white font-bold rounded-xl transition-all text-sm">
                 Migrate Form Structure
               </button>
             </>
@@ -159,9 +235,7 @@ const FormMigratePage: React.FC = () => {
             <div className="flex items-center gap-3 p-3 bg-green-50 border border-green-200 rounded-xl">
               <CheckCircle2 className="w-5 h-5 text-green-500 shrink-0" />
               <p className="text-green-800 text-sm font-semibold">
-                {formStep === 'already_correct'
-                  ? `Form is already on correct ID: ${CANONICAL_ID}`
-                  : formMsg}
+                {formStep === 'already_correct' ? `Form is already on correct ID: ${CANONICAL_ID}` : formMsg}
               </p>
             </div>
           )}
@@ -175,13 +249,15 @@ const FormMigratePage: React.FC = () => {
 
           {formStep === 'not_found' && (
             <div className="space-y-3">
-              <div className="p-3 bg-red-50 border border-red-200 rounded-xl">
-                <p className="text-red-700 text-sm font-semibold">❌ No matching form found</p>
-                <p className="text-red-600 text-xs mt-1">No form with "{FORM_TITLE_FRAG}" in its title.</p>
+              <div className="p-3 bg-gray-50 border border-gray-200 rounded-xl">
+                <p className="text-gray-700 text-sm font-semibold">No forms found for your account</p>
+                <p className="text-gray-400 text-xs mt-1">
+                  Use "Force Claim" above to claim <code className="font-mono">{CANONICAL_ID}</code> directly.
+                </p>
               </div>
               {allForms.length > 0 && (
                 <div className="space-y-1.5">
-                  <p className="text-xs text-gray-400 font-semibold">All forms in account:</p>
+                  <p className="text-xs text-gray-400 font-semibold">Forms in account:</p>
                   {allForms.map(f => (
                     <button key={f.id} onClick={() => { setSource(f); setFormStep('found'); }}
                       className="w-full text-left px-3 py-2 bg-orange-50 hover:bg-orange-100 border border-orange-200 rounded-xl text-sm text-orange-800 transition-all">
@@ -202,8 +278,8 @@ const FormMigratePage: React.FC = () => {
             Recover Lost Responses
           </h2>
           <p className="text-gray-500 text-xs">
-            Searches the entire <code className="font-mono bg-gray-100 px-1 rounded">responses</code> collection for entries
-            saved under old form IDs and re-links them to <code className="font-mono bg-gray-100 px-1 rounded">{CANONICAL_ID}</code>.
+            Searches the entire <code className="font-mono bg-gray-100 px-1 rounded">responses</code> collection for
+            entries saved under old form IDs and re-links them to <code className="font-mono bg-gray-100 px-1 rounded">{CANONICAL_ID}</code>.
           </p>
 
           {respStep === 'idle' && (
@@ -229,7 +305,7 @@ const FormMigratePage: React.FC = () => {
                 </p>
                 {totalCount === 0 ? (
                   <p className="text-red-600 text-xs font-semibold">
-                    ⚠️ The responses collection is completely empty — responses were never written to Firestore.
+                    ⚠️ The responses collection is completely empty.
                   </p>
                 ) : (
                   <>
@@ -237,33 +313,18 @@ const FormMigratePage: React.FC = () => {
                       ✅ {totalCount} response{totalCount !== 1 ? 's' : ''} already linked to <code className="font-mono">{CANONICAL_ID}</code>
                     </p>
                     <p className="text-gray-400 text-xs">
-                      All form IDs in collection: {allFormIds.map(id => (
+                      Form IDs: {allFormIds.map(id => (
                         <code key={id} className="font-mono bg-gray-100 px-1 rounded ml-1">{id}</code>
                       ))}
                     </p>
                   </>
                 )}
               </div>
-              <a
-                href="https://console.firebase.google.com/project/manifest-forms/firestore/data/responses"
-                target="_blank"
-                rel="noreferrer"
-                className="flex items-center justify-center gap-2 w-full py-2 border border-blue-200 text-blue-600 text-xs font-bold rounded-xl hover:bg-blue-50 transition-all"
-              >
-                <Database className="w-3.5 h-3.5" />
-                Open Firebase Console → responses collection ↗
-              </a>
               {totalCount > 0 && (
-                <div className="flex gap-3 pt-1">
-                  <a href={CANONICAL_URL} target="_blank" rel="noreferrer"
-                    className="flex-1 text-center py-2.5 bg-green-600 hover:bg-green-500 text-white font-bold rounded-xl transition-all text-sm">
-                    Open Public Form ↗
-                  </a>
-                  <button onClick={() => navigate(`/forms/responses/${CANONICAL_ID}`)}
-                    className="flex-1 py-2.5 bg-orange-500 hover:bg-orange-400 text-white font-bold rounded-xl transition-all text-sm">
-                    View Responses
-                  </button>
-                </div>
+                <button onClick={() => navigate(`/forms/responses/${CANONICAL_ID}`)}
+                  className="w-full py-2.5 bg-orange-500 hover:bg-orange-400 text-white font-bold rounded-xl transition-all text-sm">
+                  View Responses
+                </button>
               )}
             </div>
           )}
@@ -274,31 +335,22 @@ const FormMigratePage: React.FC = () => {
                 <p className="text-blue-800 text-sm font-semibold mb-1">
                   🎉 Found {orphans.length} response{orphans.length !== 1 ? 's' : ''} to recover!
                 </p>
-                <p className="text-blue-600 text-xs mb-2">
-                  Stored under old form ID{orphanFormIds.length > 1 ? 's' : ''}:
-                </p>
                 {orphanFormIds.map(id => (
                   <code key={id} className="block text-xs font-mono text-blue-700 bg-blue-100 rounded px-2 py-0.5 mb-1 break-all">
-                    {id} ({orphans.filter(r => r.form_id === id).length} response{orphans.filter(r => r.form_id === id).length !== 1 ? 's' : ''})
+                    {id} ({orphans.filter(r => r.form_id === id).length} responses)
                   </code>
                 ))}
               </div>
-
-              {/* Preview of responses */}
-              <div className="max-h-40 overflow-y-auto space-y-1.5 rounded-xl border border-gray-100">
+              <div className="max-h-40 overflow-y-auto rounded-xl border border-gray-100">
                 {orphans.slice(0, 20).map(r => (
-                  <div key={r.id} className="flex items-center gap-3 px-3 py-2 bg-gray-50 text-xs">
+                  <div key={r.id} className="flex items-center gap-3 px-3 py-2 bg-gray-50 text-xs border-b border-gray-100 last:border-0">
                     <code className="font-mono text-gray-400 shrink-0">{r.id.slice(0, 8)}…</code>
                     <span className="text-gray-500 truncate">{new Date(r.submitted_at).toLocaleString()}</span>
                   </div>
                 ))}
-                {orphans.length > 20 && (
-                  <p className="text-center text-xs text-gray-400 py-2">… and {orphans.length - 20} more</p>
-                )}
               </div>
-
               <button onClick={runRespMigration}
-                className="w-full flex items-center justify-center gap-2 py-2.5 bg-green-600 hover:bg-green-500 text-white font-bold rounded-xl transition-all text-sm shadow-lg shadow-green-100">
+                className="w-full flex items-center justify-center gap-2 py-2.5 bg-green-600 hover:bg-green-500 text-white font-bold rounded-xl transition-all text-sm">
                 <RefreshCw className="w-4 h-4" />
                 Recover All {orphans.length} Response{orphans.length !== 1 ? 's' : ''}
               </button>
@@ -326,20 +378,6 @@ const FormMigratePage: React.FC = () => {
             </div>
           )}
         </div>
-
-        {/* ── Actions ──────────────────────────────────────────────────── */}
-        {(formStep === 'done' || formStep === 'already_correct') && respStep === 'done' && (
-          <div className="flex gap-3">
-            <a href={CANONICAL_URL} target="_blank" rel="noreferrer"
-              className="flex-1 text-center py-3 bg-green-600 hover:bg-green-500 text-white font-bold rounded-xl transition-all text-sm">
-              Open Public Form ↗
-            </a>
-            <button onClick={() => navigate(`/forms/responses/${CANONICAL_ID}`)}
-              className="flex-1 py-3 bg-orange-500 hover:bg-orange-400 text-white font-bold rounded-xl transition-all text-sm">
-              View Responses
-            </button>
-          </div>
-        )}
 
         <button onClick={() => navigate('/forms/dashboard')}
           className="flex items-center gap-1.5 text-gray-400 hover:text-gray-700 text-sm transition-colors mx-auto">

@@ -428,3 +428,38 @@ export async function migrateResponsesToFormId(
     return { ok: false, count: 0, message: `Response migration failed: ${e instanceof Error ? e.message : String(e)}` };
   }
 }
+
+/**
+ * Force-claims the form at formId by stamping owner_uid = currentUid,
+ * regardless of what owner_uid is currently stored. Also refreshes live_forms
+ * so the public link stays published. Use when getForms() returns nothing
+ * because the form's owner_uid is a stale/wrong value.
+ */
+export async function forceClaimForm(
+  currentUid: string,
+  formId: string,
+): Promise<{ ok: boolean; currentOwner: string; message: string }> {
+  try {
+    // Read the form WITHOUT owner check (just the raw doc)
+    const snap = await getDoc(doc(formsCol, formId));
+    if (!snap.exists()) {
+      return { ok: false, currentOwner: '', message: `No form found at forms/${formId}` };
+    }
+    const data = snap.data() as Record<string, unknown>;
+    const currentOwner = String(data.owner_uid ?? '(none)');
+    const updated: Form = { ...toForm(data), owner_uid: currentUid, id: formId, status: 'published' };
+
+    const batch = writeBatch(formsDb);
+    batch.set(doc(formsCol, formId), sanitize(updated));
+    batch.set(doc(liveCol,  formId), sanitize({ ...updated, updated_at: serverTimestamp() }));
+    await batch.commit();
+
+    return {
+      ok: true,
+      currentOwner,
+      message: `Form claimed! Was owned by "${currentOwner}", now owned by "${currentUid}".`,
+    };
+  } catch (e) {
+    return { ok: false, currentOwner: '', message: `Force claim failed: ${e instanceof Error ? e.message : String(e)}` };
+  }
+}
