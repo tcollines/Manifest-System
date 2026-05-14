@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Download, X, Share } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -7,11 +8,15 @@ interface BeforeInstallPromptEvent extends Event {
 }
 
 export const InstallPWAPrompt: React.FC = () => {
+  const { pathname } = useLocation();
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [showPrompt, setShowPrompt] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
 
   useEffect(() => {
+    // Never register install prompt on public form links
+    if (pathname.startsWith('/forms/f/')) return;
+
     // Check if it's already installed
     if (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone) {
       return;
@@ -22,7 +27,6 @@ export const InstallPWAPrompt: React.FC = () => {
     const isIosDevice = /iphone|ipad|ipod/.test(userAgent);
     if (isIosDevice) {
       setIsIOS(true);
-      // Wait a bit before showing to not overwhelm the user
       const timer = setTimeout(() => setShowPrompt(true), 3000);
       return () => clearTimeout(timer);
     }
@@ -34,24 +38,23 @@ export const InstallPWAPrompt: React.FC = () => {
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     };
-  }, []);
+  }, [pathname]);
 
   const handleInstallClick = async () => {
     if (!deferredPrompt) return;
-    
     deferredPrompt.prompt();
     const { outcome } = await deferredPrompt.userChoice;
-    
     if (outcome === 'accepted') {
       setDeferredPrompt(null);
       setShowPrompt(false);
     }
   };
 
+  // Never render on public form links
+  if (pathname.startsWith('/forms/f/')) return null;
   if (!showPrompt) return null;
 
   return (
@@ -63,7 +66,7 @@ export const InstallPWAPrompt: React.FC = () => {
               <img src="/MANIFEST.png" alt="App Icon" className="w-10 h-10 object-contain" />
             </div>
           </div>
-          
+
           <div className="flex-1 text-sm text-gray-300 pt-1">
             <h3 className="font-bold text-white text-base mb-1">Install Manifest MS</h3>
             {isIOS ? (
@@ -74,15 +77,15 @@ export const InstallPWAPrompt: React.FC = () => {
               <p>Install our app for a faster, better experience and offline access.</p>
             )}
           </div>
-          
-          <button 
+
+          <button
             onClick={() => setShowPrompt(false)}
             className="text-gray-400 hover:text-white p-1 rounded-full hover:bg-gray-800 transition-colors"
           >
             <X size={18} />
           </button>
         </div>
-        
+
         {!isIOS && deferredPrompt && (
           <div className="px-4 pb-4">
             <button
