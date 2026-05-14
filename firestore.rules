@@ -1,23 +1,26 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+
     // Forms: owner can CRUD their own forms
     match /forms/{formId} {
-      allow read: if request.auth != null && request.auth.uid == resource.data.owner_uid;
+      allow read:   if request.auth != null && request.auth.uid == resource.data.owner_uid;
       allow create: if request.auth != null && request.auth.uid == request.resource.data.owner_uid;
       allow update, delete: if request.auth != null && request.auth.uid == resource.data.owner_uid;
     }
-    // Live snapshots: anyone can read (for public form links), only owner can write
+
+    // Live snapshots: public read, authenticated owner can create OR update
     match /live_forms/{formId} {
       allow read: if true;
-      // CREATE: document doesn't exist yet — check the incoming data's owner_uid
       allow create: if request.auth != null
                     && request.auth.uid == request.resource.data.owner_uid;
-      // UPDATE / DELETE: document exists — check existing owner_uid
-      allow update, delete: if request.auth != null
-                             && request.auth.uid == resource.data.owner_uid;
+      allow update: if request.auth != null
+                    && request.auth.uid == request.resource.data.owner_uid;
+      allow delete: if request.auth != null
+                    && request.auth.uid == resource.data.owner_uid;
     }
-    // Responses: public can create (anonymous submissions), owner can read/delete
+
+    // Responses: anyone can submit, owner can read/delete
     match /responses/{responseId} {
       allow create: if true;
       allow read, delete: if request.auth != null;

@@ -372,18 +372,25 @@ const FormBuilderPage: React.FC = () => {
       const next = { ...form, status: 'published' as const };
       update({ status: 'published' });
       const saved = await saveForm(next);
-      await publishSnapshot(saved);
+      try {
+        await publishSnapshot(saved);
+      } catch (e) {
+        console.error('[togglePublish] publishSnapshot failed:', e);
+      }
       setIsDirty(false);
       setShowPublishModal(true);
     }
   };
 
-  /** Called by the Republish button — saves draft then pushes to live snapshot */
   const handleRepublish = async () => {
     if (!form) return;
     setSaving(true);
-    const latestSaved = await saveForm(form);  // persist working draft
-    await publishSnapshot(latestSaved);         // overwrite live snapshot with latest
+    try {
+      const latestSaved = await saveForm(form);
+      await publishSnapshot(latestSaved);
+    } catch (e) {
+      console.error('[handleRepublish] publishSnapshot failed:', e);
+    }
     setSaving(false);
     setIsDirty(false);
     setSaved(true);
