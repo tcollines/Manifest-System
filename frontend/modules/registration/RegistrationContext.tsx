@@ -488,32 +488,55 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
           event: '*',
           schema: 'public',
           table: 'service_attendance',
-          // Enforce strict tenant isolation alongside service scope
-          filter: `manifest_id=eq.${manifestId}`
+          // Enforce strict service scope
+          filter: `service_id=eq.${selectedService.id}`
         },
         (payload) => {
           const { eventType, new: newRecord, old: oldRecord } = payload;
 
-          // Double verification just to be safe
-          if (newRecord && (newRecord as any).service_id !== selectedService.id) return;
-          if (oldRecord && (oldRecord as any).service_id !== selectedService.id) return;
+          // Double verification just to be safe (with case insensitivity)
+          const newServiceId = newRecord ? (newRecord as any).service_id : null;
+          const oldServiceId = oldRecord ? (oldRecord as any).service_id : null;
+          
+          if (newServiceId && newServiceId.toLowerCase() !== selectedService.id.toLowerCase()) return;
+          if (oldServiceId && oldServiceId.toLowerCase() !== selectedService.id.toLowerCase()) return;
 
           if (eventType === 'INSERT') {
-            const memberId = (newRecord as any).member_id;
+            const memberId = ((newRecord as any).member_id || '').toLowerCase();
             setCheckedInIds(prev => {
               if (prev.has(memberId)) return prev;
+
+              // Update first timer stats if this member is a first timer
+              const member = membersRef.current.find(m => m.id.toLowerCase() === memberId);
+              if (member && member.category === 'First Timer') {
+                setCheckInStats(stats => ({
+                  ...stats,
+                  firstTimers: stats.firstTimers + 1
+                }));
+              }
+
               const next = new Set(prev);
               next.add(memberId);
-              setCheckInStats(stats => ({ ...stats, total: stats.total + 1 }));
+              // total is dynamically derived from checkedInIds.size
               return next;
             });
           } else if (eventType === 'DELETE') {
-            const memberId = (oldRecord as any).member_id;
+            const memberId = ((oldRecord as any).member_id || '').toLowerCase();
             setCheckedInIds(prev => {
               if (!prev.has(memberId)) return prev;
+
+              // Update first timer stats if this member is a first timer
+              const member = membersRef.current.find(m => m.id.toLowerCase() === memberId);
+              if (member && member.category === 'First Timer') {
+                setCheckInStats(stats => ({
+                  ...stats,
+                  firstTimers: Math.max(0, stats.firstTimers - 1)
+                }));
+              }
+
               const next = new Set(prev);
               next.delete(memberId);
-              setCheckInStats(stats => ({ ...stats, total: Math.max(0, stats.total - 1) }));
+              // total is dynamically derived
               return next;
             });
           }
@@ -563,10 +586,27 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
       )
       .subscribe();
 
+    const channel_events = supabase
+      .channel(`service-events-${selectedService.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'ministry_events',
+          filter: `id=eq.${selectedService.id}`
+        },
+        (payload) => {
+          const updatedEvent = payload.new as any;
+          setSelectedService(prev => prev ? { ...prev, stats: updatedEvent.stats || prev.stats } : prev);
+        }
+      )
+      .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
       supabase.removeChannel(channel_souls);
+      supabase.removeChannel(channel_events);
     };
   }, [selectedService?.id, viewMode, currentUser.manifestId, currentUser.manifest_id]);
 
@@ -902,7 +942,7 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
     const stats = await MemberStore.getServiceStats(service.id, service.date);
     const souls = await SoulsStore.getServiceStats(service.id);
     const childrenCount = service.stats?.manualChildrenCount || 0;
-    setCheckInStats({ total: stats.total + childrenCount, firstTimers: stats.firstTimers, soulsWon: souls });
+    setCheckInStats({ total: 0, firstTimers: stats.firstTimers, soulsWon: souls });
     setCheckedInIds(new Set(stats.memberIds));
   };
 
@@ -914,7 +954,7 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
       ['Metric', 'Value'],
       ['Service Title', selectedService.title],
       ['Date', selectedService.date],
-      ['Total Members Checked In', checkInStats.total],
+      ['Total Members Checked In', checkedInIds.size + (selectedService.stats?.manualChildrenCount || 0)],
       ['First Timers', checkInStats.firstTimers],
       ['Souls Won', checkInStats.soulsWon],
       ['Children Count', selectedService.stats?.manualChildrenCount || 0]
@@ -1358,7 +1398,7 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
           // Delay slightly to ensure DB consistency if needed, but usually immediate is fine
           const stats = await MemberStore.getServiceStats(sid, sdate);
           const childrenCount = selectedService.stats?.manualChildrenCount || 0;
-          setCheckInStats({ total: stats.total + childrenCount, firstTimers: stats.firstTimers });
+          setCheckInStats({ total: 0, firstTimers: stats.firstTimers, soulsWon: checkInStats.soulsWon });
           setCheckedInIds(new Set(stats.memberIds));
         } catch (statErr) {
           console.warn("Failed to refresh stats after auto-save", statErr);
@@ -1417,9 +1457,11 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
       });
 
       // Optimistically increment check-in totals
+      const member = members.find(m => m.id === memberId);
       setCheckInStats(prev => ({
         ...prev,
-        total: prev.total + 1
+        total: prev.total + 1,
+        firstTimers: (member && member.category === 'First Timer') ? prev.firstTimers + 1 : prev.firstTimers
       }));
 
       // Update the local member object for UI badges/lists
@@ -1494,9 +1536,11 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
         return next;
       });
 
+      const member = members.find(m => m.id === memberId);
       setCheckInStats(prev => ({
         ...prev,
-        total: Math.max(0, prev.total - 1)
+        total: Math.max(0, prev.total - 1),
+        firstTimers: (member && member.category === 'First Timer') ? Math.max(0, prev.firstTimers - 1) : prev.firstTimers
       }));
 
       setMembers(prev => prev.map(m => m.id === memberId ? {
@@ -1513,7 +1557,7 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
       try {
         const stats = await MemberStore.getServiceStats(selectedService.id, selectedService.date);
         const childrenCount = selectedService.stats?.manualChildrenCount || 0;
-        setCheckInStats({ total: stats.total + childrenCount, firstTimers: stats.firstTimers });
+        setCheckInStats({ total: 0, firstTimers: stats.firstTimers, soulsWon: checkInStats.soulsWon });
       } catch (e) {
         // silent fail on auto-refresh
       }
@@ -2516,10 +2560,7 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
 
       // Update UI Stats immediately
       const memberStats = await MemberStore.getServiceStats(selectedService.id, selectedService.date);
-      setCheckInStats({
-        total: memberStats.total + count, // Updates total immediately
-        firstTimers: memberStats.firstTimers
-      });
+      // total is dynamically derived from selectedService.stats.manualChildrenCount update above
 
       showToast(`Children count updated to ${count}`, 'success');
     } catch (error) {
@@ -2594,7 +2635,7 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
       console.error("Failed to fetch fresh souls count", e);
     }
 
-    const attendance = checkInStats.total;
+    const attendance = checkedInIds.size + (selectedService.stats?.manualChildrenCount || 0);
     const firstTimers = checkInStats.firstTimers;
     const soulsWon = freshSoulsWon;
     const nextGen = selectedService.stats.manualChildrenCount || 0;
@@ -2676,6 +2717,12 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
   };
 
 
+
+  const computedTotal = checkedInIds.size + (selectedService?.stats?.manualChildrenCount || 0);
+  const derivedCheckInStats = {
+    ...checkInStats,
+    total: computedTotal
+  };
 
   const contextValue = {
     events, 
@@ -2784,7 +2831,7 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
     setHighlightEvent, 
     isChildCountModalOpen, 
     setIsChildCountModalOpen, 
-    checkInStats, 
+    checkInStats: derivedCheckInStats, 
     setCheckInStats, 
     checkedInIds, 
     setCheckedInIds, 
