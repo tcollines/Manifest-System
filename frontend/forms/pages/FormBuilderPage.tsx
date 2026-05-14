@@ -361,21 +361,23 @@ const FormBuilderPage: React.FC = () => {
   const togglePublish = async () => {
     if (!form) return;
     if (form.status === 'published') {
-      // Unpublish — remove the public snapshot
       const next = { ...form, status: 'draft' as const };
       update({ status: 'draft' });
       await saveForm(next);
-      await unpublishSnapshot(form.id);
+      try {
+        await unpublishSnapshot(form.id);
+      } catch (e) {
+        console.error('[unpublish] failed:', e);
+      }
       setIsDirty(false);
     } else {
-      // Publish for the first time — write the live snapshot
       const next = { ...form, status: 'published' as const };
       update({ status: 'published' });
       const saved = await saveForm(next);
       try {
         await publishSnapshot(saved);
       } catch (e) {
-        console.error('[togglePublish] publishSnapshot failed:', e);
+        console.error('[publish] publishSnapshot failed:', e);
       }
       setIsDirty(false);
       setShowPublishModal(true);

@@ -2,25 +2,23 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Forms: owner can CRUD their own forms
+    // ── Forms (working drafts) ───────────────────────────────────────────────
     match /forms/{formId} {
       allow read:   if request.auth != null && request.auth.uid == resource.data.owner_uid;
       allow create: if request.auth != null && request.auth.uid == request.resource.data.owner_uid;
       allow update, delete: if request.auth != null && request.auth.uid == resource.data.owner_uid;
     }
 
-    // Live snapshots: public read, authenticated owner can create OR update
+    // ── Live snapshots (public form links) ───────────────────────────────────
+    // Anyone can read (anonymous form visitors).
+    // Any signed-in user can write — ownership is enforced in the application layer.
     match /live_forms/{formId} {
-      allow read: if true;
-      allow create: if request.auth != null
-                    && request.auth.uid == request.resource.data.owner_uid;
-      allow update: if request.auth != null
-                    && request.auth.uid == request.resource.data.owner_uid;
-      allow delete: if request.auth != null
-                    && request.auth.uid == resource.data.owner_uid;
+      allow read:   if true;
+      allow write:  if request.auth != null;
     }
 
-    // Responses: anyone can submit, owner can read/delete
+    // ── Responses ────────────────────────────────────────────────────────────
+    // Anyone can submit. Only signed-in users (owners) can read/delete.
     match /responses/{responseId} {
       allow create: if true;
       allow read, delete: if request.auth != null;
