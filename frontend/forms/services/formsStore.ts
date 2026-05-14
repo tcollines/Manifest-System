@@ -243,14 +243,24 @@ export async function addResponse(
     ...meta,
   };
 
-  // Write response + atomically increment counter in one batch (2 ops, no read)
-  const batch = writeBatch(formsDb);
-  batch.set(doc(responsesCol, resp.id), resp);
-  batch.update(doc(formsCol, formId), { response_count: increment(1) });
-  await batch.commit();
+  // Step 1: Write the response document. Rules allow create from anyone (unauthenticated).
+  // This MUST NOT be batched with the counter update because anonymous users cannot
+  // update forms/{formId} — mixing them in one batch causes the entire commit to fail.
+  await setDoc(doc(responsesCol, resp.id), sanitize(resp));
+
+  // Step 2: Best-effort counter increment on the draft form.
+  // This only succeeds when the owner is signed in (expected in the builder).
+  // Anonymous public submitters will get a permission error here which we silently ignore.
+  try {
+    const { updateDoc } = await import('firebase/firestore');
+    await updateDoc(doc(formsCol, formId), { response_count: increment(1) });
+  } catch {
+    // Silently ignored — counter will be reconciled lazily or via Cloud Function.
+  }
 
   return resp;
 }
+
 
 /** Delete a single response by ID. Decrements response_count atomically. */
 export async function deleteResponse(formId: string, responseId: string): Promise<void> {

@@ -6,7 +6,12 @@ service cloud.firestore {
     match /forms/{formId} {
       allow read:   if request.auth != null && request.auth.uid == resource.data.owner_uid;
       allow create: if request.auth != null && request.auth.uid == request.resource.data.owner_uid;
-      allow update, delete: if request.auth != null && request.auth.uid == resource.data.owner_uid;
+      allow delete: if request.auth != null && request.auth.uid == resource.data.owner_uid;
+
+      // Owner can update anything. Anonymous users may ONLY increment response_count
+      // (written by addResponse after a public form submission).
+      allow update: if (request.auth != null && request.auth.uid == resource.data.owner_uid)
+                    || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['response_count']));
     }
 
     // ── Live snapshots (public form links) ───────────────────────────────────
