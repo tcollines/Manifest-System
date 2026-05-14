@@ -117,12 +117,42 @@ export async function unpublishSnapshot(formId: string): Promise<void> {
 
 // ─── Forms CRUD (working draft) ───────────────────────────────────────────────
 
-/** Get all draft forms belonging to a user, newest first. */
+/** Get all draft forms belonging to a user, newest first.
+ *  Also finds and claims any unclaimed forms (owner_uid == '') — legacy of the empty-uid bug. */
 export async function getForms(ownerUid: string): Promise<Form[]> {
+  if (!ownerUid) return [];
   try {
-    const q = query(formsCol, where('owner_uid', '==', ownerUid), orderBy('updated_at', 'desc'));
-    const snap = await getDocs(q);
-    return snap.docs.map(d => toForm(d.data() as Record<string, unknown>));
+    // Query owned forms
+    const ownedQ = query(formsCol, where('owner_uid', '==', ownerUid), orderBy('updated_at', 'desc'));
+    // Query unclaimed forms (owner_uid == '') from the empty-uid bug
+    const unclaimedQ = query(formsCol, where('owner_uid', '==', ''));
+
+    const [ownedSnap, unclaimedSnap] = await Promise.all([
+      getDocs(ownedQ),
+      getDocs(unclaimedQ),
+    ]);
+
+    const owned = ownedSnap.docs.map(d => toForm(d.data() as Record<string, unknown>));
+
+    // Claim any unclaimed forms by updating their owner_uid
+    if (!unclaimedSnap.empty) {
+      const batch = writeBatch(formsDb);
+      unclaimedSnap.docs.forEach(d => {
+        batch.update(d.ref, { owner_uid: ownerUid });
+      });
+      await batch.commit();
+      const claimed = unclaimedSnap.docs.map(d => ({
+        ...toForm(d.data() as Record<string, unknown>),
+        owner_uid: ownerUid,
+      }));
+      // Merge owned + newly claimed, deduplicated by id
+      const allById = new Map([...owned, ...claimed].map(f => [f.id, f]));
+      return [...allById.values()].sort(
+        (a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+      );
+    }
+
+    return owned;
   } catch { return []; }
 }
 
@@ -151,15 +181,24 @@ export async function createForm(ownerUid: string): Promise<Form> {
   return saveForm(form);
 }
 
-/** Fetch a single draft form by ID. */
+/** Fetch a single draft form by ID.
+ *  If the form exists but is unclaimed (owner_uid == ''), claims it and returns it. */
 export async function getForm(ownerUid: string, formId: string): Promise<Form | null> {
+  if (!ownerUid) return null;
   try {
     const snap = await getDoc(doc(formsCol, formId));
     if (!snap.exists()) return null;
     const form = toForm(snap.data() as Record<string, unknown>);
-    // Guard: only allow owner to access
-    if (form.owner_uid !== ownerUid) return null;
-    return form;
+    // Exact owner match — normal path
+    if (form.owner_uid === ownerUid) return form;
+    // Unclaimed form (from the empty-uid bug) — claim it now
+    if (form.owner_uid === '') {
+      const claimed = { ...form, owner_uid: ownerUid };
+      await saveForm(claimed);
+      return claimed;
+    }
+    // Owned by someone else
+    return null;
   } catch { return null; }
 }
 
