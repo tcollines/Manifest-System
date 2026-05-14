@@ -35,12 +35,23 @@ function uid(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 }
 
-/** Strip Firestore Timestamps → ISO strings so the rest of the app stays pure JSON */
+/** Strip Firestore Timestamps → ISO strings so the rest of the app stays pure JSON.
+ *  Also normalises FormField.required to always be a boolean (defaults to false
+ *  when the key is absent — older documents may not have it stored). */
 function toForm(data: Record<string, unknown>): Form {
   const fix = (v: unknown) =>
     v instanceof Timestamp ? v.toDate().toISOString() : (v as string);
+
+  // Normalise fields so `required` is always a boolean
+  const rawFields = (data.fields ?? []) as Record<string, unknown>[];
+  const fields = rawFields.map(f => ({
+    ...f,
+    required: f.required === true, // treat missing / null / undefined as false
+  }));
+
   return {
     ...(data as Form),
+    fields: fields as Form['fields'],
     created_at: fix(data.created_at),
     updated_at: fix(data.updated_at),
   };

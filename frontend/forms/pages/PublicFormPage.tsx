@@ -338,12 +338,25 @@ const PublicFormPage: React.FC = () => {
     // Validate required fields
     const errs: Record<string, string> = {};
     for (const f of form.fields) {
-      if (!f.required) continue;
+      // required is normalised to a boolean by toForm(); extra guard for safety
+      if (f.required !== true) continue;
       const v = answers[f.id];
-      const empty = v === null || v === undefined || v === '' || (Array.isArray(v) && v.length === 0);
+      // GPS value is an object { lat, lng } — a non-null object counts as filled
+      const isGpsValue = v !== null && typeof v === 'object' && !Array.isArray(v);
+      const empty =
+        !isGpsValue &&
+        (v === null || v === undefined || v === '' || (Array.isArray(v) && v.length === 0));
       if (empty) errs[f.id] = 'This field is required.';
     }
-    if (Object.keys(errs).length > 0) { setErrors(errs); return; }
+    if (Object.keys(errs).length > 0) {
+      setErrors(errs);
+      // Scroll to the first invalid field so the user can see the error (important on mobile)
+      const firstErrorId = Object.keys(errs)[0];
+      setTimeout(() => {
+        document.getElementById(`field-${firstErrorId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 50);
+      return;
+    }
 
     setSubmitting(true);
     await addResponse(form.id, form.owner_uid, answers);
@@ -419,7 +432,7 @@ const PublicFormPage: React.FC = () => {
 
         {/* Field cards */}
         {form.fields.map((field, idx) => (
-          <div key={field.id} className={`bg-white rounded-2xl p-5 shadow-sm border ${errors[field.id] ? 'border-red-300' : 'border-gray-100'} mb-3`}>
+          <div key={field.id} id={`field-${field.id}`} className={`bg-white rounded-2xl p-5 shadow-sm border ${errors[field.id] ? 'border-red-300' : 'border-gray-100'} mb-3`}>
             <div className="mb-3">
               <label className="block text-sm font-semibold text-gray-800 mb-0.5">
                 {idx + 1}. {field.label}
