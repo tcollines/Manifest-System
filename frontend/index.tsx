@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import Root from './Root';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import './index.css';
 
 const queryClient = new QueryClient({
   defaultOptions: {
