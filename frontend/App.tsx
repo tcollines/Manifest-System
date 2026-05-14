@@ -187,6 +187,21 @@ const App: React.FC = () => {
   // ── Auth guard ────────────────────────────────────────────────────────────
 
   if (isInitialLoading) {
+    // Forms routes get a plain spinner — no branding splash
+    if (location.pathname.startsWith('/forms')) {
+      return (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100dvh', background: '#fff' }}>
+          <svg
+            style={{ width: 48, height: 48, animation: 'spin 0.8s linear infinite' }}
+            viewBox="0 0 24 24"
+            fill="none"
+          >
+            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+            <circle cx="12" cy="12" r="10" stroke="#f97316" strokeWidth="3" strokeLinecap="round" strokeDasharray="40 20" />
+          </svg>
+        </div>
+      );
+    }
     return (
       <div className="splash-container">
         <img src="/MANIFEST.png" alt="Manifest MS Logo" className="splash-logo" />
