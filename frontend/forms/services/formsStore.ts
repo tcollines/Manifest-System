@@ -63,7 +63,9 @@ function sanitize<T>(obj: T): T {
   if (obj !== null && typeof obj === 'object') {
     return Object.fromEntries(
       Object.entries(obj as Record<string, unknown>)
-        .filter(([, v]) => v !== undefined)
+        // Strip both undefined AND null — null is used as "clear this key" signal
+        // from FieldPropertiesPanel when switching field types
+        .filter(([, v]) => v !== undefined && v !== null)
         .map(([k, v]) => [k, sanitize(v)])
     ) as T;
   }

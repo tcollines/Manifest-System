@@ -220,13 +220,18 @@ const PublishModal: React.FC<{ formId: string; onClose: () => void }> = ({ formI
   );
 };
 
-const defaultField = (type: FieldType): FormField => ({
-  id: uid(),
-  type,
-  label: FIELD_TYPE_META.find(m => m.type === type)?.label ?? 'Question',
-  required: false,
-  options: ['dropdown', 'radio', 'multi_select'].includes(type) ? ['Option 1', 'Option 2'] : undefined,
-});
+const defaultField = (type: FieldType): FormField => {
+  const field: FormField = {
+    id: uid(),
+    type,
+    label: FIELD_TYPE_META.find(m => m.type === type)?.label ?? 'Question',
+    required: false,
+  };
+  if (['dropdown', 'radio', 'multi_select'].includes(type)) {
+    field.options = ['Option 1', 'Option 2'];
+  }
+  return field;
+};
 
 const FormBuilderPage: React.FC = () => {
   const { formId } = useParams<{ formId: string }>();
@@ -255,15 +260,17 @@ const FormBuilderPage: React.FC = () => {
 
   // Google Forms import handler
   const handleImport = (fields: import('../services/googleFormsParser').GFField[], title: string) => {
-    const newFields = fields.map(f => ({
-      id: uid(),
-      type: f.type,
-      label: f.label,
-      required: f.required,
-      description: f.description,
-      options: f.options,
-      placeholder: undefined,
-    }));
+    const newFields = fields.map(f => {
+      const field: FormField = {
+        id: uid(),
+        type: f.type,
+        label: f.label,
+        required: f.required,
+      };
+      if (f.description) field.description = f.description;
+      if (f.options && f.options.length > 0) field.options = f.options;
+      return field;
+    });
     update({
       fields: [...(form?.fields ?? []), ...newFields],
       // Only update title if the form is still untitled
