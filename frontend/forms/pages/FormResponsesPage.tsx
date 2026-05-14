@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { useFormsAuth } from '../context/FormsAuthContext';
 import { getForm, getResponses, deleteResponse } from '../services/formsStore';
+import { exportToExcel, exportToPDF } from '../services/exportService';
 import type { Form, FormResponse, FormField, AnswerValue } from '../types/forms.types';
 
 // ─── Answer Renderer ──────────────────────────────────────────────────────────
@@ -169,7 +170,6 @@ const FormResponsesPage: React.FC = () => {
     if (!form) return;
     setExporting('excel');
     try {
-      const { exportToExcel } = await import('../services/exportService');
       await exportToExcel(form, filtered);
     } catch (e) {
       console.error('Excel export failed:', e);
@@ -182,7 +182,6 @@ const FormResponsesPage: React.FC = () => {
     if (!form) return;
     setExporting('pdf');
     try {
-      const { exportToPDF } = await import('../services/exportService');
       await exportToPDF(form, filtered);
     } catch (e) {
       console.error('PDF export failed:', e);
@@ -190,6 +189,7 @@ const FormResponsesPage: React.FC = () => {
     }
     setExporting(null);
   };
+
 
   const filtered = responses.filter(r => {
     if (!search) return true;

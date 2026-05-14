@@ -1,6 +1,12 @@
 // ─── Export helpers ───────────────────────────────────────────────────────────
 // Converts form + responses into Excel (xlsx) or PDF (jsPDF)
+// NOTE: xlsx and jspdf are imported statically so Vite bundles them directly
+// into the main chunk rather than creating a separate dynamic chunk that
+// fails to load on Vercel (no nested async-import chains).
 
+import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import type { Form, FormField, FormResponse, AnswerValue } from '../types/forms.types';
 
 // ─── Stringify a single answer value ─────────────────────────────────────────
@@ -40,7 +46,6 @@ function buildTable(form: Form, responses: FormResponse[]): { headers: string[];
       const val = r.answers[f.id] ?? null;
       cells.push(stringifyAnswer(f, val));
       if (f.type === 'gps') {
-        // Extra map link cell
         if (val && typeof val === 'object' && !Array.isArray(val)) {
           const g = val as { lat: number; lng: number };
           cells.push(`https://www.google.com/maps?q=${g.lat},${g.lng}`);
@@ -58,27 +63,23 @@ function buildTable(form: Form, responses: FormResponse[]): { headers: string[];
 // ─── Excel Export ─────────────────────────────────────────────────────────────
 
 export async function exportToExcel(form: Form, responses: FormResponse[]): Promise<void> {
-  const { utils, writeFile } = await import('xlsx');
   const { headers, rows } = buildTable(form, responses);
   const wsData = [headers, ...rows];
-  const ws = utils.aoa_to_sheet(wsData);
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
 
   // Auto column widths
   ws['!cols'] = headers.map((h, i) => ({
     wch: Math.max(h.length, ...rows.map(r => (r[i] ?? '').length), 12),
   }));
 
-  const wb = utils.book_new();
-  utils.book_append_sheet(wb, ws, 'Responses');
-  writeFile(wb, `${form.title.replace(/[^a-zA-Z0-9]/g, '_')}_responses.xlsx`);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Responses');
+  XLSX.writeFile(wb, `${form.title.replace(/[^a-zA-Z0-9]/g, '_')}_responses.xlsx`);
 }
 
 // ─── PDF Export ───────────────────────────────────────────────────────────────
 
 export async function exportToPDF(form: Form, responses: FormResponse[]): Promise<void> {
-  const { default: jsPDF } = await import('jspdf');
-  const { default: autoTable } = await import('jspdf-autotable');
-
   const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
 
   // Title

@@ -54,6 +54,14 @@
         { "fieldPath": "form_id",      "order": "ASCENDING"  },
         { "fieldPath": "submitted_at", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "forms",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "owner_uid",  "order": "ASCENDING"  },
+        { "fieldPath": "updated_at", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []
