@@ -43,15 +43,68 @@ export const createSchedule = async (req: Request, res: Response) => {
     const userId = (req as any).userId;
     const { departmentId, title, weekStart, notes } = req.body;
     if (!departmentId || !title || !weekStart) return res.status(400).json({ error: 'departmentId, title, weekStart are required' });
+    
     try {
+        // Enforce 1 schedule per week per department
+        const { data: existing, error: existingError } = await supabase
+            .from('service_schedules')
+            .select('id')
+            .eq('manifest_id', manifestId)
+            .eq('department_id', departmentId)
+            .eq('week_start', weekStart)
+            .maybeSingle();
+            
+        if (existingError) throw existingError;
+        if (existing) {
+            return res.status(400).json({ error: 'A schedule has already been generated for this week.' });
+        }
+
+        // Get department name for the slug
+        const { data: dept, error: deptError } = await supabase
+            .from('departments')
+            .select('name')
+            .eq('id', departmentId)
+            .single();
+            
+        if (deptError || !dept) throw new Error('Department not found');
+
+        // Generate slug
+        const cleanDeptName = dept.name.replace(/[^a-zA-Z0-9]/g, '');
+        const cleanTitle = title.replace(/[^a-zA-Z0-9]/g, '');
+        let publicSlug = `${cleanDeptName}${cleanTitle}`;
+
+        const { data: slugCheck } = await supabase
+            .from('service_schedules')
+            .select('id')
+            .eq('public_slug', publicSlug)
+            .maybeSingle();
+
+        if (slugCheck) {
+            publicSlug = `${publicSlug}-${Math.random().toString(36).substring(2, 6)}`;
+        }
+
         const { data, error } = await supabase
             .from('service_schedules')
-            .insert([{ id: uuidv4(), manifest_id: manifestId, department_id: departmentId, title, week_start: weekStart, notes, status: 'Draft', created_by: userId }])
+            .insert([{ 
+                id: uuidv4(), 
+                manifest_id: manifestId, 
+                department_id: departmentId, 
+                title, 
+                week_start: weekStart, 
+                notes, 
+                status: 'Draft', 
+                created_by: userId,
+                public_slug: publicSlug
+            }])
             .select()
             .single();
+            
         if (error) throw error;
         res.status(201).json(data);
-    } catch { res.status(500).json({ error: 'An internal server error occurred.' }); }
+    } catch (e: any) { 
+        console.error(e);
+        res.status(500).json({ error: 'An internal server error occurred.' }); 
+    }
 };
 
 export const updateSchedule = async (req: Request, res: Response) => {
@@ -96,7 +149,7 @@ export const generateGlobalSchedules = async (req: Request, res: Response) => {
     try {
         const { data: departments, error: deptError } = await supabase
             .from('departments')
-            .select('id')
+            .select('id, name')
             .eq('manifest_id', manifestId)
             .ilike('status', 'active');
             
@@ -112,18 +165,43 @@ export const generateGlobalSchedules = async (req: Request, res: Response) => {
         if (existingError) throw existingError;
 
         const existingDeptIds = new Set(existingSchedules.map(s => s.department_id));
+        const cleanTitle = title.replace(/[^a-zA-Z0-9]/g, '');
 
-        const newSchedules = departments
+        const baseSchedules = departments
             .filter(dept => !existingDeptIds.has(dept.id))
-            .map(dept => ({
-                id: uuidv4(),
-                manifest_id: manifestId,
-                department_id: dept.id,
-                title,
-                week_start: weekStart,
-                status: 'Draft',
-                created_by: userId
-            }));
+            .map(dept => {
+                const cleanDeptName = dept.name.replace(/[^a-zA-Z0-9]/g, '');
+                const publicSlug = `${cleanDeptName}${cleanTitle}`;
+                return {
+                    id: uuidv4(),
+                    manifest_id: manifestId,
+                    department_id: dept.id,
+                    title,
+                    week_start: weekStart,
+                    status: 'Draft',
+                    created_by: userId,
+                    public_slug: publicSlug
+                };
+            });
+
+        if (baseSchedules.length === 0) {
+            return res.status(200).json({ message: 'Schedules already exist for all active departments this week.' });
+        }
+
+        const proposedSlugs = baseSchedules.map(s => s.public_slug);
+        const { data: collidingSlugs } = await supabase
+            .from('service_schedules')
+            .select('public_slug')
+            .in('public_slug', proposedSlugs);
+            
+        const collisionSet = new Set(collidingSlugs?.map(s => s.public_slug) || []);
+        
+        const newSchedules = baseSchedules.map(s => {
+            if (collisionSet.has(s.public_slug)) {
+                s.public_slug = `${s.public_slug}-${Math.random().toString(36).substring(2, 6)}`;
+            }
+            return s;
+        });
 
         if (newSchedules.length === 0) {
             return res.status(200).json({ message: 'All departments already have a schedule for this week.' });

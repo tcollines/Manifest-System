@@ -168,6 +168,7 @@ const GenericDeptDashboard: React.FC<DashboardProps> = ({ openModal, onEditUser,
             case 'workplans':    return <WorkplansTab    {...props} />;
             case 'assets':       return <AssetsTab       {...props} />;
             case 'schedule':     return <ScheduleTab     {...props} />;
+            case 'roles':        return <RolesTab        {...props} />;
             case 'finances':     return <FinancesTab     {...props} />;
             case 'reports':      return <ReportsTab      {...props} />;
             default:             return null;

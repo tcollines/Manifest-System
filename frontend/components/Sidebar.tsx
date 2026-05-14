@@ -137,7 +137,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onLogout, isOpen, onClose }) => {
   }
 
   if (roleHOD || isDeptFinance || isGlobalFinance || isSystemAdmin || isTeamLeader) {
-      if (!isDeptFinance && !isGlobalFinance) {
+      if (roleHOD || isSystemAdmin || isTeamLeader || (!isDeptFinance && !isGlobalFinance)) {
           myDeptItems.push({ id: 'my-dept-team', label: 'Team Management', icon: Users, path: `/departments/${dId}/dashboard?tab=team` });
           myDeptItems.push({ id: 'my-dept-schedule', label: 'Service Schedule', icon: Calendar, path: `/departments/${dId}/dashboard?tab=schedule` });
           myDeptItems.push({ id: 'my-dept-reports', label: 'Monthly Reports', icon: BarChart2, path: `/departments/${dId}/dashboard?tab=reports` });

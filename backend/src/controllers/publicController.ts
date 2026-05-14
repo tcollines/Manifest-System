@@ -152,3 +152,167 @@ export const submitPublicEventSouls = async (req: Request, res: Response) => {
     }
 };
 
+export const getPublicSchedule = async (req: Request, res: Response) => {
+    const { id } = req.params;
+    try {
+        const isUuid = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(id);
+        
+        let query = supabase.from('service_schedules').select(`*, departments(name)`);
+        if (isUuid) {
+            query = query.eq('id', id);
+        } else {
+            query = query.eq('public_slug', id);
+        }
+
+        // 1. Fetch schedule
+        const { data: schedule, error: scheduleError } = await query.single();
+            
+        if (scheduleError || !schedule) {
+            return res.status(404).json({ error: 'Schedule not found' });
+        }
+
+        const resolvedScheduleId = schedule.id;
+
+        // 2. Fetch sessions
+        const { data: sessions, error: sessionsError } = await supabase
+            .from('schedule_sessions')
+            .select('*')
+            .eq('schedule_id', resolvedScheduleId)
+            .order('sequence', { ascending: true });
+
+        if (sessionsError) {
+            return res.status(500).json({ error: 'Failed to fetch sessions' });
+        }
+
+        // 3. Fetch departmental roles
+        const { data: roles, error: rolesError } = await supabase
+            .from('departmental_roles')
+            .select('*')
+            .eq('department_id', schedule.department_id)
+            .order('role_name', { ascending: true });
+
+        // 4. Fetch department members
+        // Try with member join first
+        let membersData = [];
+        const { data: membersJoined, error: membersJoinError } = await supabase
+            .from('dept_church_members')
+            .select(`*, members(name, phone)`)
+            .eq('department_id', schedule.department_id)
+            .order('created_at', { ascending: false });
+
+        if (membersJoinError) {
+            const fallback = await supabase
+                .from('dept_church_members')
+                .select('*')
+                .eq('department_id', schedule.department_id)
+                .order('created_at', { ascending: false });
+            membersData = fallback.data || [];
+        } else {
+            membersData = membersJoined || [];
+        }
+
+        res.json({
+            schedule,
+            sessions: sessions || [],
+            roles: roles || [],
+            members: membersData
+        });
+} catch (e) {
+        res.status(500).json({ error: 'An internal server error occurred.' });
+    }
+};
+
+
+export const submitPublicScheduleAvailability = async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { selectedMemberId, selections } = req.body;
+    
+    if (!id || !selectedMemberId || !selections) {
+        return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    try {
+        const isUuid = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(id);
+        
+        let query = supabase.from('service_schedules').select('id, manifest_id, department_id');
+        if (isUuid) {
+            query = query.eq('id', id);
+        } else {
+            query = query.eq('public_slug', id);
+        }
+
+        const { data: schedule, error: scheduleError } = await query.single();
+            
+        if (scheduleError || !schedule) {
+            return res.status(404).json({ error: 'Schedule not found' });
+        }
+        
+        const scheduleId = schedule.id;
+        
+        if (schedule.status !== 'Draft') {
+            return res.status(403).json({ error: 'This schedule is no longer accepting submissions.' });
+        }
+
+        // 2. Fetch all sessions for this schedule
+        const { data: scheduleSessions } = await supabase
+            .from('schedule_sessions')
+            .select('id')
+            .eq('schedule_id', id);
+            
+        const sessionIds = scheduleSessions?.map(s => s.id) || [];
+        
+        // 3. Delete existing assignments for this member in this schedule
+        const memberId = assignments[0].memberId;
+        if (sessionIds.length > 0 && memberId) {
+            await supabase
+                .from('schedule_assignments')
+                .delete()
+                .in('session_id', sessionIds)
+                .eq('member_id', memberId);
+        }
+
+        // 4. Insert assignments
+        // For each assignment, we need to find the max sequence of its session and increment it.
+        // Since we might have multiple assignments for the same session in this batch, we should group them.
+        
+        const sessionsGrouped = assignments.reduce((acc: any, curr: any) => {
+            if (!acc[curr.sessionId]) acc[curr.sessionId] = [];
+            acc[curr.sessionId].push(curr);
+            return acc;
+        }, {});
+
+        const formattedAssignments = [];
+        
+        for (const sessionId of Object.keys(sessionsGrouped)) {
+            const { data: existing } = await supabase
+                .from('schedule_assignments')
+                .select('sequence')
+                .eq('session_id', sessionId)
+                .order('sequence', { ascending: false })
+                .limit(1);
+                
+            let nextSeq = ((existing?.[0]?.sequence ?? 0) as number) + 1;
+            
+            for (const assignment of sessionsGrouped[sessionId]) {
+                formattedAssignments.push({
+                    id: uuidv4(),
+                    session_id: sessionId,
+                    role_label: assignment.roleLabel,
+                    minister_name: assignment.ministerName,
+                    member_id: assignment.memberId || null,
+                    sequence: nextSeq++,
+                    arrival_time: assignment.arrivalTime || null
+                });
+            }
+        }
+        
+        const { error: insertError } = await supabase.from('schedule_assignments').insert(formattedAssignments);
+        if (insertError) {
+            return res.status(500).json({ error: insertError.message });
+        }
+        
+        res.status(201).json({ success: true, count: formattedAssignments.length });
+    } catch (e) {
+        res.status(500).json({ error: 'An internal server error occurred.' });
+    }
+};

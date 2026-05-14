@@ -423,19 +423,35 @@ const ActionPanel: React.FC<ActionPanelProps> = ({ modalType, closeModal, onSave
                     >
                       {/* Dynamic Role Options based on Permissions */}
                       {(() => {
-                        const allRoles = ['HOD', 'Dept Admin', 'Dept Finance', 'Member', 'Head of Dept', 'Administrator', 'TeamLeader', 'Logistics', 'Coordinator', 'Resident Coordinator'];
-                        let allowedRoles = allRoles;
+                        let allowedRoles = ['Head of Dept', 'Dept Admin', 'Dept Finance', 'Member'];
 
-                        if (isAdmin || isTeamLeader) {
-                          allowedRoles = allRoles;
+                        if (isTeamLeader) {
+                          // Team Leaders can also assign other Team Leaders and Administrators
+                          allowedRoles = [...allowedRoles, 'TeamLeader', 'Administrator'];
+                        } else if (isAdmin) {
+                          // Administrators can assign the standard 4 roles
+                          allowedRoles = ['Head of Dept', 'Dept Admin', 'Dept Finance', 'Member'];
                         } else if (currentUser?.role === 'Head of Dept' || currentUser?.role === 'HOD') {
+                          // Head of Dept can assign everything except Head of Dept
                           allowedRoles = ['Dept Admin', 'Dept Finance', 'Member'];
                         } else {
+                          // Everyone else can only assign Member
                           allowedRoles = ['Member'];
                         }
 
-                        // Ensure current value is shown even if technically not allowed (e.g. viewing someone else), or fall back
-                        // But for editing/creating, we restrict.
+                        // Add department-specific system roles based on the selected department
+                        if (allowedRoles.includes('Member')) {
+                          if (formData.departmentId === 'd5') {
+                            allowedRoles.push('Logistics', 'Coordinator');
+                          } else if (formData.departmentId === 'c1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d' || formData.departmentId === 'd10') {
+                            allowedRoles.push('Resident Coordinator');
+                          }
+                        }
+
+                        // Ensure current value is shown if editing a user with a legacy role
+                        if (formData.role && !allowedRoles.includes(formData.role)) {
+                          allowedRoles.push(formData.role);
+                        }
 
                         return allowedRoles.map(r => (
                           <option key={r} value={r}>{r}</option>

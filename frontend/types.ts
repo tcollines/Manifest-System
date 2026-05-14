@@ -602,6 +602,7 @@ export interface ScheduleAssignment {
   ministerName: string;
   memberId?: string;
   sequence: number;
+  arrivalTime?: string;
   createdAt?: string;
 }
 
@@ -626,6 +627,7 @@ export interface ServiceSchedule {
   title: string;
   weekStart: string;
   status: 'Draft' | 'Published';
+    publicSlug?: string;
   notes?: string;
   createdBy?: string;
   createdAt?: string;
@@ -685,5 +687,13 @@ export interface DeptFinanceEntry {
   createdAt?: string;
   // Joined
   recordedByName?: string;
+}
+
+export interface DepartmentalRole {
+  id: string;
+  departmentId: string;
+  roleName: string;
+  description?: string;
+  createdAt?: string;
 }
 

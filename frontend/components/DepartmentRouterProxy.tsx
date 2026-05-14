@@ -107,6 +107,18 @@ const DepartmentRouterProxy: React.FC<ProxyProps> = ({ onOpenModal, onEditUser }
 
     const dept = resolveDepartment(deptId);
 
+    // ── Administration (d0) ────────────────────────────────────────────────────────
+    if (dept?.slug === 'administration') {
+        return (
+            <Routes>
+                <Route element={<ProtectedRoute allowedDepartments={[deptId]} />}>
+                    <Route index element={<Navigate to="/administration" replace />} />
+                    <Route path="dashboard/*" element={<GenericDeptDashboard currentUser={currentUser} openModal={onOpenModal} onEditUser={onEditUser} />} />
+                </Route>
+            </Routes>
+        );
+    }
+
     // ── Registration (d1) ────────────────────────────────────────────────────────
     if (dept?.slug === 'registration') {
         const isElevated = currentUser ? ['Administrator', 'Super Admin', 'Head of Dept', 'HOD', 'Department Head', 'Dept Admin', 'Reg. Admin', 'Registration Admin', 'Registration Head', 'TeamLeader'].includes(currentUser.role) : false;

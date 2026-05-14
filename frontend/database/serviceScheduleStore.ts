@@ -9,6 +9,7 @@ const mapAssignment = (d: any): ScheduleAssignment => ({
     ministerName: d.minister_name,
     memberId:     d.member_id,
     sequence:     d.sequence ?? 0,
+    arrivalTime:  d.arrival_time,
     createdAt:    d.created_at,
 });
 
@@ -32,6 +33,7 @@ const mapSchedule = (d: any): ServiceSchedule => ({
     weekStart:    d.week_start,
     status:       d.status,
     notes:        d.notes,
+    publicSlug:   d.public_slug,
     createdBy:    d.created_by,
     createdAt:    d.created_at,
     updatedAt:    d.updated_at,

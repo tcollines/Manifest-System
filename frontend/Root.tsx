@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import App from './App';
 import PublicSoulEntry from './components/PublicSoulEntry';
 import PublicResidentSoulEntry from './components/PublicResidentSoulEntry';
+import PublicScheduleAvailability from './components/PublicScheduleAvailability';
 
 import { NotificationProvider } from './components/ui/NotificationSystem';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -31,6 +32,8 @@ const Root: React.FC = () => {
                         <Routes>
                             <Route path="/collect-souls/:eventId" element={<PublicSoulEntry />} />
                             <Route path="/collect-residency-souls/:residenceId" element={<PublicResidentSoulEntry />} />
+                            <Route path="/schedule-availability/:scheduleId" element={<PublicScheduleAvailability />} />
+                            <Route path="/schedule/:slug" element={<PublicScheduleAvailability />} />
                             <Route path="*" element={<App />} />
                         </Routes>
                     </ProtectedProviders>

@@ -2,11 +2,24 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { ServiceSchedule, Department } from '../types';
 import { ServiceScheduleStore } from '../database/serviceScheduleStore';
 import { DepartmentStore } from '../database/departmentStore';
-import { Calendar, ChevronDown, ChevronUp, Clock, AlertCircle } from 'lucide-react';
+import { Calendar, ChevronDown, ChevronUp, Clock, AlertCircle, Trash2 } from 'lucide-react';
 import Badge, { statusVariant } from './ui/Badge';
 import { formatDateOrdinal, formatDayLabel } from '../shared/formatters';
+import { useNotification } from './ui/NotificationSystem';
+
+const getCurrentMonday = () => {
+    const d = new Date();
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+    d.setDate(diff);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const date = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${date}`;
+};
 
 const GlobalSchedulesView: React.FC = () => {
+  const { showToast, confirm } = useNotification();
   const [schedules, setSchedules] = useState<ServiceSchedule[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -56,16 +69,68 @@ const GlobalSchedulesView: React.FC = () => {
       try {
           const res = await ServiceScheduleStore.generateGlobal({ title: newTitle, weekStart: newWeekStart });
           if (res.status === 'success') {
-              setNewTitle('');
-              setNewWeekStart('');
-              fetchData();
+              const msg = res.data?.message || '';
+              if (msg.includes('already have a schedule')) {
+                  showToast('A schedule has already been generated for this week.', 'error');
+              } else {
+                  showToast(msg || 'Schedules generated successfully!', 'success');
+                  setNewTitle('');
+                  setNewWeekStart('');
+                  fetchData();
+              }
           } else {
-              alert(res.message || 'Failed to generate schedules');
+              showToast(res.message || 'Failed to generate schedules', 'error');
           }
       } catch (err) {
           console.error(err);
       } finally {
           setIsGenerating(false);
+      }
+  };
+
+  
+  const handleDeleteWeek = async (e: React.MouseEvent, week: string, weekSchedules: ServiceSchedule[]) => {
+      e.stopPropagation();
+      const confirmed = await confirm(`Are you sure you want to delete ALL ${weekSchedules.length} schedules for the week of ${formatDateOrdinal(week)}? This cannot be undone.`, {
+          title: 'Delete Week Schedules',
+          confirmText: 'Delete All',
+          isDestructive: true
+      });
+      if (!confirmed) return;
+      
+      setIsGenerating(true);
+      try {
+          await Promise.all(weekSchedules.map(s => ServiceScheduleStore.delete(s.id)));
+          showToast('Schedules for the week deleted successfully.', 'success');
+          fetchData();
+      } catch (err) {
+          console.error(err);
+          showToast('Failed to delete some schedules.', 'error');
+      } finally {
+          setIsGenerating(false);
+      }
+  };
+
+  const handleDeleteSchedule = async (e: React.MouseEvent, id: string, deptName: string) => {
+      e.stopPropagation();
+      const confirmed = await confirm(`Are you sure you want to delete the schedule for ${deptName}? This cannot be undone.`, {
+          title: 'Delete Schedule',
+          confirmText: 'Delete',
+          isDestructive: true
+      });
+      if (!confirmed) return;
+      
+      try {
+          const res = await ServiceScheduleStore.delete(id);
+          if (res.status === 'success') {
+              showToast('Schedule deleted successfully.', 'success');
+              fetchData();
+          } else {
+              showToast(res.message || 'Failed to delete schedule.', 'error');
+          }
+      } catch (err) {
+          console.error(err);
+          showToast('An error occurred while deleting the schedule.', 'error');
       }
   };
 
@@ -117,7 +182,7 @@ const GlobalSchedulesView: React.FC = () => {
                   }
               }}
               step="7"
-              min="2024-01-01"
+              min={getCurrentMonday()}
             />
           </div>
           <button 
@@ -164,8 +229,17 @@ const GlobalSchedulesView: React.FC = () => {
                                     {actualSubmittedCount === 0 ? 'No department has submitted' : `${actualSubmittedCount} Department${actualSubmittedCount !== 1 ? 's' : ''} Submitted`}
                                 </p>
                             </div>
-                            <div className="flex items-center justify-center w-10 h-10 rounded-full bg-gray-50 group-hover:bg-gray-100 transition-colors">
-                                {isWeekExpanded ? <ChevronUp className="w-5 h-5 text-gray-500" /> : <ChevronDown className="w-5 h-5 text-gray-500" />}
+                            <div className="flex items-center gap-2">
+                                <button 
+                                    className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors"
+                                    onClick={(e) => handleDeleteWeek(e, week, weekSchedules)}
+                                    title="Delete all schedules for this week"
+                                >
+                                    <Trash2 className="w-5 h-5" />
+                                </button>
+                                <div className="flex items-center justify-center w-10 h-10 rounded-full bg-gray-50 group-hover:bg-gray-100 transition-colors">
+                                    {isWeekExpanded ? <ChevronUp className="w-5 h-5 text-gray-500" /> : <ChevronDown className="w-5 h-5 text-gray-500" />}
+                                </div>
                             </div>
                         </div>
 
@@ -233,8 +307,17 @@ const GlobalSchedulesView: React.FC = () => {
                                                         </p>
                                                     </div>
                                                 </div>
-                                                <div className="flex items-center justify-center p-1">
-                                                    {expandedScheduleId === schedule.id ? <ChevronUp className="w-4 h-4 text-blue-500" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+                                                <div className="flex items-center gap-2 p-1">
+                                                    <button 
+                                                        className="text-red-400 hover:text-red-600 hover:bg-red-50 p-1.5 rounded-lg transition-colors"
+                                                        onClick={(e) => handleDeleteSchedule(e, schedule.id, schedule.departmentName || 'Unknown Dept')}
+                                                        title="Delete schedule"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                    <div className="flex items-center justify-center">
+                                                        {expandedScheduleId === schedule.id ? <ChevronUp className="w-4 h-4 text-blue-500" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+                                                    </div>
                                                 </div>
                                             </div>
 
