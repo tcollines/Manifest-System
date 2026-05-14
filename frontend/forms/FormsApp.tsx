@@ -6,6 +6,7 @@ import FormsDashboard    from './dashboard/FormsDashboard';
 import FormBuilderPage   from './pages/FormBuilderPage';
 import FormResponsesPage from './pages/FormResponsesPage';
 import PublicFormPage    from './pages/PublicFormPage';
+import FormMigratePage  from './pages/FormMigratePage';
 import { Loader2 } from 'lucide-react';
 
 // ─── Auth Guard ───────────────────────────────────────────────────────────────
@@ -33,6 +34,7 @@ const FormsApp: React.FC = () => (
       <Route path="dashboard"       element={<Guard><FormsDashboard /></Guard>} />
       <Route path="builder/:formId" element={<Guard><FormBuilderPage /></Guard>} />
       <Route path="responses/:formId" element={<Guard><FormResponsesPage /></Guard>} />
+      <Route path="migrate"           element={<Guard><FormMigratePage /></Guard>} />
 
       {/* Fallback */}
       <Route index element={<Navigate to="/forms/auth" replace />} />

@@ -269,3 +269,71 @@ export async function deleteResponse(formId: string, responseId: string): Promis
   batch.update(doc(formsCol, formId), { response_count: increment(-1) });
   await batch.commit();
 }
+
+// ─── Migration Utilities ──────────────────────────────────────────────────────
+
+/**
+ * Returns ALL draft forms for an owner — used by the migration tool to find
+ * forms regardless of what document ID they are stored under.
+ */
+export async function getAllForms(ownerUid: string): Promise<Form[]> {
+  try {
+    const q = query(formsCol, where('owner_uid', '==', ownerUid));
+    const snap = await getDocs(q);
+    return snap.docs.map(d => toForm(d.data() as Record<string, unknown>));
+  } catch { return []; }
+}
+
+/**
+ * One-time migration: copies a form from its current (wrong) Firestore document
+ * ID to a canonical target ID, republishes the live snapshot under the new ID,
+ * and deletes the old stale documents.
+ *
+ * @param ownerUid   - UID of the authenticated owner
+ * @param sourceId   - The current (wrong) document ID to copy FROM
+ * @param targetId   - The permanent canonical ID to copy TO
+ */
+export async function migrateFormToId(
+  ownerUid: string,
+  sourceId: string,
+  targetId: string,
+): Promise<{ ok: boolean; message: string }> {
+  try {
+    // 1. Read source draft
+    const sourceSnap = await getDoc(doc(formsCol, sourceId));
+    if (!sourceSnap.exists()) {
+      return { ok: false, message: `Source form "${sourceId}" not found in forms collection.` };
+    }
+    const sourceData = sourceSnap.data() as Record<string, unknown>;
+    if (sourceData.owner_uid !== ownerUid) {
+      return { ok: false, message: 'Permission denied: you are not the owner of the source form.' };
+    }
+
+    // 2. Build new form doc with the target ID
+    const now = new Date().toISOString();
+    const migratedForm: Form = {
+      ...toForm(sourceData),
+      id: targetId,
+      updated_at: now,
+      status: 'published',
+    };
+
+    // 3. Write draft + live snapshot under targetId, delete old docs — all in one batch
+    const batch = writeBatch(formsDb);
+    batch.set(doc(formsCol,  targetId), sanitize(migratedForm));
+    batch.set(doc(liveCol,   targetId), sanitize({ ...migratedForm, updated_at: serverTimestamp() }));
+
+    // Delete old stale documents if sourceId differs from targetId
+    if (sourceId !== targetId) {
+      batch.delete(doc(formsCol, sourceId));
+      // Also try to clean up old live snapshot (ignore if it doesn't exist)
+      const oldLiveSnap = await getDoc(doc(liveCol, sourceId));
+      if (oldLiveSnap.exists()) batch.delete(doc(liveCol, sourceId));
+    }
+
+    await batch.commit();
+    return { ok: true, message: `Form successfully migrated to ID "${targetId}" and republished.` };
+  } catch (e) {
+    return { ok: false, message: `Migration failed: ${e instanceof Error ? e.message : String(e)}` };
+  }
+}
