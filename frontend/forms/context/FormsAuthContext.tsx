@@ -5,56 +5,78 @@ import {
   signInWithPopup,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
-  signOut,
+  signOut as firebaseSignOut,
   onAuthStateChanged,
   updateProfile,
   type User,
 } from '../services/firebaseConfig';
+import { setPersistence, browserSessionPersistence } from 'firebase/auth';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface FormsUser {
-  uid: string;
+  // 'id' is the Firebase UID — used as owner_uid in Firestore
+  // All pages must use formsUser.id (not formsUser.uid)
+  id: string;
   email: string;
-  displayName: string;
-  photoURL?: string;
+  full_name: string;
+  avatar_url?: string;
   provider: 'email' | 'google';
 }
 
 interface FormsAuthContextType {
   formsUser: FormsUser | null;
-  firebaseUser: User | null;
   isLoading: boolean;
   signUpWithEmail: (email: string, password: string, displayName: string) => Promise<{ success: boolean; error?: string }>;
-  signInWithEmail: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  signInWithEmail:  (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   signInWithGoogle: () => Promise<{ success: boolean; error?: string }>;
-  signOutForms: () => Promise<void>;
+  // signOut: clears Firebase session — do NOT manually navigate after calling this.
+  // The onAuthStateChanged → Guard will redirect to /forms/auth automatically.
+  signOut: () => Promise<void>;
 }
 
 // ─── Context ──────────────────────────────────────────────────────────────────
 
 const FormsAuthContext = createContext<FormsAuthContextType | undefined>(undefined);
 
+// ─── Map Firebase User → FormsUser ───────────────────────────────────────────
+
+function toFormsUser(user: User, overrideName?: string): FormsUser {
+  const provider: 'email' | 'google' =
+    user.providerData[0]?.providerId === 'google.com' ? 'google' : 'email';
+  return {
+    id:         user.uid,  // Firebase UID — this is the owner_uid in Firestore
+    email:      user.email ?? '',
+    full_name:  overrideName ?? user.displayName ?? user.email?.split('@')[0] ?? 'User',
+    avatar_url: user.photoURL ?? undefined,
+    provider,
+  };
+}
+
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
 export const FormsAuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
   const [formsUser, setFormsUser] = useState<FormsUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   // ── Listen to Firebase Auth state ─────────────────────────────────────────
+  // Uses SESSION persistence: session clears when the browser tab is closed.
+  // After signOut(), onAuthStateChanged fires with null → Guard redirects to /forms/auth.
+  // Do NOT manually navigate after signOut() — that causes a race condition where the
+  // auth page sees formsUser still set and immediately bounces back to /forms/dashboard.
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(formsAuth, (fbUser) => {
-      if (fbUser) {
-        setFirebaseUser(fbUser);
-        setFormsUser(mapFirebaseUser(fbUser));
-      } else {
-        setFirebaseUser(null);
-        setFormsUser(null);
-      }
-      setIsLoading(false);
-    });
-    return () => unsubscribe();
+    let unsub: (() => void) | undefined;
+
+    setPersistence(formsAuth, browserSessionPersistence)
+      .catch(() => { /* ignore — fall through to subscribe anyway */ })
+      .finally(() => {
+        unsub = onAuthStateChanged(formsAuth, (fbUser) => {
+          setFormsUser(fbUser ? toFormsUser(fbUser) : null);
+          setIsLoading(false);
+        });
+      });
+
+    return () => { unsub?.(); };
   }, []);
 
   // ── Email Sign Up ─────────────────────────────────────────────────────────
@@ -65,9 +87,8 @@ export const FormsAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   ): Promise<{ success: boolean; error?: string }> => {
     try {
       const { user } = await createUserWithEmailAndPassword(formsAuth, email, password);
-      // Attach display name immediately
       await updateProfile(user, { displayName });
-      setFormsUser(mapFirebaseUser(user, displayName, 'email'));
+      // onAuthStateChanged will fire and update formsUser automatically
       return { success: true };
     } catch (err: any) {
       return { success: false, error: friendlyError(err.code) };
@@ -93,28 +114,33 @@ export const FormsAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       await signInWithPopup(formsAuth, googleProvider);
       return { success: true };
     } catch (err: any) {
-      if (err.code === 'auth/popup-closed-by-user') return { success: false, error: 'cancelled' };
+      if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') {
+        return { success: false, error: 'cancelled' };
+      }
       return { success: false, error: friendlyError(err.code) };
     }
   }, []);
 
   // ── Sign Out ──────────────────────────────────────────────────────────────
-  const signOutForms = useCallback(async () => {
-    await signOut(formsAuth);
+  // IMPORTANT: After calling this, do NOT manually navigate.
+  // onAuthStateChanged will fire → setFormsUser(null) → Guard redirects to /forms/auth.
+  const signOut = useCallback(async () => {
+    try {
+      await firebaseSignOut(formsAuth);
+    } catch (e) {
+      console.error('Firebase signOut error:', e);
+    }
   }, []);
 
   return (
-    <FormsAuthContext.Provider
-      value={{
-        formsUser,
-        firebaseUser,
-        isLoading,
-        signUpWithEmail,
-        signInWithEmail,
-        signInWithGoogle,
-        signOutForms,
-      }}
-    >
+    <FormsAuthContext.Provider value={{
+      formsUser,
+      isLoading,
+      signUpWithEmail,
+      signInWithEmail,
+      signInWithGoogle,
+      signOut,
+    }}>
       {children}
     </FormsAuthContext.Provider>
   );
@@ -128,21 +154,7 @@ export const useFormsAuth = (): FormsAuthContextType => {
   return ctx;
 };
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function mapFirebaseUser(user: User, overrideName?: string, overrideProvider?: 'email' | 'google'): FormsUser {
-  const provider: 'email' | 'google' =
-    overrideProvider ??
-    (user.providerData[0]?.providerId === 'google.com' ? 'google' : 'email');
-
-  return {
-    uid: user.uid,
-    email: user.email ?? '',
-    displayName: overrideName ?? user.displayName ?? user.email?.split('@')[0] ?? 'User',
-    photoURL: user.photoURL ?? undefined,
-    provider,
-  };
-}
+// ─── Error messages ───────────────────────────────────────────────────────────
 
 function friendlyError(code: string): string {
   const map: Record<string, string> = {
@@ -151,12 +163,10 @@ function friendlyError(code: string): string {
     'auth/weak-password':           'Password must be at least 6 characters.',
     'auth/user-not-found':          'No account found with this email.',
     'auth/wrong-password':          'Incorrect password. Please try again.',
-    'auth/too-many-requests':       'Too many attempts. Please wait a moment and try again.',
-    'auth/network-request-failed':  'Network error. Check your connection and try again.',
-    'auth/popup-blocked':           'Pop-up was blocked. Please allow pop-ups for this site.',
     'auth/invalid-credential':      'Incorrect email or password.',
+    'auth/too-many-requests':       'Too many attempts. Please wait a moment.',
+    'auth/network-request-failed':  'Network error. Check your connection.',
+    'auth/popup-blocked':           'Pop-up blocked. Please allow pop-ups for this site.',
   };
   return map[code] ?? 'Something went wrong. Please try again.';
 }
-
-// Named exports only — FormsAuthProvider + useFormsAuth

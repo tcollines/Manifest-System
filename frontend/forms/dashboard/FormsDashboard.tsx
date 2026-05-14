@@ -211,8 +211,8 @@ const FormsDashboard: React.FC = () => {
   };
 
   const handleSignOut = async () => {
-    try { await signOut(); } catch (e) { console.error('Sign out error:', e); }
-    navigate('/forms/auth', { replace: true });
+    await signOut(); // onAuthStateChanged fires → formsUser=null → Guard redirects to /forms/auth
+    // Do NOT manually navigate here — causes race condition
   };
 
   // Filtered + searched
