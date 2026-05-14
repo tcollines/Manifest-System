@@ -503,18 +503,26 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
 
           if (eventType === 'INSERT') {
             const memberId = ((newRecord as any).member_id || '').toLowerCase();
-            setCheckedInIds(prev => {
-              if (prev.has(memberId)) return prev;
+            
+            // Early return if already checked in locally
+            if (checkedInIdsRef.current.has(memberId)) return;
 
-              // Update first timer stats if this member is a first timer
-              const member = membersRef.current.find(m => m.id.toLowerCase() === memberId);
-              if (member && member.category === 'First Timer') {
-                setCheckInStats(stats => ({
-                  ...stats,
-                  firstTimers: stats.firstTimers + 1
-                }));
+            // Update first timer stats if this member is a first timer
+            const member = membersRef.current.find(m => m.id.toLowerCase() === memberId);
+            if (member) {
+              if (member.category === 'First Timer') {
+                setCheckInStats(stats => ({ ...stats, firstTimers: stats.firstTimers + 1 }));
               }
+            } else {
+              // Member not loaded locally (newly registered on another device)
+              supabase.from('members').select('category').eq('id', memberId).single().then(({ data }) => {
+                if (data && data.category === 'First Timer') {
+                  setCheckInStats(stats => ({ ...stats, firstTimers: stats.firstTimers + 1 }));
+                }
+              });
+            }
 
+            setCheckedInIds(prev => {
               const next = new Set(prev);
               next.add(memberId);
               // total is dynamically derived from checkedInIds.size
@@ -522,18 +530,25 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
             });
           } else if (eventType === 'DELETE') {
             const memberId = ((oldRecord as any).member_id || '').toLowerCase();
-            setCheckedInIds(prev => {
-              if (!prev.has(memberId)) return prev;
+            
+            // Early return if not checked in locally
+            if (!checkedInIdsRef.current.has(memberId)) return;
 
-              // Update first timer stats if this member is a first timer
-              const member = membersRef.current.find(m => m.id.toLowerCase() === memberId);
-              if (member && member.category === 'First Timer') {
-                setCheckInStats(stats => ({
-                  ...stats,
-                  firstTimers: Math.max(0, stats.firstTimers - 1)
-                }));
+            // Update first timer stats if this member is a first timer
+            const member = membersRef.current.find(m => m.id.toLowerCase() === memberId);
+            if (member) {
+              if (member.category === 'First Timer') {
+                setCheckInStats(stats => ({ ...stats, firstTimers: Math.max(0, stats.firstTimers - 1) }));
               }
+            } else {
+              supabase.from('members').select('category').eq('id', memberId).single().then(({ data }) => {
+                if (data && data.category === 'First Timer') {
+                  setCheckInStats(stats => ({ ...stats, firstTimers: Math.max(0, stats.firstTimers - 1) }));
+                }
+              });
+            }
 
+            setCheckedInIds(prev => {
               const next = new Set(prev);
               next.delete(memberId);
               // total is dynamically derived
