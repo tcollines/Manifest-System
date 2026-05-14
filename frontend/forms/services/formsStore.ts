@@ -49,7 +49,27 @@ function toResponse(data: Record<string, unknown>): FormResponse {
   };
 }
 
-// ─── Collections ──────────────────────────────────────────────────────────────
+// ─── Sanitizer ────────────────────────────────────────────────────────────────
+
+/**
+ * Recursively remove all `undefined` values from an object before writing to
+ * Firestore. Firestore rejects `undefined`; all optional fields must be either
+ * a real value or simply absent.
+ */
+function sanitize<T>(obj: T): T {
+  if (Array.isArray(obj)) {
+    return obj.map(sanitize) as unknown as T;
+  }
+  if (obj !== null && typeof obj === 'object') {
+    return Object.fromEntries(
+      Object.entries(obj as Record<string, unknown>)
+        .filter(([, v]) => v !== undefined)
+        .map(([k, v]) => [k, sanitize(v)])
+    ) as T;
+  }
+  return obj;
+}
+
 
 const formsCol    = collection(formsDb, 'forms');
 const liveCol     = collection(formsDb, 'live_forms');
@@ -74,10 +94,10 @@ export async function getPublicForm(formId: string): Promise<Form | null> {
  * This is what the public form page reads.
  */
 export async function publishSnapshot(form: Form): Promise<void> {
-  await setDoc(doc(liveCol, form.id), {
+  await setDoc(doc(liveCol, form.id), sanitize({
     ...form,
     updated_at: serverTimestamp(),
-  });
+  }));
 }
 
 /**
@@ -102,7 +122,7 @@ export async function getForms(ownerUid: string): Promise<Form[]> {
 export async function saveForm(form: Form): Promise<Form> {
   const now = new Date().toISOString();
   const updated: Form = { ...form, updated_at: now };
-  await setDoc(doc(formsCol, form.id), updated);
+  await setDoc(doc(formsCol, form.id), sanitize(updated));
   return updated;
 }
 
