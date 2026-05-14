@@ -1,10 +1,20 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { supabase } from '../services/supabaseClient';
+import {
+  formsAuth,
+  googleProvider,
+  signInWithPopup,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signOut as firebaseSignOut,
+  onAuthStateChanged,
+  updateProfile,
+  type User,
+} from '../services/firebaseConfig';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface FormsUser {
-  id: string;
+  id: string;           // Firebase Auth UID — used as owner_uid in Firestore
   email: string;
   full_name: string;
   avatar_url?: string;
@@ -14,117 +24,101 @@ export interface FormsUser {
 interface FormsAuthContextType {
   formsUser: FormsUser | null;
   isLoading: boolean;
-  signUp: (email: string, password: string, fullName: string) => Promise<{ success: boolean; error?: string }>;
-  signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  signUpWithEmail: (email: string, password: string, fullName: string) => Promise<{ success: boolean; error?: string }>;
+  signInWithEmail:  (email: string, password: string)                  => Promise<{ success: boolean; error?: string }>;
+  signInWithGoogle: ()                                                  => Promise<{ success: boolean; error?: string }>;
   signOut: () => Promise<void>;
 }
-
-const SESSION_KEY = 'manifest_forms_user';
 
 // ─── Context ──────────────────────────────────────────────────────────────────
 
 const FormsAuthContext = createContext<FormsAuthContextType | undefined>(undefined);
 
+// ─── Map Firebase User → FormsUser ───────────────────────────────────────────
+
+function toFormsUser(user: User): FormsUser {
+  return {
+    id:         user.uid,                                          // Firebase UID → owner_uid in Firestore
+    email:      user.email ?? '',
+    full_name:  user.displayName ?? user.email?.split('@')[0] ?? 'User',
+    avatar_url: user.photoURL ?? undefined,
+    created_at: user.metadata.creationTime ?? new Date().toISOString(),
+  };
+}
+
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
 export const FormsAuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [formsUser, setFormsUser] = useState<FormsUser | null>(() => {
-    try {
-      const cached = localStorage.getItem(SESSION_KEY);
-      return cached ? JSON.parse(cached) : null;
-    } catch {
-      return null;
-    }
-  });
+  const [formsUser, setFormsUser] = useState<FormsUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // ── Restore session on mount ──────────────────────────────────────────────
+  // Subscribe to Firebase Auth state — single source of truth
   useEffect(() => {
-    const restore = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user) {
-          const u = mapSupabaseUser(session.user);
-          setFormsUser(u);
-          localStorage.setItem(SESSION_KEY, JSON.stringify(u));
-        } else {
-          // No active supabase session — clear our local cache too
-          const cached = localStorage.getItem(SESSION_KEY);
-          if (cached) {
-            localStorage.removeItem(SESSION_KEY);
-            setFormsUser(null);
-          }
-        }
-      } catch {
-        // ignore — stay with cached user
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    restore();
+    const unsub = onAuthStateChanged(formsAuth, (firebaseUser) => {
+      setFormsUser(firebaseUser ? toFormsUser(firebaseUser) : null);
+      setIsLoading(false);
+    });
+    return unsub; // cleanup on unmount
   }, []);
 
-  // ── Sign Up ───────────────────────────────────────────────────────────────
-  const signUp = useCallback(async (email: string, password: string, fullName: string) => {
+  // ── Email Sign Up ─────────────────────────────────────────────────────────
+  const signUpWithEmail = useCallback(async (
+    email: string,
+    password: string,
+    fullName: string,
+  ): Promise<{ success: boolean; error?: string }> => {
     try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: { full_name: fullName },
-        },
-      });
-
-      if (error) return { success: false, error: error.message };
-
-      if (data.user) {
-        // Some Supabase configs require email confirmation; handle both flows
-        if (data.session) {
-          const u = mapSupabaseUser(data.user, fullName);
-          setFormsUser(u);
-          localStorage.setItem(SESSION_KEY, JSON.stringify(u));
-          return { success: true };
-        } else {
-          // Email confirmation required
-          return { success: true, error: '__confirm_email__' };
-        }
-      }
-
-      return { success: false, error: 'Sign up failed. Please try again.' };
+      const { user } = await createUserWithEmailAndPassword(formsAuth, email, password);
+      // Save display name on the Firebase Auth profile
+      await updateProfile(user, { displayName: fullName });
+      // onAuthStateChanged will fire and update formsUser automatically
+      return { success: true };
     } catch (e: any) {
-      return { success: false, error: e.message || 'An unexpected error occurred.' };
+      return { success: false, error: friendlyError(e.code) };
     }
   }, []);
 
-  // ── Sign In ───────────────────────────────────────────────────────────────
-  const signIn = useCallback(async (email: string, password: string) => {
+  // ── Email Sign In ─────────────────────────────────────────────────────────
+  const signInWithEmail = useCallback(async (
+    email: string,
+    password: string,
+  ): Promise<{ success: boolean; error?: string }> => {
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-
-      if (error) return { success: false, error: error.message };
-
-      if (data.user) {
-        const u = mapSupabaseUser(data.user);
-        setFormsUser(u);
-        localStorage.setItem(SESSION_KEY, JSON.stringify(u));
-        return { success: true };
-      }
-
-      return { success: false, error: 'Login failed. Please try again.' };
+      await signInWithEmailAndPassword(formsAuth, email, password);
+      return { success: true };
     } catch (e: any) {
-      return { success: false, error: e.message || 'An unexpected error occurred.' };
+      return { success: false, error: friendlyError(e.code) };
+    }
+  }, []);
+
+  // ── Google Sign In ────────────────────────────────────────────────────────
+  const signInWithGoogle = useCallback(async (): Promise<{ success: boolean; error?: string }> => {
+    try {
+      await signInWithPopup(formsAuth, googleProvider);
+      return { success: true };
+    } catch (e: any) {
+      if (e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request') {
+        return { success: false, error: 'cancelled' };
+      }
+      return { success: false, error: friendlyError(e.code) };
     }
   }, []);
 
   // ── Sign Out ──────────────────────────────────────────────────────────────
   const signOut = useCallback(async () => {
-    await supabase.auth.signOut();
-    localStorage.removeItem(SESSION_KEY);
-    setFormsUser(null);
+    await firebaseSignOut(formsAuth);
+    // onAuthStateChanged sets formsUser to null automatically
   }, []);
 
   return (
-    <FormsAuthContext.Provider value={{ formsUser, isLoading, signUp, signIn, signOut }}>
+    <FormsAuthContext.Provider value={{
+      formsUser,
+      isLoading,
+      signUpWithEmail,
+      signInWithEmail,
+      signInWithGoogle,
+      signOut,
+    }}>
       {children}
     </FormsAuthContext.Provider>
   );
@@ -138,16 +132,21 @@ export const useFormsAuth = (): FormsAuthContextType => {
   return ctx;
 };
 
-// ─── Helper ───────────────────────────────────────────────────────────────────
+// ─── Error messages ───────────────────────────────────────────────────────────
 
-function mapSupabaseUser(user: any, overrideName?: string): FormsUser {
-  return {
-    id: user.id,
-    email: user.email ?? '',
-    full_name: overrideName ?? user.user_metadata?.full_name ?? user.email?.split('@')[0] ?? 'User',
-    avatar_url: user.user_metadata?.avatar_url,
-    created_at: user.created_at ?? new Date().toISOString(),
-  };
+function friendlyError(code: string): string {
+  switch (code) {
+    case 'auth/email-already-in-use':    return 'An account with this email already exists.';
+    case 'auth/invalid-email':           return 'Please enter a valid email address.';
+    case 'auth/weak-password':           return 'Password must be at least 6 characters.';
+    case 'auth/user-not-found':
+    case 'auth/wrong-password':
+    case 'auth/invalid-credential':      return 'Incorrect email or password.';
+    case 'auth/too-many-requests':       return 'Too many attempts. Please try again later.';
+    case 'auth/network-request-failed':  return 'Network error. Check your connection.';
+    case 'auth/popup-blocked':           return 'Popup blocked by browser. Please allow popups.';
+    default:                             return 'Something went wrong. Please try again.';
+  }
 }
 
 export default FormsAuthContext;
