@@ -79,11 +79,11 @@ export const createBatch = async (req: Request, res: Response) => {
             notifyRole(manifestId, 'Finance', 'FINANCE_ACTION', `A new requisition batch (${batchNumber}) has been submitted from a department.`, batchData.id, '/finance/processing', req.user?.id);
             
             if (reqsToNotify) {
-                reqsToNotify.forEach(req => {
-                    if (req.requester_id) {
-                        const reqUrl = req.department_id ? `/departments/${req.department_id}/dashboard?tab=requisitions` : '/dashboard';
-                        const reqName = req.title || req.requisition_number || `Req ${req.id.slice(0, 6)}`;
-                        createNotification(manifestId, req.requester_id, 'REQUISITION_ACTION', `Your requisition "${reqName}" has been grouped into batch ${batchNumber} and is pending Team Leader approval.`, req.id, reqUrl, req.user?.id);
+                reqsToNotify.forEach(row => {
+                    if (row.requester_id) {
+                        const reqUrl = row.department_id ? `/departments/${row.department_id}/dashboard?tab=requisitions` : '/dashboard';
+                        const reqName = row.title || row.requisition_number || `Req ${row.id.slice(0, 6)}`;
+                        createNotification(manifestId, row.requester_id, 'REQUISITION_ACTION', `Your requisition "${reqName}" has been grouped into batch ${batchNumber} and is pending Team Leader approval.`, row.id, reqUrl, req.user?.id);
                     }
                 });
             }
