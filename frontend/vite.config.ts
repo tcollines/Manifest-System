@@ -29,6 +29,8 @@ export default defineConfig(({ mode }) => {
             supabase: ['@supabase/supabase-js'],
             charts: ['recharts'],
             maps: ['mapbox-gl'],
+            // Group export libs into one predictable chunk — avoids orphaned dynamic chunks in production
+            'forms-export': ['xlsx', 'jspdf', 'jspdf-autotable'],
           }
         }
       }

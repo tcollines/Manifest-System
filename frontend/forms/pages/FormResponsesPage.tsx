@@ -150,16 +150,26 @@ const FormResponsesPage: React.FC = () => {
   const handleExportExcel = async () => {
     if (!form) return;
     setExporting('excel');
-    const { exportToExcel } = await import('../services/exportService');
-    await exportToExcel(form, filtered);
+    try {
+      const { exportToExcel } = await import('../services/exportService');
+      await exportToExcel(form, filtered);
+    } catch (e) {
+      console.error('Excel export failed:', e);
+      alert('Export failed. Please try again.');
+    }
     setExporting(null);
   };
 
   const handleExportPDF = async () => {
     if (!form) return;
     setExporting('pdf');
-    const { exportToPDF } = await import('../services/exportService');
-    await exportToPDF(form, filtered);
+    try {
+      const { exportToPDF } = await import('../services/exportService');
+      await exportToPDF(form, filtered);
+    } catch (e) {
+      console.error('PDF export failed:', e);
+      alert('Export failed. Please try again.');
+    }
     setExporting(null);
   };
 
