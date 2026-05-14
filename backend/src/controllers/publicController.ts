@@ -234,7 +234,7 @@ export const submitPublicScheduleAvailability = async (req: Request, res: Respon
     try {
         const isUuid = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(id);
         
-        let query = supabase.from('service_schedules').select('id, manifest_id, department_id');
+        let query = supabase.from('service_schedules').select('id, manifest_id, department_id, status');
         if (isUuid) {
             query = query.eq('id', id);
         } else {
@@ -262,20 +262,19 @@ export const submitPublicScheduleAvailability = async (req: Request, res: Respon
         const sessionIds = scheduleSessions?.map(s => s.id) || [];
         
         // 3. Delete existing assignments for this member in this schedule
-        const memberId = assignments[0].memberId;
-        if (sessionIds.length > 0 && memberId) {
+        if (sessionIds.length > 0 && selectedMemberId) {
             await supabase
                 .from('schedule_assignments')
                 .delete()
                 .in('session_id', sessionIds)
-                .eq('member_id', memberId);
+                .eq('member_id', selectedMemberId);
         }
 
         // 4. Insert assignments
         // For each assignment, we need to find the max sequence of its session and increment it.
         // Since we might have multiple assignments for the same session in this batch, we should group them.
         
-        const sessionsGrouped = assignments.reduce((acc: any, curr: any) => {
+        const sessionsGrouped = selections.reduce((acc: any, curr: any) => {
             if (!acc[curr.sessionId]) acc[curr.sessionId] = [];
             acc[curr.sessionId].push(curr);
             return acc;
