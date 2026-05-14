@@ -160,7 +160,7 @@ const FormCard: React.FC<FormCardProps> = ({ form, onEdit, onView, onDelete, onT
 type FilterTab = 'all' | 'published' | 'draft';
 
 const FormsDashboard: React.FC = () => {
-  const { formsUser, signOutForms } = useFormsAuth();
+  const { formsUser, signOut } = useFormsAuth();
   const navigate = useNavigate();
 
   const [forms, setForms] = useState<Form[]>([]);
@@ -171,7 +171,9 @@ const FormsDashboard: React.FC = () => {
   const [toast, setToast] = useState<string | null>(null);
   const [shareForm, setShareForm] = useState<Form | null>(null);
 
-  const uid = formsUser?.uid ?? '';
+  // FormsUser uses 'id' not 'uid' — this was the root cause of uid always being ''
+  // which caused getForm() owner check to always fail and re-create the form on every login
+  const uid = formsUser?.id ?? '';
 
   const reload = useCallback(async () => {
     setForms(await getForms(uid));
@@ -217,7 +219,7 @@ const FormsDashboard: React.FC = () => {
   const totalResponses = forms.reduce((s, f) => s + f.response_count, 0);
   const publishedCount = forms.filter(f => f.status === 'published').length;
 
-  const initials = (formsUser?.displayName ?? 'MF')
+  const initials = (formsUser?.full_name ?? 'MF')
     .split(' ').slice(0, 2).map(n => n[0]?.toUpperCase()).join('');
 
   return (
@@ -270,11 +272,11 @@ const FormsDashboard: React.FC = () => {
           </button>
 
           <div className="flex items-center gap-2.5 pl-3 border-l border-gray-200">
-            {formsUser?.photoURL
-              ? <img src={formsUser.photoURL} className="w-8 h-8 rounded-full ring-2 ring-orange-500/40" />
+            {formsUser?.avatar_url
+              ? <img src={formsUser.avatar_url} className="w-8 h-8 rounded-full ring-2 ring-orange-500/40" />
               : <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center text-xs font-bold text-white">{initials}</div>
             }
-            <button onClick={async () => { await signOutForms(); navigate('/forms/auth'); }}
+            <button onClick={async () => { await signOut(); navigate('/forms/auth'); }}
               className="text-gray-400 hover:text-orange-500 transition-colors" title="Sign out">
               <LogOut className="w-4 h-4" />
             </button>

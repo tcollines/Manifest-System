@@ -237,7 +237,7 @@ const FormBuilderPage: React.FC = () => {
   const { formId } = useParams<{ formId: string }>();
   const { formsUser } = useFormsAuth();
   const navigate = useNavigate();
-  const uid_user = formsUser?.uid ?? '';
+  const uid_user = formsUser?.id ?? '';
 
   const [form, setForm] = useState<Form | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);

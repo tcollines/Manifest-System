@@ -132,7 +132,7 @@ const FormResponsesPage: React.FC = () => {
   const [hasMore, setHasMore]     = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
 
-  const uid = formsUser?.uid ?? '';
+  const uid = formsUser?.id ?? '';
 
   const reload = async () => {
     if (!formId || !uid) return;
