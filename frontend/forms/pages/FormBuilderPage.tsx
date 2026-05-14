@@ -6,7 +6,7 @@ import {
   Link2, Check, X as XIcon, Download,
 } from 'lucide-react';
 import { useFormsAuth } from '../context/FormsAuthContext';
-import { getForm, saveForm, createForm, publishSnapshot, unpublishSnapshot } from '../services/formsStore';
+import { getForm, saveForm, publishSnapshot, unpublishSnapshot } from '../services/formsStore';
 import type { Form, FormField, FieldType } from '../types/forms.types';
 import { FIELD_TYPE_META } from '../types/forms.types';
 import FieldPalette from '../components/builder/FieldPalette';
@@ -286,11 +286,28 @@ const FormBuilderPage: React.FC = () => {
       const existing = await getForm(uid_user, formId);
       if (cancelled) return;
       if (existing) { setForm(existing); return; }
-      const fresh = await createForm(uid_user);
-      if (!cancelled) setForm({ ...fresh, id: formId });
+      // Form doesn't exist yet — create it using the URL's formId as the document ID.
+      // NEVER generate a new random ID here; that would cause the public link to change.
+      const now = new Date().toISOString();
+      const fresh: Form = {
+        id: formId,
+        owner_uid: uid_user,
+        title: 'Untitled Form',
+        description: '',
+        fields: [],
+        status: 'draft',
+        created_at: now,
+        updated_at: now,
+        response_count: 0,
+      };
+      if (!cancelled) {
+        await saveForm(fresh);
+        setForm(fresh);
+      }
     })();
     return () => { cancelled = true; };
   }, [formId, uid_user]);
+
 
   const update = useCallback((patch: Partial<Form>) => {
     setForm(prev => prev ? { ...prev, ...patch, updated_at: new Date().toISOString() } : prev);
