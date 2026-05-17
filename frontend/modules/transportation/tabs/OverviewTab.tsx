@@ -22,7 +22,7 @@ import {
     Bus, Navigation, AlertTriangle, CheckCircle, UserPlus, ChevronRight,
     Search, ShieldAlert, MapPin, FileCheck, DollarSign,
     Printer, Circle, Check, Plus, ThumbsUp, RefreshCw, ArrowLeft, Activity,
-    Phone, Loader2, ExternalLink, Heart, Users
+    Phone, Loader2, ExternalLink, Heart, Users, LocateFixed
 } from 'lucide-react';
 
 const mapContainerStyle = { width: '100%', height: '100%' };
@@ -116,6 +116,18 @@ const CoordinatorView: React.FC = () => {
     const [mapInstance, setMapInstance] = React.useState(null);
     const onLoad = React.useCallback((map: any) => setMapInstance(map), []);
     const onUnmount = React.useCallback(() => setMapInstance(null), []);
+
+    const [userLocation, setUserLocation] = React.useState<{ lat: number, lng: number } | null>(null);
+
+    React.useEffect(() => {
+        if (!navigator.geolocation) return;
+        const watchId = navigator.geolocation.watchPosition(
+            (pos) => setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+            (err) => console.error(err),
+            { enableHighAccuracy: true, maximumAge: 10000, timeout: 5000 }
+        );
+        return () => navigator.geolocation.clearWatch(watchId);
+    }, []);
 
     if (!myVehicle) {
         return (
@@ -233,7 +245,8 @@ const CoordinatorView: React.FC = () => {
                         {(myVehicle.currentStage === 'Transit' || myVehicle.currentStage === 'Arrived') ? (
                             <div className="relative h-[500px] bg-gray-100 w-full flex flex-col">
                                 {isLoaded ? (
-                                    <GoogleMap
+                                    <>
+                                        <GoogleMap
                                         mapContainerStyle={mapContainerStyle}
                                         center={{ lat: myVehicle.location?.lat || DEFAULT_CENTER.lat, lng: myVehicle.location?.lng || DEFAULT_CENTER.lng }}
                                         zoom={14} onLoad={onLoad} onUnmount={onUnmount}
@@ -247,7 +260,33 @@ const CoordinatorView: React.FC = () => {
                                                 label={{ text: myVehicle.number_plate, color: 'white', fontWeight: 'bold', fontSize: '12px', className: 'bg-orange-500 px-2 py-1 rounded shadow-md font-bold' }}
                                             />
                                         )}
+                                        {userLocation && (
+                                            <Marker
+                                                position={userLocation}
+                                                title="My Location"
+                                                icon={{ url: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png' }}
+                                            />
+                                        )}
                                     </GoogleMap>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            if (navigator.geolocation && mapInstance) {
+                                                navigator.geolocation.getCurrentPosition(
+                                                    (position) => {
+                                                        (mapInstance as any).panTo({ lat: position.coords.latitude, lng: position.coords.longitude });
+                                                        (mapInstance as any).setZoom(15);
+                                                    },
+                                                    (error) => console.error("Error getting location", error)
+                                                );
+                                            }
+                                        }}
+                                        className="absolute top-4 right-4 bg-white p-2.5 rounded-full shadow-lg hover:bg-gray-50 border border-gray-200 transition-colors z-10 text-gray-700 focus:outline-none"
+                                        title="Go to my location"
+                                    >
+                                        <LocateFixed className="w-5 h-5 text-gray-600" />
+                                    </button>
+                                </>
                                 ) : <div className="w-full h-full flex items-center justify-center bg-gray-100">Loading Map...</div>}
 
                                 <div className="absolute top-0 left-0 right-0 p-4 bg-gradient-to-b from-black/60 to-transparent z-10 text-center">

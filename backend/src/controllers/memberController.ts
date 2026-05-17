@@ -783,7 +783,7 @@ export const getFirstTimers = async (req: Request, res: Response) => {
     try {
         const { data: membersData, error: memError } = await supabase
             .from('members')
-            .select('id, name, phone, gender, residency, check_in_time, first_timer_service_id')
+            .select('id, name, phone, gender, residency, check_in_time, first_timer_service_id, joined_date, first_timer_date, created_at')
             .eq('manifest_id', manifestId)
             .or('category.eq.First Timer,first_timer_service_id.not.is.null');
 
@@ -803,16 +803,18 @@ export const getFirstTimers = async (req: Request, res: Response) => {
         ]);
 
         let eventTitles: Record<string, string> = {};
+        let eventDates: Record<string, string> = {};
         if (eventIds.size > 0) {
             const { data: eventsData } = await supabase
                 .from('ministry_events')
-                .select('id, title')
+                .select('id, title, date')
                 .eq('manifest_id', manifestId)
                 .in('id', Array.from(eventIds));
             
             if (eventsData) {
                 eventsData.forEach(e => {
                     eventTitles[e.id] = e.title;
+                    eventDates[e.id] = e.date;
                 });
             }
         }
@@ -823,7 +825,7 @@ export const getFirstTimers = async (req: Request, res: Response) => {
             phone: p.contact || '',
             gender: p.gender || '',
             residency: p.residence || '',
-            check_in_time: p.created_at,
+            check_in_time: (p.event_id ? eventDates[p.event_id] : null) || p.created_at,
             source_event_id: p.event_id,
             source_event_title: p.event_id ? (eventTitles[p.event_id] || 'Unknown Event') : 'Unknown Event'
         }));
@@ -834,7 +836,7 @@ export const getFirstTimers = async (req: Request, res: Response) => {
             phone: m.phone || '',
             gender: m.gender || '',
             residency: m.residency || '',
-            check_in_time: m.check_in_time,
+            check_in_time: (m.first_timer_service_id ? eventDates[m.first_timer_service_id] : null) || m.first_timer_date || m.joined_date || m.created_at || m.check_in_time,
             source_event_id: m.first_timer_service_id,
             source_event_title: m.first_timer_service_id ? (eventTitles[m.first_timer_service_id] || 'Unknown Service') : 'Unknown Service'
         }));
