@@ -9,7 +9,7 @@ export const hasLogisticsAccess = (user?: User | null): boolean => {
 
 export const canDeleteLogistics = (user?: User | null): boolean => {
     if (!user) return false;
-    return ['Head of Dept', 'Dept Admin', 'Administrator', 'Super Admin'].includes(user.role || '') || resolveDepartment(user.departmentId || '')?.slug === 'administration';
+    return ['Head of Dept', 'Dept Admin', 'Administrator', 'Super Admin'].includes(user.role || '');
 };
 
 export const hasElevatedRegistrationRole = (user?: User | null): boolean => {

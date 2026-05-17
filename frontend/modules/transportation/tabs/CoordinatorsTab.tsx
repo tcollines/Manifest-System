@@ -27,7 +27,7 @@ const CoordinatorsTab: React.FC = () => {
 
     const [formRoleType, setFormRoleType] = useState<'vehicle' | 'stage'>('vehicle');
     const [form, setForm] = useState({
-        firstName: '', lastName: '', username: '', password: '', contact: '', stationId: ''
+        firstName: '', lastName: '', username: '', password: '', contact: '', stationId: '', email: ''
     });
 
     const eventLocked = isEventLocked(selectedEvent?.date || '');
@@ -46,7 +46,7 @@ const CoordinatorsTab: React.FC = () => {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         await handleAddCoordinator(e, { ...form, roleType: formRoleType });
-        setForm({ firstName: '', lastName: '', username: '', password: '', contact: '', stationId: '' });
+        setForm({ firstName: '', lastName: '', username: '', password: '', contact: '', stationId: '', email: '' });
         setFormRoleType('vehicle');
     };
 
@@ -147,10 +147,17 @@ const CoordinatorsTab: React.FC = () => {
                                 </div>
                             </div>
 
-                            {/* Contact */}
-                            <div className="space-y-2">
-                                <label className="text-sm font-bold text-gray-700">Contact Number</label>
-                                <PhoneInput value={form.contact} onChange={val => setForm(f => ({ ...f, contact: val }))} placeholder="770 123 456" />
+                            {/* Contact Info */}
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <label className="text-sm font-bold text-gray-700">Email</label>
+                                    <input type="email" value={form.email || ''} onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+                                        className="w-full p-3 bg-white border border-gray-200 rounded-xl focus:border-ministry-orange outline-none" placeholder="coordinator@example.com" />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-sm font-bold text-gray-700">Contact Number</label>
+                                    <PhoneInput value={form.contact} onChange={val => setForm(f => ({ ...f, contact: val }))} placeholder="770 123 456" />
+                                </div>
                             </div>
 
                             <div className="pt-4">

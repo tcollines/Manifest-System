@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, LocateFixed } from 'lucide-react';
 import EventDetailsModal from '../../../components/EventDetailsModal';
 import PhoneInput from '../../../components/PhoneInput';
 import NumberPlateInput from '../../../components/NumberPlateInput';
@@ -28,6 +28,7 @@ const RegistrationModals: React.FC = () => {
         eventForm,
         setEventForm,
         handleAddEvent,
+        isSubmittingEvent,
         showHighlights,
         setShowHighlights,
         highlightEvent,
@@ -142,7 +143,7 @@ const RegistrationModals: React.FC = () => {
             {/* Add Service / Plan Event Modal */}
             {isAddEventOpen && (
                 <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4 backdrop-blur-sm">
-                    <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-lg w-full border border-gray-200">
+                    <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-lg w-full border border-gray-200 max-h-[90vh] overflow-y-auto">
                         <div className="flex items-center justify-between mb-6">
                             <h3 className="text-xl font-bold text-gray-900">
                                 {eventFormType === 'Service' ? 'Schedule New Service' : 'Plan New Event'}
@@ -190,29 +191,46 @@ const RegistrationModals: React.FC = () => {
                                     value={eventForm.locationName || eventForm.location}
                                     onChange={e => setEventForm({ ...eventForm, locationName: e.target.value, location: e.target.value })}
                                     className="w-full p-3 border border-gray-200 rounded-xl focus:outline-none focus:border-ministry-orange"
-                                    placeholder="e.g. Phaneroo Grounds"
+                                    placeholder="e.g. EMF Grounds"
                                 />
                             </div>
                             
                             <div className="space-y-1">
                                 <label className="text-sm font-bold text-gray-700">Select Location on Map</label>
-                                <div className="w-full h-64 rounded-xl overflow-hidden border border-gray-200">
+                                <div className="w-full h-64 rounded-xl overflow-hidden border border-gray-200 relative">
                                     {isLoaded ? (
-                                        <GoogleMap
-                                            mapContainerStyle={{ width: '100%', height: '100%' }}
-                                            center={eventForm.lat && eventForm.lng ? { lat: eventForm.lat, lng: eventForm.lng } : { lat: 0.347596, lng: 32.582520 }}
-                                            zoom={eventForm.lat ? 15 : 11}
-                                            onClick={(e) => {
-                                                if (e.latLng) {
-                                                    setEventForm({ ...eventForm, lat: e.latLng.lat(), lng: e.latLng.lng() });
-                                                }
-                                            }}
-                                            options={{ mapTypeId: 'roadmap', streetViewControl: false, mapTypeControl: false }}
-                                        >
-                                            {eventForm.lat && eventForm.lng && (
-                                                <Marker position={{ lat: eventForm.lat, lng: eventForm.lng }} />
-                                            )}
-                                        </GoogleMap>
+                                        <>
+                                            <GoogleMap
+                                                mapContainerStyle={{ width: '100%', height: '100%' }}
+                                                center={eventForm.lat && eventForm.lng ? { lat: eventForm.lat, lng: eventForm.lng } : { lat: 0.347596, lng: 32.582520 }}
+                                                zoom={eventForm.lat ? 15 : 11}
+                                                onClick={(e) => {
+                                                    if (e.latLng) {
+                                                        setEventForm({ ...eventForm, lat: e.latLng.lat(), lng: e.latLng.lng() });
+                                                    }
+                                                }}
+                                                options={{ mapTypeId: 'roadmap', streetViewControl: false, mapTypeControl: false }}
+                                            >
+                                                {eventForm.lat && eventForm.lng && (
+                                                    <Marker position={{ lat: eventForm.lat, lng: eventForm.lng }} />
+                                                )}
+                                            </GoogleMap>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    if (navigator.geolocation) {
+                                                        navigator.geolocation.getCurrentPosition(
+                                                            (position) => setEventForm({ ...eventForm, lat: position.coords.latitude, lng: position.coords.longitude }),
+                                                            (error) => console.error("Error getting location", error)
+                                                        );
+                                                    }
+                                                }}
+                                                className="absolute bottom-4 right-14 bg-white p-2.5 rounded-full shadow-lg hover:bg-gray-50 border border-gray-200 transition-colors z-10 text-gray-700 focus:outline-none"
+                                                title="Go to my location"
+                                            >
+                                                <LocateFixed className="w-5 h-5 text-gray-600" />
+                                            </button>
+                                        </>
                                     ) : (
                                         <div className="w-full h-full bg-gray-100 flex items-center justify-center text-gray-400">Loading Map...</div>
                                     )}
@@ -239,9 +257,12 @@ const RegistrationModals: React.FC = () => {
                                 >Cancel</button>
                                 <button
                                     type="submit"
-                                    className="px-6 py-2.5 rounded-xl font-bold text-white bg-ministry-orange hover:bg-orange-600 shadow-md transition-colors"
+                                    disabled={isSubmittingEvent}
+                                    className={`px-6 py-2.5 rounded-xl font-bold text-white shadow-md transition-colors ${
+                                        isSubmittingEvent ? 'bg-orange-400 cursor-not-allowed' : 'bg-ministry-orange hover:bg-orange-600'
+                                    }`}
                                 >
-                                    {eventFormType === 'Service' ? 'Schedule Service' : 'Create Event'}
+                                    {isSubmittingEvent ? 'Scheduling...' : (eventFormType === 'Service' ? 'Schedule Service' : 'Create Event')}
                                 </button>
                             </div>
                         </form>
@@ -259,7 +280,7 @@ const RegistrationModals: React.FC = () => {
             {/* Add / Edit Pickup Station Modal */}
             {isAddStationOpen && (
                 <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4 backdrop-blur-sm">
-                    <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-lg w-full border border-gray-200">
+                    <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-lg w-full border border-gray-200 max-h-[90vh] overflow-y-auto">
                         <div className="flex items-center justify-between mb-6">
                             <h3 className="text-xl font-bold text-gray-900">
                                 {stationForm.id ? 'Edit Pickup Station' : 'Add Pickup Station'}
@@ -310,6 +331,7 @@ const RegistrationModals: React.FC = () => {
                                     <div className="grid grid-cols-2 gap-3">
                                         <input
                                             required
+                                            autoComplete="off"
                                             value={stationForm.entrantUsername}
                                             onChange={e => setStationForm({ ...stationForm, entrantUsername: e.target.value })}
                                             className="w-full p-3 border border-gray-200 rounded-xl focus:outline-none focus:border-ministry-orange text-sm"
@@ -318,6 +340,7 @@ const RegistrationModals: React.FC = () => {
                                         <input
                                             required
                                             type="password"
+                                            autoComplete="new-password"
                                             value={stationForm.entrantPassword}
                                             onChange={e => setStationForm({ ...stationForm, entrantPassword: e.target.value })}
                                             className="w-full p-3 border border-gray-200 rounded-xl focus:outline-none focus:border-ministry-orange text-sm"
@@ -355,7 +378,7 @@ const RegistrationModals: React.FC = () => {
                                 className="p-2 hover:bg-gray-100 rounded-full text-gray-400 hover:text-gray-700 transition-colors"
                             >✕</button>
                         </div>
-                        <form onSubmit={handleAddExtraEntrant} className="space-y-4">
+                        <form onSubmit={handleAddExtraEntrant} autoComplete="off" className="space-y-4">
                             <div className="space-y-1">
                                 <label className="text-sm font-bold text-gray-700">Full Name <span className="text-red-500">*</span></label>
                                 <input
@@ -367,9 +390,20 @@ const RegistrationModals: React.FC = () => {
                                 />
                             </div>
                             <div className="space-y-1">
+                                <label className="text-sm font-bold text-gray-700">Email</label>
+                                <input
+                                    type="email"
+                                    value={newEntrant.email || ''}
+                                    onChange={e => setNewEntrant({ ...newEntrant, email: e.target.value })}
+                                    className="w-full p-3 border border-gray-200 rounded-xl focus:outline-none focus:border-ministry-orange text-sm"
+                                    placeholder="entrant@example.com"
+                                />
+                            </div>
+                            <div className="space-y-1">
                                 <label className="text-sm font-bold text-gray-700">Username <span className="text-red-500">*</span></label>
                                 <input
                                     required
+                                    autoComplete="new-username"
                                     value={newEntrant.username}
                                     onChange={e => setNewEntrant({ ...newEntrant, username: e.target.value })}
                                     className="w-full p-3 border border-gray-200 rounded-xl focus:outline-none focus:border-ministry-orange text-sm"
@@ -381,6 +415,7 @@ const RegistrationModals: React.FC = () => {
                                 <input
                                     required
                                     type="password"
+                                    autoComplete="new-password"
                                     value={newEntrant.password}
                                     onChange={e => setNewEntrant({ ...newEntrant, password: e.target.value })}
                                     className="w-full p-3 border border-gray-200 rounded-xl focus:outline-none focus:border-ministry-orange text-sm"
@@ -390,7 +425,7 @@ const RegistrationModals: React.FC = () => {
                             <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
                                 <button
                                     type="button"
-                                    onClick={() => { setIsAddEntrantOpen(false); setNewEntrant({ name: '', username: '', password: '' }); }}
+                                    onClick={() => { setIsAddEntrantOpen(false); setNewEntrant({ name: '', username: '', password: '', email: '' }); }}
                                     className="px-5 py-2.5 rounded-xl font-bold text-gray-600 hover:bg-gray-100 transition-colors"
                                 >Cancel</button>
                                 <button
@@ -423,8 +458,8 @@ const RegistrationModals: React.FC = () => {
                                     <option value="">Select Coordinator</option>
                                     {coordinators
                                         .filter((coord: any) =>
-                                            coord.eventId === selectedStation?.eventId &&
-                                            (coord.stationId === selectedStation?.id || !coord.stationId)
+                                            (!coord.eventId || coord.eventId === selectedStation?.eventId) &&
+                                            (!coord.stationId || coord.stationId === selectedStation?.id)
                                         )
                                         .map((coord: any) => (
                                             <option key={coord.id} value={coord.name}>

@@ -389,7 +389,7 @@ const TransportationLayout: React.FC = () => {
         }
     };
 
-    const handleAddCoordinator = async (e: React.FormEvent, form: { firstName: string; lastName: string; username: string; password: string; contact: string; stationId: string; roleType: 'vehicle' | 'stage' }) => {
+    const handleAddCoordinator = async (e: React.FormEvent, form: { firstName: string; lastName: string; username: string; password: string; contact: string; stationId: string; roleType: 'vehicle' | 'stage'; email?: string }) => {
         e.preventDefault();
         if (!form.contact || form.contact === '256' || form.contact.length <= 3) {
             if (!(await askConfirm('Missing Coordinator Contact', 'No contact provided. Proceed?'))) return;
@@ -398,7 +398,8 @@ const TransportationLayout: React.FC = () => {
             id: crypto.randomUUID(), name: `${form.firstName.trim()} ${form.lastName.trim()}`,
             role: form.roleType === 'vehicle' ? 'Vehicle Coordinator' : 'Stage Coordinator',
             username: form.username, password: form.password, departmentId: TRANSPORT_DEPT_UUID,
-            eventId: selectedEventId || user?.eventId, contact: form.contact, stationId: form.stationId || undefined
+            eventId: selectedEventId || user?.eventId, contact: form.contact, stationId: form.stationId || undefined,
+            email: form.email || undefined
         };
         try {
             await UserStore.add(newUser);
@@ -457,7 +458,7 @@ const TransportationLayout: React.FC = () => {
         isReturnAvailable, isJourneyComplete, cognitoFormUrl: COGNITO_FORM_URL,
     };
 
-    const showNav = !isCoordinatorView;
+    const showNav = !isCoordinatorView && !isStageCoord;
 
     return (
         <TransportContext.Provider value={contextValue}>

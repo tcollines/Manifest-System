@@ -7,84 +7,85 @@ import { ModalType, User } from '../types';
 import { hasLogisticsAccess } from '../domain/rbac';
 import { resolveDepartment } from '../constants/departmentMap';
 
-// Core Department Layouts
-import RegistrationLayout from '../modules/registration/RegistrationLayout';
-import CheckInPage from '../modules/registration/CheckInPage';
-import EventsPage from '../modules/registration/EventsPage';
-import DatabasePage from '../modules/registration/DatabasePage';
+// Core Department Layouts (Lazy Loaded)
+const RegistrationLayout = React.lazy(() => import('../modules/registration/RegistrationLayout'));
+const CheckInPage = React.lazy(() => import('../modules/registration/CheckInPage'));
+const EventsPage = React.lazy(() => import('../modules/registration/EventsPage'));
+const DatabasePage = React.lazy(() => import('../modules/registration/DatabasePage'));
 
-import NextGenLayout from '../modules/next-gen/NextGenLayout';
-import NextGenCheckInPage from '../modules/next-gen/NextGenCheckInPage';
-import NextGenCheckOutPage from '../modules/next-gen/NextGenCheckOutPage';
-import NextGenDatabasePage from '../modules/next-gen/NextGenDatabasePage';
-import NextGenSoulsPage from '../modules/next-gen/NextGenSoulsPage';
+const NextGenLayout = React.lazy(() => import('../modules/next-gen/NextGenLayout'));
+const NextGenCheckInPage = React.lazy(() => import('../modules/next-gen/NextGenCheckInPage'));
+const NextGenCheckOutPage = React.lazy(() => import('../modules/next-gen/NextGenCheckOutPage'));
+const NextGenDatabasePage = React.lazy(() => import('../modules/next-gen/NextGenDatabasePage'));
+const NextGenSoulsPage = React.lazy(() => import('../modules/next-gen/NextGenSoulsPage'));
 
-import ParkingLayout from '../modules/parking/ParkingLayout';
-import ParkingCheckInPage from '../modules/parking/ParkingCheckinPage';
-import ParkingDatabasePage from '../modules/parking/ParkingDatabasePage';
+const ParkingLayout = React.lazy(() => import('../modules/parking/ParkingLayout'));
+const ParkingCheckInPage = React.lazy(() => import('../modules/parking/ParkingCheckinPage'));
+const ParkingDatabasePage = React.lazy(() => import('../modules/parking/ParkingDatabasePage'));
 
-import FinanceLayout from '../modules/finance/FinanceLayout';
-import FinanceDashboardPage from '../modules/finance/DashboardPage';
-import IncomePage from '../modules/finance/IncomePage';
-import ExpensesPage from '../modules/finance/ExpensesPage';
-import FinanceRequisitionsPage from '../modules/finance/FinanceRequisitionsPage';
-import FleetPage from '../modules/finance/FleetPage';
+const FinanceLayout = React.lazy(() => import('../modules/finance/FinanceLayout'));
+const FinanceDashboardPage = React.lazy(() => import('../modules/finance/DashboardPage'));
+const IncomePage = React.lazy(() => import('../modules/finance/IncomePage'));
+const ExpensesPage = React.lazy(() => import('../modules/finance/ExpensesPage'));
+const FinanceRequisitionsPage = React.lazy(() => import('../modules/finance/FinanceRequisitionsPage'));
+const FleetPage = React.lazy(() => import('../modules/finance/FleetPage'));
 
-import HealingLayout from '../modules/healing/HealingLayout';
-import HealingOverviewPage from '../modules/healing/HealingOverviewPage';
-import HealingReportsPage from '../modules/healing/HealingReportsPage';
-import HealingSoulsPage from '../modules/healing/HealingSoulsPage';
-import HealingTestimoniesPage from '../modules/healing/HealingTestimoniesPage';
-import HealingNewPage from '../modules/healing/HealingNewPage';
+const HealingLayout = React.lazy(() => import('../modules/healing/HealingLayout'));
+const HealingOverviewPage = React.lazy(() => import('../modules/healing/HealingOverviewPage'));
+const HealingReportsPage = React.lazy(() => import('../modules/healing/HealingReportsPage'));
+const HealingSoulsPage = React.lazy(() => import('../modules/healing/HealingSoulsPage'));
+const HealingTestimoniesPage = React.lazy(() => import('../modules/healing/HealingTestimoniesPage'));
+const HealingNewPage = React.lazy(() => import('../modules/healing/HealingNewPage'));
 
-import TransportationLayout from '../modules/transportation/TransportationLayout';
-import OverviewPage from '../modules/transportation/OverviewPage';
-import CoordinatorsPage from '../modules/transportation/CoordinatorsPage';
-import StagesPage from '../modules/transportation/StagesPage';
+const TransportationLayout = React.lazy(() => import('../modules/transportation/TransportationLayout'));
+const OverviewPage = React.lazy(() => import('../modules/transportation/OverviewPage'));
+const CoordinatorsPage = React.lazy(() => import('../modules/transportation/CoordinatorsPage'));
+const StagesPage = React.lazy(() => import('../modules/transportation/StagesPage'));
 
-import FollowUpLayout from '../modules/follow-up/FollowUpLayout';
-import FollowUpServicesPage from '../modules/follow-up/FollowUpServicesPage';
-import FollowUpEventsPage from '../modules/follow-up/FollowUpEventsPage';
-import FollowUpDatabasePage from '../modules/follow-up/FollowUpDatabasePage';
-import FollowUpFirstTimersPage from '../modules/follow-up/FollowUpFirstTimersPage';
-import FollowUpMembersPage from '../modules/follow-up/FollowUpMembersPage';
-import FollowUpAnalysisPage from '../modules/follow-up/FollowUpAnalysisPage';
+const FollowUpLayout = React.lazy(() => import('../modules/follow-up/FollowUpLayout'));
+const FollowUpServicesPage = React.lazy(() => import('../modules/follow-up/FollowUpServicesPage'));
+const FollowUpEventsPage = React.lazy(() => import('../modules/follow-up/FollowUpEventsPage'));
+const FollowUpDatabasePage = React.lazy(() => import('../modules/follow-up/FollowUpDatabasePage'));
+const FollowUpFirstTimersPage = React.lazy(() => import('../modules/follow-up/FollowUpFirstTimersPage'));
+const FollowUpMembersPage = React.lazy(() => import('../modules/follow-up/FollowUpMembersPage'));
+const FollowUpAnalysisPage = React.lazy(() => import('../modules/follow-up/FollowUpAnalysisPage'));
 
-import SchoolsLayout from '../modules/schools/SchoolsLayout';
-import { SchoolsTabsLayout } from '../modules/schools/SchoolsTabsLayout';
-import { ReportsTab as SchoolsReportsTab } from '../modules/schools/tabs/ReportsTab';
-import { EventsTab as SchoolsEventsTab } from '../modules/schools/tabs/EventsTab';
+const SchoolsLayout = React.lazy(() => import('../modules/schools/SchoolsLayout'));
+const SchoolsTabsLayout = React.lazy(() => import('../modules/schools/SchoolsTabsLayout').then(m => ({ default: m.SchoolsTabsLayout })));
+const SchoolsReportsTab = React.lazy(() => import('../modules/schools/tabs/ReportsTab').then(m => ({ default: m.ReportsTab })));
+const SchoolsEventsTab = React.lazy(() => import('../modules/schools/tabs/EventsTab').then(m => ({ default: m.EventsTab })));
 
 // Campus Domain (Modularized)
-import CampusLayout from '../modules/campus/CampusLayout';
-import { CampusTabsLayout } from '../modules/campus/CampusTabsLayout';
-import { ActivityTab } from '../modules/campus/tabs/ActivityTab';
-import CampusFinanceDashboard from '../modules/campus/tabs/CampusFinancePage';
-import CampusMinistryEvents from './CampusMinistryEvents';
+const CampusLayout = React.lazy(() => import('../modules/campus/CampusLayout'));
+const CampusTabsLayout = React.lazy(() => import('../modules/campus/CampusTabsLayout').then(m => ({ default: m.CampusTabsLayout })));
+const ActivityTab = React.lazy(() => import('../modules/campus/tabs/ActivityTab').then(m => ({ default: m.ActivityTab })));
+const CampusFinanceDashboard = React.lazy(() => import('../modules/campus/tabs/CampusFinancePage'));
+const CampusMinistryEvents = React.lazy(() => import('./CampusMinistryEvents'));
 
 // Residents 
-import ResidentLayout from '../modules/residents/ResidentLayout';
-import { ResidentTabsLayout } from '../modules/residents/ResidentTabsLayout';
-import OverviewTab from '../modules/residents/tabs/OverviewTab';
-import ResidencesTab from '../modules/residents/tabs/ResidencesTab';
-import ReportsTab from '../modules/residents/tabs/ReportsTab';
+const ResidentLayout = React.lazy(() => import('../modules/residents/ResidentLayout'));
+const ResidentTabsLayout = React.lazy(() => import('../modules/residents/ResidentTabsLayout').then(m => ({ default: m.ResidentTabsLayout })));
+const OverviewTab = React.lazy(() => import('../modules/residents/tabs/OverviewTab'));
+const ResidencesTab = React.lazy(() => import('../modules/residents/tabs/ResidencesTab'));
+const ReportsTab = React.lazy(() => import('../modules/residents/tabs/ReportsTab'));
+
 // Coordinator (my-residency) — modular replacement for CoordinatorResidencyDashboard
-import ResidentCoordinatorLayout from '../modules/residents/ResidentCoordinatorLayout';
-import CoordinatorReportsPage from '../modules/residents/CoordinatorReportsPage';
-import CoordinatorMembersPage from '../modules/residents/CoordinatorMembersPage';
-import CoordinatorEventsPage from '../modules/residents/CoordinatorEventsPage';
+const ResidentCoordinatorLayout = React.lazy(() => import('../modules/residents/ResidentCoordinatorLayout'));
+const CoordinatorReportsPage = React.lazy(() => import('../modules/residents/CoordinatorReportsPage'));
+const CoordinatorMembersPage = React.lazy(() => import('../modules/residents/CoordinatorMembersPage'));
+const CoordinatorEventsPage = React.lazy(() => import('../modules/residents/CoordinatorEventsPage'));
 
 // Custom Dashboards
-import NextGenFollowUp from './NextGenFollowUp';
-import NextGenTeam from './NextGenTeam';
-import NextGenReports from './NextGenReports';
-import StageCoordinatorDashboard from '../modules/transportation/StageCoordinatorDashboard';
+const NextGenFollowUp = React.lazy(() => import('./NextGenFollowUp'));
+const NextGenTeam = React.lazy(() => import('./NextGenTeam'));
+const NextGenReports = React.lazy(() => import('./NextGenReports'));
+const StageCoordinatorDashboard = React.lazy(() => import('../modules/transportation/StageCoordinatorDashboard'));
 
 // Dynamic/Generic Dashboard 
-import GenericDeptDashboard from '../modules/generic-dept/GenericDeptDashboard';
+const GenericDeptDashboard = React.lazy(() => import('../modules/generic-dept/GenericDeptDashboard'));
 
 // Map specific custom dashboards if needed, else fallback
-import DepartmentDetail from './DepartmentDetail';
+const DepartmentDetail = React.lazy(() => import('./DepartmentDetail'));
 
 const RedirectWithParams = ({ to }: { to: string }) => {
     const { search } = useLocation();
@@ -207,17 +208,36 @@ const DepartmentRouterProxy: React.FC<ProxyProps> = ({ onOpenModal, onEditUser }
 
     // ── Transportation (d5) ──────────────────────────────────────────────────────
     if (dept?.slug === 'transportation') {
+        const isStageCoordinator = currentUser?.role === 'Stage Coordinator' || (currentUser?.role === 'Coordinator' && !!currentUser?.stationId);
+        const isVehicleCoordinator = currentUser?.role === 'Vehicle Coordinator';
+
         return (
             <Routes>
                 <Route element={<ProtectedRoute allowedDepartments={['transportation']} />}>
                     <Route element={<TransportationLayout />}>
-                        <Route index element={<RedirectWithParams to="overview" />} />
-                        <Route path="overview"     element={<OverviewPage />} />
-                        <Route path="coordinators" element={<CoordinatorsPage />} />
-                        <Route path="stages"       element={<StagesPage />} />
-                        <Route path="stage-dashboard" element={<StageCoordinatorDashboard />} />
+                        <Route index element={<RedirectWithParams to={isStageCoordinator ? "stage-dashboard" : "overview"} />} />
+                        
+                        {isStageCoordinator ? (
+                            <Route path="stage-dashboard" element={<StageCoordinatorDashboard />} />
+                        ) : isVehicleCoordinator ? (
+                            <Route path="overview" element={<OverviewPage />} />
+                        ) : (
+                            <>
+                                <Route path="overview"     element={<OverviewPage />} />
+                                <Route path="coordinators" element={<CoordinatorsPage />} />
+                                <Route path="stages"       element={<StagesPage />} />
+                                <Route path="stage-dashboard" element={<StageCoordinatorDashboard />} />
+                            </>
+                        )}
+                        
+                        {/* Fallback for unauthorized navigation within TransportationLayout */}
+                        <Route path="*" element={<Navigate to={isStageCoordinator ? "stage-dashboard" : "overview"} replace />} />
                     </Route>
-                    <Route path="dashboard/*" element={<GenericDeptDashboard currentUser={currentUser} openModal={onOpenModal} onEditUser={onEditUser} />} />
+
+                    {/* Generic Dept Dashboard outside of Layout */}
+                    {!isStageCoordinator && !isVehicleCoordinator && (
+                        <Route path="dashboard/*" element={<GenericDeptDashboard currentUser={currentUser} openModal={onOpenModal} onEditUser={onEditUser} />} />
+                    )}
                 </Route>
             </Routes>
         );

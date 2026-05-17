@@ -49,9 +49,23 @@ const executeController = async (controllerFn: Function, req: Request): Promise<
     });
 };
 
+// In-memory cache to ensure instant dashboard loads
+let bootstrapCache: {
+    data: any;
+    expiresAt: number;
+    manifestId: string;
+} | null = null;
+
+const CACHE_TTL_MS = 60 * 1000; // 60 seconds
+
 export const getDashboardBootstrap = async (req: Request, res: Response) => {
     const manifestId = (req as any).manifestId;
     if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
+
+    // Return instant cached response if valid
+    if (bootstrapCache && bootstrapCache.manifestId === manifestId && bootstrapCache.expiresAt > Date.now()) {
+        return res.json(bootstrapCache.data);
+    }
 
     try {
         // Construct a clean mock request for the controllers
@@ -77,13 +91,22 @@ export const getDashboardBootstrap = async (req: Request, res: Response) => {
             executeController(getSoulsWon, mockReq)
         ]);
 
-        res.json({
+        const responseData = {
             events: eventsPayload.data || [],
             workflowStats,
             kpiStats,
             attendanceData,
             soulsData
-        });
+        };
+
+        // Update the cache
+        bootstrapCache = {
+            data: responseData,
+            expiresAt: Date.now() + CACHE_TTL_MS,
+            manifestId
+        };
+
+        res.json(responseData);
     } catch (error: any) {
         console.error('[BOOTSTRAP] Failed to aggregate dashboard data:', error);
         res.status(500).json({ error: 'Failed to bootstrap dashboard data' });

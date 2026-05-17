@@ -84,8 +84,10 @@ const Sidebar: React.FC<SidebarProps> = ({ onLogout, isOpen, onClose }) => {
 
   const isElevatedRegistration = ['Administrator', 'Super Admin', 'Head of Dept', 'HOD', 'Department Head', 'Dept Admin', 'Reg. Admin', 'Registration Admin', 'Registration Head', 'TeamLeader'].includes(currentUser.role);
   const isRegularRegistration = checkCode('d1', 'registration') && !isElevatedRegistration;
+  const isStageCoordinator = checkCode('d5', 'transportation') && (currentUser.role === 'Stage Coordinator' || (currentUser.role === 'Coordinator' && !!currentUser.stationId));
+  const isVehicleCoordinator = checkCode('d5', 'transportation') && currentUser.role === 'Vehicle Coordinator';
 
-  if (!isRegularRegistration) {
+  if (!isRegularRegistration && !isStageCoordinator && !isVehicleCoordinator) {
       myDeptItems.push({ id: 'my-dept-ops', label: 'Dept Dashboard', icon: LayoutDashboard, path: `/departments/${dId}/dashboard` });
   }
 
@@ -109,10 +111,10 @@ const Sidebar: React.FC<SidebarProps> = ({ onLogout, isOpen, onClose }) => {
       myDeptItems.push({ id: 'fin-req', label: 'Requisitions', icon: FileText, path: `/departments/${dId}/requisitions` });
       myDeptItems.push({ id: 'fin-fleet', label: 'Fleet Management', icon: Bus, path: `/departments/${dId}/fleet` });
   } else if (checkCode('d5', 'transportation')) {
-      const isStageCoordinator = currentUser.role === 'Stage Coordinator' || (currentUser.role === 'Coordinator' && !!currentUser.stationId);
-      
       if (isStageCoordinator) {
           myDeptItems.push({ id: 'tr-stage-dash', label: 'Stage Dashboard', icon: LayoutDashboard, path: `/departments/${dId}/stage-dashboard` });
+      } else if (isVehicleCoordinator) {
+          myDeptItems.push({ id: 'tr-overview', label: 'Overview', icon: LayoutDashboard, path: `/departments/${dId}/overview` });
       } else {
           myDeptItems.push({ id: 'tr-overview', label: 'Overview', icon: LayoutDashboard, path: `/departments/${dId}/overview` });
           myDeptItems.push({ id: 'tr-coordinators', label: 'Coordinators', icon: Users, path: `/departments/${dId}/coordinators` });
@@ -154,7 +156,30 @@ const Sidebar: React.FC<SidebarProps> = ({ onLogout, isOpen, onClose }) => {
   }
 
   // Push My Department Section ALWAYS if items exist (but exclude Team Leader as per requirement)
-  if (myDeptItems.length > 0 && !isTeamLeader) {
+  const isLogisticsRole = currentUser.role === 'Logistics';
+  
+  if (isLogisticsRole) {
+      // Data Entrants ONLY get access to their Stage Dashboard
+      let logisticsPath = `/departments/d1/events`;
+      
+      // Try to append cached parameters if they exist to match the exact URL
+      try {
+         const cachedEvent = localStorage.getItem(`cached_logistics_event_${currentUser.id}`);
+         const cachedStation = localStorage.getItem(`cached_logistics_station_${currentUser.id}`);
+         if (cachedEvent && cachedStation) {
+            const e = JSON.parse(cachedEvent);
+            const s = JSON.parse(cachedStation);
+            logisticsPath += `?eventId=${e.id}&stationId=${s.id}`;
+         }
+      } catch(e) {}
+
+      sections.push({
+          title: 'My Station',
+          items: [
+              { id: 'reg-events', label: 'Stage Dashboard', icon: LayoutDashboard, path: logisticsPath }
+          ]
+      });
+  } else if (myDeptItems.length > 0 && !isTeamLeader) {
       sections.push({ title: 'My Department', items: myDeptItems });
   }
 

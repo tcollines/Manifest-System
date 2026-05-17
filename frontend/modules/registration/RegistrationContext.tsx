@@ -78,7 +78,13 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
   const [, forceUpdate] = useState(0);
 
   // VIEW MODE SHOULD NOT BE PERSISTED - IT DEPENDS ON VOLATILE STATE (selectedService, etc.)
-  const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    if (hasLogisticsAccess(currentUser) && currentUser?.stationId && !searchParams.get('vehicleId')) {
+      const cachedStation = localStorage.getItem(`cached_logistics_station_${currentUser.id}`);
+      if (cachedStation) return 'station-detail';
+    }
+    return 'list';
+  });
 
   // Force 'events' tab for Logistics users to prevent flicker if role updates late
   useEffect(() => {
@@ -111,7 +117,14 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
   }, [viewMode, selectedService, currentUser]);
 
   // Logistics Hierarchy State
-    const [selectedLogisticsEvent, _setSelectedLogisticsEvent] = useState<MinistryEvent | null>(null);
+  // Logistics Hierarchy State
+  const [selectedLogisticsEvent, _setSelectedLogisticsEvent] = useState<MinistryEvent | null>(() => {
+    if (hasLogisticsAccess(currentUser) && currentUser?.stationId) {
+      const cached = localStorage.getItem(`cached_logistics_event_${currentUser.id}`);
+      return cached ? JSON.parse(cached) : null;
+    }
+    return null;
+  });
   
   const setSelectedLogisticsEvent = (obj: MinistryEvent | null | ((prev: MinistryEvent | null) => MinistryEvent | null)) => {
     if (obj && typeof obj !== 'function') {
@@ -127,7 +140,13 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
     _setSelectedLogisticsEvent(obj);
   }; // Level 1 -> 2
 
-    const [selectedStation, _setSelectedStation] = useState<ExtendedStation | null>(null);
+  const [selectedStation, _setSelectedStation] = useState<ExtendedStation | null>(() => {
+    if (hasLogisticsAccess(currentUser) && currentUser?.stationId) {
+      const cached = localStorage.getItem(`cached_logistics_station_${currentUser.id}`);
+      return cached ? JSON.parse(cached) : null;
+    }
+    return null;
+  });
   
   const setSelectedStation = (obj: ExtendedStation | null | ((prev: ExtendedStation | null) => ExtendedStation | null)) => {
     if (obj && typeof obj !== 'function') {
@@ -142,7 +161,7 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
     }
     _setSelectedStation(obj);
   }; // Level 2 -> 3
-    const [selectedVehicle, _setSelectedVehicle] = useState<Vehicle | null>(null);
+  const [selectedVehicle, _setSelectedVehicle] = useState<Vehicle | null>(null);
   
   const setSelectedVehicle = (obj: Vehicle | null | ((prev: Vehicle | null) => Vehicle | null)) => {
     if (obj && typeof obj !== 'function') {
@@ -162,13 +181,18 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
   // Logistics: Auto-Select Station if assigned
   // Loading state to prevent flicker of "Select Event" screen
   const [isLogisticsInitializing, setIsLogisticsInitializing] = useState(() => {
-    return hasLogisticsAccess(currentUser) && !!currentUser.stationId;
+    // If we have a cache, we don't need to initialize (show skeleton). It's instant.
+    if (hasLogisticsAccess(currentUser) && currentUser?.stationId) {
+      const cachedStation = localStorage.getItem(`cached_logistics_station_${currentUser.id}`);
+      const cachedEvent = localStorage.getItem(`cached_logistics_event_${currentUser.id}`);
+      if (cachedStation && cachedEvent) return false;
+      return true;
+    }
+    return false;
   });
 
   useEffect(() => {
     const autoSelectStation = async () => {
-      if (isEventsLoading) return; // Wait until global events are ready to avoid flicker!
-
       console.log("AutoSelect Trace: Start", { role: currentUser?.role, stId: currentUser?.stationId });
 
       if (hasLogisticsAccess(currentUser) && currentUser?.stationId && !selectedStation) {
@@ -191,13 +215,40 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
               vehicles: []
             };
 
-            const relatedEvent = events.find(e => e.id === stationData.event_id);
-            console.log("AutoSelect Trace: Related Event", relatedEvent);
+            // Fetch event directly to bypass slow global event loading
+            const { data: eventData } = await supabase
+              .from('ministry_events')
+              .select('*')
+              .eq('id', stationData.event_id)
+              .single();
 
-            if (relatedEvent) {
+            console.log("AutoSelect Trace: Related Event DB", eventData);
+
+            if (eventData) {
+              // Map DB fields to MinistryEvent interface
+              const relatedEvent = {
+                id: eventData.id,
+                title: eventData.title,
+                type: eventData.type,
+                date: eventData.date,
+                time: eventData.time,
+                location: eventData.location,
+                description: eventData.description,
+                stats: eventData.stats || { attendees: 0, firstTimers: 0, soulsWon: 0, students: 0, expenditure: '$0.00', nextGen: 0 },
+                serviceNumber: eventData.service_number,
+                createdAt: eventData.created_at,
+                lat: eventData.latitude ? parseFloat(eventData.latitude) : undefined,
+                lng: eventData.longitude ? parseFloat(eventData.longitude) : undefined,
+                locationName: eventData.location_name
+              };
+              
               _setSelectedLogisticsEvent(relatedEvent);
               _setSelectedStation(station);
               
+              // Cache to localStorage for instant load next time
+              localStorage.setItem(`cached_logistics_event_${currentUser.id}`, JSON.stringify(relatedEvent));
+              localStorage.setItem(`cached_logistics_station_${currentUser.id}`, JSON.stringify(station));
+
               if (!searchParams.get('vehicleId')) {
                 setViewMode('station-detail');
               }
@@ -213,7 +264,7 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
       }
     };
     autoSelectStation();
-  }, [currentUser, events, selectedStation, isEventsLoading]);
+  }, [currentUser, selectedStation, searchParams]);
 
   const [stationEntrants, setStationEntrants] = useState<User[]>([]);
 
@@ -223,6 +274,23 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
   // Sync drill-down state with URL parameters (for direct linking & back button)
   useEffect(() => {
     const urlEventId = searchParams.get('eventId');
+    const urlStationId = searchParams.get('stationId');
+    const urlVehicleId = searchParams.get('vehicleId');
+
+    // Prevent wiping the cache for Logistics users who just landed on the base URL
+    if (hasLogisticsAccess(currentUser) && currentUser?.stationId) {
+       if (!urlEventId && selectedLogisticsEvent && selectedStation) {
+          // We have cached state, but URL is empty. Sync URL UP to match state instantly.
+          setSearchParams(prev => {
+             prev.set('eventId', selectedLogisticsEvent.id);
+             prev.set('stationId', selectedStation.id);
+             if (selectedVehicle) prev.set('vehicleId', selectedVehicle.id);
+             return prev;
+          }, { replace: true });
+          return;
+       }
+    }
+
     if (urlEventId && (!selectedLogisticsEvent || selectedLogisticsEvent.id !== urlEventId)) {
        const found = events.find(e => e.id === urlEventId);
        if (found) _setSelectedLogisticsEvent(found);
@@ -230,7 +298,6 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
        _setSelectedLogisticsEvent(null);
     }
     
-    const urlStationId = searchParams.get('stationId');
     if (urlStationId && (!selectedStation || selectedStation.id !== urlStationId)) {
        const found = stations.find(s => s.id === urlStationId);
        if (found) _setSelectedStation(found);
@@ -238,13 +305,13 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
        _setSelectedStation(null);
     }
     
-    const urlVehicleId = searchParams.get('vehicleId');
     if (urlVehicleId && (!selectedVehicle || selectedVehicle.id !== urlVehicleId)) {
        const found = vehicles.find(v => v.id === urlVehicleId);
        if (found) _setSelectedVehicle(found);
     } else if (!urlVehicleId && selectedVehicle) {
        _setSelectedVehicle(null);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, events, stations, vehicles]);
 
   const [passengers, setPassengers] = useState<Passenger[]>([]);
@@ -295,11 +362,7 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
       return prev;
     });
   };
-  const [newEntrant, setNewEntrant] = useState({
-    name: '',
-    username: '',
-    password: ''
-  });
+  const [newEntrant, setNewEntrant] = useState({ name: '', username: '', password: '', email: '' });
 
 
 
@@ -441,9 +504,10 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
     title: '',
     date: new Date().toISOString().split('T')[0],
     time: '17:00',
-    location: 'Phaneroo Grounds',
+    location: 'EMF Grounds',
     description: ''
   });
+  const [isSubmittingEvent, setIsSubmittingEvent] = useState(false);
 
   // Highlights Modal State
     const showHighlights = searchParams.get('modal') === 'highlights';
@@ -1939,6 +2003,20 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
   // --- ADD EVENT / SERVICE Logic ---
   const handleAddEvent = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmittingEvent) return;
+
+    // Duplicate check
+    const isDuplicate = events.some(ev => 
+      ev.title.trim().toLowerCase() === eventForm.title.trim().toLowerCase() && 
+      ev.date === eventForm.date && 
+      ev.type === eventFormType
+    );
+    if (isDuplicate) {
+      showToast(`A ${eventFormType} with this name already exists on this date.`, 'warning');
+      return;
+    }
+
+    setIsSubmittingEvent(true);
     try {
       const newEvent: MinistryEvent = {
         id: uuidv4(),
@@ -1958,11 +2036,13 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
       await EventStore.add(newEvent);
       if (refreshParentData) refreshParentData(); // Refresh parent data
       setIsAddEventOpen(false);
-      setEventForm({ title: '', date: new Date().toISOString().split('T')[0], time: '17:00', location: 'Phaneroo Grounds', description: '', lat: undefined, lng: undefined, locationName: undefined });
+      setEventForm({ title: '', date: new Date().toISOString().split('T')[0], time: '17:00', location: 'EMF Grounds', description: '', lat: undefined, lng: undefined, locationName: undefined });
       showToast(`${eventFormType} created successfully.`, 'success');
     } catch (error: any) {
       console.error("Error creating event:", error);
       showToast("Failed to create event: " + error.message, 'error');
+    } finally {
+      setIsSubmittingEvent(false);
     }
   };
 
@@ -2193,6 +2273,7 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
       name: newEntrant.name,
       username: newEntrant.username,
       password: newEntrant.password,
+      email: newEntrant.email || undefined,
       role: 'Logistics',
       stationId: selectedStation.id,
       departmentId: currentUser.departmentId || '4630e48a-f97e-48fd-a901-864b591c282f' // Default to current user's department or Transportation UUID
@@ -2203,7 +2284,7 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
       if (res.status === 'error') throw new Error(res.message);
 
       setIsAddEntrantOpen(false);
-      setNewEntrant({ name: '', username: '', password: '' });
+      setNewEntrant({ name: '', username: '', password: '', email: '' });
       showToast("Data entrant added successfully.", 'success');
 
       // Update local state so it appears immediately
@@ -2740,6 +2821,7 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
   };
 
   const contextValue = {
+    isSubmittingEvent,
     events, 
     currentUser, 
     refreshParentData, 

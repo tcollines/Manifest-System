@@ -126,7 +126,12 @@ export const createUser = async (req: Request, res: Response) => {
         if (payload.password && (payload.email || payload.username)) {
             // Generate unique synthetic email if none provided to prevent collisions with soft-deleted users
             const synthSuffix = Date.now().toString(36) + Math.random().toString(36).substring(2, 6);
-            const targetEmail = payload.email || `${payload.username.toLowerCase().replace(/\s+/g, '')}_${synthSuffix}@manifest.local`;
+            
+            // Temporary coordinators ALWAYS use a synthetic email for Auth to avoid colliding with their permanent user accounts
+            const isTempCoordinator = payload.role === 'Vehicle Coordinator' || payload.role === 'Stage Coordinator' || payload.role === 'Coordinator';
+            const syntheticEmail = `${payload.username.toLowerCase().replace(/\s+/g, '')}_${synthSuffix}@manifest.local`;
+            
+            const targetEmail = isTempCoordinator ? syntheticEmail : (payload.email || syntheticEmail);
 
             const { data: authData, error: authError } = await supabase.auth.admin.createUser({
                 email: targetEmail,
@@ -149,7 +154,12 @@ export const createUser = async (req: Request, res: Response) => {
                 }).catch(e => console.error("[createUser] Failed to bake app_metadata:", e));
 
                 payload.id = authUserId; // Bind the public profile exactly to the new Auth ID
-                payload.email = targetEmail; // Save the synthetic or real email to profile
+                
+                // If they are a temp coordinator, keep their real email in the payload so it saves to the users table
+                // If they are a regular user without an email, assign them the synthetic email
+                if (!isTempCoordinator && !payload.email) {
+                    payload.email = targetEmail; 
+                }
             }
         }
 

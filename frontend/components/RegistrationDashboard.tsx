@@ -107,7 +107,15 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
   const [, forceUpdate] = useState(0);
 
   // VIEW MODE SHOULD NOT BE PERSISTED - IT DEPENDS ON VOLATILE STATE (selectedService, etc.)
-  const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    if (currentUser.role === 'Logistics' && currentUser.stationId) {
+      try {
+        const cachedStation = localStorage.getItem(`manifest_station_${currentUser.stationId}`);
+        if (cachedStation) return 'station-detail';
+      } catch (e) {}
+    }
+    return 'list';
+  });
 
   // Force 'events' tab for Logistics users to prevent flicker if role updates late
   useEffect(() => {
@@ -140,16 +148,39 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
   }, [viewMode, selectedService, currentUser.role]);
 
   // Logistics Hierarchy State
-  const [selectedLogisticsEvent, setSelectedLogisticsEvent] = useState<MinistryEvent | null>(null); // Level 1 -> 2
+  const [selectedLogisticsEvent, setSelectedLogisticsEvent] = useState<MinistryEvent | null>(() => {
+    if (currentUser.role === 'Logistics' && currentUser.stationId) {
+      try {
+        const cachedEvent = localStorage.getItem(`manifest_event_${currentUser.stationId}`);
+        if (cachedEvent) return JSON.parse(cachedEvent);
+      } catch (e) {}
+    }
+    return null;
+  }); // Level 1 -> 2
 
-  const [selectedStation, setSelectedStation] = useState<ExtendedStation | null>(null); // Level 2 -> 3
+  const [selectedStation, setSelectedStation] = useState<ExtendedStation | null>(() => {
+    if (currentUser.role === 'Logistics' && currentUser.stationId) {
+      try {
+        const cachedStation = localStorage.getItem(`manifest_station_${currentUser.stationId}`);
+        if (cachedStation) return JSON.parse(cachedStation);
+      } catch (e) {}
+    }
+    return null;
+  }); // Level 2 -> 3
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null); // Level 3 -> 4
 
 
   // Logistics: Auto-Select Station if assigned
   // Loading state to prevent flicker of "Select Event" screen
   const [isLogisticsInitializing, setIsLogisticsInitializing] = useState(() => {
-    return currentUser.role === 'Logistics' && !!currentUser.stationId;
+    if (currentUser.role === 'Logistics' && !!currentUser.stationId) {
+      try {
+        const cachedStation = localStorage.getItem(`manifest_station_${currentUser.stationId}`);
+        if (cachedStation) return false;
+      } catch (e) {}
+      return true;
+    }
+    return false;
   });
 
   useEffect(() => {
@@ -183,6 +214,14 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
               setSelectedLogisticsEvent(relatedEvent);
               setSelectedStation(station);
               setViewMode('station-detail');
+              
+              // Cache for instant load next time
+              try {
+                localStorage.setItem(`manifest_station_${currentUser.stationId}`, JSON.stringify(station));
+                localStorage.setItem(`manifest_event_${currentUser.stationId}`, JSON.stringify(relatedEvent));
+              } catch (e) {
+                console.error("Failed to cache station data", e);
+              }
             }
           }
         } catch (err) {
@@ -327,7 +366,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
     title: '',
     date: new Date().toISOString().split('T')[0],
     time: '17:00',
-    location: 'Phaneroo Grounds',
+    location: 'EMF Grounds',
     description: ''
   });
 
@@ -455,7 +494,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
   const isLogisticsRole = (currentUser.role && currentUser.role.trim().toLowerCase() === 'logistics') || currentUser.departmentId === '4630e48a-f97e-48fd-a901-864b591c282f' || currentUser.departmentId === 'd5';
 
   // Permission for Deletion: Head of Dept or Administration Department (d0) or Administrator
-  const canDeleteLogistics = currentUser.role === 'Head of Dept' || currentUser.departmentId === 'd0' || currentUser.role === 'Administrator';
+  const canDeleteLogistics = ['Head of Dept', 'Dept Admin', 'Administrator', 'Super Admin'].includes(currentUser.role);
 
 
 
@@ -1774,7 +1813,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
       await EventStore.add(newEvent);
       if (refreshParentData) refreshParentData(); // Refresh parent data
       setIsAddEventOpen(false);
-      setEventForm({ title: '', date: new Date().toISOString().split('T')[0], time: '17:00', location: 'Phaneroo Grounds', description: '' });
+      setEventForm({ title: '', date: new Date().toISOString().split('T')[0], time: '17:00', location: 'EMF Grounds', description: '' });
       showToast(`${eventFormType} created successfully.`, 'success');
     } catch (error: any) {
       console.error("Error creating event:", error);

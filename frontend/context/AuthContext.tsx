@@ -1,9 +1,11 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { User } from '../types';
 import { UserStore } from '../database/userStore';
 import { supabase } from '../services/supabaseClient';
 import { getDashboardForUser } from '../utils';
 import { unsubscribeFromPush } from '../services/pushService';
+import { analyticsService } from '../services/analyticsService';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -25,6 +27,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    const queryClient = useQueryClient();
     const [user, setUser] = useState<User | null>(null);
     // isInitialLoading stays true until BOTH phases of auth complete:
     //   Phase 1 — Supabase session check
@@ -55,6 +58,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         return profileFetchPromise.current;
     };
+
+    // ── Aggressive Prefetching ───────────────────────────────────────────────
+    // Pre-load heavy dashboard payload as soon as a user session is active.
+    useEffect(() => {
+        if (user) {
+            queryClient.prefetchQuery({
+                queryKey: ['dashboard_bootstrap'],
+                queryFn: () => analyticsService.fetchDashboardBootstrap(),
+                staleTime: 5 * 60 * 1000,
+            }).catch(err => console.warn('[AuthContext] Background prefetch failed:', err));
+        }
+    }, [user?.id, queryClient]);
 
     // ── Phase 1+2: Session restoration on mount ───────────────────────────────
     // Optimistic Hydration: render UI immediately if we have a valid cached session
