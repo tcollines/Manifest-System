@@ -100,7 +100,29 @@ export const UserStore = {
       }
 
       if (authResult?.error) {
-        console.error(`[USERSTORE] Auth attempts failed:`, authResult.error.message);
+        console.error(`[USERSTORE] Auth attempts failed:`, authResult.error.message || authResult.error);
+        
+        // Differentiate between actual auth failure and network failure
+        // First, check for common browser network error strings
+        const errorMsg = authResult.error.message || String(authResult.error);
+        let isOffline = !navigator.onLine || 
+                        errorMsg.toLowerCase().includes('failed to fetch') || 
+                        errorMsg.toLowerCase().includes('networkerror') ||
+                        errorMsg.toLowerCase().includes('load failed');
+        
+        // If not obvious, perform an active ping to definitively rule out false-positive "online" OS states
+        if (!isOffline) {
+            try {
+                await fetch('https://www.google.com/favicon.ico?_t=' + Date.now(), { mode: 'no-cors', cache: 'no-store' });
+            } catch (pingError) {
+                isOffline = true;
+            }
+        }
+        
+        if (isOffline) {
+            return { status: 'error', message: 'No internet connection', error: authResult.error };
+        }
+        
         return { status: 'error', message: 'Invalid credentials or Auth failure', error: authResult.error };
       }
 

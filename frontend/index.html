@@ -13,41 +13,144 @@
   <title>Manifest MS</title>
 
   <script>
-    // AGGRESSIVE ERROR LOGGER
-    window.addEventListener('error', function (e) {
-      const errorContainer = document.getElementById('error-container') || document.createElement('div');
-      errorContainer.id = 'error-container';
-      errorContainer.style.position = 'fixed';
-      errorContainer.style.top = '0';
-      errorContainer.style.left = '0';
-      errorContainer.style.width = '100%';
-      errorContainer.style.backgroundColor = '#fae8e8';
-      errorContainer.style.color = '#c0392b';
-      errorContainer.style.padding = '20px';
-      errorContainer.style.zIndex = '9999';
-      errorContainer.style.borderBottom = '2px solid #e74c3c';
-      errorContainer.style.fontFamily = 'monospace';
-      errorContainer.style.fontSize = '14px';
+    // NICER ERROR LOGGER (Connection Status Manager)
+    let offlineTimeout = null;
 
-      let msg = '';
-      if (e.target && (e.target.tagName === 'SCRIPT' || e.target.tagName === 'LINK' || e.target.tagName === 'IMG')) {
-        msg = 'Resource Failed to Load: ' + (e.target.src || e.target.href);
-      } else if (e.message) {
-        msg = e.message;
-      } else {
-        // Fallback for unknown errors (often harmless or noise)
-        console.error('Unhandled error caught by logger:', e);
-        return;
+    function showConnectionStatus(isOnline, isTransient = false) {
+      const isAuthPage = window.location.pathname === '/' || window.location.pathname.startsWith('/forms/auth');
+      let errorContainer = document.getElementById('error-container');
+      
+      // Do not show the global connection pill on login screens, they have their own inline warnings
+      if (isAuthPage) {
+         if (errorContainer && errorContainer.parentNode) {
+            errorContainer.parentNode.removeChild(errorContainer);
+         }
+         return;
+      }
+      
+      if (!errorContainer) {
+        errorContainer = document.createElement('div');
+        errorContainer.id = 'error-container';
+        errorContainer.style.position = 'fixed';
+        errorContainer.style.bottom = '24px';
+        errorContainer.style.left = '50%';
+        errorContainer.style.transform = 'translateX(-50%)';
+        errorContainer.style.backgroundColor = '#1F2937';
+        errorContainer.style.color = '#F9FAFB';
+        errorContainer.style.padding = '10px 20px';
+        errorContainer.style.borderRadius = '30px';
+        errorContainer.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15)';
+        errorContainer.style.zIndex = '9999';
+        errorContainer.style.fontFamily = 'Inter, sans-serif';
+        errorContainer.style.fontSize = '14px';
+        errorContainer.style.fontWeight = '500';
+        errorContainer.style.display = 'flex';
+        errorContainer.style.alignItems = 'center';
+        errorContainer.style.justifyContent = 'center';
+        errorContainer.style.whiteSpace = 'nowrap';
+        errorContainer.style.transition = 'all 0.3s ease';
+        document.body.appendChild(errorContainer);
       }
 
-      errorContainer.innerHTML += '<strong>Error:</strong> ' + msg + '<br>';
-      document.body.prepend(errorContainer);
-    }, true); // Capture phase to get resource errors
+      if (offlineTimeout) {
+        clearTimeout(offlineTimeout);
+        offlineTimeout = null;
+      }
+
+      if (isOnline) {
+         errorContainer.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="margin-right:8px;"><polyline points="20 6 9 17 4 12"></polyline></svg> <span style="color: #4ade80;">Back online</span>';
+         
+         // Auto hide the success message after 3 seconds
+         offlineTimeout = setTimeout(() => {
+           if (errorContainer && errorContainer.parentNode) {
+             errorContainer.parentNode.removeChild(errorContainer);
+           }
+         }, 3000);
+      } else {
+         errorContainer.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:8px;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg> <span>No Internet Connection</span>';
+         
+         // If browser thinks it's online but a transient error fired, auto-hide so it doesn't get stuck forever.
+         // Otherwise, if genuinely offline, it stays visible indefinitely!
+         if (navigator.onLine && isTransient) {
+            offlineTimeout = setTimeout(() => {
+               if (errorContainer && errorContainer.parentNode) {
+                 errorContainer.parentNode.removeChild(errorContainer);
+               }
+            }, 5000);
+         }
+      }
+    }
+    // Track if a UI crash occurred so we can automatically recover the app when back online
+    let appHasFatalError = false;
+    let currentlyOnline = true; // Assume online on initial load
+
+    // Function to actively verify an actual internet route exists
+    async function checkActualInternet() {
+      try {
+        // Ping a highly available public resource with no-cors to bypass security restrictions.
+        // The cache-busting timestamp ensures we aren't getting a cached success.
+        await fetch('https://www.google.com/favicon.ico?_t=' + new Date().getTime(), { mode: 'no-cors', cache: 'no-store' });
+        return true;
+      } catch (e) {
+        return false; // Fetch threw an error -> No internet route!
+      }
+    }
+
+    async function handleNetworkChange() {
+      // If browser explicitly says offline, trust it immediately for speed
+      if (navigator.onLine === false) {
+         if (currentlyOnline) {
+             currentlyOnline = false;
+             showConnectionStatus(false, false);
+         }
+         return;
+      }
+      
+      // If browser claims online, VERIFY IT. Some OS setups report true even without internet.
+      const hasRealInternet = await checkActualInternet();
+      
+      if (hasRealInternet) {
+        if (!currentlyOnline) {
+          currentlyOnline = true;
+          showConnectionStatus(true, false);
+          if (appHasFatalError) {
+            // Auto-reload to recover from a blank screen crash
+            setTimeout(() => window.location.reload(), 2000);
+          }
+        }
+      } else {
+        if (currentlyOnline) {
+          currentlyOnline = false;
+          showConnectionStatus(false, false);
+        }
+      }
+    }
+
+    // Bind to native browser network events for instant reaction if supported
+    window.addEventListener('offline', handleNetworkChange);
+    window.addEventListener('online', handleNetworkChange);
+    
+    // Aggressive Polling: Check actual internet routing every 3 seconds
+    setInterval(handleNetworkChange, 3000);
+
+    window.addEventListener('error', function (e) {
+      if (e.message && e.message.includes('ResizeObserver')) return; // Ignore harmless noise
+      
+      // If the app fails to load its core files (e.g. User reloads while offline), it crashes.
+      appHasFatalError = true;
+      
+      // If we're actually offline, let the network handler take over.
+      // If we're online but still crashing, force the error banner.
+      if (navigator.onLine) {
+         showConnectionStatus(false, false); 
+      }
+    }, true);
 
     window.addEventListener('unhandledrejection', function (e) {
-      const errorContainer = document.getElementById('error-container') || document.createElement('div');
-      errorContainer.innerHTML += '<strong>Promise Error:</strong> ' + (e.reason ? e.reason.message : e.reason) + '<br>';
-      document.body.prepend(errorContainer);
+      appHasFatalError = true;
+      if (navigator.onLine) {
+         showConnectionStatus(false, false);
+      }
     });
   </script>
   <!-- Google Sign-In Script is now loaded dynamically in SignIn.tsx -->
