@@ -772,6 +772,15 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
   const abortControllerRef = useRef<AbortController | null>(null);
   const [isSearching, setIsSearching] = useState(false);
 
+  // Clean up pending requests when the context is unmounted (e.g. on logout)
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
+
   const refreshData = async () => {
     try {
       // 1. Cancellation: Abort previous request
