@@ -24,6 +24,7 @@ import {
     Printer, Circle, Check, Plus, ThumbsUp, RefreshCw, ArrowLeft, Activity,
     Phone, Loader2, ExternalLink, Heart, Users, LocateFixed
 } from 'lucide-react';
+import { useAuth } from '../../../context/AuthContext';
 
 const mapContainerStyle = { width: '100%', height: '100%' };
 
@@ -102,6 +103,7 @@ const JourneyReport: React.FC<{ vehicle: Vehicle; passengers: Passenger[]; onPri
 // ─── Coordinator View ─────────────────────────────────────────────────────────
 
 const CoordinatorView: React.FC = () => {
+    const { user } = useAuth();
     const {
         myVehicle, passengers, activeJourneyTab, isVehicleOpen, setIsVehicleOpen,
         returnPassengerForm, setReturnPassengerForm, submittingStage,
@@ -435,7 +437,27 @@ const CoordinatorView: React.FC = () => {
                                         <p className="text-gray-500 max-w-sm mb-6">The central team is reviewing your manifest. Please wait for approval to proceed.</p>
                                         <div className="flex flex-col gap-3 items-center">
                                             {activeJourneyTab === 'Ongoing' && (
-                                                <button onClick={() => window.open(cognitoFormUrl, '_blank')} className="bg-ministry-orange text-white px-6 py-2 rounded-lg font-bold hover:bg-orange-600 transition-colors flex items-center shadow">
+                                                <button onClick={() => {
+                                                    const payload = {
+                                                        CordinatorsContactInformation: {
+                                                            Name: {
+                                                                First: user?.name?.split(' ')[0] || '',
+                                                                Last: user?.name?.split(' ').slice(1).join(' ') || ''
+                                                            },
+                                                            Phone: user?.contact || '',
+                                                            Region: 'Central',
+                                                            NameOfRegionManifest: 'Manifest Entebbe',
+                                                            VehicleNumberPlate: myVehicle?.numberPlate || 'UAB 123C'
+                                                        },
+                                                        ListOfTransportedPeople: passengers.map(p => ({
+                                                            Name: p.name,
+                                                            Phone: p.contact || '',
+                                                            FirstTimer: p.isFirstTime === 'Yes'
+                                                        }))
+                                                    };
+                                                    const encodedUrl = `${cognitoFormUrl}?entry=${encodeURIComponent(JSON.stringify(payload))}`;
+                                                    window.open(encodedUrl, '_blank');
+                                                }} className="bg-ministry-orange text-white px-6 py-2 rounded-lg font-bold hover:bg-orange-600 transition-colors flex items-center shadow">
                                                     <ExternalLink className="w-4 h-4 mr-2" /> Open Passenger Registration Form
                                                 </button>
                                             )}
