@@ -38,9 +38,8 @@ export const DeptFinanceStore = {
     add: async (payload: {
         departmentId: string;
         type: 'Income' | 'Expense';
-        category: string;
         amount: number;
-        description?: string;
+        description: string;
         date: string;
     }): Promise<ServiceResponse<DeptFinanceEntry>> =>
         safeFetch(
@@ -49,6 +48,24 @@ export const DeptFinanceStore = {
                 body: JSON.stringify(payload),
             }),
             'Failed to add finance entry',
+            mapEntry,
+        ),
+
+    /** Update an income or expense entry */
+    update: async (payload: {
+        departmentId: string;
+        entryId: string;
+        type: 'Income' | 'Expense';
+        amount: number;
+        description: string;
+        date: string;
+    }): Promise<ServiceResponse<DeptFinanceEntry>> =>
+        safeFetch(
+            () => apiFetch(`/departments/${payload.departmentId}/finances/${payload.entryId}`, {
+                method: 'PUT',
+                body: JSON.stringify(payload),
+            }),
+            'Failed to update finance entry',
             mapEntry,
         ),
 

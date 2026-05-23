@@ -72,9 +72,8 @@ export type CreateWorkplanInput = z.infer<typeof CreateWorkplanSchema>;
 export const AddFinanceEntrySchema = z.object({
     departmentId: uuid(),
     type:         z.enum(['Income', 'Expense']),
-    category:     z.string().min(1, 'Category is required').max(80),
     amount:       z.number().int('Amount must be a whole number').positive('Amount must be positive'),
-    description:  z.string().max(300).optional(),
+    description:  z.string().min(1, 'Description is required').max(300),
     date:         z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Must be a valid date'),
 });
 export type AddFinanceEntryInput = z.infer<typeof AddFinanceEntrySchema>;

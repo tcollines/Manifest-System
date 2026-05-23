@@ -44,7 +44,7 @@ const SelectInput = React.forwardRef<HTMLSelectElement, SelectInputProps>(
                         ].join(' ')}
                     >
                         {placeholder && (
-                            <option value="" disabled>
+                            <option value="" disabled hidden>
                                 {placeholder}
                             </option>
                         )}

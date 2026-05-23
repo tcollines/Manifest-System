@@ -11,6 +11,7 @@ import {
     getDeptFinances,
     addDeptFinanceEntry,
     deleteDeptFinanceEntry,
+    updateDeptFinanceEntry,
 } from '../controllers/departmentController';
 
 const router = express.Router();
@@ -30,6 +31,7 @@ router.patch('/:departmentId/church-members/:memberId/link', linkMemberToUser);
 // Dept finances
 router.get(   '/:departmentId/finances',                getDeptFinances);
 router.post(  '/:departmentId/finances',                addDeptFinanceEntry);
+router.put(   '/:departmentId/finances/:entryId',       updateDeptFinanceEntry);
 router.delete('/:departmentId/finances/:entryId',       deleteDeptFinanceEntry);
 
 export default router;

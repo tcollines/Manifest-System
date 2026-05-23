@@ -14,12 +14,9 @@ import TextInput from '../../../components/ui/TextInput';
 import DateInput from '../../../components/ui/DateInput';
 import LoadingSpinner from '../../../components/ui/LoadingSpinner';
 import { formatCurrency, formatDate } from '../../../shared/formatters';
-import { TrendingUp, TrendingDown, Scale, Plus, Trash2 } from 'lucide-react';
+import { TrendingUp, TrendingDown, Scale, Plus, Trash2, Edit2 } from 'lucide-react';
 
 interface Props { department: Department; user: User | null; deptRole: DeptRole | null; systemRole: any; }
-
-const INCOME_CATEGORIES = ['Offering', 'Tithe', 'Donation', 'Grant', 'Sales', 'Other'];
-const EXPENSE_CATEGORIES = ['Supplies', 'Equipment', 'Transport', 'Communication', 'Printing', 'Ministry Activity', 'Other'];
 
 const FinancesTab: React.FC<Props> = ({ department, user, deptRole, systemRole }) => {
     const { showToast, confirm } = useNotification();
@@ -30,7 +27,8 @@ const FinancesTab: React.FC<Props> = ({ department, user, deptRole, systemRole }
     const [loading, setLoading]           = useState(true);
     const [activeType, setActiveType]     = useState<'all' | 'Income' | 'Expense'>('all');
     const [showForm, setShowForm]         = useState(false);
-    const [form, setForm]                 = useState({ type: 'Income', category: '', amount: 0, description: '', date: new Date().toISOString().split('T')[0] });
+    const [editingId, setEditingId]       = useState<string | null>(null);
+    const [form, setForm]                 = useState({ type: 'Income', amount: 0, description: '', date: new Date().toISOString().split('T')[0] });
     const [fieldErrors, setFieldErrors]   = useState<Record<string, string>>({});
     const [saving, setSaving]             = useState(false);
 
@@ -51,15 +49,30 @@ const FinancesTab: React.FC<Props> = ({ department, user, deptRole, systemRole }
         if (!raw.success) { setFieldErrors((raw as { success: false; errors: Record<string, string> }).errors); return; }
         const validData = (raw as { success: true; data: any }).data;
         setSaving(true);
-        const res = await DeptFinanceStore.add(validData);
+        const res = editingId 
+            ? await DeptFinanceStore.update({ ...validData, entryId: editingId })
+            : await DeptFinanceStore.add(validData);
         setSaving(false);
         if (res.status === 'success') {
-            showToast('Entry recorded!', 'success');
+            showToast(editingId ? 'Entry updated!' : 'Entry recorded!', 'success');
             setShowForm(false);
-            setForm({ type: 'Income', category: '', amount: 0, description: '', date: new Date().toISOString().split('T')[0] });
+            setEditingId(null);
+            setForm({ type: 'Income', amount: 0, description: '', date: new Date().toISOString().split('T')[0] });
             setFieldErrors({});
             load();
         } else showToast(res.message, 'error');
+    };
+
+    const handleEdit = (e: DeptFinanceEntry) => {
+        setForm({
+            type: e.type as 'Income' | 'Expense',
+            amount: e.amount,
+            description: e.description || '',
+            date: e.date,
+        });
+        setEditingId(e.id);
+        setShowForm(true);
+        setFieldErrors({});
     };
 
     const handleDelete = (e: DeptFinanceEntry) => confirm('Delete this finance entry?', async () => {
@@ -69,16 +82,17 @@ const FinancesTab: React.FC<Props> = ({ department, user, deptRole, systemRole }
     });
 
     const filtered = activeType === 'all' ? entries : entries.filter(e => e.type === activeType);
-    const categories = form.type === 'Income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
 
     const columns: TableColumn<DeptFinanceEntry>[] = [
         { key: 'date',        header: 'Date',      render: e => formatDate(e.date), sortable: true },
         { key: 'type',        header: 'Type',       render: e => <Badge label={e.type} variant={e.type === 'Income' ? 'success' : 'error'} dot /> },
-        { key: 'category',    header: 'Category',   sortable: true },
-        { key: 'description', header: 'Description', hideOnMobile: true },
+        { key: 'description', header: 'Description' },
         { key: 'amount',      header: 'Amount',     align: 'right', render: e => <span className={e.type === 'Income' ? 'text-green-600 font-semibold' : 'text-red-500 font-semibold'}>{formatCurrency(e.amount)}</span>, sortable: true },
-        ...(canEdit ? [{ key: '_del' as any, header: '', align: 'right' as const, render: (e: DeptFinanceEntry) => (
-            <button onClick={() => handleDelete(e)} className="text-red-400 hover:text-red-600 p-1 rounded"><Trash2 className="w-4 h-4" /></button>
+        ...(canEdit ? [{ key: '_actions' as any, header: '', align: 'right' as const, render: (e: DeptFinanceEntry) => (
+            <div className="flex justify-end gap-2">
+                <button onClick={() => handleEdit(e)} className="text-gray-400 hover:text-blue-600 p-1 rounded"><Edit2 className="w-4 h-4" /></button>
+                <button onClick={() => handleDelete(e)} className="text-red-400 hover:text-red-600 p-1 rounded"><Trash2 className="w-4 h-4" /></button>
+            </div>
         )}] : []),
     ];
 
@@ -106,19 +120,23 @@ const FinancesTab: React.FC<Props> = ({ department, user, deptRole, systemRole }
                 )}
             </div>
 
-            {/* Add form */}
+            {/* Add/Edit Form Modal */}
             {showForm && (
-                <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <SelectInput label="Type" value={form.type} onChange={e => setForm(f => ({...f, type: e.target.value, category: ''}))} options={[{value:'Income',label:'Income'},{value:'Expense',label:'Expense'}]} error={fieldErrors.type} required />
-                    <SelectInput label="Category" value={form.category} onChange={e => setForm(f => ({...f, category: e.target.value}))} options={categories.map(c => ({value:c,label:c}))} placeholder="Select category" error={fieldErrors.category} required />
-                    <NumberInput label="Amount (UGX)" format="currency" value={form.amount} onChange={v => setForm(f => ({...f, amount: v}))} error={fieldErrors.amount} required />
-                    <DateInput label="Date" value={form.date} onChange={e => setForm(f => ({...f, date: e.target.value}))} error={fieldErrors.date} required />
-                    <div className="md:col-span-2">
-                        <TextInput label="Description (optional)" value={form.description} onChange={e => setForm(f => ({...f, description: e.target.value}))} />
-                    </div>
-                    <div className="md:col-span-2 flex gap-3">
-                        <button onClick={handleSave} disabled={saving} className="bg-ministry-text text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-ministry-orange disabled:opacity-50">{saving ? 'Saving…' : 'Save'}</button>
-                        <button onClick={() => setShowForm(false)} className="text-gray-500 px-4 py-2 text-sm hover:bg-gray-100 rounded-xl">Cancel</button>
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/50 backdrop-blur-sm">
+                    <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-xl w-full max-w-lg">
+                        <h3 className="text-lg font-bold text-gray-900 mb-4">{editingId ? 'Edit Entry' : 'Add Entry'}</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <SelectInput label="Type" value={form.type} onChange={e => setForm(f => ({...f, type: e.target.value}))} options={[{value:'Income',label:'Income'},{value:'Expense',label:'Expense'}]} error={fieldErrors.type} required />
+                            <NumberInput label="Amount (UGX)" format="currency" value={form.amount} onChange={v => setForm(f => ({...f, amount: v}))} error={fieldErrors.amount} required />
+                            <DateInput label="Date" value={form.date} onChange={e => setForm(f => ({...f, date: e.target.value}))} error={fieldErrors.date} required />
+                            <div className="md:col-span-2">
+                                <TextInput label="Description" value={form.description} onChange={e => setForm(f => ({...f, description: e.target.value}))} error={fieldErrors.description} required />
+                            </div>
+                            <div className="md:col-span-2 flex justify-end gap-3 mt-2">
+                                <button onClick={() => { setShowForm(false); setEditingId(null); setForm({ type: 'Income', amount: 0, description: '', date: new Date().toISOString().split('T')[0] }); }} className="text-gray-500 px-4 py-2 text-sm hover:bg-gray-100 rounded-xl">Cancel</button>
+                                <button onClick={handleSave} disabled={saving} className="bg-ministry-text text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-ministry-orange disabled:opacity-50">{saving ? 'Saving…' : (editingId ? 'Update' : 'Save')}</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}

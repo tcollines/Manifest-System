@@ -248,15 +248,34 @@ export const addDeptFinanceEntry = async (req: Request, res: Response) => {
     const userId = (req as any).userId;
     const { departmentId } = req.params;
     const { type, category, amount, description, date } = req.body;
-    if (!type || !category || !amount || !date) return res.status(400).json({ error: 'type, category, amount, date are required' });
+    if (!type || !amount || !date || !description) return res.status(400).json({ error: 'type, amount, description, date are required' });
     if (!['Income', 'Expense'].includes(type)) return res.status(400).json({ error: 'Invalid type' });
     try {
         const { data, error } = await supabase
             .from('dept_finances')
-            .insert([{ id: uuidv4(), manifest_id: manifestId, department_id: departmentId, type, category, amount: parseInt(amount, 10), description, date, recorded_by: userId }])
+            .insert([{ id: uuidv4(), manifest_id: manifestId, department_id: departmentId, type, category: category || 'Uncategorized', amount: parseInt(amount, 10), description, date, recorded_by: userId }])
             .select().single();
         if (error) throw error;
         res.status(201).json(data);
+    } catch { res.status(500).json({ error: 'An internal server error occurred.' }); }
+};
+
+export const updateDeptFinanceEntry = async (req: Request, res: Response) => {
+    const manifestId = guard(req, res); if (!manifestId) return;
+    const { departmentId, entryId } = req.params;
+    const { type, amount, description, date } = req.body;
+    if (!type || !amount || !date || !description) return res.status(400).json({ error: 'type, amount, description, date are required' });
+    if (!['Income', 'Expense'].includes(type)) return res.status(400).json({ error: 'Invalid type' });
+    try {
+        const { data, error } = await supabase
+            .from('dept_finances')
+            .update({ type, amount: parseInt(amount, 10), description, date })
+            .eq('manifest_id', manifestId)
+            .eq('department_id', departmentId)
+            .eq('id', entryId)
+            .select().single();
+        if (error) throw error;
+        res.json(data);
     } catch { res.status(500).json({ error: 'An internal server error occurred.' }); }
 };
 
