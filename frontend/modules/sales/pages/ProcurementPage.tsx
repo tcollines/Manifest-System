@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { procurementService } from '../../../services/sales/procurementService';
 import { useNotification } from '../../../components/ui/NotificationSystem';
 import { SalesProcurementRequest, SalesSupplier } from '../types';
+import { X } from 'lucide-react';
+import TextInput from '../../../components/ui/TextInput';
 
 const ProcurementPage: React.FC = () => {
  const { showToast } = useNotification();
@@ -9,6 +11,8 @@ const ProcurementPage: React.FC = () => {
  
  const [requests, setRequests] = useState<SalesProcurementRequest[]>([]);
  const [suppliers, setSuppliers] = useState<SalesSupplier[]>([]);
+ const [showModal, setShowModal] = useState(false);
+ const [form, setForm] = useState({ name: '' });
 
  useEffect(() => {
  loadData();
@@ -25,12 +29,16 @@ const ProcurementPage: React.FC = () => {
  }
  };
 
- const handleAddSupplier = async () => {
- const name = prompt('Supplier Name:');
- if (!name) return;
+ const handleAddSupplier = async (e: React.FormEvent) => {
+ e.preventDefault();
+ if (!form.name) return showToast('Supplier Name is required', 'error');
+
  try {
- await procurementService.createSupplier(manifestId, { name });
+ await procurementService.createSupplier(manifestId, { name: form.name });
  loadData();
+ setShowModal(false);
+ setForm({ name: '' });
+ showToast('Supplier added successfully', 'success');
  } catch (e: any) {
  showToast(e.message, 'error');
  }
@@ -50,7 +58,7 @@ const ProcurementPage: React.FC = () => {
  <div className="space-y-6">
  <div className="flex items-center justify-between">
  <h1 className="text-2xl font-bold text-gray-900">Procurement & Suppliers</h1>
- <button onClick={handleAddSupplier} className="px-4 py-2 bg-ministry-orange text-white rounded-lg hover:opacity-90 transition-opacity">
+ <button onClick={() => setShowModal(true)} className="px-4 py-2 bg-ministry-orange text-white rounded-lg hover:opacity-90 transition-opacity font-bold text-sm">
  Add Supplier
  </button>
  </div>
@@ -99,6 +107,37 @@ const ProcurementPage: React.FC = () => {
  </tbody>
  </table>
  </div>
+
+ {showModal && (
+ <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+ <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
+ <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+ <h2 className="text-lg font-bold text-gray-900">Add New Supplier</h2>
+ <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">
+ <X size={20} />
+ </button>
+ </div>
+ <form onSubmit={handleAddSupplier} className="p-6 space-y-4">
+ <div>
+ <TextInput 
+ label="Supplier Name"
+ value={form.name}
+ onChange={(e) => setForm({name: e.target.value})}
+ placeholder="e.g. Acme Corporation"
+ />
+ </div>
+ <div className="pt-4 flex justify-end gap-2">
+ <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg text-sm font-medium transition-colors">
+ Cancel
+ </button>
+ <button type="submit" className="px-4 py-2 bg-ministry-orange text-white rounded-lg text-sm font-bold hover:opacity-90 transition-opacity">
+ Save Supplier
+ </button>
+ </div>
+ </form>
+ </div>
+ </div>
+ )}
  </div>
  );
 };

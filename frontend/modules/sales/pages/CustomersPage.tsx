@@ -2,12 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { customerService } from '../../../services/sales/customerService';
 import { useNotification } from '../../../components/ui/NotificationSystem';
 import { SalesCustomer } from '../types';
+import { X } from 'lucide-react';
+import TextInput from '../../../components/ui/TextInput';
 
 const CustomersPage: React.FC = () => {
  const { showToast } = useNotification();
  const manifestId = 'default_manifest';
  
  const [customers, setCustomers] = useState<SalesCustomer[]>([]);
+ const [showModal, setShowModal] = useState(false);
+ const [form, setForm] = useState({ fullName: '', phone: '', branch: '' });
 
  useEffect(() => {
  loadData();
@@ -22,20 +26,20 @@ const CustomersPage: React.FC = () => {
  }
  };
 
- const handleAddCustomer = async () => {
- const fullName = prompt('Full Name:');
- if (!fullName) return;
- const phone = prompt('Phone Number (Optional):');
- const branch = prompt('Church Branch (Optional):');
+ const handleAddCustomer = async (e: React.FormEvent) => {
+ e.preventDefault();
+ if (!form.fullName) return showToast('Full Name is required', 'error');
 
  try {
  await customerService.createCustomer(manifestId, {
- full_name: fullName,
- phone_number: phone || undefined,
- church_branch: branch || undefined
+ full_name: form.fullName,
+ phone_number: form.phone || undefined,
+ church_branch: form.branch || undefined
  });
  loadData();
- showToast('Customer added', 'success');
+ setShowModal(false);
+ setForm({ fullName: '', phone: '', branch: '' });
+ showToast('Customer added successfully', 'success');
  } catch (e: any) {
  showToast(e.message, 'error');
  }
@@ -45,7 +49,7 @@ const CustomersPage: React.FC = () => {
  <div className="space-y-6">
  <div className="flex items-center justify-between">
  <h1 className="text-2xl font-bold text-gray-900">Customers</h1>
- <button onClick={handleAddCustomer} className="px-4 py-2 bg-ministry-orange text-white rounded-lg hover:opacity-90 transition-opacity">
+ <button onClick={() => setShowModal(true)} className="px-4 py-2 bg-ministry-orange text-white rounded-lg hover:opacity-90 transition-opacity font-bold text-sm">
  Add Customer
  </button>
  </div>
@@ -75,6 +79,53 @@ const CustomersPage: React.FC = () => {
  </tbody>
  </table></div>
  </div>
+
+ {showModal && (
+ <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+ <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
+ <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+ <h2 className="text-lg font-bold text-gray-900">Add New Customer</h2>
+ <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">
+ <X size={20} />
+ </button>
+ </div>
+ <form onSubmit={handleAddCustomer} className="p-6 space-y-4">
+ <div>
+ <TextInput 
+ label="Full Name"
+ value={form.fullName}
+ onChange={(e) => setForm({...form, fullName: e.target.value})}
+ placeholder="e.g. John Doe"
+ />
+ </div>
+ <div>
+ <TextInput 
+ label="Phone Number (Optional)"
+ value={form.phone}
+ onChange={(e) => setForm({...form, phone: e.target.value})}
+ placeholder="e.g. +256 700 000000"
+ />
+ </div>
+ <div>
+ <TextInput 
+ label="Church Branch (Optional)"
+ value={form.branch}
+ onChange={(e) => setForm({...form, branch: e.target.value})}
+ placeholder="e.g. Kampala Central"
+ />
+ </div>
+ <div className="pt-4 flex justify-end gap-2">
+ <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg text-sm font-medium transition-colors">
+ Cancel
+ </button>
+ <button type="submit" className="px-4 py-2 bg-ministry-orange text-white rounded-lg text-sm font-bold hover:opacity-90 transition-opacity">
+ Save Customer
+ </button>
+ </div>
+ </form>
+ </div>
+ </div>
+ )}
  </div>
  );
 };

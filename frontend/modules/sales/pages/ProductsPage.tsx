@@ -108,17 +108,18 @@ const ProductsPage: React.FC = () => {
  labelsHtml += `
  <div class="label-container">
  <h2>${variant.name}</h2>
- <svg id="barcode-${i}"></svg>
+ <div id="qrcode-${i}" class="qr-code"></div>
+ <p class="sku-text">${variant.sku}</p>
  </div>
  `;
  scriptsHtml += `
- JsBarcode("#barcode-${i}", "${variant.barcode}", {
- format: "CODE128",
- width: 2,
- height: 80,
- displayValue: true,
- fontSize: 14,
- margin: 10
+ new QRCode(document.getElementById("qrcode-${i}"), {
+ text: "${variant.barcode}",
+ width: 100,
+ height: 100,
+ colorDark : "#000000",
+ colorLight : "#ffffff",
+ correctLevel : QRCode.CorrectLevel.M
  });
  `;
  });
@@ -131,19 +132,21 @@ const ProductsPage: React.FC = () => {
  <style>
  @page { margin: 0; }
  body { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; margin: 0; font-family: sans-serif; background: #f0f0f0; padding: 20px; }
- .label-container { text-align: center; background: white; padding: 20px 40px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; page-break-after: always; width: max-content; }
- h2 { margin: 0 0 10px 0; font-size: 18px; color: #111; }
+ .label-container { text-align: center; background: white; padding: 15px 30px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; page-break-after: always; width: max-content; }
+ h2 { margin: 0 0 10px 0; font-size: 16px; color: #111; }
+ .qr-code { display: flex; justify-content: center; margin: 0 auto; }
+ .sku-text { font-size: 11px; color: #555; margin: 8px 0 0 0; font-family: monospace; }
  @media print {
  body { background: white; height: auto; display: block; padding: 0; margin: 0; }
  .label-container { box-shadow: none; padding: 0; margin: 0; text-align: center; page-break-after: always; width: 100%; border-radius: 0; }
  }
  </style>
- <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+ <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
  </head>
  <body>
  ${labelsHtml}
  <script>
- // Initialize barcodes
+ // Initialize QR Codes
  ${scriptsHtml}
  
  // Wait for barcodes to render before triggering print

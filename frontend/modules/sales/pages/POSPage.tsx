@@ -48,7 +48,13 @@ const POSPage: React.FC = () => {
 
  useEffect(() => {
  if (isScanning) {
- const scanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: { width: 250, height: 250 } }, false);
+ const scanner = new Html5QrcodeScanner("reader", { 
+ fps: 10, 
+ qrbox: { width: 250, height: 250 }, // Square box is ideal for QR Codes
+ aspectRatio: 1.0,
+ disableFlip: false
+ }, false);
+ 
  scanner.render(
  (decodedText) => {
  handleScanSuccess(decodedText);
@@ -64,12 +70,16 @@ const POSPage: React.FC = () => {
  }, [isScanning]);
 
  const handleScanSuccess = (barcode: string) => {
- const variant = variants.find(v => v.barcode === barcode);
+ const cleanBarcode = barcode.trim().toLowerCase();
+ const variant = variants.find(v => 
+ v.barcode.toLowerCase() === cleanBarcode || 
+ v.sku.toLowerCase() === cleanBarcode
+ );
  if (variant) {
  addToCart(variant);
  showToast(`Added ${variant.name} to cart`, 'success');
  } else {
- showToast('Barcode not found in catalog', 'error');
+ showToast(`Scanned: ${barcode} (Not found in catalog)`, 'error');
  }
  };
 
@@ -156,18 +166,37 @@ const POSPage: React.FC = () => {
  v.sku.toLowerCase().includes(searchQuery.toLowerCase())
  );
 
+ const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+ if (e.key === 'Enter' && searchQuery.trim() !== '') {
+ const query = searchQuery.trim().toLowerCase();
+ const variant = variants.find(v => 
+ v.barcode.toLowerCase() === query || v.sku.toLowerCase() === query
+ );
+ 
+ if (variant) {
+ addToCart(variant);
+ showToast(`Added ${variant.name} to cart`, 'success');
+ setSearchQuery('');
+ } else {
+ showToast('Barcode not found in catalog', 'error');
+ }
+ }
+ };
+
  return (
  <div className="flex flex-col lg:flex-row gap-6 h-full">
  {/* Product Selection Area */}
  <div className="flex-1 flex flex-col h-full bg-white rounded-xl shadow-sm border border-gray-100 p-4">
  <div className="flex items-center gap-4 mb-6">
  <div className="relative flex-1">
- <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"size={18} />
+ <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
  <input 
  type="text"
- placeholder="Search products by name or SKU..."
+ placeholder="Scan barcode or type SKU/name..."
  value={searchQuery}
  onChange={e => setSearchQuery(e.target.value)}
+ onKeyDown={handleSearchKeyDown}
+ autoFocus
  className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-ministry-orange"
  />
  </div>
@@ -254,7 +283,7 @@ const POSPage: React.FC = () => {
   inputMode="numeric"
   onWheel={e => e.currentTarget.blur()}
   onKeyDown={e => { if (['ArrowUp', 'ArrowDown'].includes(e.key)) e.preventDefault(); }}
-  className="w-full pl-8 pr-4 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-ministry-orange font-mono"
+  className="w-full pl-14 pr-4 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-ministry-orange font-mono"
   value={formatMoneyInput(amountPaid)}
   onChange={e => { const raw = parseMoneyInput(e.target.value); if (!isNaN(Number(raw))) setAmountPaid(raw); }}
   />
