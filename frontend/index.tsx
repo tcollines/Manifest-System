@@ -27,6 +27,24 @@ window.addEventListener('beforeinstallprompt', (e) => {
   }
 }, { capture: true });
 
+// ── Suppress native scrolling and arrows on number inputs globally ────────────
+document.addEventListener('keydown', (e: KeyboardEvent) => {
+  const target = e.target as HTMLInputElement;
+  if (target && target.tagName === 'INPUT' && target.type === 'number') {
+    if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+      e.preventDefault();
+    }
+  }
+});
+document.addEventListener('wheel', (e: WheelEvent) => {
+  const target = e.target as HTMLInputElement;
+  if (target && target.tagName === 'INPUT' && target.type === 'number') {
+    if (document.activeElement === target) {
+       target.blur();
+    }
+  }
+}, { passive: false });
+
 // Initialize the new Push Service Worker
 if ('serviceWorker' in navigator) {
   registerServiceWorker().then(() => {

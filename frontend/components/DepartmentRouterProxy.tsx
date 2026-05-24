@@ -69,6 +69,16 @@ const OverviewTab = React.lazy(() => import('../modules/residents/tabs/OverviewT
 const ResidencesTab = React.lazy(() => import('../modules/residents/tabs/ResidencesTab'));
 const ReportsTab = React.lazy(() => import('../modules/residents/tabs/ReportsTab'));
 
+// Sales & Merchandise
+const SalesLayout = React.lazy(() => import('../modules/sales/SalesLayout'));
+const POSPage = React.lazy(() => import('../modules/sales/pages/POSPage'));
+const ProductsPage = React.lazy(() => import('../modules/sales/pages/ProductsPage'));
+const InventoryPage = React.lazy(() => import('../modules/sales/pages/InventoryPage'));
+const OrdersPage = React.lazy(() => import('../modules/sales/pages/OrdersPage'));
+const CustomersPage = React.lazy(() => import('../modules/sales/pages/CustomersPage'));
+const ProcurementPage = React.lazy(() => import('../modules/sales/pages/ProcurementPage'));
+const SalesDashboardPage = React.lazy(() => import('../modules/sales/pages/SalesDashboardPage'));
+
 // Coordinator (my-residency) — modular replacement for CoordinatorResidencyDashboard
 const ResidentCoordinatorLayout = React.lazy(() => import('../modules/residents/ResidentCoordinatorLayout'));
 const CoordinatorReportsPage = React.lazy(() => import('../modules/residents/CoordinatorReportsPage'));
@@ -343,6 +353,27 @@ const DepartmentRouterProxy: React.FC<ProxyProps> = ({ onOpenModal, onEditUser }
                         <Route path="members" element={<CoordinatorMembersPage />} />
                         <Route path="events"  element={<CoordinatorEventsPage />} />
                     </Route>
+                </Route>
+            </Routes>
+        );
+    }
+
+    // ── Sales & Merchandise (d11) ────────────────────────────────────────────────
+    if (dept?.slug === 'sales') {
+        return (
+            <Routes>
+                <Route element={<ProtectedRoute allowedDepartments={['sales']} bypassRoles={['Sales Attendant', 'Administrator', 'Super Admin', 'HOD']} />}>
+                    <Route element={<SalesLayout onOpenModal={onOpenModal} />}>
+                        <Route index element={<RedirectWithParams to="sales-dashboard" />} />
+                        <Route path="sales-dashboard" element={<SalesDashboardPage />} />
+                        <Route path="pos" element={<POSPage />} />
+                        <Route path="products" element={<ProductsPage />} />
+                        <Route path="inventory" element={<InventoryPage />} />
+                        <Route path="orders" element={<OrdersPage />} />
+                        <Route path="customers" element={<CustomersPage />} />
+                        <Route path="procurement" element={<ProcurementPage />} />
+                    </Route>
+                    <Route path="dashboard/*" element={<GenericDeptDashboard currentUser={currentUser} openModal={onOpenModal} onEditUser={onEditUser} />} />
                 </Route>
             </Routes>
         );

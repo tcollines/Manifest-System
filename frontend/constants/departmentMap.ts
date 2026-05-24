@@ -42,6 +42,10 @@ export const departmentMap = {
   residents: {
     uuid: 'c1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d',
     slug: 'residents'
+  },
+  sales: {
+    uuid: 'afc0240b-0faf-48ec-a1d8-ad2f193eb891',
+    slug: 'sales'
   }
 };
 

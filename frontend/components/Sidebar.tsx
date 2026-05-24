@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, Calendar, Bus, ClipboardList, Map, BookOpen, Clock, FileCheck, Package, Menu, X, Settings, Heart, Database, BarChart2, Building2, DollarSign, ClipboardCheck, Baby, Car, Globe, LogOut, CheckCircle, ArrowRight, UserPlus, FileText, CreditCard } from 'lucide-react';
+import { LayoutDashboard, Users, Calendar, Bus, ClipboardList, Map, BookOpen, Clock, FileCheck, Package, Menu, X, Settings, Heart, Database, BarChart2, Building2, DollarSign, ClipboardCheck, Baby, Car, Globe, LogOut, CheckCircle, ArrowRight, UserPlus, FileText, CreditCard, ShoppingCart, Box, Truck } from 'lucide-react';
 import { Department } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { resolveDepartment } from '../constants/departmentMap';
@@ -87,7 +87,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onLogout, isOpen, onClose }) => {
   const isStageCoordinator = checkCode('d5', 'transportation') && (currentUser.role === 'Stage Coordinator' || (currentUser.role === 'Coordinator' && !!currentUser.stationId));
   const isVehicleCoordinator = checkCode('d5', 'transportation') && currentUser.role === 'Vehicle Coordinator';
 
-  if (!isRegularRegistration && !isStageCoordinator && !isVehicleCoordinator) {
+  if (!isRegularRegistration && !isStageCoordinator && !isVehicleCoordinator && !checkCode('d11', 'sales')) {
       myDeptItems.push({ id: 'my-dept-ops', label: 'Dept Dashboard', icon: LayoutDashboard, path: `/departments/${dId}/dashboard` });
   }
 
@@ -136,6 +136,14 @@ const Sidebar: React.FC<SidebarProps> = ({ onLogout, isOpen, onClose }) => {
       myDeptItems.push({ id: 'hl-souls', label: 'Souls', icon: Heart, path: `/departments/${dId}/souls` });
       myDeptItems.push({ id: 'hl-testimonies', label: 'Testimonies', icon: BookOpen, path: `/departments/${dId}/testimonies` });
       myDeptItems.push({ id: 'hl-new', label: 'New Entry', icon: FileCheck, path: `/departments/${dId}/new` });
+  } else if (checkCode('d11', 'sales')) {
+      myDeptItems.push({ id: 'sales-dash', label: 'Sales Dashboard', icon: LayoutDashboard, path: `/departments/${dId}/sales-dashboard` });
+      myDeptItems.push({ id: 'sales-pos', label: 'POS Terminal', icon: ShoppingCart, path: `/departments/${dId}/pos` });
+      myDeptItems.push({ id: 'sales-products', label: 'Products', icon: Package, path: `/departments/${dId}/products` });
+      myDeptItems.push({ id: 'sales-inventory', label: 'Inventory', icon: Box, path: `/departments/${dId}/inventory` });
+      myDeptItems.push({ id: 'sales-orders', label: 'Orders', icon: BarChart2, path: `/departments/${dId}/orders` });
+      myDeptItems.push({ id: 'sales-customers', label: 'Customers', icon: Users, path: `/departments/${dId}/customers` });
+      myDeptItems.push({ id: 'sales-procurement', label: 'Procurement', icon: Truck, path: `/departments/${dId}/procurement` });
   }
 
   if (roleHOD || isDeptFinance || isGlobalFinance || isSystemAdmin || isTeamLeader) {

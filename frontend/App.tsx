@@ -363,6 +363,7 @@ const App: React.FC = () => {
             <Route path="campus/*"        element={<Navigate to="/departments/b2c1d3e4-f5a6-7890-bcde-1234567890ab" replace />} />
             <Route path="residents/*"     element={<Navigate to="/departments/c1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d" replace />} />
             <Route path="stage-dashboard" element={<Navigate to="/departments/4630e48a-f97e-48fd-a901-864b591c282f/stage-dashboard" replace />} />
+            <Route path="sales/*"         element={<Navigate to="/departments/afc0240b-0faf-48ec-a1d8-ad2f193eb891" replace />} />
 
             {/* Global Scopes */}
             <Route element={<ProtectedRoute allowedRoles={['Administrator', 'Super Admin', 'TeamLeader', 'Finance', 'Dept Finance', 'Head of Dept', 'HOD', 'Dept Admin']} />}>
