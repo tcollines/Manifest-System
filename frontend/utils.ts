@@ -181,6 +181,7 @@ export const getDashboardForUser = (user: User): string => {
             case 'healing': return '/healing';
             case 'campus': return '/campus';
             case 'administration': return '/dashboard'; // Admin backup
+            case 'sales': return '/sales';
         }
     }
 

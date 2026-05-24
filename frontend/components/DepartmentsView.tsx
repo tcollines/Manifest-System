@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Navigate } from 'react-router-dom';
 import DepartmentList from './DepartmentList';
 import CreateDepartmentModal from '../modules/generic-dept/CreateDepartmentModal';
+import { getDashboardForUser } from '../utils';
 
 interface DepartmentsViewProps {
   currentUser: any;
@@ -9,8 +10,13 @@ interface DepartmentsViewProps {
 
 const DepartmentsView: React.FC<DepartmentsViewProps> = ({ currentUser }) => {
   const isTeamLeader = currentUser?.role === 'TeamLeader';
+  const isAdmin = ['Administrator', 'Super Admin'].includes(currentUser?.role);
   const navigate = useNavigate();
   const [showModal, setShowModal] = useState(false);
+
+  if (!isTeamLeader && !isAdmin) {
+      return <Navigate to={getDashboardForUser(currentUser)} replace />;
+  }
 
   const handleCreated = (deptId: string) => {
     setShowModal(false);

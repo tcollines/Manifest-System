@@ -40,10 +40,12 @@ interface DashboardProps {
     openModal?: (type: ModalType) => void;
     onEditUser?: (user: User) => void;
     currentUser?: User | null;
+    deptId?: string;
 }
 
-const GenericDeptDashboard: React.FC<DashboardProps> = ({ openModal, onEditUser, currentUser }) => {
-    const { deptId }                    = useParams<{ deptId: string }>();
+const GenericDeptDashboard: React.FC<DashboardProps> = ({ openModal, onEditUser, currentUser, deptId: propDeptId }) => {
+    const params                        = useParams<{ deptId: string }>();
+    const deptId                        = propDeptId || params.deptId;
     const { user, isLoading: isAuthLoading } = useAuth();
     const navigate                      = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
@@ -85,9 +87,38 @@ const GenericDeptDashboard: React.FC<DashboardProps> = ({ openModal, onEditUser,
         setError(null);
         DepartmentStore.getById(deptId).then(res => {
             if (controller.signal.aborted) return;  // Ignore stale response
-            if (res.status === 'success') setDepartment(res.data);
-            else setError(res.message ?? 'Failed to load department');
+            if (res.status === 'success') {
+                setDepartment(res.data);
+            } else {
+                // Fallback to static DEPARTMENTS list
+                import('../../constants').then(({ DEPARTMENTS }) => {
+                    if (controller.signal.aborted) return;
+                    const fallback = DEPARTMENTS.find(d => d.id === deptId || d.uuid === deptId || d.slug === deptId || d.code === deptId);
+                    if (fallback) {
+                        setDepartment(fallback);
+                    } else {
+                        setError(res.message ?? 'Failed to load department');
+                    }
+                    setLoading(false);
+                }).catch(() => {
+                    setError(res.message ?? 'Failed to load department');
+                    setLoading(false);
+                });
+                return;
+            }
             setLoading(false);
+        }).catch(err => {
+            if (controller.signal.aborted) return;
+            import('../../constants').then(({ DEPARTMENTS }) => {
+                if (controller.signal.aborted) return;
+                const fallback = DEPARTMENTS.find(d => d.id === deptId || d.uuid === deptId || d.slug === deptId || d.code === deptId);
+                if (fallback) {
+                    setDepartment(fallback);
+                } else {
+                    setError('Failed to fetch department');
+                }
+                setLoading(false);
+            });
         });
 
         return () => { controller.abort(); };  // Cleanup on unmount

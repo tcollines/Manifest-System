@@ -103,17 +103,21 @@ export const UserStore = {
         console.error(`[USERSTORE] Auth attempts failed:`, authResult.error.message || authResult.error);
         
         // Differentiate between actual auth failure and network failure
-        // First, check for common browser network error strings
         const errorMsg = authResult.error.message || String(authResult.error);
         let isOffline = !navigator.onLine || 
                         errorMsg.toLowerCase().includes('failed to fetch') || 
                         errorMsg.toLowerCase().includes('networkerror') ||
                         errorMsg.toLowerCase().includes('load failed');
         
-        // If not obvious, perform an active ping to definitively rule out false-positive "online" OS states
-        if (!isOffline) {
+        let backendDown = false;
+
+        // If we suspect network issues, ping Google to confirm if it's the OS internet or just the Backend
+        if (isOffline) {
             try {
                 await fetch('https://www.google.com/favicon.ico?_t=' + Date.now(), { mode: 'no-cors', cache: 'no-store' });
+                // Ping succeeded! We have internet, so the backend must be down/unreachable.
+                isOffline = false;
+                backendDown = true;
             } catch (pingError) {
                 isOffline = true;
             }
@@ -121,6 +125,9 @@ export const UserStore = {
         
         if (isOffline) {
             return { status: 'error', message: 'No internet connection', error: authResult.error };
+        }
+        if (backendDown) {
+            return { status: 'error', message: 'Backend server is offline or unreachable', error: authResult.error };
         }
         
         return { status: 'error', message: 'Invalid credentials or Auth failure', error: authResult.error };

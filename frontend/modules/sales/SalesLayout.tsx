@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
-import { LayoutDashboard, ShoppingCart, Package, Users, BarChart3, Box, Truck } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, Package, Users, BarChart3, Box, Truck, FileText } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { ModalType } from '../../types';
 
@@ -13,13 +13,14 @@ const SalesLayout: React.FC<Props> = ({ onOpenModal }) => {
  const location = useLocation();
 
  const navItems = [
- { name: 'Dashboard', path: 'dashboard', icon: LayoutDashboard },
+ { name: 'Dashboard', path: 'sales-dashboard', icon: LayoutDashboard },
  { name: 'POS', path: 'pos', icon: ShoppingCart },
  { name: 'Products', path: 'products', icon: Package },
  { name: 'Inventory', path: 'inventory', icon: Box },
  { name: 'Orders', path: 'orders', icon: BarChart3 },
  { name: 'Customers', path: 'customers', icon: Users },
  { name: 'Procurement', path: 'procurement', icon: Truck },
+ { name: 'Reports & Financials', path: 'financials', icon: FileText },
  ];
 
  return (

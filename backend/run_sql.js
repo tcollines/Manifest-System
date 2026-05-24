@@ -1,20 +1,14 @@
-const fs = require('fs');
-
-const env = fs.readFileSync('d:\\Manifest System\\backend\\.env', 'utf8');
-const getEnv = (key) => {
-    const match = env.match(new RegExp(`^${key}=(.*)$`, 'm'));
-    return match ? match[1].trim() : null;
-};
-const dsn = getEnv('DATABASE_URL');
-
-if (!dsn) {
-    console.error("No DATABASE_URL found");
-    process.exit(1);
-}
-
 const { Client } = require('pg');
+const fs = require('fs');
+require('dotenv').config();
+
+const dsn = process.env.DATABASE_URL;
+
+// Replace port 6543 with 5432 for session mode
+let sessionDsn = dsn.replace(':6543', ':5432');
+
 const client = new Client({
-    connectionString: dsn,
+    connectionString: sessionDsn,
     ssl: { rejectUnauthorized: false }
 });
 
@@ -22,8 +16,7 @@ async function runSQL() {
     try {
         await client.connect();
         console.log("Connected securely to Supabase DB. Running migration...");
-        const sqlFile = process.argv[2];
-        if (!sqlFile) throw new Error("Please provide an SQL file as an argument");
+        const sqlFile = process.argv[2] || '../frontend/database/26_add_sales_reservations.sql';
         const sql = fs.readFileSync(sqlFile, 'utf8');
         await client.query(sql);
         console.log("Migration successful!");

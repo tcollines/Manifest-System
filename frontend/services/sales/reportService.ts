@@ -49,5 +49,51 @@ export const reportService = {
       pendingOrdersCount,
       orders: data
     };
+  },
+
+  async getAllTimeStats(manifestId: string): Promise<any> {
+    const { data, error } = await supabase
+      .from('sales_orders')
+      .select(`
+        id,
+        total_amount,
+        amount_paid,
+        fulfillment_status,
+        sales_order_items (
+          quantity,
+          unit_price,
+          unit_cost_price
+        )
+      `)
+      .eq('manifest_id', manifestId);
+      
+    if (error) throw error;
+
+    let totalSales = 0;
+    let totalProfit = 0;
+    let completedOrdersCount = 0;
+    let pendingOrdersCount = 0;
+
+    data?.forEach((order: any) => {
+      if (order.fulfillment_status === 'COMPLETED') {
+        completedOrdersCount++;
+        totalSales += Number(order.total_amount);
+        
+        order.sales_order_items?.forEach((item: any) => {
+          const itemProfit = (Number(item.unit_price) - Number(item.unit_cost_price)) * Number(item.quantity);
+          totalProfit += itemProfit;
+        });
+      } else {
+        pendingOrdersCount++;
+      }
+    });
+
+    return {
+      totalSales,
+      totalProfit,
+      completedOrdersCount,
+      pendingOrdersCount,
+      orders: data
+    };
   }
 };

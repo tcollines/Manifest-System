@@ -78,6 +78,11 @@ const OrdersPage = React.lazy(() => import('../modules/sales/pages/OrdersPage'))
 const CustomersPage = React.lazy(() => import('../modules/sales/pages/CustomersPage'));
 const ProcurementPage = React.lazy(() => import('../modules/sales/pages/ProcurementPage'));
 const SalesDashboardPage = React.lazy(() => import('../modules/sales/pages/SalesDashboardPage'));
+const FinancialPositionPage = React.lazy(() => import('../modules/sales/pages/FinancialPositionPage'));
+const InventoryValuationPage = React.lazy(() => import('../modules/sales/pages/InventoryValuationPage'));
+const CashPositionPage = React.lazy(() => import('../modules/sales/pages/CashPositionPage'));
+const SalesSummaryPage = React.lazy(() => import('../modules/sales/pages/SalesSummaryPage'));
+const SalesFinancialsTabsLayout = React.lazy(() => import('../modules/sales/SalesFinancialsTabsLayout').then(m => ({ default: m.SalesFinancialsTabsLayout })));
 
 // Coordinator (my-residency) — modular replacement for CoordinatorResidencyDashboard
 const ResidentCoordinatorLayout = React.lazy(() => import('../modules/residents/ResidentCoordinatorLayout'));
@@ -124,7 +129,7 @@ const DepartmentRouterProxy: React.FC<ProxyProps> = ({ onOpenModal, onEditUser }
             <Routes>
                 <Route element={<ProtectedRoute allowedDepartments={[deptId]} />}>
                     <Route index element={<Navigate to="/administration" replace />} />
-                    <Route path="dashboard/*" element={<GenericDeptDashboard currentUser={currentUser} openModal={onOpenModal} onEditUser={onEditUser} />} />
+                    <Route path="dashboard/*" element={<GenericDeptDashboard deptId={deptId} currentUser={currentUser} openModal={onOpenModal} onEditUser={onEditUser} />} />
                 </Route>
             </Routes>
         );
@@ -152,7 +157,7 @@ const DepartmentRouterProxy: React.FC<ProxyProps> = ({ onOpenModal, onEditUser }
                         )}
                     </Route>
                     {isElevated && (
-                        <Route path="dashboard/*" element={<GenericDeptDashboard currentUser={currentUser} openModal={onOpenModal} onEditUser={onEditUser} />} />
+                        <Route path="dashboard/*" element={<GenericDeptDashboard deptId={deptId} currentUser={currentUser} openModal={onOpenModal} onEditUser={onEditUser} />} />
                     )}
                 </Route>
             </Routes>
@@ -175,7 +180,7 @@ const DepartmentRouterProxy: React.FC<ProxyProps> = ({ onOpenModal, onEditUser }
                     <Route path="follow-up" element={<NextGenFollowUp currentUser={currentUser!} events={events} />} />
                     <Route path="team" element={<NextGenTeam currentUser={currentUser!} />} />
                     <Route path="reports" element={<NextGenReports />} />
-                    <Route path="dashboard/*" element={<GenericDeptDashboard currentUser={currentUser} openModal={onOpenModal} onEditUser={onEditUser} />} />
+                    <Route path="dashboard/*" element={<GenericDeptDashboard deptId={deptId} currentUser={currentUser} openModal={onOpenModal} onEditUser={onEditUser} />} />
                 </Route>
             </Routes>
         );
@@ -191,7 +196,7 @@ const DepartmentRouterProxy: React.FC<ProxyProps> = ({ onOpenModal, onEditUser }
                         <Route path="checkin" element={<ParkingCheckInPage currentUser={currentUser} events={events} onOpenModal={onOpenModal} />} />
                         <Route path="database" element={<ParkingDatabasePage currentUser={currentUser} events={events} onOpenModal={onOpenModal} />} />
                     </Route>
-                    <Route path="dashboard/*" element={<GenericDeptDashboard currentUser={currentUser} openModal={onOpenModal} onEditUser={onEditUser} />} />
+                    <Route path="dashboard/*" element={<GenericDeptDashboard deptId={deptId} currentUser={currentUser} openModal={onOpenModal} onEditUser={onEditUser} />} />
                 </Route>
             </Routes>
         );
@@ -210,7 +215,7 @@ const DepartmentRouterProxy: React.FC<ProxyProps> = ({ onOpenModal, onEditUser }
                         <Route path="requisitions" element={<FinanceRequisitionsPage />} />
                         <Route path="fleet"        element={<FleetPage />} />
                     </Route>
-                    <Route path="dashboard/*" element={<GenericDeptDashboard currentUser={currentUser} openModal={onOpenModal} onEditUser={onEditUser} />} />
+                    <Route path="dashboard/*" element={<GenericDeptDashboard deptId={deptId} currentUser={currentUser} openModal={onOpenModal} onEditUser={onEditUser} />} />
                 </Route>
             </Routes>
         );
@@ -246,7 +251,7 @@ const DepartmentRouterProxy: React.FC<ProxyProps> = ({ onOpenModal, onEditUser }
 
                     {/* Generic Dept Dashboard outside of Layout */}
                     {!isStageCoordinator && !isVehicleCoordinator && (
-                        <Route path="dashboard/*" element={<GenericDeptDashboard currentUser={currentUser} openModal={onOpenModal} onEditUser={onEditUser} />} />
+                        <Route path="dashboard/*" element={<GenericDeptDashboard deptId={deptId} currentUser={currentUser} openModal={onOpenModal} onEditUser={onEditUser} />} />
                     )}
                 </Route>
             </Routes>
@@ -267,7 +272,7 @@ const DepartmentRouterProxy: React.FC<ProxyProps> = ({ onOpenModal, onEditUser }
                         <Route path="members"      element={<FollowUpMembersPage />} />
                         <Route path="analysis"     element={<FollowUpAnalysisPage />} />
                     </Route>
-                    <Route path="dashboard/*" element={<GenericDeptDashboard currentUser={currentUser} openModal={onOpenModal} onEditUser={onEditUser} />} />
+                    <Route path="dashboard/*" element={<GenericDeptDashboard deptId={deptId} currentUser={currentUser} openModal={onOpenModal} onEditUser={onEditUser} />} />
                 </Route>
             </Routes>
         );
@@ -285,7 +290,7 @@ const DepartmentRouterProxy: React.FC<ProxyProps> = ({ onOpenModal, onEditUser }
                             <Route path="events" element={<SchoolsEventsTab />} />
                         </Route>
                     </Route>
-                    <Route path="dashboard/*" element={<GenericDeptDashboard currentUser={currentUser} openModal={onOpenModal} onEditUser={onEditUser} />} />
+                    <Route path="dashboard/*" element={<GenericDeptDashboard deptId={deptId} currentUser={currentUser} openModal={onOpenModal} onEditUser={onEditUser} />} />
                 </Route>
             </Routes>
         );
@@ -304,7 +309,7 @@ const DepartmentRouterProxy: React.FC<ProxyProps> = ({ onOpenModal, onEditUser }
                         <Route path="testimonies" element={<HealingTestimoniesPage />} />
                         <Route path="new" element={<HealingNewPage />} />
                     </Route>
-                    <Route path="dashboard/*" element={<GenericDeptDashboard currentUser={currentUser} openModal={onOpenModal} onEditUser={onEditUser} />} />
+                    <Route path="dashboard/*" element={<GenericDeptDashboard deptId={deptId} currentUser={currentUser} openModal={onOpenModal} onEditUser={onEditUser} />} />
                 </Route>
             </Routes>
         );
@@ -326,7 +331,7 @@ const DepartmentRouterProxy: React.FC<ProxyProps> = ({ onOpenModal, onEditUser }
                         <Route path="finance" element={<CampusFinanceDashboard />} />
                     </Route>
                     <Route path="events" element={<CampusMinistryEvents events={events} />} />
-                    <Route path="dashboard/*" element={<GenericDeptDashboard currentUser={currentUser} openModal={onOpenModal} onEditUser={onEditUser} />} />
+                    <Route path="dashboard/*" element={<GenericDeptDashboard deptId={deptId} currentUser={currentUser} openModal={onOpenModal} onEditUser={onEditUser} />} />
                 </Route>
             </Routes>
         );
@@ -372,8 +377,16 @@ const DepartmentRouterProxy: React.FC<ProxyProps> = ({ onOpenModal, onEditUser }
                         <Route path="orders" element={<OrdersPage />} />
                         <Route path="customers" element={<CustomersPage />} />
                         <Route path="procurement" element={<ProcurementPage />} />
+                        
+                        <Route path="financials" element={<SalesFinancialsTabsLayout />}>
+                            <Route index element={<RedirectWithParams to="sales-summary" />} />
+                            <Route path="sales-summary" element={<SalesSummaryPage />} />
+                            <Route path="financial-position" element={<FinancialPositionPage />} />
+                            <Route path="inventory-valuation" element={<InventoryValuationPage />} />
+                            <Route path="cash-position" element={<CashPositionPage />} />
+                        </Route>
                     </Route>
-                    <Route path="dashboard/*" element={<GenericDeptDashboard currentUser={currentUser} openModal={onOpenModal} onEditUser={onEditUser} />} />
+                    <Route path="dashboard/*" element={<GenericDeptDashboard deptId={deptId} currentUser={currentUser} openModal={onOpenModal} onEditUser={onEditUser} />} />
                 </Route>
             </Routes>
         );
@@ -386,7 +399,7 @@ const DepartmentRouterProxy: React.FC<ProxyProps> = ({ onOpenModal, onEditUser }
             <Route element={<ProtectedRoute allowedDepartments={[deptId]} />}>
                 <Route index element={<DepartmentDetail />} />
 
-                <Route path="dashboard/*" element={<GenericDeptDashboard currentUser={currentUser} openModal={onOpenModal} onEditUser={onEditUser} />} />
+                <Route path="dashboard/*" element={<GenericDeptDashboard deptId={deptId} currentUser={currentUser} openModal={onOpenModal} onEditUser={onEditUser} />} />
             </Route>
         </Routes>
     );

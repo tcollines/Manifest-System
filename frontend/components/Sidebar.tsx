@@ -144,6 +144,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onLogout, isOpen, onClose }) => {
       myDeptItems.push({ id: 'sales-orders', label: 'Orders', icon: BarChart2, path: `/departments/${dId}/orders` });
       myDeptItems.push({ id: 'sales-customers', label: 'Customers', icon: Users, path: `/departments/${dId}/customers` });
       myDeptItems.push({ id: 'sales-procurement', label: 'Procurement', icon: Truck, path: `/departments/${dId}/procurement` });
+      myDeptItems.push({ id: 'sales-financials', label: 'Reports & Financials', icon: FileText, path: `/departments/${dId}/financials` });
   }
 
   if (roleHOD || isDeptFinance || isGlobalFinance || isSystemAdmin || isTeamLeader) {

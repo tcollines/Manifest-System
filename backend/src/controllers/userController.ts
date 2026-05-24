@@ -129,7 +129,8 @@ export const createUser = async (req: Request, res: Response) => {
             
             // Temporary coordinators ALWAYS use a synthetic email for Auth to avoid colliding with their permanent user accounts
             const isTempCoordinator = payload.role === 'Vehicle Coordinator' || payload.role === 'Stage Coordinator' || payload.role === 'Coordinator';
-            const syntheticEmail = `${payload.username.toLowerCase().replace(/\s+/g, '')}_${synthSuffix}@manifest.local`;
+            const baseName = payload.username || payload.name || 'user';
+            const syntheticEmail = `${baseName.toLowerCase().replace(/\s+/g, '')}_${synthSuffix}@manifest.local`;
             
             const targetEmail = isTempCoordinator ? syntheticEmail : (payload.email || syntheticEmail);
 
