@@ -248,7 +248,8 @@ const ProductsPage: React.FC = () => {
 
  <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden min-h-[400px]">
  {activeTab === 'variants' && (
- <div className="overflow-x-auto"><table className="w-full text-left min-w-[600px]" >
+ <div className="w-full">
+ <div className="hidden md:block overflow-x-auto"><table className="w-full text-left min-w-[600px]" >
  <thead>
  <tr className="bg-gray-50 border-b border-gray-200 text-sm text-gray-500">
  <th className="p-4 font-medium">Variant Info</th>
@@ -287,10 +288,39 @@ const ProductsPage: React.FC = () => {
  })}
  </tbody>
  </table></div>
+ 
+ <div className="md:hidden divide-y divide-gray-100">
+   {variants.length === 0 && !isLoading && (
+     <div className="p-12 text-center text-gray-400">No variants found.</div>
+   )}
+   {variants.map(v => {
+     const parentProd = products.find(p => p.id === v.product_id);
+     return (
+       <div key={v.id} className="p-4 hover:bg-gray-50 flex flex-col gap-2">
+         <div className="flex justify-between items-start">
+           <div>
+             <div className="font-semibold text-gray-900">{v.name}</div>
+             <div className="text-xs text-gray-500 mt-0.5">{parentProd?.name || 'Unknown Product'}</div>
+           </div>
+           <span className={`px-2 py-1 rounded-md text-xs font-bold ${v.stock_quantity > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+             {v.stock_quantity} IN STOCK
+           </span>
+         </div>
+         <div className="text-xs text-gray-500 font-mono mt-1">{v.sku} • {v.barcode}</div>
+         <div className="flex justify-between items-center mt-2 pt-2 border-t border-gray-50">
+           <div className="text-gray-400 text-xs line-through">Cost: UGX {v.cost_price?.toLocaleString()}</div>
+           <div className="font-bold text-ministry-orange">UGX {v.selling_price?.toLocaleString()}</div>
+         </div>
+       </div>
+     );
+   })}
+ </div>
+ </div>
  )}
 
  {activeTab === 'products' && (
- <div className="overflow-x-auto"><table className="w-full text-left min-w-[600px]" >
+ <div className="w-full">
+ <div className="hidden md:block overflow-x-auto"><table className="w-full text-left min-w-[600px]" >
  <thead>
  <tr className="bg-gray-50 border-b border-gray-200 text-sm text-gray-500">
  <th className="p-4 font-medium">Product Name</th>
@@ -316,6 +346,25 @@ const ProductsPage: React.FC = () => {
  })}
  </tbody>
  </table></div>
+ 
+ <div className="md:hidden divide-y divide-gray-100">
+   {products.length === 0 && !isLoading && (
+     <div className="p-12 text-center text-gray-400">No products found.</div>
+   )}
+   {products.map(p => {
+     const cat = categories.find(c => c.id === p.category_id);
+     return (
+       <div key={p.id} className="p-4 hover:bg-gray-50 flex justify-between items-center">
+         <div>
+           <div className="font-semibold text-gray-900">{p.name}</div>
+           <div className="text-xs text-gray-400 mt-1">{new Date(p.created_at || '').toLocaleDateString()}</div>
+         </div>
+         <span className="bg-gray-100 px-2 py-1 rounded text-xs text-gray-600">{cat?.name || 'Unknown'}</span>
+       </div>
+     );
+   })}
+ </div>
+ </div>
  )}
 
  {activeTab === 'categories' && (
@@ -342,13 +391,17 @@ const ProductsPage: React.FC = () => {
 
  {/* Category Modal */}
  {showCatModal && (
- <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
- <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl relative border border-gray-200">
- <button onClick={() => setShowCatModal(false)} className="absolute top-4 right-4 text-gray-400 hover:text-white bg-gray-100 rounded-full p-1"><X size={20} /></button>
- <h2 className="text-xl font-bold mb-4 text-gray-900">Add Category</h2>
- <form onSubmit={handleAddCategory} className="space-y-4">
+ <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+ <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl relative border border-gray-200 flex flex-col max-h-[90vh]">
+ <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 rounded-t-2xl">
+ <h2 className="text-xl font-bold text-gray-900">Add Category</h2>
+ <button onClick={() => setShowCatModal(false)} className="text-gray-400 hover:text-gray-900 bg-gray-200 rounded-full p-1"><X size={20} /></button>
+ </div>
+ <form onSubmit={handleAddCategory} className="flex-1 overflow-y-auto p-6 space-y-4">
  <TextInput label="Category Name" value={catForm.name} onChange={(e) => setCatForm({...catForm, name: e.target.value})} placeholder="e.g. T-Shirts" required />
- <button type="submit"className="w-full bg-ministry-orange text-white rounded-xl py-3 font-bold hover:bg-orange-600 transition-colors">Create Category</button>
+ <div className="pt-4">
+   <button type="submit"className="w-full bg-ministry-orange text-white rounded-xl py-3 font-bold hover:bg-orange-600 transition-colors">Create Category</button>
+ </div>
  </form>
  </div>
  </div>
@@ -356,11 +409,13 @@ const ProductsPage: React.FC = () => {
 
  {/* Product Modal */}
  {showProdModal && (
- <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
- <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl relative border border-gray-200">
- <button onClick={() => setShowProdModal(false)} className="absolute top-4 right-4 text-gray-400 hover:text-white bg-gray-100 rounded-full p-1"><X size={20} /></button>
- <h2 className="text-xl font-bold mb-4 text-gray-900">Add Product</h2>
- <form onSubmit={handleAddProduct} className="space-y-4">
+ <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+ <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl relative border border-gray-200 flex flex-col max-h-[90vh]">
+ <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 rounded-t-2xl">
+ <h2 className="text-xl font-bold text-gray-900">Add Product</h2>
+ <button onClick={() => setShowProdModal(false)} className="text-gray-400 hover:text-gray-900 bg-gray-200 rounded-full p-1"><X size={20} /></button>
+ </div>
+ <form onSubmit={handleAddProduct} className="flex-1 overflow-y-auto p-6 space-y-4">
  <SelectInput 
  label="Category" 
  value={prodForm.category_id} 
@@ -370,7 +425,9 @@ const ProductsPage: React.FC = () => {
  required
  />
  <TextInput label="Product Name" value={prodForm.name} onChange={(e) => setProdForm({...prodForm, name: e.target.value})} placeholder="e.g. Manifesto Tour Tee" required />
- <button type="submit"className="w-full bg-ministry-orange text-white rounded-xl py-3 font-bold hover:bg-orange-600 transition-colors">Create Product</button>
+ <div className="pt-4">
+   <button type="submit"className="w-full bg-ministry-orange text-white rounded-xl py-3 font-bold hover:bg-orange-600 transition-colors">Create Product</button>
+ </div>
  </form>
  </div>
  </div>
@@ -378,11 +435,13 @@ const ProductsPage: React.FC = () => {
 
  {/* Variant Modal */}
  {showVarModal && (
- <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
- <div className="bg-white rounded-2xl p-6 w-full max-w-xl shadow-2xl relative border border-gray-200">
- <button onClick={() => setShowVarModal(false)} className="absolute top-4 right-4 text-gray-400 hover:text-white bg-gray-100 rounded-full p-1"><X size={20} /></button>
- <h2 className="text-xl font-bold mb-4 text-gray-900">Add Variant</h2>
- <form onSubmit={handleAddVariant} className="space-y-4">
+ <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+ <div className="bg-white rounded-2xl w-full max-w-xl shadow-2xl relative border border-gray-200 flex flex-col max-h-[90vh]">
+ <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 rounded-t-2xl">
+ <h2 className="text-xl font-bold text-gray-900">Add Variant</h2>
+ <button onClick={() => setShowVarModal(false)} className="text-gray-400 hover:text-gray-900 bg-gray-200 rounded-full p-1"><X size={20} /></button>
+ </div>
+ <form onSubmit={handleAddVariant} className="flex-1 overflow-y-auto p-6 space-y-4">
  <SelectInput 
  label="Base Product" 
  value={varForm.product_id} 
@@ -393,12 +452,12 @@ const ProductsPage: React.FC = () => {
  />
  <TextInput label="Variant Name" value={varForm.name} onChange={(e) => updateVarFormAuto({ name: e.target.value })} placeholder="e.g. Black / Large" required />
  
- <div className="grid grid-cols-2 gap-4">
+ <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
  <TextInput label="SKU" value={varForm.sku} onChange={(e) => setVarForm({...varForm, sku: e.target.value})} placeholder="e.g. MGP-BLK-L" disabled required />
  <TextInput label="Barcode" value={varForm.barcode} onChange={(e) => setVarForm({...varForm, barcode: e.target.value})} placeholder="e.g. SALES-CLO-MGPTEE-BLK-VN-XL" disabled required />
  </div>
  
- <div className="grid grid-cols-2 gap-4">
+ <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
  <div>
  <label className="block text-sm font-medium text-gray-700 mb-1">Cost Price</label>
  <input 
@@ -426,7 +485,7 @@ const ProductsPage: React.FC = () => {
   />
  </div>
  </div>
-
+ 
  <div className="pt-4 mt-2 border-t border-gray-100">
  <button type="submit"className="w-full bg-ministry-orange text-white rounded-xl py-3 font-bold hover:bg-orange-600 transition-colors">Create Variant</button>
  </div>

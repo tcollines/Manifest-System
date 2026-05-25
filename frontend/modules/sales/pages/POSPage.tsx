@@ -1,11 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Html5QrcodeScanner } from 'html5-qrcode';
-import { ShoppingCart, QrCode, Search, Plus, Minus, CreditCard, CheckCircle, User } from 'lucide-react';
+import { ShoppingCart, QrCode, Search, Plus, Minus, CreditCard, CheckCircle, User, X } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { salesService } from '../../../services/sales/salesService';
-import { orderService } from '../../../services/sales/orderService';
-import { paymentService } from '../../../services/sales/paymentService';
-import { fulfillmentService } from '../../../services/sales/fulfillmentService';
 import { customerService } from '../../../services/sales/customerService';
 import { useNotification } from '../../../components/ui/NotificationSystem';
 import { SalesProduct, SalesVariant, SalesCustomer } from '../types';
@@ -22,6 +19,7 @@ const POSPage: React.FC = () => {
  const { user } = useAuth();
  const { showToast } = useNotification();
  const [isScanning, setIsScanning] = useState(false);
+ const [showMobileCart, setShowMobileCart] = useState(false);
  
  const [products, setProducts] = useState<SalesProduct[]>([]);
  const [variants, setVariants] = useState<SalesVariant[]>([]);
@@ -172,6 +170,7 @@ const POSPage: React.FC = () => {
      setCart([]);
      setAmountPaid('');
      setSelectedCustomerId('');
+     setShowMobileCart(false);
      loadCatalog(); // refresh stock
    } catch (err: any) {
      showToast(err.message, 'error');
@@ -203,9 +202,9 @@ const POSPage: React.FC = () => {
  };
 
  return (
-   <div className="flex flex-col lg:flex-row gap-6 h-full">
+   <div className="flex flex-col lg:flex-row gap-6 h-full relative">
      {/* Product Selection Area */}
-     <div className="flex-1 flex flex-col h-full bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+     <div className="flex-1 flex flex-col h-full bg-white rounded-xl shadow-sm border border-gray-100 p-4 pb-20 lg:pb-4">
        <div className="flex items-center gap-4 mb-6">
          <div className="relative flex-1">
            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
@@ -224,7 +223,7 @@ const POSPage: React.FC = () => {
            className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors"
          >
            <QrCode size={18} />
-           {isScanning ? 'Close Scanner' : 'Scan'}
+           <span className="hidden sm:inline">{isScanning ? 'Close Scanner' : 'Scan'}</span>
          </button>
        </div>
 
@@ -241,17 +240,17 @@ const POSPage: React.FC = () => {
               <div 
                 key={variant.id} 
                 onClick={() => addToCart(variant)}
-                className="p-4 bg-white border border-gray-100 rounded-xl cursor-pointer hover:border-ministry-orange hover:shadow-sm transition-all flex flex-row items-center justify-between"
+                className="p-4 bg-white border border-gray-100 rounded-xl cursor-pointer hover:border-ministry-orange hover:shadow-sm transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-2"
               >
                 <div className="flex-1">
                   <h3 className="font-semibold text-gray-900">{variant.name}</h3>
                   <p className="text-xs text-gray-500 mt-1">{variant.sku}</p>
                 </div>
-                <div className="flex items-center gap-6">
+                <div className="flex items-center justify-between sm:justify-end gap-6">
                   <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${availableStock > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                     {availableStock} left
                   </span>
-                  <span className="font-bold text-ministry-orange text-lg w-28 text-right">UGX {Number(variant.selling_price).toLocaleString()}</span>
+                  <span className="font-bold text-ministry-orange text-lg text-right">UGX {Number(variant.selling_price).toLocaleString()}</span>
                 </div>
               </div>
             );
@@ -259,11 +258,29 @@ const POSPage: React.FC = () => {
         </div>
      </div>
 
+     {/* Mobile Floating Cart Summary */}
+     {!showMobileCart && cart.length > 0 && (
+       <div className="lg:hidden fixed bottom-[max(1.5rem,env(safe-area-inset-bottom))] left-4 right-4 z-40">
+         <button onClick={() => setShowMobileCart(true)} className="w-full bg-gray-900 text-white rounded-xl p-4 shadow-2xl flex justify-between items-center font-bold">
+           <div className="flex items-center gap-3">
+             <span className="bg-ministry-orange text-white text-sm font-bold w-6 h-6 flex items-center justify-center rounded-full">{cart.reduce((s,i)=>s+i.quantity, 0)}</span>
+             <span>View Cart</span>
+           </div>
+           <span>UGX {totalAmount.toLocaleString()}</span>
+         </button>
+       </div>
+     )}
+
      {/* Cart Area */}
-     <div className="w-full lg:w-96 flex flex-col h-full bg-white rounded-xl shadow-sm border border-gray-100">
-       <div className="p-4 border-b border-gray-100 flex items-center gap-2">
-         <ShoppingCart size={20} className="text-ministry-orange"/>
-         <h2 className="font-bold text-gray-900 text-lg">Current Order</h2>
+     <div className={`fixed inset-0 z-50 lg:static lg:z-auto lg:flex w-full lg:w-96 flex-col h-full bg-white lg:rounded-xl shadow-sm border border-gray-100 ${showMobileCart ? 'flex' : 'hidden'}`}>
+       <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-gray-50 pt-safe-top">
+         <div className="flex items-center gap-2">
+            <ShoppingCart size={20} className="text-ministry-orange"/>
+            <h2 className="font-bold text-gray-900 text-lg">Current Order</h2>
+         </div>
+         <button onClick={() => setShowMobileCart(false)} className="lg:hidden p-2 text-gray-500 hover:text-gray-900 bg-gray-200 rounded-full">
+           <X size={20} />
+         </button>
        </div>
 
        <div className="p-4 border-b border-gray-100 bg-gray-50">
@@ -296,14 +313,14 @@ const POSPage: React.FC = () => {
                    <span className="w-6 text-center font-medium text-sm">{item.quantity}</span>
                    <button onClick={() => updateQuantity(item.variant.id, 1)} className="p-1 hover:bg-gray-100 rounded"><Plus size={14} /></button>
                  </div>
-                 <button onClick={() => removeFromCart(item.variant.id)} className="text-red-500 text-xs hover:underline">Remove</button>
+                 <button onClick={() => removeFromCart(item.variant.id)} className="text-red-500 text-xs hover:underline p-1">Remove</button>
                </div>
              </div>
            ))
          )}
        </div>
 
-       <div className="p-4 border-t border-gray-100 bg-gray-50 rounded-b-xl">
+       <div className="p-4 border-t border-gray-100 bg-gray-50 lg:rounded-b-xl mb-safe-bottom">
          <div className="flex justify-between items-center mb-4">
            <span className="text-gray-600">Total Amount</span>
            <span className="text-2xl font-bold text-gray-900">UGX {totalAmount.toLocaleString()}</span>

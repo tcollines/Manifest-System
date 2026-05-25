@@ -88,79 +88,140 @@ const OrdersPage: React.FC = () => {
    <div className="space-y-6">
      <h1 className="text-2xl font-bold text-gray-900">Orders & Fulfillment</h1>
      
-     <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-       <div className="overflow-x-auto"><table className="w-full text-left min-w-[600px]" >
-         <thead>
-           <tr className="bg-gray-50 border-b border-gray-200 text-sm text-gray-500">
-             <th className="p-4">Order ID</th>
-             <th className="p-4">Customer</th>
-             <th className="p-4">Date</th>
-             <th className="p-4 text-right">Total</th>
-             <th className="p-4 text-right">Paid</th>
-             <th className="p-4 text-center">Payment</th>
-             <th className="p-4 text-center">Fulfillment</th>
-             <th className="p-4 text-right">Actions</th>
-           </tr>
-         </thead>
-         <tbody className="divide-y divide-gray-100 text-sm">
-           {orders.map(o => (
-             <tr key={o.id} className="hover:bg-gray-50">
-               <td className="p-4 font-mono text-gray-600">{o.id.split('-')[0].toUpperCase()}</td>
-               <td className="p-4 font-medium text-gray-900">{(o as any).sales_customers?.full_name || 'Walk-in'}</td>
-               <td className="p-4 text-gray-500">{new Date(o.created_at).toLocaleString()}</td>
-               <td className="p-4 text-right font-medium">UGX {Number(o.total_amount).toLocaleString()}</td>
-               <td className="p-4 text-right text-gray-500">UGX {Number(o.amount_paid).toLocaleString()}</td>
-               <td className="p-4 text-center">
-                 <span className={`px-2 py-1 rounded-full text-xs font-bold ${
-                   o.payment_status === 'PAID' ? 'bg-green-100 text-green-700' :
-                   o.payment_status === 'PARTIAL' ? 'bg-yellow-100 text-yellow-700' :
-                   o.payment_status === 'REFUNDED' ? 'bg-red-100 text-red-700' :
-                   'bg-gray-100 text-gray-700'
-                 }`}>
-                   {o.payment_status}
-                 </span>
-               </td>
-               <td className="p-4 text-center">
-                 <span className={`px-2 py-1 rounded-full text-xs font-bold ${
-                   o.fulfillment_status === 'COMPLETED' ? 'bg-blue-100 text-blue-700' :
-                   o.fulfillment_status === 'RESERVED' ? 'bg-indigo-100 text-indigo-700' :
-                   o.fulfillment_status === 'WAITING_SUPPLIER' ? 'bg-purple-100 text-purple-700' :
-                   o.fulfillment_status === 'CANCELLED' ? 'bg-red-100 text-red-700' :
-                   'bg-gray-100 text-gray-700'
-                 }`}>
-                   {o.fulfillment_status}
-                 </span>
-               </td>
-               <td className="p-4 text-right space-x-3">
-                 {o.payment_status !== 'PAID' && o.payment_status !== 'REFUNDED' && (
-                   <button onClick={() => setPayOrder(o)} className="text-ministry-orange hover:underline font-medium text-xs">
-                     Pay Balance
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden w-full">
+        <div className="hidden md:block overflow-x-auto"><table className="w-full text-left min-w-[600px]" >
+          <thead>
+            <tr className="bg-gray-50 border-b border-gray-200 text-sm text-gray-500">
+              <th className="p-4">Order ID</th>
+              <th className="p-4">Customer</th>
+              <th className="p-4">Date</th>
+              <th className="p-4 text-right">Total</th>
+              <th className="p-4 text-right">Paid</th>
+              <th className="p-4 text-center">Payment</th>
+              <th className="p-4 text-center">Fulfillment</th>
+              <th className="p-4 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100 text-sm">
+            {orders.map(o => (
+              <tr key={o.id} className="hover:bg-gray-50">
+                <td className="p-4 font-mono text-gray-600">{o.id.split('-')[0].toUpperCase()}</td>
+                <td className="p-4 font-medium text-gray-900">{(o as any).sales_customers?.full_name || 'Walk-in'}</td>
+                <td className="p-4 text-gray-500">{new Date(o.created_at).toLocaleString()}</td>
+                <td className="p-4 text-right font-medium">UGX {Number(o.total_amount).toLocaleString()}</td>
+                <td className="p-4 text-right text-gray-500">UGX {Number(o.amount_paid).toLocaleString()}</td>
+                <td className="p-4 text-center">
+                  <span className={`px-2 py-1 rounded-full text-xs font-bold ${
+                    o.payment_status === 'PAID' ? 'bg-green-100 text-green-700' :
+                    o.payment_status === 'PARTIAL' ? 'bg-yellow-100 text-yellow-700' :
+                    o.payment_status === 'REFUNDED' ? 'bg-red-100 text-red-700' :
+                    'bg-gray-100 text-gray-700'
+                  }`}>
+                    {o.payment_status}
+                  </span>
+                </td>
+                <td className="p-4 text-center">
+                  <span className={`px-2 py-1 rounded-full text-xs font-bold ${
+                    o.fulfillment_status === 'COMPLETED' ? 'bg-blue-100 text-blue-700' :
+                    o.fulfillment_status === 'RESERVED' ? 'bg-indigo-100 text-indigo-700' :
+                    o.fulfillment_status === 'WAITING_SUPPLIER' ? 'bg-purple-100 text-purple-700' :
+                    o.fulfillment_status === 'CANCELLED' ? 'bg-red-100 text-red-700' :
+                    'bg-gray-100 text-gray-700'
+                  }`}>
+                    {o.fulfillment_status}
+                  </span>
+                </td>
+                <td className="p-4 text-right space-x-3">
+                  {o.payment_status !== 'PAID' && o.payment_status !== 'REFUNDED' && (
+                    <button onClick={() => setPayOrder(o)} className="text-ministry-orange hover:underline font-medium text-xs">
+                      Pay Balance
+                    </button>
+                  )}
+                  {o.payment_status === 'PAID' && (o.fulfillment_status === 'RESERVED' || o.fulfillment_status === 'PENDING') && (
+                     <button onClick={() => setFulfillOrder(o)} className="text-blue-600 hover:underline font-medium text-xs">
+                       Release Items
+                     </button>
+                  )}
+                  {(o.payment_status === 'PAID' || o.payment_status === 'PARTIAL') && o.fulfillment_status !== 'COMPLETED' && (
+                     <button onClick={() => setRefundOrder(o)} className="text-red-500 hover:underline font-medium text-xs">
+                       Refund & Cancel
+                     </button>
+                  )}
+                  {o.payment_status === 'UNPAID' && o.fulfillment_status !== 'CANCELLED' && (
+                     <button onClick={() => setCancelOrder(o)} className="text-gray-500 hover:text-red-500 hover:underline font-medium text-xs">
+                       Cancel
+                     </button>
+                  )}
+                </td>
+              </tr>
+            ))}
+            {orders.length === 0 && (
+               <tr><td colSpan={8} className="p-8 text-center text-gray-400">No orders found.</td></tr>
+            )}
+          </tbody>
+        </table></div>
+
+        <div className="md:hidden divide-y divide-gray-100">
+          {orders.length === 0 && (
+             <div className="p-8 text-center text-gray-400">No orders found.</div>
+          )}
+          {orders.map(o => (
+            <div key={o.id} className="p-4 hover:bg-gray-50 flex flex-col gap-3">
+              <div className="flex justify-between items-start">
+                <div>
+                  <div className="font-semibold text-gray-900">{(o as any).sales_customers?.full_name || 'Walk-in Customer'}</div>
+                  <div className="text-xs text-gray-500 font-mono mt-0.5">#{o.id.split('-')[0].toUpperCase()} • {new Date(o.created_at).toLocaleDateString()}</div>
+                </div>
+                <div className="text-right">
+                  <div className="font-bold text-gray-900">UGX {Number(o.total_amount).toLocaleString()}</div>
+                  <div className="text-xs text-gray-500">Paid: UGX {Number(o.amount_paid).toLocaleString()}</div>
+                </div>
+              </div>
+              <div className="flex gap-2 mt-1">
+                <span className={`px-2 py-1 rounded-full text-[10px] font-bold ${
+                  o.payment_status === 'PAID' ? 'bg-green-100 text-green-700' :
+                  o.payment_status === 'PARTIAL' ? 'bg-yellow-100 text-yellow-700' :
+                  o.payment_status === 'REFUNDED' ? 'bg-red-100 text-red-700' :
+                  'bg-gray-100 text-gray-700'
+                }`}>
+                  {o.payment_status}
+                </span>
+                <span className={`px-2 py-1 rounded-full text-[10px] font-bold ${
+                  o.fulfillment_status === 'COMPLETED' ? 'bg-blue-100 text-blue-700' :
+                  o.fulfillment_status === 'RESERVED' ? 'bg-indigo-100 text-indigo-700' :
+                  o.fulfillment_status === 'WAITING_SUPPLIER' ? 'bg-purple-100 text-purple-700' :
+                  o.fulfillment_status === 'CANCELLED' ? 'bg-red-100 text-red-700' :
+                  'bg-gray-100 text-gray-700'
+                }`}>
+                  {o.fulfillment_status}
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-2 pt-2 mt-1 border-t border-gray-50">
+                {o.payment_status !== 'PAID' && o.payment_status !== 'REFUNDED' && (
+                  <button onClick={() => setPayOrder(o)} className="px-3 py-1.5 bg-ministry-orange text-white rounded-md font-medium text-xs">
+                    Pay Balance
+                  </button>
+                )}
+                {o.payment_status === 'PAID' && (o.fulfillment_status === 'RESERVED' || o.fulfillment_status === 'PENDING') && (
+                   <button onClick={() => setFulfillOrder(o)} className="px-3 py-1.5 bg-blue-600 text-white rounded-md font-medium text-xs">
+                     Release Items
                    </button>
-                 )}
-                 {o.payment_status === 'PAID' && (o.fulfillment_status === 'RESERVED' || o.fulfillment_status === 'PENDING') && (
-                    <button onClick={() => setFulfillOrder(o)} className="text-blue-600 hover:underline font-medium text-xs">
-                      Release Items
-                    </button>
-                 )}
-                 {(o.payment_status === 'PAID' || o.payment_status === 'PARTIAL') && o.fulfillment_status !== 'COMPLETED' && (
-                    <button onClick={() => setRefundOrder(o)} className="text-red-500 hover:underline font-medium text-xs">
-                      Refund & Cancel
-                    </button>
-                 )}
-                 {o.payment_status === 'UNPAID' && o.fulfillment_status !== 'CANCELLED' && (
-                    <button onClick={() => setCancelOrder(o)} className="text-gray-500 hover:text-red-500 hover:underline font-medium text-xs">
-                      Cancel
-                    </button>
-                 )}
-               </td>
-             </tr>
-           ))}
-           {orders.length === 0 && (
-              <tr><td colSpan={8} className="p-8 text-center text-gray-400">No orders found.</td></tr>
-           )}
-         </tbody>
-       </table></div>
-     </div>
+                )}
+                {(o.payment_status === 'PAID' || o.payment_status === 'PARTIAL') && o.fulfillment_status !== 'COMPLETED' && (
+                   <button onClick={() => setRefundOrder(o)} className="px-3 py-1.5 bg-red-100 text-red-700 rounded-md font-medium text-xs">
+                     Refund
+                   </button>
+                )}
+                {o.payment_status === 'UNPAID' && o.fulfillment_status !== 'CANCELLED' && (
+                   <button onClick={() => setCancelOrder(o)} className="px-3 py-1.5 bg-gray-100 text-gray-700 hover:text-red-600 rounded-md font-medium text-xs">
+                     Cancel
+                   </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
 
      {/* Modals */}
      {payOrder && (

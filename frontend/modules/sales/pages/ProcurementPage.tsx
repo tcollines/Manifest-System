@@ -368,136 +368,231 @@ const ProcurementPage: React.FC = () => {
       </div>
       
       {activeTab === 'REQUESTS' && (
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-x-auto">
-          <table className="w-full text-left min-w-[700px]">
-            <thead>
-              <tr className="bg-gray-50 border-b border-gray-200 text-sm text-gray-500">
-                <th className="p-4">PO Ref</th>
-                <th className="p-4">Supplier</th>
-                <th className="p-4">Date</th>
-                <th className="p-4 text-right">Total (UGX)</th>
-                <th className="p-4 text-right">Balance Due</th>
-                <th className="p-4">Status / Payment</th>
-                <th className="p-4 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 text-sm">
-              {requests.map(r => (
-                <tr key={r.id}>
-                  <td className="p-4 font-mono font-medium text-gray-900">{r.id.split('-')[0].toUpperCase()}</td>
-                  <td className="p-4 font-medium text-gray-700">{(r as any).sales_suppliers?.name}</td>
-                  <td className="p-4 text-gray-500">{new Date(r.created_at).toLocaleDateString()}</td>
-                  <td className="p-4 text-right font-medium text-gray-900">{Number(r.total_amount).toLocaleString()}</td>
-                  <td className="p-4 text-right">
-                    <span className={`font-bold ${Number(r.balance_due) > 0 ? 'text-red-500' : 'text-green-600'}`}>
-                      {Number(r.balance_due).toLocaleString()}
-                    </span>
-                  </td>
-                  <td className="p-4">
-                    <div className="flex flex-col items-start gap-1">
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-700`}>
-                        {r.status.replace(/_/g, ' ')}
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm w-full">
+          <div className="hidden md:block overflow-x-auto">
+            <table className="w-full text-left min-w-[700px]">
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-200 text-sm text-gray-500">
+                  <th className="p-4">PO Ref</th>
+                  <th className="p-4">Supplier</th>
+                  <th className="p-4">Date</th>
+                  <th className="p-4 text-right">Total (UGX)</th>
+                  <th className="p-4 text-right">Balance Due</th>
+                  <th className="p-4">Status / Payment</th>
+                  <th className="p-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 text-sm">
+                {requests.map(r => (
+                  <tr key={r.id}>
+                    <td className="p-4 font-mono font-medium text-gray-900">{r.id.split('-')[0].toUpperCase()}</td>
+                    <td className="p-4 font-medium text-gray-700">{(r as any).sales_suppliers?.name}</td>
+                    <td className="p-4 text-gray-500">{new Date(r.created_at).toLocaleDateString()}</td>
+                    <td className="p-4 text-right font-medium text-gray-900">{Number(r.total_amount).toLocaleString()}</td>
+                    <td className="p-4 text-right">
+                      <span className={`font-bold ${Number(r.balance_due) > 0 ? 'text-red-500' : 'text-green-600'}`}>
+                        {Number(r.balance_due).toLocaleString()}
                       </span>
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${r.payment_status === 'PAID' ? 'bg-green-100 text-green-700' : r.payment_status === 'PARTIAL' ? 'bg-orange-100 text-orange-700' : 'bg-red-100 text-red-700'}`}>
-                        {r.payment_status}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="p-4 text-right flex justify-end gap-2 items-center">
-                    <select 
-                      className="border border-gray-200 rounded-lg bg-gray-50 text-xs px-2 py-1 focus:outline-none focus:border-ministry-orange disabled:opacity-50"
-                      value={r.status}
-                      onChange={(e) => handleStatusChange(r.id, e.target.value)}
-                      disabled={r.status === 'RECEIVED' || r.status === 'CANCELLED'}
-                    >
-                      {r.status === 'DRAFT' && <option value="DRAFT">Draft</option>}
-                      <option value="ORDERED">Ordered</option>
-                      {r.status === 'PARTIALLY_RECEIVED' && <option value="PARTIALLY_RECEIVED">Partially Received</option>}
-                      {r.status === 'RECEIVED' && <option value="RECEIVED">Received</option>}
-                      <option value="CANCELLED">Cancelled</option>
-                    </select>
-                    
-                    {r.status === 'DRAFT' && (
-                      <button 
-                        onClick={() => openEditPOModal(r)}
-                        className="p-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors"
-                        title="Edit PO"
+                    </td>
+                    <td className="p-4">
+                      <div className="flex flex-col items-start gap-1">
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-700`}>
+                          {r.status.replace(/_/g, ' ')}
+                        </span>
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${r.payment_status === 'PAID' ? 'bg-green-100 text-green-700' : r.payment_status === 'PARTIAL' ? 'bg-orange-100 text-orange-700' : 'bg-red-100 text-red-700'}`}>
+                          {r.payment_status}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="p-4 text-right flex justify-end gap-2 items-center">
+                      <select 
+                        className="border border-gray-200 rounded-lg bg-gray-50 text-xs px-2 py-1 focus:outline-none focus:border-ministry-orange disabled:opacity-50"
+                        value={r.status}
+                        onChange={(e) => handleStatusChange(r.id, e.target.value)}
+                        disabled={r.status === 'RECEIVED' || r.status === 'CANCELLED'}
                       >
+                        {r.status === 'DRAFT' && <option value="DRAFT">Draft</option>}
+                        <option value="ORDERED">Ordered</option>
+                        {r.status === 'PARTIALLY_RECEIVED' && <option value="PARTIALLY_RECEIVED">Partially Received</option>}
+                        {r.status === 'RECEIVED' && <option value="RECEIVED">Received</option>}
+                        <option value="CANCELLED">Cancelled</option>
+                      </select>
+                      
+                      {r.status === 'DRAFT' && (
+                        <button 
+                          onClick={() => openEditPOModal(r)}
+                          className="p-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors"
+                          title="Edit PO"
+                        >
+                          <Edit size={16} />
+                        </button>
+                      )}
+
+                      {r.status !== 'DRAFT' && (
+                        <button 
+                          onClick={() => openViewModal(r)}
+                          className="p-1.5 bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200 rounded-lg transition-colors"
+                          title="View PO"
+                        >
+                          <Eye size={16} />
+                        </button>
+                      )}
+
+                      {r.status !== 'RECEIVED' && r.status !== 'CANCELLED' && r.status !== 'DRAFT' && (
+                        <button 
+                          onClick={() => openReceiveModal(r)}
+                          className="p-1.5 bg-green-50 text-green-600 hover:bg-green-100 rounded-lg transition-colors"
+                          title="Receive Items"
+                        >
+                          <CheckCircle size={16} />
+                        </button>
+                      )}
+
+                      {r.status !== 'DRAFT' && (
+                        <button 
+                          onClick={() => openPaymentModal(r)}
+                          className="p-1.5 bg-orange-50 text-ministry-orange hover:bg-orange-100 rounded-lg transition-colors"
+                          title="Record Payment"
+                        >
+                          <CreditCard size={16} />
+                        </button>
+                      )}
+
+                      <button 
+                        onClick={() => handleDeletePO(r.id)}
+                        className="p-1.5 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg transition-colors"
+                        title="Delete PO"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {requests.length === 0 && (
+                  <tr><td colSpan={7} className="p-8 text-center text-gray-400">No purchase orders found.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="md:hidden divide-y divide-gray-100">
+            {requests.length === 0 && (
+              <div className="p-8 text-center text-gray-400">No purchase orders found.</div>
+            )}
+            {requests.map(r => (
+              <div key={r.id} className="p-4 hover:bg-gray-50 flex flex-col gap-3">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <div className="font-semibold text-gray-900">{(r as any).sales_suppliers?.name || 'Unknown Supplier'}</div>
+                    <div className="text-xs text-gray-500 font-mono mt-0.5">#{r.id.split('-')[0].toUpperCase()} • {new Date(r.created_at).toLocaleDateString()}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="font-bold text-gray-900">UGX {Number(r.total_amount).toLocaleString()}</div>
+                    <div className="text-xs">
+                      {Number(r.balance_due) > 0 ? (
+                        <span className="text-red-500 font-medium">Due: {Number(r.balance_due).toLocaleString()}</span>
+                      ) : (
+                        <span className="text-green-600 font-medium">Paid in full</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="flex gap-2 mt-1">
+                  <span className={`px-2 py-1 rounded-full text-[10px] font-medium bg-gray-100 text-gray-700`}>
+                    {r.status.replace(/_/g, ' ')}
+                  </span>
+                  <span className={`px-2 py-1 rounded-full text-[10px] font-bold ${r.payment_status === 'PAID' ? 'bg-green-100 text-green-700' : r.payment_status === 'PARTIAL' ? 'bg-orange-100 text-orange-700' : 'bg-red-100 text-red-700'}`}>
+                    {r.payment_status}
+                  </span>
+                </div>
+                
+                <div className="flex flex-wrap items-center gap-2 pt-2 mt-1 border-t border-gray-50">
+                  <select 
+                    className="border border-gray-200 rounded-md bg-gray-50 text-xs px-2 py-1.5 focus:outline-none focus:border-ministry-orange disabled:opacity-50 flex-1 min-w-[120px]"
+                    value={r.status}
+                    onChange={(e) => handleStatusChange(r.id, e.target.value)}
+                    disabled={r.status === 'RECEIVED' || r.status === 'CANCELLED'}
+                  >
+                    {r.status === 'DRAFT' && <option value="DRAFT">Draft</option>}
+                    <option value="ORDERED">Ordered</option>
+                    {r.status === 'PARTIALLY_RECEIVED' && <option value="PARTIALLY_RECEIVED">Partially Received</option>}
+                    {r.status === 'RECEIVED' && <option value="RECEIVED">Received</option>}
+                    <option value="CANCELLED">Cancelled</option>
+                  </select>
+                  
+                  <div className="flex gap-1">
+                    {r.status === 'DRAFT' && (
+                      <button onClick={() => openEditPOModal(r)} className="p-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-md transition-colors" title="Edit PO">
                         <Edit size={16} />
                       </button>
                     )}
-
                     {r.status !== 'DRAFT' && (
-                      <button 
-                        onClick={() => openViewModal(r)}
-                        className="p-1.5 bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200 rounded-lg transition-colors"
-                        title="View PO"
-                      >
+                      <button onClick={() => openViewModal(r)} className="p-2 bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200 rounded-md transition-colors" title="View PO">
                         <Eye size={16} />
                       </button>
                     )}
-
                     {r.status !== 'RECEIVED' && r.status !== 'CANCELLED' && r.status !== 'DRAFT' && (
-                      <button 
-                        onClick={() => openReceiveModal(r)}
-                        className="p-1.5 bg-green-50 text-green-600 hover:bg-green-100 rounded-lg transition-colors"
-                        title="Receive Items"
-                      >
+                      <button onClick={() => openReceiveModal(r)} className="p-2 bg-green-50 text-green-600 hover:bg-green-100 rounded-md transition-colors" title="Receive Items">
                         <CheckCircle size={16} />
                       </button>
                     )}
-
                     {r.status !== 'DRAFT' && (
-                      <button 
-                        onClick={() => openPaymentModal(r)}
-                        className="p-1.5 bg-orange-50 text-ministry-orange hover:bg-orange-100 rounded-lg transition-colors"
-                        title="Record Payment"
-                      >
+                      <button onClick={() => openPaymentModal(r)} className="p-2 bg-orange-50 text-ministry-orange hover:bg-orange-100 rounded-md transition-colors" title="Record Payment">
                         <CreditCard size={16} />
                       </button>
                     )}
-
-                    <button 
-                      onClick={() => handleDeletePO(r.id)}
-                      className="p-1.5 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg transition-colors"
-                      title="Delete PO"
-                    >
+                    <button onClick={() => handleDeletePO(r.id)} className="p-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-md transition-colors" title="Delete PO">
                       <Trash2 size={16} />
                     </button>
-                  </td>
-                </tr>
-              ))}
-              {requests.length === 0 && (
-                <tr><td colSpan={5} className="p-8 text-center text-gray-400">No purchase orders found.</td></tr>
-              )}
-            </tbody>
-          </table>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
       {activeTab === 'SUPPLIERS' && (
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-x-auto">
-          <table className="w-full text-left min-w-[500px]">
-            <thead>
-              <tr className="bg-gray-50 border-b border-gray-200 text-sm text-gray-500">
-                <th className="p-4">Supplier Name</th>
-                <th className="p-4">Contact Info</th>
-                <th className="p-4 text-right">Added On</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 text-sm">
-              {suppliers.map(s => (
-                <tr key={s.id}>
-                  <td className="p-4 font-medium text-gray-900">{s.name}</td>
-                  <td className="p-4 text-gray-500">{s.contact_info || '-'}</td>
-                  <td className="p-4 text-right text-gray-500">{new Date(s.created_at).toLocaleDateString()}</td>
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm w-full">
+          <div className="hidden md:block overflow-x-auto">
+            <table className="w-full text-left min-w-[500px]">
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-200 text-sm text-gray-500">
+                  <th className="p-4">Supplier Name</th>
+                  <th className="p-4">Contact Info</th>
+                  <th className="p-4 text-right">Added On</th>
                 </tr>
-              ))}
-              {suppliers.length === 0 && (
-                <tr><td colSpan={3} className="p-8 text-center text-gray-400">No suppliers found.</td></tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-gray-100 text-sm">
+                {suppliers.map(s => (
+                  <tr key={s.id}>
+                    <td className="p-4 font-medium text-gray-900">{s.name}</td>
+                    <td className="p-4 text-gray-500">{s.contact_info || '-'}</td>
+                    <td className="p-4 text-right text-gray-500">{new Date(s.created_at).toLocaleDateString()}</td>
+                  </tr>
+                ))}
+                {suppliers.length === 0 && (
+                  <tr><td colSpan={3} className="p-8 text-center text-gray-400">No suppliers found.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="md:hidden divide-y divide-gray-100">
+            {suppliers.length === 0 && (
+              <div className="p-8 text-center text-gray-400">No suppliers found.</div>
+            )}
+            {suppliers.map(s => (
+              <div key={s.id} className="p-4 hover:bg-gray-50 flex justify-between items-center">
+                <div>
+                  <div className="font-semibold text-gray-900">{s.name}</div>
+                  <div className="text-sm text-gray-500 mt-1">{s.contact_info || 'No contact info'}</div>
+                </div>
+                <div className="text-xs text-gray-400">{new Date(s.created_at).toLocaleDateString()}</div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
@@ -623,6 +718,7 @@ const ProcurementPage: React.FC = () => {
                                 <label className="text-[10px] uppercase font-bold text-gray-500">Qty</label>
                                 <input 
                                   type="number" 
+                                  inputMode="numeric"
                                   min="1"
                                   className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:border-ministry-orange"
                                   value={item.qty}
@@ -633,6 +729,7 @@ const ProcurementPage: React.FC = () => {
                                 <label className="text-[10px] uppercase font-bold text-gray-500">Unit Cost</label>
                                 <input 
                                   type="text" 
+                                  inputMode="numeric"
                                   className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:border-ministry-orange"
                                   value={item.cost === 0 ? '' : item.cost.toLocaleString()}
                                   onChange={e => {
@@ -671,6 +768,7 @@ const ProcurementPage: React.FC = () => {
                           <label className="text-[10px] uppercase font-bold text-gray-500 block mb-1">Amount Paid</label>
                           <input 
                             type="text" 
+                            inputMode="numeric"
                             className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-ministry-orange"
                             placeholder="Amount..."
                             value={initialPaymentAmount}
@@ -731,8 +829,8 @@ const ProcurementPage: React.FC = () => {
                 <p>Enter the quantities physically received from the supplier. This will automatically increase your stock inventory. Cost updates require manual review in the Products tab.</p>
               </div>
 
-              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                <table className="w-full text-left">
+              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden overflow-x-auto">
+                <table className="w-full text-left min-w-[600px]">
                   <thead className="bg-gray-50 border-b border-gray-200 text-xs uppercase text-gray-500">
                     <tr>
                       <th className="p-3 font-semibold">Item</th>
@@ -752,7 +850,7 @@ const ProcurementPage: React.FC = () => {
                       return (
                         <tr key={item.id}>
                           <td className="p-3">
-                            <p className="font-medium text-gray-900">{variant?.name || 'Unknown'}</p>
+                            <p className="font-medium text-gray-900 truncate max-w-[150px]">{variant?.name || 'Unknown'}</p>
                             <p className="text-xs text-gray-500 font-mono">{variant?.sku}</p>
                           </td>
                           <td className="p-3 text-center font-medium text-gray-900">{item.quantity_ordered}</td>
@@ -768,7 +866,7 @@ const ProcurementPage: React.FC = () => {
                               min="0"
                               max={pending}
                               disabled={pending === 0}
-                              className="w-24 border border-gray-300 rounded px-2 py-1 focus:outline-none focus:border-ministry-orange disabled:bg-gray-100 disabled:text-gray-400"
+                              className="w-20 border border-gray-300 rounded px-2 py-1 focus:outline-none focus:border-ministry-orange disabled:bg-gray-100 disabled:text-gray-400"
                               value={receiveQuantities[item.id] || 0}
                               onChange={(e) => {
                                 const val = parseInt(e.target.value) || 0;
@@ -819,8 +917,8 @@ const ProcurementPage: React.FC = () => {
             </div>
             
             <div className="p-6 overflow-y-auto flex-1 bg-gray-50/50">
-              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                <table className="w-full text-left">
+              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden overflow-x-auto">
+                <table className="w-full text-left min-w-[500px]">
                   <thead className="bg-gray-50 border-b border-gray-200 text-xs uppercase text-gray-500">
                     <tr>
                       <th className="p-3 font-semibold">Item</th>
@@ -836,7 +934,7 @@ const ProcurementPage: React.FC = () => {
                       return (
                         <tr key={item.id}>
                           <td className="p-3">
-                            <p className="font-medium text-gray-900">{variant?.name || 'Unknown'}</p>
+                            <p className="font-medium text-gray-900 truncate max-w-[150px]">{variant?.name || 'Unknown'}</p>
                             <p className="text-xs text-gray-500 font-mono">{variant?.sku}</p>
                           </td>
                           <td className="p-3 text-center font-medium text-gray-900">{item.quantity_ordered}</td>
@@ -960,8 +1058,8 @@ const ProcurementPage: React.FC = () => {
 
               <h3 className="font-bold text-gray-900 mb-3 text-sm">Payment History</h3>
               {poPayments.length > 0 ? (
-                <div className="border border-gray-200 rounded-xl overflow-hidden">
-                  <table className="w-full text-left text-sm">
+                <div className="border border-gray-200 rounded-xl overflow-hidden overflow-x-auto">
+                  <table className="w-full text-left text-sm min-w-[500px]">
                     <thead className="bg-gray-50 border-b border-gray-200 text-gray-500">
                       <tr>
                         <th className="p-3">Date</th>

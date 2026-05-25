@@ -71,9 +71,12 @@ const CustomersPage: React.FC = () => {
        </button>
      </div>
      
-     <div className="flex gap-6 relative">
-       <div className={`flex-1 bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden transition-all duration-300 ${selectedCustomer ? 'lg:w-2/3' : 'w-full'}`}>
-         <div className="overflow-x-auto">
+     <div className="flex flex-col lg:flex-row gap-6 relative">
+       {/* List View */}
+       <div className={`flex-1 bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden transition-all duration-300 ${selectedCustomer ? 'hidden lg:block lg:w-2/3' : 'w-full'}`}>
+         
+         {/* Desktop Table View */}
+         <div className="hidden md:block overflow-x-auto">
            <table className="w-full text-left min-w-[600px]">
              <thead>
                <tr className="bg-gray-50 border-b border-gray-200 text-sm text-gray-500">
@@ -100,14 +103,37 @@ const CustomersPage: React.FC = () => {
              </tbody>
            </table>
          </div>
+
+         {/* Mobile Card View */}
+         <div className="md:hidden divide-y divide-gray-100">
+            {customers.map(c => (
+              <div key={c.id} className="p-4 hover:bg-gray-50 cursor-pointer flex justify-between items-center" onClick={() => viewCustomer(c)}>
+                <div>
+                  <div className="font-medium text-gray-900">{c.full_name}</div>
+                  <div className="text-sm text-gray-500 mt-0.5">
+                    {c.phone_number ? c.phone_number : 'No Phone'} • {c.church_branch ? c.church_branch : 'No Branch'}
+                  </div>
+                </div>
+                <ChevronRight size={18} className="text-gray-400" />
+              </div>
+            ))}
+            {customers.length === 0 && (
+              <div className="p-8 text-center text-gray-400">No customers found.</div>
+            )}
+         </div>
        </div>
 
-       {/* Customer Details Slide-over */}
+       {/* Customer Details View */}
        {selectedCustomer && (
-         <div className="hidden lg:flex w-1/3 bg-white rounded-xl border border-gray-100 shadow-sm flex-col max-h-[80vh] overflow-hidden sticky top-6">
-           <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-             <h2 className="font-bold text-gray-900 truncate pr-4">{selectedCustomer.full_name}</h2>
-             <button onClick={() => setSelectedCustomer(null)} className="text-gray-400 hover:text-gray-600">
+         <div className={`fixed inset-0 z-50 lg:static lg:z-auto lg:flex lg:w-1/3 bg-white lg:rounded-xl lg:border border-gray-100 shadow-sm flex-col lg:max-h-[80vh] overflow-hidden lg:sticky lg:top-6 ${selectedCustomer ? 'flex' : 'hidden lg:flex'}`}>
+           <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50 pt-safe-top">
+             <div className="flex items-center gap-3 overflow-hidden">
+               <button onClick={() => setSelectedCustomer(null)} className="lg:hidden p-2 -ml-2 text-gray-500 hover:text-gray-900 rounded-full hover:bg-gray-200 transition-colors">
+                 <X size={20} />
+               </button>
+               <h2 className="font-bold text-gray-900 truncate">{selectedCustomer.full_name}</h2>
+             </div>
+             <button onClick={() => setSelectedCustomer(null)} className="hidden lg:block text-gray-400 hover:text-gray-600">
                <X size={18} />
              </button>
            </div>

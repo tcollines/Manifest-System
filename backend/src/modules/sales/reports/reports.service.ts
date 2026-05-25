@@ -1,7 +1,16 @@
 import { supabase } from '../../../supabase';
 
 export async function fetchCashPosition(manifestId: string) {
-    const { data: payments } = await supabase.from('sales_payments').select('amount, payment_method, sales_orders (payment_status, total_amount, amount_paid)').eq('manifest_id', manifestId);
+    const [
+        { data: payments },
+        { data: orders },
+        { data: supplierPayments }
+    ] = await Promise.all([
+        supabase.from('sales_payments').select('amount, payment_method, sales_orders (payment_status, total_amount, amount_paid)').eq('manifest_id', manifestId),
+        supabase.from('sales_orders').select('id, amount_paid, payment_status, total_amount').eq('manifest_id', manifestId),
+        supabase.from('sales_procurement_payments').select('amount, payment_method').eq('manifest_id', manifestId)
+    ]);
+    
     let totalCashReceived = 0, totalMobileMoneyReceived = 0, totalBankReceived = 0;
     
     payments?.forEach((p: any) => {
@@ -12,12 +21,10 @@ export async function fetchCashPosition(manifestId: string) {
         else if (method === 'BANK') totalBankReceived += amt;
     });
 
-    const { data: orders } = await supabase.from('sales_orders').select('id, amount_paid, payment_status, total_amount').eq('manifest_id', manifestId);
     const totalPaymentsRecorded = payments?.reduce((acc, p) => acc + Number(p.amount), 0) || 0;
     const totalNetPaid = orders?.reduce((acc, o) => acc + Number(o.amount_paid), 0) || 0;
     const refundsIssued = totalPaymentsRecorded - totalNetPaid;
 
-    const { data: supplierPayments } = await supabase.from('sales_procurement_payments').select('amount, payment_method').eq('manifest_id', manifestId);
     let supplierCashPayments = 0, supplierMobileMoneyPayments = 0, supplierBankPayments = 0;
     supplierPayments?.forEach((p: any) => {
         const amt = Number(p.amount);
@@ -64,9 +71,20 @@ export async function fetchAllTimeStats(manifestId: string) {
 }
 
 export async function fetchFinancialPosition(manifestId: string) {
-    const cashPos = await fetchCashPosition(manifestId);
-    const invVal = await fetchInventoryValuation(manifestId);
-    const { data: orders } = await supabase.from('sales_orders').select('total_amount, amount_paid, payment_status, fulfillment_status').eq('manifest_id', manifestId);
+    const [
+        cashPos,
+        invVal,
+        allTimeStats,
+        { data: orders },
+        { data: procurements }
+    ] = await Promise.all([
+        fetchCashPosition(manifestId),
+        fetchInventoryValuation(manifestId),
+        fetchAllTimeStats(manifestId),
+        supabase.from('sales_orders').select('total_amount, amount_paid, payment_status, fulfillment_status').eq('manifest_id', manifestId),
+        supabase.from('sales_procurement_requests').select('balance_due, amount_paid, status').eq('manifest_id', manifestId).neq('status', 'CANCELLED')
+    ]);
+
     let outstandingBalances = 0;
     orders?.forEach((o: any) => {
         if (o.payment_status !== 'PAID' && o.payment_status !== 'CANCELLED' && o.payment_status !== 'REFUNDED' && o.fulfillment_status !== 'CANCELLED') {
@@ -74,14 +92,12 @@ export async function fetchFinancialPosition(manifestId: string) {
         }
     });
 
-    const { data: procurements } = await supabase.from('sales_procurement_requests').select('balance_due, amount_paid, status').eq('manifest_id', manifestId).neq('status', 'CANCELLED');
     let supplierPayables = 0, totalSupplierPaymentsMade = 0;
     procurements?.forEach((req: any) => {
         totalSupplierPaymentsMade += Number(req.amount_paid) || 0;
         if (req.status !== 'PAID') supplierPayables += Number(req.balance_due) || 0;
     });
 
-    const allTimeStats = await fetchAllTimeStats(manifestId);
     return { cashAtHand: cashPos.cashAtHand, inventoryCostValue: invVal.totalCostValue, inventoryRetailValue: invVal.totalRetailValue, outstandingBalances, supplierPayables, totalSupplierPaymentsMade, grossProfit: allTimeStats.totalProfit };
 }
 
@@ -103,10 +119,17 @@ export async function getDailySales(manifestId: string, dateStr: string) {
 }
 
 export async function getSalesSummary(manifestId: string) {
-    const financials = await fetchFinancialPosition(manifestId);
-    const { data: lowStock } = await supabase.from('sales_product_variants').select('name, sku, stock_quantity').eq('manifest_id', manifestId).eq('is_active', true).lte('stock_quantity', 5).order('stock_quantity', { ascending: true }).limit(10);
-    const { data: pendingProcs } = await supabase.from('sales_procurement_requests').select('id, expected_date, status, sales_suppliers(name)').eq('manifest_id', manifestId).neq('status', 'RECEIVED').neq('status', 'CANCELLED').order('expected_date', { ascending: true }).limit(10);
-    const { data: items } = await supabase.from('sales_order_items').select('quantity, sales_product_variants (name, sku), sales_orders (fulfillment_status)');
+    const [
+        financials,
+        { data: lowStock },
+        { data: pendingProcs },
+        { data: items }
+    ] = await Promise.all([
+        fetchFinancialPosition(manifestId),
+        supabase.from('sales_product_variants').select('name, sku, stock_quantity').eq('manifest_id', manifestId).eq('is_active', true).lte('stock_quantity', 5).order('stock_quantity', { ascending: true }).limit(10),
+        supabase.from('sales_procurement_requests').select('id, expected_date, status, sales_suppliers(name)').eq('manifest_id', manifestId).neq('status', 'RECEIVED').neq('status', 'CANCELLED').order('expected_date', { ascending: true }).limit(10),
+        supabase.from('sales_order_items').select('quantity, sales_product_variants (name, sku), sales_orders!inner (manifest_id, fulfillment_status)').eq('sales_orders.manifest_id', manifestId)
+    ]);
     
     const salesCounts: Record<string, { name: string, sku: string, count: number }> = {};
     items?.forEach((i: any) => {

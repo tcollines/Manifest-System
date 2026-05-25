@@ -117,7 +117,7 @@ const InventoryPage: React.FC = () => {
  {activeSession && (
  <div className="bg-white p-6 rounded-xl border border-ministry-orange shadow-sm mb-6">
  <h2 className="font-bold text-lg mb-4 text-ministry-orange">Active Stock Taking Session</h2>
- <div className="overflow-x-auto"><table className="w-full text-left min-w-[600px]" >
+ <div className="hidden md:block overflow-x-auto"><table className="w-full text-left min-w-[600px]" >
  <thead>
  <tr className="border-b border-gray-200 text-sm text-gray-500">
  <th className="py-2">Variant</th>
@@ -137,7 +137,8 @@ const InventoryPage: React.FC = () => {
  <td className="py-3 text-right">
  <input 
  type="number"
- className="w-24 text-right border border-gray-300 rounded px-2 py-1 bg-transparent"
+ inputMode="numeric"
+ className="w-24 text-right border border-gray-300 rounded px-2 py-1 bg-transparent focus:outline-none focus:border-ministry-orange"
  value={physicalCounts[v.id] ?? ''}
  placeholder={v.stock_quantity.toString()}
  onChange={e => setPhysicalCounts({...physicalCounts, [v.id]: parseInt(e.target.value) || 0})}
@@ -151,6 +152,37 @@ const InventoryPage: React.FC = () => {
  })}
  </tbody>
  </table></div>
+
+ <div className="md:hidden divide-y divide-gray-100">
+   {variants.map(v => {
+     const physical = physicalCounts[v.id] ?? v.stock_quantity;
+     const variance = physical - v.stock_quantity;
+     return (
+       <div key={v.id} className="py-3 flex flex-col gap-2">
+         <div className="flex justify-between items-start">
+           <span className="font-medium text-gray-900">{v.name}</span>
+           <span className={`font-bold ${variance < 0 ? 'text-red-500' : variance > 0 ? 'text-green-500' : 'text-gray-400'}`}>
+             {variance > 0 ? '+' : ''}{variance}
+           </span>
+         </div>
+         <div className="flex justify-between items-center bg-gray-50 p-2 rounded-lg border border-gray-100">
+           <div className="text-sm text-gray-500">System: {v.stock_quantity}</div>
+           <div className="flex items-center gap-2">
+             <span className="text-sm font-medium text-gray-700">Count:</span>
+             <input 
+               type="number"
+               inputMode="numeric"
+               className="w-20 text-right border border-gray-300 rounded px-2 py-1 bg-white focus:outline-none focus:border-ministry-orange"
+               value={physicalCounts[v.id] ?? ''}
+               placeholder={v.stock_quantity.toString()}
+               onChange={e => setPhysicalCounts({...physicalCounts, [v.id]: parseInt(e.target.value) || 0})}
+             />
+           </div>
+         </div>
+       </div>
+     );
+   })}
+ </div>
  </div>
  )}
 
@@ -158,7 +190,7 @@ const InventoryPage: React.FC = () => {
  <div className="p-4 border-b border-gray-100">
  <h2 className="font-bold">Past Sessions</h2>
  </div>
- <div className="overflow-x-auto"><table className="w-full text-left min-w-[600px]" >
+ <div className="hidden md:block overflow-x-auto"><table className="w-full text-left min-w-[600px]" >
  <thead>
  <tr className="bg-gray-50 border-b border-gray-200 text-sm text-gray-500">
  <th className="p-4">Session ID</th>
@@ -196,6 +228,37 @@ const InventoryPage: React.FC = () => {
  ))}
  </tbody>
  </table></div>
+ 
+ <div className="md:hidden divide-y divide-gray-100">
+   {sessions.map(s => (
+     <div key={s.id} className="p-4 hover:bg-gray-50 flex flex-col gap-3">
+       <div className="flex justify-between items-start">
+         <div>
+           <div className="font-mono text-sm font-semibold text-gray-900">{s.id.split('-')[0]}</div>
+           <div className="text-xs text-gray-500 mt-1">{new Date(s.created_at).toLocaleString()}</div>
+         </div>
+         <span className={`px-2 py-1 rounded-full text-[10px] font-bold ${s.status === 'COMPLETED' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+           {s.status}
+         </span>
+       </div>
+       <div className="flex justify-end gap-2 pt-2 mt-1 border-t border-gray-50">
+         {s.status === 'COMPLETED' && (
+         <button onClick={() => handleViewSession(s)} className="px-3 py-1.5 text-blue-600 bg-blue-50 rounded-lg text-xs font-medium" title="View Details">
+           View Session
+         </button>
+         )}
+         {s.status === 'PENDING' && (
+         <button onClick={() => handleEditSession(s)} className="px-3 py-1.5 text-ministry-orange bg-orange-50 rounded-lg text-xs font-medium" title="Edit / Resume">
+           Resume
+         </button>
+         )}
+         <button onClick={() => setDeleteSessionId(s.id)} className="px-3 py-1.5 text-red-600 bg-red-50 rounded-lg text-xs font-medium" title="Delete">
+           Delete
+         </button>
+       </div>
+     </div>
+   ))}
+ </div>
  </div>
 
  {viewSession && (
@@ -205,8 +268,8 @@ const InventoryPage: React.FC = () => {
  <h2 className="text-xl font-bold mb-1 text-gray-900">Session Details</h2>
  <p className="text-xs text-gray-500 font-mono mb-4">{viewSession.id}</p>
  
- <div className="overflow-y-auto flex-1 border border-gray-100 rounded-xl">
- <table className="w-full text-left">
+ <div className="overflow-y-auto overflow-x-auto flex-1 border border-gray-100 rounded-xl">
+ <table className="w-full text-left min-w-[400px]">
  <thead className="bg-gray-50 border-b border-gray-100 text-xs text-gray-500 sticky top-0">
  <tr>
  <th className="p-3">Variant</th>
@@ -221,7 +284,7 @@ const InventoryPage: React.FC = () => {
  ) : (
  sessionItems.map(item => (
  <tr key={item.id} className="hover:bg-gray-50">
- <td className="p-3 font-medium text-gray-900">{item.variant?.name || 'Unknown Variant'}</td>
+ <td className="p-3 font-medium text-gray-900 truncate max-w-[120px]">{item.variant?.name || 'Unknown Variant'}</td>
  <td className="p-3 text-right text-gray-500">{item.system_quantity}</td>
  <td className="p-3 text-right font-bold text-gray-900">{item.physical_quantity}</td>
  <td className={`p-3 text-right font-bold ${item.variance < 0 ? 'text-red-500' : item.variance > 0 ? 'text-green-500' : 'text-gray-400'}`}>
