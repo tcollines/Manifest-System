@@ -9,7 +9,7 @@ import {
   onAuthStateChanged,
   updateProfile,
   type User,
-} from '../services/firebaseConfig';
+} from '../forms/services/firebaseConfig';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Passenger } from '../../../types';
+import { Passenger, MinistryEvent } from '../../../types';
 import { apiFetch } from '../../../services/api';
 import { ManifestStore } from '../../../database/manifestStore';
 import { useNotification } from '../../../components/ui/NotificationSystem';

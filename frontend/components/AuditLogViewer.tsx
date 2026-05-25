@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { auditService } from '../services/auditService';
 import { Clock, User as UserIcon } from 'lucide-react';
-import StatusBadge from './ui/StatusBadge';
+import { StatusBadge } from './ui/StatusBadge';
 import { format } from 'date-fns';
 
 interface AuditLog {

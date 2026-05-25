@@ -8,12 +8,14 @@
 
 import React, { useState, useEffect } from 'react';
 import { useFinance } from '../FinanceContext';
+import { useNotification } from '../../../components/ui/NotificationSystem';
 import { FileText, CheckCircle } from 'lucide-react';
 import { REQUISITION_STATUS } from '../../../shared/constants';
 import { StatusBadge } from '../../../components/ui/StatusBadge';
 
 const RequisitionsTab: React.FC = () => {
-    const { requisitions, formatMoney, handleOpenPaymentModal, showToast } = useFinance();
+    const { requisitions, formatMoney, handleOpenPaymentModal } = useFinance();
+    const { showToast } = useNotification();
     const [subTab, setSubTab] = useState<'Pending' | 'Paid'>('Pending');
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 50;

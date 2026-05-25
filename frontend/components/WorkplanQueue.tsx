@@ -206,11 +206,12 @@ const WorkplanQueue: React.FC<Props> = ({ systemRole }) => {
                                                                 return acc;
                                                             }, {} as Record<string, typeof validItems>);
                                                             
-                                                            return Object.entries(itemsByDept).flatMap(([deptName, items]) => {
+                                                            return Object.entries(itemsByDept).flatMap(([deptName, rawItems]) => {
+                                                                const items = rawItems as typeof validItems;
                                                                 const rows = items.map(item => {
                                                                     const canTLAct = item.wp.status === 'TL_Review' && ['ADMIN_APPROVED', 'TL_APPROVED', 'TL_ADJUSTED', 'TL_REJECTED'].includes(item.status);
                                                                     const processAction = async (decision: any, adj?: any) => {
-                                                                        await WorkplanStore.processTLDecision(item.wp.id, item.id, decision, undefined, adj?.qty, adj?.amt);
+                                                                        await WorkplanStore.processTLDecision(item.wp.id, item.id, decision, undefined, adj);
                                                                         load();
                                                                     };
                                                                     
@@ -501,7 +502,7 @@ const GlobalWorkplanModal: React.FC<{ onClose: () => void, onSuccess: () => void
         const res = await WorkplanStore.generateGlobalWorkplans({ title, month, objectives });
         setSaving(false);
         if (res.status === 'success') {
-            showToast(res.message || 'Workplans generated!', 'success');
+            showToast((res as any).message || (res.data as any)?.message || 'Workplans generated!', 'success');
             onSuccess();
         } else {
             showToast(res.message || 'Generation failed', 'error');

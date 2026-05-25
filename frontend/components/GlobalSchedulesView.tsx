@@ -135,7 +135,7 @@ const GlobalSchedulesView: React.FC = () => {
   };
 
   // Group schedules by Week
-  const groupedByWeek = useMemo(() => {
+  const groupedByWeek = useMemo<Record<string, ServiceSchedule[]>>(() => {
     const groups: Record<string, ServiceSchedule[]> = {};
     schedules.forEach(s => {
        if (!groups[s.weekStart]) groups[s.weekStart] = [];
@@ -144,7 +144,7 @@ const GlobalSchedulesView: React.FC = () => {
     // Sort weeks descending (newest week first)
     return Object.fromEntries(
        Object.entries(groups).sort((a, b) => new Date(b[0]).getTime() - new Date(a[0]).getTime())
-    );
+    ) as Record<string, ServiceSchedule[]>;
   }, [schedules]);
 
   return (
@@ -206,7 +206,8 @@ const GlobalSchedulesView: React.FC = () => {
         </div>
       ) : (
         <div className="flex flex-col gap-4">
-            {Object.entries(groupedByWeek).map(([week, weekSchedules]) => {
+            {Object.entries(groupedByWeek).map(([week, weekSchedulesList]) => {
+                const weekSchedules = weekSchedulesList as ServiceSchedule[];
                 const actualSubmittedCount = weekSchedules.filter(s => s.status !== 'Draft').length;
                 const submittedDeptIds = new Set(weekSchedules.map(s => s.departmentId));
                 const missingDepts = departments.filter(d => d.status.toLowerCase() === 'active' && !submittedDeptIds.has(d.id));

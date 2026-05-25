@@ -1,6 +1,6 @@
 import React from 'react';
 import { Edit2, Trash2 } from 'lucide-react';
-import { HealingReport } from '../../database/HealingStore';
+import { HealingReport } from '../../../database/HealingStore';
 import { useHealing } from '../HealingContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Department, MonthlyWorkplan, WorkplanActivity, WorkplanItem, User } from '../../../types';
+import { Department, MonthlyWorkplan, WorkplanItem, User } from '../../../types';
 import { DeptRole } from '../../../shared/enums';
 import { WorkplanStore } from '../../../database/workplanStore';
 import { useNotification } from '../../../components/ui/NotificationSystem';
@@ -234,7 +234,7 @@ const WorkplanDetail: React.FC<DetailProps> = ({ wp, department, systemRole, dep
         if (role === 'ADMIN') {
             res = await WorkplanStore.processAdminDecision(wp.id, item.id, decision);
         } else {
-            res = await WorkplanStore.processTLDecision(wp.id, item.id, decision, undefined, adjustPayload?.qty, adjustPayload?.amt);
+            res = await WorkplanStore.processTLDecision(wp.id, item.id, decision, undefined, { approvedQuantity: adjustPayload?.qty, approvedAmount: adjustPayload?.amt });
         }
         
         if (res?.status === 'success') {

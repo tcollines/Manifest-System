@@ -204,7 +204,7 @@ const MembersTab: React.FC = () => {
                                 <tr key={member.id} className="hover:bg-blue-50/30 transition-colors group">
                                     <td className="px-6 py-4">
                                         <div className="font-bold text-gray-900 group-hover:text-ministry-blue">{member.name}</div>
-                                        <div className="text-xs text-gray-500 uppercase tracking-wide mt-0.5">{member.role}</div>
+                                        <div className="text-xs text-gray-500 uppercase tracking-wide mt-0.5">{member.category || 'Member'}</div>
                                     </td>
                                     <td className="px-6 py-4"><span className="text-sm font-semibold text-gray-700 bg-gray-100 px-3 py-1 rounded-full">{member.category || 'Member'}</span></td>
                                     <td className="px-6 py-4"><div className="text-sm font-mono text-gray-600 bg-gray-50 px-2 py-1 rounded inline-block">{member.phone}</div></td>

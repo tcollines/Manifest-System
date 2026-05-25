@@ -18,7 +18,13 @@ import { useAuth } from '../../context/AuthContext';
 import { useEvent } from '../../context/EventContext';
 
 // Types
-import { Member, Passenger, ExtendedStation, Vehicle, PersonalVehicle, MinistryEvent, User, ModalType } from '../../types';
+import { Member, Passenger, PickUpStation, Vehicle, PersonalVehicle, MinistryEvent, User, ModalType, ServiceResponse } from '../../types';
+import { mapUserFromDB } from '../../database/userStore';
+import { mapVehicleFromDB, mapPassengerFromDB, mapPersonalVehicleFromDB } from '../../database/vehicleStore';
+import { mapStationFromDB, ExtendedStation } from '../../database/logisticsStore';
+
+export type Tab = 'checkin' | 'events' | 'finance' | 'parking' | 'settings' | 'team';
+export type ViewMode = 'list' | 'station-detail' | 'register-new' | 'service-active';
 import { validateContact, validateDriverIdentity, isServiceClosed, validatePlate } from '../../utils';
 
 // Components
@@ -130,8 +136,7 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
     if (obj && typeof obj !== 'function') {
        setSearchParams(prev => {
          prev.set('eventId', (obj as MinistryEvent).id);
-         if ('eventId' === 'eventId') { prev.delete('stationId'); prev.delete('vehicleId'); }
-         if ('eventId' === 'stationId') { prev.delete('vehicleId'); }
+         prev.delete('stationId'); prev.delete('vehicleId');
          return prev;
        });
     } else if (!obj) {
@@ -152,8 +157,7 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
     if (obj && typeof obj !== 'function') {
        setSearchParams(prev => {
          prev.set('stationId', (obj as ExtendedStation).id);
-         if ('stationId' === 'eventId') { prev.delete('stationId'); prev.delete('vehicleId'); }
-         if ('stationId' === 'stationId') { prev.delete('vehicleId'); }
+         prev.delete('vehicleId');
          return prev;
        });
     } else if (!obj) {
@@ -167,8 +171,7 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
     if (obj && typeof obj !== 'function') {
        setSearchParams(prev => {
          prev.set('vehicleId', (obj as Vehicle).id);
-         if ('vehicleId' === 'eventId') { prev.delete('stationId'); prev.delete('vehicleId'); }
-         if ('vehicleId' === 'stationId') { prev.delete('vehicleId'); }
+         // No child params to delete
          return prev;
        });
     } else if (!obj) {
@@ -540,7 +543,7 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
 
   // --- REALTIME SYNC: Service Check-Ins ---
   useEffect(() => {
-    const manifestId = currentUser.manifestId || currentUser.manifest_id;
+    const manifestId = currentUser.manifestId || (currentUser as any).manifest_id;
     if (!selectedService || viewMode !== 'service-active' || !manifestId) return;
 
     const channelName = `service-checkins-${selectedService.id}`;
@@ -687,7 +690,7 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
       supabase.removeChannel(channel_souls);
       supabase.removeChannel(channel_events);
     };
-  }, [selectedService?.id, viewMode, currentUser.manifestId, currentUser.manifest_id]);
+  }, [selectedService?.id, viewMode, currentUser.manifestId, (currentUser as any).manifest_id]);
 
 
   // Robust Role Check: Case-insensitive and includes Department ID 'd5' (Transportation/Logistics) - Fixes Data Entrant Guard

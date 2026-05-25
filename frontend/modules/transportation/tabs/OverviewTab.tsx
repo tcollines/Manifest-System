@@ -447,7 +447,7 @@ const CoordinatorView: React.FC = () => {
                                                             Phone: user?.contact || '',
                                                             Region: 'Central',
                                                             NameOfRegionManifest: 'Manifest Entebbe',
-                                                            VehicleNumberPlate: myVehicle?.numberPlate || 'UAB 123C'
+                                                            VehicleNumberPlate: myVehicle?.number_plate || 'UAB 123C'
                                                         },
                                                         ListOfTransportedPeople: passengers.map(p => ({
                                                             Name: p.name,

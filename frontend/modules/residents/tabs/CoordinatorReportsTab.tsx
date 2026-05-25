@@ -49,8 +49,8 @@ const CoordinatorReportsTab: React.FC = () => {
                                 type="number"
                                 required
                                 min="0"
-                                value={newReport.souls_won || 0}
-                                onChange={e => setNewReport({ ...newReport, souls_won: parseInt(e.target.value) || 0 })}
+                                value={newReport.soulsWon || 0}
+                                onChange={e => setNewReport({ ...newReport, soulsWon: parseInt(e.target.value) || 0 })}
                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-ministry-orange focus:border-ministry-orange outline-none"
                             />
                         </div>

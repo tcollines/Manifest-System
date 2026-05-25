@@ -50,7 +50,7 @@ function toForm(data: Record<string, unknown>): Form {
   }));
 
   return {
-    ...(data as Form),
+    ...(data as unknown as Form),
     fields: fields as Form['fields'],
     created_at: fix(data.created_at),
     updated_at: fix(data.updated_at),
@@ -61,7 +61,7 @@ function toResponse(data: Record<string, unknown>): FormResponse {
   const fix = (v: unknown) =>
     v instanceof Timestamp ? v.toDate().toISOString() : (v as string);
   return {
-    ...(data as FormResponse),
+    ...(data as unknown as FormResponse),
     submitted_at: fix(data.submitted_at),
   };
 }

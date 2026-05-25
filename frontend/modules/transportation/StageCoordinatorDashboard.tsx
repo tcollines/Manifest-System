@@ -103,7 +103,7 @@ const StageCoordinatorDashboard: React.FC = () => {
             const trackedVehicles: TrackedVehicle[] = myVehicles.map(v => {
                 const lat = v.location?.lat || (0.3476 + (Math.random() - 0.5) * 0.02);
                 const lng = v.location?.lng || (32.5825 + (Math.random() - 0.5) * 0.02);
-                return { ...v, location: { lat, lng } };
+                return { ...v, location: { lat, lng } } as TrackedVehicle;
             });
             setVehicles(trackedVehicles);
 
