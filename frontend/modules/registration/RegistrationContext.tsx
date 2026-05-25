@@ -579,7 +579,7 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
               }
             } else {
               // Member not loaded locally (newly registered on another device)
-              supabase.from('members').select('category').eq('id', memberId).single().then(({ data }) => {
+              MemberStore.getById(memberId).then((data) => {
                 if (data && data.category === 'First Timer') {
                   setCheckInStats(stats => ({ ...stats, firstTimers: stats.firstTimers + 1 }));
                 }
@@ -605,7 +605,7 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
                 setCheckInStats(stats => ({ ...stats, firstTimers: Math.max(0, stats.firstTimers - 1) }));
               }
             } else {
-              supabase.from('members').select('category').eq('id', memberId).single().then(({ data }) => {
+              MemberStore.getById(memberId).then((data) => {
                 if (data && data.category === 'First Timer') {
                   setCheckInStats(stats => ({ ...stats, firstTimers: Math.max(0, stats.firstTimers - 1) }));
                 }

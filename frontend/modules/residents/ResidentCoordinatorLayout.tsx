@@ -290,7 +290,9 @@ const ResidentCoordinatorLayout: React.FC = () => {
 
                 {/* ── Tab content ───────────────────────────────────────────── */}
                 <div>
-                    <Outlet />
+                    <React.Suspense fallback={<div className="flex items-center justify-center h-full w-full min-h-[50vh]"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-ministry-orange"></div></div>}>
+<Outlet />
+</React.Suspense>
                 </div>
             </div>
         </ResidentCoordinatorContext.Provider>

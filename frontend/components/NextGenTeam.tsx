@@ -6,7 +6,7 @@ import { VolunteerAttendanceStore } from '../database/volunteerAttendanceStore';
 import { IncidentStore } from '../database/incidentStore';
 import { TrainingStore } from '../database/trainingStore';
 import { ChildStore } from '../database/childStore';
-import { DEPARTMENTS } from '../constants';
+import { DEPARTMENTS } from '../constants/departments';
 import { Search, UserCheck, Shield, BookOpen, AlertCircle, CheckCircle, Clock, Calendar, ChevronDown, CheckSquare, XSquare, Edit2, Trash2 } from 'lucide-react';
 import { useNotification } from './ui/NotificationSystem';
 

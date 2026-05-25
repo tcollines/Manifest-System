@@ -1,4 +1,4 @@
-import { supabase } from '../services/supabaseClient';
+import { apiFetch } from '../services/api';
 import { DepartmentalRole, ServiceResponse } from '../types';
 
 // Map DB snake_case to TS camelCase
@@ -13,13 +13,7 @@ const mapToCamelCase = (row: any): DepartmentalRole => ({
 export const DepartmentalRoleStore = {
   async getByDepartment(departmentId: string): Promise<ServiceResponse<DepartmentalRole[]>> {
     try {
-      const { data, error } = await supabase
-        .from('departmental_roles')
-        .select('*')
-        .eq('department_id', departmentId)
-        .order('role_name', { ascending: true });
-        
-      if (error) return { status: 'error', message: error.message };
+      const data = await apiFetch(`/departments/${departmentId}/roles`);
       return { status: 'success', data: data.map(mapToCamelCase) };
     } catch (err: any) {
       return { status: 'error', message: err.message };
@@ -28,17 +22,10 @@ export const DepartmentalRoleStore = {
   
   async addRole(role: Omit<DepartmentalRole, 'id' | 'createdAt'>): Promise<ServiceResponse<DepartmentalRole>> {
     try {
-      const { data, error } = await supabase
-        .from('departmental_roles')
-        .insert({
-          department_id: role.departmentId,
-          role_name: role.roleName,
-          description: role.description
-        })
-        .select()
-        .single();
-        
-      if (error) return { status: 'error', message: error.message };
+      const data = await apiFetch(`/departments/${role.departmentId}/roles`, {
+        method: 'POST',
+        body: JSON.stringify({ roleName: role.roleName, description: role.description })
+      });
       return { status: 'success', data: mapToCamelCase(data) };
     } catch (err: any) {
       return { status: 'error', message: err.message };
@@ -47,8 +34,7 @@ export const DepartmentalRoleStore = {
   
   async deleteRole(id: string): Promise<ServiceResponse<void>> {
     try {
-      const { error } = await supabase.from('departmental_roles').delete().eq('id', id);
-      if (error) return { status: 'error', message: error.message };
+      await apiFetch(`/departments/roles/${id}`, { method: 'DELETE' });
       return { status: 'success', data: undefined };
     } catch (err: any) {
       return { status: 'error', message: err.message };

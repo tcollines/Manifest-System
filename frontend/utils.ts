@@ -145,7 +145,7 @@ export const validateDriverIdentity = (val: string) => {
 };
 
 
-import { DEPARTMENTS } from './constants';
+import { DEPARTMENTS } from './constants/departments';
 
 export const getDashboardForUser = (user: User): string => {
     if (user.role === 'Super Admin' || user.role === 'Administrator') return '/dashboard';

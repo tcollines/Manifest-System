@@ -1,73 +1,53 @@
-import { supabase } from '../supabaseClient';
+import { apiFetch } from '../api';
 import { SalesInventoryMovement, SalesStockTakingSession, SalesStockTakingItem } from '../../modules/sales/types';
 
 export const inventoryService = {
   async getMovements(manifestId: string): Promise<SalesInventoryMovement[]> {
-    const { data, error } = await supabase
-      .from('sales_inventory_movements')
-      .select('*')
-      .eq('manifest_id', manifestId)
-      .order('created_at', { ascending: false });
-    if (error) throw error;
-    return data || [];
+    const response = await apiFetch('/sales/inventory/movements');
+    return response as SalesInventoryMovement[];
   },
 
   async recordMovement(manifestId: string, payload: Partial<SalesInventoryMovement>): Promise<void> {
-    const { error } = await supabase
-      .from('sales_inventory_movements')
-      .insert([{ manifest_id: manifestId, ...payload }]);
-    if (error) throw error;
+    await apiFetch('/sales/inventory/movements', {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
   },
 
   async getStockTakingSessions(manifestId: string): Promise<SalesStockTakingSession[]> {
-    const { data, error } = await supabase
-      .from('sales_stock_taking_sessions')
-      .select('*')
-      .eq('manifest_id', manifestId)
-      .order('created_at', { ascending: false });
-    if (error) throw error;
-    return data || [];
+    const response = await apiFetch('/sales/stock-taking/sessions');
+    return response as SalesStockTakingSession[];
   },
 
   async startStockTakingSession(manifestId: string): Promise<SalesStockTakingSession> {
-    const { data, error } = await supabase
-      .from('sales_stock_taking_sessions')
-      .insert([{ manifest_id: manifestId, status: 'PENDING' }])
-      .select()
-      .single();
-    if (error) throw error;
-    return data;
+    const response = await apiFetch('/sales/stock-taking/sessions', {
+      method: 'POST'
+    });
+    return response as SalesStockTakingSession;
   },
 
   async getStockTakingItems(sessionId: string): Promise<SalesStockTakingItem[]> {
-    const { data, error } = await supabase
-      .from('sales_stock_taking_items')
-      .select('*, variant:variant_id(*)')
-      .eq('session_id', sessionId);
-    if (error) throw error;
-    return data || [];
+    const response = await apiFetch(`/sales/stock-taking/sessions/${sessionId}/items`);
+    return response as SalesStockTakingItem[];
   },
 
   async saveStockTakingItems(items: Partial<SalesStockTakingItem>[]): Promise<void> {
-    const { error } = await supabase
-      .from('sales_stock_taking_items')
-      .insert(items);
-    if (error) throw error;
+    await apiFetch('/sales/stock-taking/items', {
+      method: 'POST',
+      body: JSON.stringify({ items })
+    });
   },
 
-  async completeStockTakingSession(sessionId: string): Promise<void> {
-    const { error } = await supabase
-      .from('sales_stock_taking_sessions')
-      .update({ status: 'COMPLETED', completed_at: new Date().toISOString() })
-      .eq('id', sessionId);
-    if (error) throw error;
+  async completeStockTakingSession(sessionId: string, items: any[]): Promise<void> {
+    await apiFetch(`/sales/stock-taking/sessions/${sessionId}/complete`, {
+      method: 'POST',
+      body: JSON.stringify({ items })
+    });
   },
 
   async deleteStockTakingSession(sessionId: string): Promise<void> {
-    const { error } = await supabase
-      .from('sales_stock_taking_sessions')
-      .delete()
-      .eq('id', sessionId);
-    if (error) throw error;
+    await apiFetch(`/sales/stock-taking/sessions/${sessionId}`, {
+      method: 'DELETE'
+    });
   }
 };

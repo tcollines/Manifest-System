@@ -1,7 +1,6 @@
 
 import { User, ServiceResponse } from '../types';
 import { apiFetch } from '../services/api';
-import { MOCK_USERS } from '../constants';
 import { safeFetch } from '../services/safeFetch';
 
 const SESSION_KEY = 'ministry_user_session';

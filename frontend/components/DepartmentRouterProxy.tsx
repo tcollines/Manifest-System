@@ -283,9 +283,9 @@ const DepartmentRouterProxy: React.FC<ProxyProps> = ({ onOpenModal, onEditUser }
         return (
             <Routes>
                 <Route element={<ProtectedRoute allowedDepartments={['schools']} />}>
+                    <Route index element={<Navigate to="dashboard" replace />} />
                     <Route element={<SchoolsLayout events={events} />}>
                         <Route element={<SchoolsTabsLayout />}>
-                            <Route index element={<RedirectWithParams to="reports" />} />
                             <Route path="reports" element={<SchoolsReportsTab />} />
                             <Route path="events" element={<SchoolsEventsTab />} />
                         </Route>

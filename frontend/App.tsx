@@ -3,7 +3,7 @@ import { useNotification } from './components/ui/NotificationSystem';
 import Sidebar from './components/Sidebar';
 import SignIn from './components/SignIn';
 import { ModalType, MinistryEvent, User } from './types';
-import { DEPARTMENTS } from './constants';
+import { DEPARTMENTS } from './constants/departments';
 import { getDashboardForUser } from './utils';
 import { UserStore } from './database/userStore';
 import { EventStore } from './database/eventStore';
@@ -30,6 +30,7 @@ import { InstallPWAPrompt } from './components/ui/InstallPWAPrompt';
 
 import { useBackgroundSync } from './hooks/useBackgroundSync';
 import { SyncIndicator } from './components/SyncIndicator';
+import { useUserManagement } from './hooks/useUserManagement';
 
 // ── Lazy Loaded Routes ───────────────────────────────────────────────────────
 const Dashboard = React.lazy(() => import('./components/Dashboard'));
@@ -69,7 +70,7 @@ const App: React.FC = () => {
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [modalType, setModalType]               = useState<ModalType>(ModalType.NONE);
   const [targetUser, setTargetUser]             = useState<User | null>(null);
-  const [refreshUsersCounter, setRefreshUsersCounter] = useState(0);
+  const { refreshUsersCounter, handleSaveUser, handleUpdateUser, handleDeleteUser } = useUserManagement();
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -131,57 +132,6 @@ const App: React.FC = () => {
     await logout();
     navigate('/', { replace: true });
     setTimeout(() => { isManualLogoutRef.current = false; }, 200);
-  };
-
-
-
-  // ── User CRUD handlers (used only by ActionPanel/Settings/Administration) ─
-  // These stay in App.tsx minimally because ActionPanel is a global modal
-  // that can be opened from any page. Moving state to AdministrationDashboard
-  // would require lifting it back up for Settings pages.
-  // A dedicated UserManagementContext is the P1 follow-up for this.
-
-  const handleSaveUser = async (newUser: User) => {
-    try {
-      const usersResp = await UserStore.getAll();
-      const users = usersResp.status === 'success' && usersResp.data ? usersResp.data : [];
-      if (users.some(u => u.username?.toLowerCase() === newUser.username?.toLowerCase())) {
-        if (newUser.username) {
-          showToast(`Error: The username "${newUser.username}" is already taken.`, 'error');
-          return;
-        }
-      }
-      if (newUser.email && users.some(u => u.email?.toLowerCase() === newUser.email?.toLowerCase())) {
-        throw new Error(`The email "${newUser.email}" is already registered.`);
-      }
-      const response = await UserStore.add(newUser);
-      if (response.status !== 'success') {
-        throw new Error(response.status === 'error' ? response.message : 'Failed to add user');
-      }
-      setRefreshUsersCounter(c => c + 1);
-    } catch (e: any) {
-      showToast(e.message || 'Failed to add user', 'error');
-      throw e;
-    }
-  };
-
-  const handleDeleteUser = async (userId: string) => {
-    await UserStore.remove(userId);
-    setRefreshUsersCounter(c => c + 1);
-  };
-
-  const handleUpdateUser = async (updatedUser: User) => {
-    try {
-      const response = await UserStore.update(updatedUser);
-      if (response.status !== 'success') {
-        throw new Error(response.status === 'error' ? response.message : 'Failed to update user');
-      }
-      setRefreshUsersCounter(c => c + 1);
-      showToast('User updated successfully!', 'success');
-    } catch (e: any) {
-      showToast(e.message || 'Failed to update user', 'error');
-      throw e;
-    }
   };
 
   // ── Auth guard ────────────────────────────────────────────────────────────

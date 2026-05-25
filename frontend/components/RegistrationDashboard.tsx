@@ -3,7 +3,7 @@ import { useSearchParams, useNavigate, useParams } from 'react-router-dom';
 import { useSafeAsync } from '../hooks/useSafeAsync';
 import { useNotification } from './ui/NotificationSystem';
 import { isEventLocked, isServiceClosed, validatePlate, validateContact, validateDriverIdentity } from '../utils';
-import { VEHICLE_TYPES } from '../constants';
+import { VEHICLE_TYPES } from '../constants/vehicles';
 import { ModalType, MinistryEvent, User, Vehicle, Passenger, PickUpStation, PersonalVehicle, Member, ServiceResponse } from '../types';
 import { VehicleStore, mapVehicleFromDB, mapPassengerFromDB, mapPersonalVehicleFromDB } from '../database/vehicleStore';
 import { UserStore, mapUserFromDB } from '../database/userStore';
@@ -2649,10 +2649,6 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
           </p>
         </div>
       </div>
-
-          </div>
-        </div>
-      )}
 
       <div className={`${isLogisticsRole ? '' : 'bg-ministry-card border border-gray-200'} rounded-2xl md:p-6 shadow-sm min-h-[500px] mb-24 md:mb-0`}>
 

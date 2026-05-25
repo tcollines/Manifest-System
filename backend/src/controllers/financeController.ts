@@ -1,9 +1,11 @@
 import { Request, Response } from 'express';
 import { supabase } from '../supabase';
+import { validateTenant, handleApiError } from '../utils/supabaseHelper';
+import { sendSuccess, sendError } from '../shared/responses';
 
 export const getFinanceSummary = async (req: Request, res: Response) => {
-    const manifestId = (req as any).manifestId;
-    if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
+    const manifestId = validateTenant(req, res);
+    if (!manifestId) return;
 
     try {
         const eventId = req.query.eventId as string;
@@ -17,15 +19,15 @@ export const getFinanceSummary = async (req: Request, res: Response) => {
         if (error) throw error;
 
         // The RPC returns a single row with the aggregates
-        res.json(data[0] || { total_income: 0, total_expense: 0, net_balance: 0, transaction_count: 0 });
+        sendSuccess(res, data[0] || { total_income: 0, total_expense: 0, net_balance: 0, transaction_count: 0 });
     } catch (error: any) {
-        res.status(500).json({ error: 'An internal server error occurred.' });
+        handleApiError(res, error, 'An internal server error occurred.');
     }
 };
 
 export const getTransactions = async (req: Request, res: Response) => {
-    const manifestId = (req as any).manifestId;
-    if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
+    const manifestId = validateTenant(req, res);
+    if (!manifestId) return;
 
     try {
         const limit = Math.min(Number(req.query.limit) || 50, 100);
@@ -46,29 +48,29 @@ export const getTransactions = async (req: Request, res: Response) => {
             .range(offset, offset + limit - 1);
 
         if (error) throw error;
-        res.json(data);
+        sendSuccess(res, data);
     } catch (error: any) {
-        res.status(500).json({ error: 'An internal server error occurred.' });
+        handleApiError(res, error, 'An internal server error occurred.');
     }
 };
 
 export const addTransaction = async (req: Request, res: Response) => {
-    const manifestId = (req as any).manifestId;
-    if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
+    const manifestId = validateTenant(req, res);
+    if (!manifestId) return;
 
     try {
         const payload = { ...req.body, manifest_id: manifestId };
         const { error } = await supabase.from('transactions').insert([payload]);
         if (error) throw error;
-        res.status(201).json({ message: 'Transaction added' });
+        sendSuccess(res, { message: 'Transaction added' }, 201);
     } catch (error: any) {
-        res.status(500).json({ error: 'An internal server error occurred.' });
+        handleApiError(res, error, 'An internal server error occurred.');
     }
 };
 
 export const getRequests = async (req: Request, res: Response) => {
-    const manifestId = (req as any).manifestId;
-    if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
+    const manifestId = validateTenant(req, res);
+    if (!manifestId) return;
 
     try {
         const limit = Math.min(Number(req.query.limit) || 50, 100);
@@ -89,15 +91,15 @@ export const getRequests = async (req: Request, res: Response) => {
             .range(offset, offset + limit - 1);
 
         if (error) throw error;
-        res.json(data);
+        sendSuccess(res, data);
     } catch (error: any) {
-        res.status(500).json({ error: 'An internal server error occurred.' });
+        handleApiError(res, error, 'An internal server error occurred.');
     }
 };
 
 export const updateRequest = async (req: Request, res: Response) => {
-    const manifestId = (req as any).manifestId;
-    if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
+    const manifestId = validateTenant(req, res);
+    if (!manifestId) return;
 
     const { id } = req.params;
     const { status } = req.body;
@@ -107,8 +109,8 @@ export const updateRequest = async (req: Request, res: Response) => {
             .eq('manifest_id', manifestId) // Tenant Isolation
             .eq('id', id);
         if (error) throw error;
-        res.json({ message: 'Request updated' });
+        sendSuccess(res, { message: 'Request updated' });
     } catch (error: any) {
-        res.status(500).json({ error: 'An internal server error occurred.' });
+        handleApiError(res, error, 'An internal server error occurred.');
     }
 };

@@ -97,7 +97,9 @@ export const CampusTabsLayout: React.FC = () => {
             {/* ── Content ─────────────────────────────────────────────── */}
             <div className="flex-1 mb-20 md:mb-0 md:px-8 md:pt-6 md:pb-8">
                 <div className="md:bg-white md:rounded-xl md:shadow-sm md:border md:border-gray-100 md:p-6 min-h-[400px]">
-                    <Outlet />
+                    <React.Suspense fallback={<div className="flex items-center justify-center h-full w-full min-h-[50vh]"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-ministry-orange"></div></div>}>
+<Outlet />
+</React.Suspense>
                 </div>
             </div>
 

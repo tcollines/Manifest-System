@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useNotification } from './ui/NotificationSystem';
-import { DEPARTMENTS } from '../constants';
+import { DEPARTMENTS } from '../constants/departments';
 import { MoreHorizontal, Users, Car, CreditCard, ClipboardCheck, Phone, Bus, BookOpen, Heart, Building2, Home, Music, Mic, Shield, Camera, Star, Utensils, Flower2 } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import { DepartmentStore } from '../database/departmentStore';

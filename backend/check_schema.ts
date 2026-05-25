@@ -1,27 +1,20 @@
+import { supabase } from './src/supabase';
 
-import { createClient } from '@supabase/supabase-js';
-import * as dotenv from 'dotenv';
-import path from 'path';
+async function checkSchema() {
+    console.log("Checking tables for manifest_id...");
+    const { data: tables, error: tErr } = await supabase.from('information_schema.columns' as any).select('table_name').eq('table_schema', 'public').eq('column_name', 'manifest_id');
+    
+    if (tErr) console.error(tErr);
+    else console.log("Tables WITH manifest_id:", Array.from(new Set((tables || []).map((t: any) => t.table_name))));
 
-dotenv.config({ path: path.resolve(__dirname, '.env') });
-
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const supabase = createClient(supabaseUrl!, supabaseKey!);
-
-async function checkColumn() {
-    console.log("Checking Schema...");
-
-    const tables = ['vehicles', 'passengers', 'users', 'transactions'];
-
-    for (const table of tables) {
-        const { data, error } = await supabase.from(table).select('event_id').limit(1);
-        if (error) {
-            console.error(`Column 'event_id' check failed for table '${table}':`, error.message);
-        } else {
-            console.log(`Column 'event_id' EXISTS in table '${table}'.`);
-        }
+    const { data: allTables, error: aErr } = await supabase.from('information_schema.tables' as any).select('table_name').eq('table_schema', 'public');
+    if (aErr) console.error(aErr);
+    else {
+        const all = Array.from(new Set((allTables || []).map((t: any) => t.table_name)));
+        const withManifest = Array.from(new Set((tables || []).map((t: any) => t.table_name)));
+        const without = all.filter(t => !withManifest.includes(t));
+        console.log("Tables WITHOUT manifest_id:", without);
     }
 }
 
-checkColumn();
+checkSchema();

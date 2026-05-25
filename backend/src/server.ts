@@ -21,8 +21,12 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 import { authenticate } from './middleware/auth';
+import { requestContext } from './middleware/requestContext';
 import authRoutes from './routes/authRoutes';
 import publicRoutes from './routes/publicRoutes'; // NEW public routes
+
+// Attach correlation ID to all incoming requests
+app.use(requestContext);
 import formsAuthRoutes from './forms/routes/auth.routes';
 
 // Public endpoints
@@ -75,6 +79,7 @@ import auditRoutes from './routes/auditRoutes';
 // pg Client import removed — was only used by the deleted /api/admin/sql endpoint
 
 import pushRoutes from './routes/pushRoutes';
+import salesRoutes from './modules/sales/sales.routes';
 import { startRetryWorker } from './workers/retryWorker';
 
 app.use('/api/users', userRoutes);
@@ -101,6 +106,7 @@ app.use('/api/workplans', workplanRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/push', pushRoutes);
+app.use('/api/sales', salesRoutes);
 
 app.listen(PORT, async () => {
     console.log(`Server is running on port ${PORT}`);

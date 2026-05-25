@@ -11,7 +11,9 @@ export const ResidentLayout: React.FC<ResidentLayoutProps> = ({ events }) => (
     <div className="flex flex-col h-full bg-gray-50">
         <ResidentProvider initialEvents={events}>
             <div className="flex-1">
-                <Outlet />
+                <React.Suspense fallback={<div className="flex items-center justify-center h-full w-full min-h-[50vh]"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-ministry-orange"></div></div>}>
+<Outlet />
+</React.Suspense>
             </div>
         </ResidentProvider>
     </div>

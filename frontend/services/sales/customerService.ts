@@ -1,44 +1,27 @@
-import { supabase } from '../supabaseClient';
+import { apiFetch } from '../api';
 import { SalesCustomer, SalesCustomerHistory } from '../../modules/sales/types';
 
 export const customerService = {
   async getCustomers(manifestId: string): Promise<SalesCustomer[]> {
-    const { data, error } = await supabase
-      .from('sales_customers')
-      .select('*')
-      .eq('manifest_id', manifestId)
-      .order('created_at', { ascending: false });
-    if (error) throw error;
-    return data || [];
+    const response = await apiFetch('/sales/customers');
+    return response as SalesCustomer[];
   },
 
   async searchCustomers(manifestId: string, query: string): Promise<SalesCustomer[]> {
-    const { data, error } = await supabase
-      .from('sales_customers')
-      .select('*')
-      .eq('manifest_id', manifestId)
-      .ilike('full_name', `%${query}%`)
-      .order('full_name', { ascending: true })
-      .limit(20);
-    if (error) throw error;
-    return data || [];
+    const response = await apiFetch(`/sales/customers/search?q=${encodeURIComponent(query)}`);
+    return response as SalesCustomer[];
   },
 
   async createCustomer(manifestId: string, payload: Partial<SalesCustomer>): Promise<SalesCustomer> {
-    const { data, error } = await supabase
-      .from('sales_customers')
-      .insert([{ manifest_id: manifestId, ...payload }])
-      .select()
-      .single();
-    if (error) throw error;
-    return data;
+    const response = await apiFetch('/sales/customers', {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+    return response as SalesCustomer;
   },
 
   async getCustomerHistory(customerId: string): Promise<SalesCustomerHistory> {
-    const { data, error } = await supabase.rpc('get_customer_sales_history', {
-      p_customer_id: customerId
-    });
-    if (error) throw error;
-    return data as SalesCustomerHistory;
+    const response = await apiFetch(`/sales/customers/${customerId}/history`);
+    return response as SalesCustomerHistory;
   }
 };

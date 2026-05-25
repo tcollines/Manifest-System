@@ -9,7 +9,7 @@ import React from 'react';
 import { useFollowUp } from '../FollowUpContext';
 import { useNotification } from '../../../components/ui/NotificationSystem';
 import { SoulsStore } from '../../../database/soulsStore';
-import { SOURCE_TYPE_COLORS } from '../../../constants';
+import { SOURCE_TYPE_COLORS } from '../../../constants/ui';
 import { Database, Search, ChevronLeft, ChevronRight, Calendar, Clock, User as UserIcon } from 'lucide-react';
 
 const DatabaseTab: React.FC = () => {

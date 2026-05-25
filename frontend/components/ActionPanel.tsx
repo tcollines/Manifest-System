@@ -4,7 +4,7 @@ import { useNotification } from './ui/NotificationSystem';
 import PhoneInput from './PhoneInput';
 import { ModalType, MinistryEvent, User } from '../types';
 import { X, Save, UserPlus, Calendar, Briefcase, Target, Lock, Phone, Mail, Loader2, Send } from 'lucide-react';
-import { DEPARTMENTS } from '../constants';
+import { DEPARTMENTS } from '../constants/departments';
 import { supabase } from '../services/supabaseClient';
 import { ManifestStore } from '../database/manifestStore';
 import { EventStore } from '../database/eventStore';

@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useNotification } from './ui/NotificationSystem';
 import { Download, Filter, FileText, DollarSign, Heart, ChevronDown, ClipboardList } from 'lucide-react';
-import { SERVICE_REPORT_DATA, FINANCIAL_REPORT_DATA, SOULS_CHANNELS_DATA } from '../constants';
+import { SERVICE_REPORT_DATA, FINANCIAL_REPORT_DATA, SOULS_CHANNELS_DATA } from '../constants/dashboardPlaceholders';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { User } from '../types';
 import ReportsDashboard from '../pages/ReportsDashboard';

@@ -10,7 +10,7 @@ import { isEventLocked, isServiceClosed } from '../utils';
 import { EventStore, mapEventFromDB } from '../database/eventStore';
 import { SoulsStore, mapSoulFromDB } from '../database/soulsStore';
 import { MemberStore } from '../database/memberStore';
-import { SOURCE_TYPE_COLORS } from '../constants';
+import { SOURCE_TYPE_COLORS } from '../constants/ui';
 import SoulEntryForm from './SoulEntryForm';
 import MemberSearchInput from './MemberSearchInput';
 import { analyticsService } from '../services/analyticsService';

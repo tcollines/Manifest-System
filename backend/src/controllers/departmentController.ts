@@ -293,3 +293,44 @@ export const deleteDeptFinanceEntry = async (req: Request, res: Response) => {
         res.json({ message: 'Entry deleted' });
     } catch { res.status(500).json({ error: 'An internal server error occurred.' }); }
 };
+
+// ─── Departmental Roles ─────────────────────────────────────────────
+
+export const getDepartmentalRoles = async (req: Request, res: Response) => {
+    const manifestId = guard(req, res); if (!manifestId) return;
+    const { departmentId } = req.params;
+    try {
+        const { data, error } = await supabase
+            .from('departmental_roles')
+            .select('*')
+            .eq('department_id', departmentId)
+            .order('role_name', { ascending: true });
+        if (error) throw error;
+        res.json(data);
+    } catch { res.status(500).json({ error: 'An internal server error occurred.' }); }
+};
+
+export const addDepartmentalRole = async (req: Request, res: Response) => {
+    const manifestId = guard(req, res); if (!manifestId) return;
+    const { departmentId } = req.params;
+    const { roleName, description } = req.body;
+    try {
+        const { data, error } = await supabase
+            .from('departmental_roles')
+            .insert([{ department_id: departmentId, role_name: roleName, description }])
+            .select()
+            .single();
+        if (error) throw error;
+        res.status(201).json(data);
+    } catch { res.status(500).json({ error: 'An internal server error occurred.' }); }
+};
+
+export const deleteDepartmentalRole = async (req: Request, res: Response) => {
+    const manifestId = guard(req, res); if (!manifestId) return;
+    const { roleId } = req.params;
+    try {
+        const { error } = await supabase.from('departmental_roles').delete().eq('id', roleId);
+        if (error) throw error;
+        res.json({ message: 'Role deleted' });
+    } catch { res.status(500).json({ error: 'An internal server error occurred.' }); }
+};

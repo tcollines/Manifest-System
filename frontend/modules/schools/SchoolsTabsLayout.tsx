@@ -58,7 +58,9 @@ export const SchoolsTabsLayout: React.FC = () => {
             {/* Desktop: card wrapper. Mobile: edge-to-edge, no extra padding */}
             <div className="flex-1 mb-20 md:mb-0 px-0 md:px-8 md:pb-8">
                 <div className="bg-white md:bg-ministry-card md:border md:border-gray-200 md:rounded-2xl md:shadow-sm min-h-[400px]">
-                    <Outlet />
+                    <React.Suspense fallback={<div className="flex items-center justify-center h-full w-full min-h-[50vh]"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-ministry-orange"></div></div>}>
+<Outlet />
+</React.Suspense>
                 </div>
             </div>
 

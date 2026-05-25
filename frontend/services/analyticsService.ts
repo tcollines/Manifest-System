@@ -1,7 +1,6 @@
 import { supabase } from './supabaseClient';
 import { apiFetch } from './api';
 import { useQuery } from '@tanstack/react-query';
-import { SOUL_WINNING_DATA, ATTENDANCE_DATA } from '../constants';
 
 export const analyticsService = {
     fetchAttendanceAnalytics: async () => {
@@ -17,10 +16,10 @@ export const analyticsService = {
     fetchSoulWinningAnalytics: async () => {
         try {
             const data = await apiFetch('/analytics/souls');
-            return data;
+            return data || [];
         } catch (error) {
             console.error('Error fetching soul winning analytics:', error);
-            return SOUL_WINNING_DATA; // Fallback entirely to mock if backend fails
+            return []; // No fake data mask
         }
     },
 

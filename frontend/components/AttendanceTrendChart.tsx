@@ -1,16 +1,15 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
 import { Activity } from 'lucide-react';
-import { ATTENDANCE_DATA } from '../constants'; // Fallback if needed
 
 interface AttendanceTrendChartProps {
   initialAttendanceData?: any[];
 }
 
 const AttendanceTrendChart: React.FC<AttendanceTrendChartProps> = ({ initialAttendanceData }) => {
-  const [attendanceData, setAttendanceData] = React.useState<any[]>(initialAttendanceData || ATTENDANCE_DATA);
+  const [attendanceData, setAttendanceData] = React.useState<any[]>(initialAttendanceData || []);
   const [selectedMonth, setSelectedMonth] = React.useState<string>('All');
   const [selectedServiceType, setSelectedServiceType] = React.useState<string>('All');
   const [availableMonths, setAvailableMonths] = React.useState<string[]>([]);

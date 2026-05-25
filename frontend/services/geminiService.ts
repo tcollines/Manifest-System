@@ -1,5 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
-import { KPIS, DEPARTMENTS } from "../constants";
+import { DEPARTMENTS } from '../constants/departments';
+import { KPIS } from '../constants/dashboardPlaceholders';
 
 export interface ChatMessage {
   role: 'user' | 'model';

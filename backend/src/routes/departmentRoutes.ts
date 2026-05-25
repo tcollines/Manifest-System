@@ -12,6 +12,9 @@ import {
     addDeptFinanceEntry,
     deleteDeptFinanceEntry,
     updateDeptFinanceEntry,
+    getDepartmentalRoles,
+    addDepartmentalRole,
+    deleteDepartmentalRole
 } from '../controllers/departmentController';
 
 const router = express.Router();
@@ -33,5 +36,10 @@ router.get(   '/:departmentId/finances',                getDeptFinances);
 router.post(  '/:departmentId/finances',                addDeptFinanceEntry);
 router.put(   '/:departmentId/finances/:entryId',       updateDeptFinanceEntry);
 router.delete('/:departmentId/finances/:entryId',       deleteDeptFinanceEntry);
+
+// Departmental Roles
+router.get(   '/:departmentId/roles',                   getDepartmentalRoles);
+router.post(  '/:departmentId/roles',                   addDepartmentalRole);
+router.delete('/roles/:roleId',                         deleteDepartmentalRole);
 
 export default router;

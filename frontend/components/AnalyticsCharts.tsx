@@ -3,7 +3,6 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend
 } from 'recharts';
-import { SOUL_WINNING_DATA, ATTENDANCE_DATA } from '../constants';
 
 const COLORS = ['#ccff00', '#FF5722', '#00C853', '#2979FF', '#FFB300', '#9C27B0', '#00BCD4', '#E91E63'];
 
@@ -29,8 +28,8 @@ interface AnalyticsChartsProps {
 }
 
 const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({ initialAttendanceData, initialSoulsData }) => {
-  const [attendanceData, setAttendanceData] = React.useState<any[]>(initialAttendanceData || ATTENDANCE_DATA);
-  const [soulsData, setSoulsData] = React.useState<any[]>(initialSoulsData || SOUL_WINNING_DATA);
+  const [attendanceData, setAttendanceData] = React.useState<any[]>(initialAttendanceData || []);
+  const [soulsData, setSoulsData] = React.useState<any[]>(initialSoulsData || []);
   const [totalSouls, setTotalSouls] = React.useState<number>(0);
   const [selectedMonth, setSelectedMonth] = React.useState<string>('All');
   const [availableMonths, setAvailableMonths] = React.useState<string[]>([]);

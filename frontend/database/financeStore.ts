@@ -1,7 +1,7 @@
 
 import { Transaction, DepartmentRequest } from '../types';
 import { apiFetch } from '../services/api';
-import { DEPARTMENT_REQUESTS } from '../constants';
+import { DEPARTMENT_REQUESTS } from '../constants/departments';
 
 export const mapTransactionFromDB = (t: any): Transaction => ({
   id: t.id,

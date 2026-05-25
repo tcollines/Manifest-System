@@ -467,7 +467,9 @@ const FinanceLayout: React.FC = () => {
                 </div>
 
                 {/* Content — no padding on mobile (edge-to-edge), padded on desktop */}
-                <div className="flex-1 pb-28 md:pb-0"><Outlet /></div>
+                <div className="flex-1 pb-28 md:pb-0"><React.Suspense fallback={<div className="flex items-center justify-center h-full w-full min-h-[50vh]"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-ministry-orange"></div></div>}>
+<Outlet />
+</React.Suspense></div>
             </div>
 
             {/* ── Mobile Floating Bottom Navigation ────────────────────────── */}

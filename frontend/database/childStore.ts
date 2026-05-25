@@ -1,7 +1,6 @@
 
 import { Child, ServiceResponse } from '../types';
 import { apiFetch } from '../services/api';
-import { MOCK_CHILDREN } from '../constants';
 import { safeFetch } from '../services/safeFetch';
 
 export const mapChildFromDB = (c: any): Child => ({

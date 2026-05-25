@@ -7,7 +7,7 @@ import { MemberStore } from '../database/memberStore';
 import { EventStore } from '../database/eventStore';
 import { Search, Phone, MessageSquare, CheckCircle, UserPlus, AlertCircle, Calendar, Clock, Download, AlertTriangle, Users, Database, Plus, ChevronDown, Check, Trash2 } from 'lucide-react';
 import * as XLSX from 'xlsx';
-import { DEPARTMENTS } from '../constants';
+import { DEPARTMENTS } from '../constants/departments';
 import { useNotification } from './ui/NotificationSystem';
 import ConfirmationModal from './ConfirmationModal';
 

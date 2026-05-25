@@ -8,19 +8,25 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function run() {
     try {
-        const sqlFile = process.argv[2];
-        const sqlPath = sqlFile || '../frontend/database/26_add_sales_reservations.sql';
+        const sqlPath = '../frontend/database/28_fix_sales_rls.sql';
         const sql = fs.readFileSync(sqlPath, 'utf8');
 
         console.log(`Executing migration schema from ${sqlPath} using RPC...`);
-        const { data, error } = await supabase.rpc('inline_code_block', { sql_query: sql });
-        if (error) {
-            console.error("Migration Failed via inline_code_block:", error);
-            // Fallback: maybe just try pg client directly with port 5432 and the IP of pooler
-        } else {
-            console.log("Migration executed successfully!");
+        let res = await supabase.rpc('exec_sql', { sql_query: sql });
+        if (res.error) {
+            console.log("exec_sql (sql_query) failed:", res.error.message);
+            res = await supabase.rpc('exec_sql', { sql: sql });
+            if (res.error) {
+               console.log("exec_sql (sql) failed:", res.error.message);
+               res = await supabase.rpc('inline_code_block', { sql_query: sql });
+               if (res.error) {
+                   console.error("Migration Failed on all RPCs.");
+                   return;
+               }
+            }
         }
-
+        
+        console.log("Migration executed successfully!");
     } catch (err) {
         console.error("Error executing migration:", err);
     }

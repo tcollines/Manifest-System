@@ -91,7 +91,7 @@ const GenericDeptDashboard: React.FC<DashboardProps> = ({ openModal, onEditUser,
                 setDepartment(res.data);
             } else {
                 // Fallback to static DEPARTMENTS list
-                import('../../constants').then(({ DEPARTMENTS }) => {
+                import('../../constants/departments').then(({ DEPARTMENTS }) => {
                     if (controller.signal.aborted) return;
                     const fallback = DEPARTMENTS.find(d => d.id === deptId || d.uuid === deptId || d.slug === deptId || d.code === deptId);
                     if (fallback) {
@@ -109,7 +109,7 @@ const GenericDeptDashboard: React.FC<DashboardProps> = ({ openModal, onEditUser,
             setLoading(false);
         }).catch(err => {
             if (controller.signal.aborted) return;
-            import('../../constants').then(({ DEPARTMENTS }) => {
+            import('../../constants/departments').then(({ DEPARTMENTS }) => {
                 if (controller.signal.aborted) return;
                 const fallback = DEPARTMENTS.find(d => d.id === deptId || d.uuid === deptId || d.slug === deptId || d.code === deptId);
                 if (fallback) {

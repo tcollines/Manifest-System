@@ -218,13 +218,45 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
     // Toast Logic
     const showToast = useCallback((message: string, type: NotificationType = 'info') => {
-        const id = Math.random().toString(36).substr(2, 9);
-        setToasts((prev) => [...prev, { id, message, type }]);
+        setToasts((prev) => {
+            // Deduplication: prevent showing the exact same active toast
+            if (prev.some(t => t.message === message && t.type === type)) {
+                return prev;
+            }
+            const id = Math.random().toString(36).substr(2, 9);
+            return [...prev, { id, message, type }];
+        });
     }, []);
 
     const removeToast = useCallback((id: string) => {
         setToasts((prev) => prev.filter((t) => t.id !== id));
     }, []);
+
+    // Global API Event Listeners
+    useEffect(() => {
+        const handleApiError = (e: Event) => {
+            const customEvent = e as CustomEvent;
+            showToast(customEvent.detail || 'An unexpected error occurred.', 'error');
+        };
+
+        const handleApiOffline = () => {
+            showToast('You are currently offline. Check your network connection.', 'warning');
+        };
+        
+        const handleApiUnauthorized = () => {
+            showToast('Session expired. Please log in again.', 'warning');
+        };
+
+        window.addEventListener('api:error', handleApiError);
+        window.addEventListener('api:offline', handleApiOffline);
+        window.addEventListener('api:unauthorized', handleApiUnauthorized);
+
+        return () => {
+            window.removeEventListener('api:error', handleApiError);
+            window.removeEventListener('api:offline', handleApiOffline);
+            window.removeEventListener('api:unauthorized', handleApiUnauthorized);
+        };
+    }, [showToast]);
 
     // Confirm Logic
     const confirm = useCallback((message: React.ReactNode, options?: Partial<ConfirmOptions>): Promise<boolean> => {

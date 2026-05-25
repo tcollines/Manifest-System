@@ -1,7 +1,6 @@
 
 import { PickUpStation, ServiceResponse } from '../types';
 import { apiFetch } from '../services/api';
-import { PICKUP_STATIONS } from '../constants';
 import { safeFetch } from '../services/safeFetch';
 
 export interface ExtendedStation extends PickUpStation {

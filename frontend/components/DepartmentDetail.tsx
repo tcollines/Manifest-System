@@ -1,6 +1,6 @@
 import React from 'react';
 import { useParams, Link, Outlet, useLocation } from 'react-router-dom';
-import { DEPARTMENTS } from '../constants';
+import { DEPARTMENTS } from '../constants/departments';
 import { ArrowLeft, Users, User } from 'lucide-react';
 
 const DepartmentDetail: React.FC = () => {

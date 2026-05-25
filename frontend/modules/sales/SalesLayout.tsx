@@ -48,8 +48,10 @@ const SalesLayout: React.FC<Props> = ({ onOpenModal }) => {
  </div>
 
  {/* Main Content Area */}
- <div className="flex-1 overflow-auto p-4 md:p-6 lg:p-8">
+ <div className="flex-1 overflow-auto p-4 md:p-6 lg:p-8 relative">
+ <React.Suspense fallback={<div className="absolute inset-0 flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-ministry-orange"></div></div>}>
  <Outlet />
+ </React.Suspense>
  </div>
  </div>
  );

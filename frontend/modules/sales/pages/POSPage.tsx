@@ -152,28 +152,19 @@ const POSPage: React.FC = () => {
        unit_cost_price: item.variant.cost_price
      }));
 
-     // 1. Create order (Procurement logic inside createOrder will set status appropriately)
-     const order = await orderService.createOrder(manifestId, {
-       customer_id: selectedCustomerId || undefined,
-       total_amount: totalAmount,
-       amount_paid: 0, 
-       payment_status: 'UNPAID',
-       created_by: user?.name
-     }, orderItems);
+     // 1. Unified Backend Checkout
+     await salesService.processCheckout(manifestId, {
+       orderPayload: {
+         customer_id: selectedCustomerId || undefined,
+         created_by: user?.name
+       },
+       items: orderItems,
+       amountPaid: paid,
+       paymentMethod: paymentMethod
+     });
 
-     // 2. Record payment if any (This updates order to PARTIAL or PAID, and auto-reserves if stock is sufficient)
-     if (paid > 0) {
-       await paymentService.recordPayment(manifestId, order.id, paid, paymentMethod, 'POS Checkout');
-     }
-
-     // 3. Auto-fulfill if fully paid and items were reserved/pending
      if (paid >= totalAmount) {
-       try {
-          await fulfillmentService.fulfillOrder(manifestId, order.id);
-          showToast(`Order created and fulfilled successfully.`, 'success');
-       } catch (err: any) {
-          showToast(`Order created but fulfillment failed: ${err.message}`, 'warning');
-       }
+        showToast(`Order created and fulfilled successfully.`, 'success');
      } else {
         showToast(`Order created successfully. (Partial/Unpaid)`, 'success');
      }

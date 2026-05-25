@@ -69,14 +69,20 @@ export const subscribeToPush = async () => {
 
 export const unsubscribeFromPush = async () => {
     if (!('serviceWorker' in navigator)) return;
-    const registration = await navigator.serviceWorker.ready;
+    const registration = await navigator.serviceWorker.getRegistration();
+    if (!registration) return;
+    
     const subscription = await registration.pushManager.getSubscription();
 
     if (subscription) {
-        await apiFetch('/push/unsubscribe', {
-            method: 'POST',
-            body: JSON.stringify({ endpoint: subscription.endpoint })
-        });
+        try {
+            await apiFetch('/push/unsubscribe', {
+                method: 'POST',
+                body: JSON.stringify({ endpoint: subscription.endpoint })
+            });
+        } catch (e) {
+            console.warn('[PushService] Failed to notify backend of unsubscribe:', e);
+        }
         await subscription.unsubscribe();
         window.dispatchEvent(new Event('push-status-changed'));
     }
@@ -99,7 +105,9 @@ export const checkPushStatus = async () => {
     if (!('serviceWorker' in navigator)) return false;
     if (!('Notification' in window) || Notification.permission !== 'granted') return false;
 
-    const registration = await navigator.serviceWorker.ready;
+    const registration = await navigator.serviceWorker.getRegistration();
+    if (!registration) return false;
+    
     const subscription = await registration.pushManager.getSubscription();
     
     return !!subscription;

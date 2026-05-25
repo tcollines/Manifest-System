@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { User, ModalType } from '../../types';
 import { Search, Edit2, Trash2, Shield, Plus } from 'lucide-react';
-import { DEPARTMENTS } from '../../constants';
+import { DEPARTMENTS } from '../../constants/departments';
 import { UserStore } from '../../database/userStore';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import { useAuth } from '../../context/AuthContext';

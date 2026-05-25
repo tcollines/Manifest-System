@@ -23,8 +23,10 @@ const InventoryPage: React.FC = () => {
 
  const loadData = async () => {
  try {
- const sess = await inventoryService.getStockTakingSessions(manifestId);
- const vars = await salesService.getVariants(manifestId);
+ const [sess, vars] = await Promise.all([
+ inventoryService.getStockTakingSessions(manifestId),
+ salesService.getVariants(manifestId)
+ ]);
  setSessions(sess);
  setVariants(vars);
  } catch (e: any) {
@@ -88,23 +90,7 @@ const InventoryPage: React.FC = () => {
  };
  });
  
- await inventoryService.saveStockTakingItems(items);
- 
- // Update actual stock levels
- for (const item of items) {
- if (item.variance !== 0) {
- await salesService.updateVariantStock(item.variant_id, item.physical_quantity);
- await inventoryService.recordMovement(manifestId, {
- variant_id: item.variant_id,
- type: 'ADJUSTMENT',
- quantity: item.variance,
- reason: 'Stock Take',
- reference_id: activeSession.id
- });
- }
- }
- 
- await inventoryService.completeStockTakingSession(activeSession.id);
+ await inventoryService.completeStockTakingSession(activeSession.id, items);
  setActiveSession(null);
  showToast('Stock taking completed and inventory updated', 'success');
  loadData();

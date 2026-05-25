@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNotification } from './ui/NotificationSystem';
-import { DEPARTMENTS, CURRENCIES } from '../constants';
+import { DEPARTMENTS } from '../constants/departments';
+import { CURRENCIES } from '../constants/currencies';
 import { User, ModalType, ManifestDetails } from '../types';
 import { UserStore } from '../database/userStore';
 import { ManifestStore } from '../database/manifestStore';

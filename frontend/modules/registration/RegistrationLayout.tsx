@@ -8,7 +8,9 @@
  *   2. Provides them via RegistrationContext to all child pages
  *   3. Renders the NavLink tab bar (replaces the old tab bar that was
  *      removed from RegistrationDashboard in Phase B)
- *   4. Renders <Outlet /> for the active route/tab
+ *   4. Renders <React.Suspense fallback={<div className="flex items-center justify-center h-full w-full min-h-[50vh]"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-ministry-orange"></div></div>}>
+<Outlet />
+</React.Suspense> for the active route/tab
  *
  * HYBRID MODE:
  *   RegistrationDashboard.tsx monolith remains active for all sections.
@@ -82,7 +84,9 @@ const RegistrationLayout: React.FC = () => {
 
                 {/* ── Active page content ────────────────────────────────────── */}
                 <div className="flex-1 relative p-4 md:p-6 mb-20 md:mb-0">
-                    <Outlet />
+                    <React.Suspense fallback={<div className="flex items-center justify-center h-full w-full min-h-[50vh]"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-ministry-orange"></div></div>}>
+<Outlet />
+</React.Suspense>
                 </div>
             </div>
 

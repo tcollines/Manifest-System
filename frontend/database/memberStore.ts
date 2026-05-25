@@ -1,6 +1,5 @@
 import { Member, ServiceResponse } from '../types';
 import { apiFetch } from '../services/api';
-import { MOCK_MEMBERS } from '../constants';
 import { v4 as uuidv4 } from 'uuid';
 import { safeFetch } from '../services/safeFetch';
 
