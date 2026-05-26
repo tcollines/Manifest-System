@@ -14,8 +14,8 @@ export const inventoryService = {
     });
   },
 
-  async getStockTakingSessions(manifestId: string): Promise<SalesStockTakingSession[]> {
-    const response = await apiFetch('/sales/stock-taking/sessions');
+  async getStockTakingSessions(manifestId: string, page: number = 1, limit: number = 20): Promise<SalesStockTakingSession[]> {
+    const response = await apiFetch(`/sales/stock-taking/sessions?page=${page}&limit=${limit}`);
     return response as SalesStockTakingSession[];
   },
 

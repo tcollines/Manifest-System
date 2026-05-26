@@ -41,7 +41,7 @@ export const SyncIndicator: React.FC = () => {
 
     return (
         <div 
-            className={`fixed bottom-4 right-4 z-50 flex items-center p-3 rounded-full shadow-lg transition-all cursor-pointer ${hasFailures ? 'bg-red-50 text-red-600 border border-red-200' : 'bg-gray-900 text-white'}`}
+            className={`fixed bottom-24 md:bottom-4 right-4 z-50 flex items-center p-3 rounded-full shadow-lg transition-all cursor-pointer ${hasFailures ? 'bg-red-50 text-red-600 border border-red-200' : 'bg-gray-900 text-white'}`}
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
             onClick={handleManualSync}

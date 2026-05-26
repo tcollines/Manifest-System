@@ -84,73 +84,34 @@
     let appHasFatalError = false;
     let currentlyOnline = true; // Assume online on initial load
 
-    // Function to actively verify an actual internet route exists
-    async function checkActualInternet() {
-      try {
-        // Ping a highly available public resource with no-cors to bypass security restrictions.
-        // The cache-busting timestamp ensures we aren't getting a cached success.
-        await fetch('https://www.google.com/favicon.ico?_t=' + new Date().getTime(), { mode: 'no-cors', cache: 'no-store' });
-        return true;
-      } catch (e) {
-        return false; // Fetch threw an error -> No internet route!
-      }
-    }
-
     async function handleNetworkChange() {
-      // If browser explicitly says offline, trust it immediately for speed
       if (navigator.onLine === false) {
          if (currentlyOnline) {
              currentlyOnline = false;
              showConnectionStatus(false, false);
          }
-         return;
-      }
-      
-      // If browser claims online, VERIFY IT. Some OS setups report true even without internet.
-      const hasRealInternet = await checkActualInternet();
-      
-      if (hasRealInternet) {
+      } else {
         if (!currentlyOnline) {
           currentlyOnline = true;
           showConnectionStatus(true, false);
           if (appHasFatalError) {
-            // Auto-reload to recover from a blank screen crash
             setTimeout(() => window.location.reload(), 2000);
           }
-        }
-      } else {
-        if (currentlyOnline) {
-          currentlyOnline = false;
-          showConnectionStatus(false, false);
         }
       }
     }
 
-    // Bind to native browser network events for instant reaction if supported
+    // Bind to native browser network events
     window.addEventListener('offline', handleNetworkChange);
     window.addEventListener('online', handleNetworkChange);
-    
-    // Aggressive Polling: Check actual internet routing every 3 seconds
-    setInterval(handleNetworkChange, 3000);
 
     window.addEventListener('error', function (e) {
-      if (e.message && e.message.includes('ResizeObserver')) return; // Ignore harmless noise
-      
-      // If the app fails to load its core files (e.g. User reloads while offline), it crashes.
+      if (e.message && e.message.includes('ResizeObserver')) return;
       appHasFatalError = true;
-      
-      // If we're actually offline, let the network handler take over.
-      // If we're online but still crashing, force the error banner.
-      if (navigator.onLine) {
-         showConnectionStatus(false, false); 
-      }
     }, true);
 
     window.addEventListener('unhandledrejection', function (e) {
       appHasFatalError = true;
-      if (navigator.onLine) {
-         showConnectionStatus(false, false);
-      }
     });
   </script>
   <!-- Google Sign-In Script is now loaded dynamically in SignIn.tsx -->

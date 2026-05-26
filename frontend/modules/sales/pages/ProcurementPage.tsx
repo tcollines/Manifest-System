@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { procurementService } from '../../../services/sales/procurementService';
 import { salesService } from '../../../services/sales/salesService';
 import { useNotification } from '../../../components/ui/NotificationSystem';
+import { useInfiniteScroll } from '../../../hooks/useInfiniteScroll';
 import { SalesProcurementRequest, SalesSupplier, SalesVariant, SalesProcurementRequestItem } from '../types';
 import { X, Plus, Package, Truck, Search, ShoppingCart, CheckCircle, Edit, Trash2, Eye, DollarSign, CreditCard } from 'lucide-react';
 import TextInput from '../../../components/ui/TextInput';
@@ -26,7 +27,15 @@ const ProcurementPage: React.FC = () => {
   
   const [activeTab, setActiveTab] = useState<Tab>('REQUESTS');
   
-  const [requests, setRequests] = useState<SalesProcurementRequest[]>([]);
+  const fetchRequests = useCallback(async (page: number) => {
+    return await procurementService.getProcurementRequests(manifestId, page, 20);
+  }, [manifestId]);
+
+  const { data: requests, isLoading: requestsLoading, sentinelRef: requestsSentinel, reset: resetRequests } = useInfiniteScroll<SalesProcurementRequest>({
+    fetchData: fetchRequests,
+    initialPage: 1
+  });
+
   const [suppliers, setSuppliers] = useState<SalesSupplier[]>([]);
   const [variants, setVariants] = useState<SalesVariant[]>([]);
   
@@ -66,10 +75,9 @@ const ProcurementPage: React.FC = () => {
 
   const loadData = async () => {
     try {
-      const reqs = await procurementService.getProcurementRequests(manifestId);
+      resetRequests();
       const supps = await procurementService.getSuppliers(manifestId);
       const vars = await salesService.getVariants(manifestId);
-      setRequests(reqs);
       setSuppliers(supps);
       setVariants(vars);
     } catch (e: any) {
@@ -421,7 +429,7 @@ const ProcurementPage: React.FC = () => {
                       {r.status === 'DRAFT' && (
                         <button 
                           onClick={() => openEditPOModal(r)}
-                          className="p-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors"
+                          className="w-11 h-11 flex items-center justify-center bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors"
                           title="Edit PO"
                         >
                           <Edit size={16} />
@@ -431,7 +439,7 @@ const ProcurementPage: React.FC = () => {
                       {r.status !== 'DRAFT' && (
                         <button 
                           onClick={() => openViewModal(r)}
-                          className="p-1.5 bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200 rounded-lg transition-colors"
+                          className="w-11 h-11 flex items-center justify-center bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200 rounded-lg transition-colors"
                           title="View PO"
                         >
                           <Eye size={16} />
@@ -441,7 +449,7 @@ const ProcurementPage: React.FC = () => {
                       {r.status !== 'RECEIVED' && r.status !== 'CANCELLED' && r.status !== 'DRAFT' && (
                         <button 
                           onClick={() => openReceiveModal(r)}
-                          className="p-1.5 bg-green-50 text-green-600 hover:bg-green-100 rounded-lg transition-colors"
+                          className="w-11 h-11 flex items-center justify-center bg-green-50 text-green-600 hover:bg-green-100 rounded-lg transition-colors"
                           title="Receive Items"
                         >
                           <CheckCircle size={16} />
@@ -451,7 +459,7 @@ const ProcurementPage: React.FC = () => {
                       {r.status !== 'DRAFT' && (
                         <button 
                           onClick={() => openPaymentModal(r)}
-                          className="p-1.5 bg-orange-50 text-ministry-orange hover:bg-orange-100 rounded-lg transition-colors"
+                          className="w-11 h-11 flex items-center justify-center bg-orange-50 text-ministry-orange hover:bg-orange-100 rounded-lg transition-colors"
                           title="Record Payment"
                         >
                           <CreditCard size={16} />
@@ -460,7 +468,7 @@ const ProcurementPage: React.FC = () => {
 
                       <button 
                         onClick={() => handleDeletePO(r.id)}
-                        className="p-1.5 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg transition-colors"
+                        className="w-11 h-11 flex items-center justify-center bg-red-50 text-red-600 hover:bg-red-100 rounded-lg transition-colors"
                         title="Delete PO"
                       >
                         <Trash2 size={16} />
@@ -473,6 +481,8 @@ const ProcurementPage: React.FC = () => {
                 )}
               </tbody>
             </table>
+            {requestsLoading && <div className="p-4 text-center text-sm text-gray-500">Loading orders...</div>}
+            <div ref={requestsSentinel} className="h-4" />
           </div>
 
           <div className="md:hidden divide-y divide-gray-100">
@@ -523,32 +533,34 @@ const ProcurementPage: React.FC = () => {
                   
                   <div className="flex gap-1">
                     {r.status === 'DRAFT' && (
-                      <button onClick={() => openEditPOModal(r)} className="p-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-md transition-colors" title="Edit PO">
+                      <button onClick={() => openEditPOModal(r)} className="w-11 h-11 flex items-center justify-center bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-md transition-colors" title="Edit PO">
                         <Edit size={16} />
                       </button>
                     )}
                     {r.status !== 'DRAFT' && (
-                      <button onClick={() => openViewModal(r)} className="p-2 bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200 rounded-md transition-colors" title="View PO">
+                      <button onClick={() => openViewModal(r)} className="w-11 h-11 flex items-center justify-center bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200 rounded-md transition-colors" title="View PO">
                         <Eye size={16} />
                       </button>
                     )}
                     {r.status !== 'RECEIVED' && r.status !== 'CANCELLED' && r.status !== 'DRAFT' && (
-                      <button onClick={() => openReceiveModal(r)} className="p-2 bg-green-50 text-green-600 hover:bg-green-100 rounded-md transition-colors" title="Receive Items">
+                      <button onClick={() => openReceiveModal(r)} className="w-11 h-11 flex items-center justify-center bg-green-50 text-green-600 hover:bg-green-100 rounded-md transition-colors" title="Receive Items">
                         <CheckCircle size={16} />
                       </button>
                     )}
                     {r.status !== 'DRAFT' && (
-                      <button onClick={() => openPaymentModal(r)} className="p-2 bg-orange-50 text-ministry-orange hover:bg-orange-100 rounded-md transition-colors" title="Record Payment">
+                      <button onClick={() => openPaymentModal(r)} className="w-11 h-11 flex items-center justify-center bg-orange-50 text-ministry-orange hover:bg-orange-100 rounded-md transition-colors" title="Record Payment">
                         <CreditCard size={16} />
                       </button>
                     )}
-                    <button onClick={() => handleDeletePO(r.id)} className="p-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-md transition-colors" title="Delete PO">
+                    <button onClick={() => handleDeletePO(r.id)} className="w-11 h-11 flex items-center justify-center bg-red-50 text-red-600 hover:bg-red-100 rounded-md transition-colors" title="Delete PO">
                       <Trash2 size={16} />
                     </button>
                   </div>
                 </div>
               </div>
             ))}
+            {requestsLoading && <div className="p-4 text-center text-sm text-gray-500">Loading orders...</div>}
+            <div ref={requestsSentinel} className="h-4" />
           </div>
         </div>
       )}
@@ -623,7 +635,7 @@ const ProcurementPage: React.FC = () => {
                   placeholder="e.g. info@acme.com / +256 700 000000"
                 />
               </div>
-              <div className="pt-4 flex justify-end gap-2">
+              <div className="pt-4 flex justify-end gap-2 px-6 pb-[max(1rem,env(safe-area-inset-bottom))] bg-white">
                 <button type="button" onClick={() => setShowSupplierModal(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg text-sm font-medium transition-colors">
                   Cancel
                 </button>
@@ -797,8 +809,7 @@ const ProcurementPage: React.FC = () => {
                 </div>
               </div>
             </div>
-
-            <div className="px-6 py-4 border-t border-gray-100 bg-white flex justify-end gap-3 shrink-0">
+            <div className="px-6 py-4 border-t border-gray-100 bg-white flex justify-end gap-3 shrink-0 pb-[max(1rem,env(safe-area-inset-bottom))]">
               <button onClick={() => setShowPOModal(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg font-medium transition-colors">
                 Cancel
               </button>
@@ -891,7 +902,7 @@ const ProcurementPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="px-6 py-4 border-t border-gray-100 bg-white flex justify-end gap-3 shrink-0">
+            <div className="px-6 py-4 border-t border-gray-100 bg-white flex justify-end gap-3 shrink-0 pb-[max(1rem,env(safe-area-inset-bottom))]">
               <button onClick={() => setReceiveModalPO(null)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg font-medium transition-colors">
                 Cancel
               </button>
@@ -959,7 +970,7 @@ const ProcurementPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="px-6 py-4 border-t border-gray-100 bg-white flex justify-end gap-3 shrink-0">
+            <div className="px-6 py-4 border-t border-gray-100 bg-white flex justify-end gap-3 shrink-0 pb-[max(1rem,env(safe-area-inset-bottom))]">
               <button onClick={() => setViewModalPO(null)} className="px-4 py-2 bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-lg font-medium transition-colors">
                 Close
               </button>
@@ -1026,10 +1037,10 @@ const ProcurementPage: React.FC = () => {
                     </div>
                     <div>
                       <TextInput 
-                        label="Transaction Ref (Optional)"
+                        label={paymentMethod === 'Mobile Money' ? "Transaction ID (Optional)" : "Transaction Ref (Optional)"}
                         value={paymentRef}
                         onChange={e => setPaymentRef(e.target.value)}
-                        placeholder="e.g. Receipt #1234"
+                        placeholder={paymentMethod === 'Mobile Money' ? "e.g. 123456789" : "e.g. Receipt #1234"}
                       />
                     </div>
                     <div>
@@ -1097,7 +1108,7 @@ const ProcurementPage: React.FC = () => {
               )}
             </div>
 
-            <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex justify-end shrink-0">
+            <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex justify-end shrink-0 pb-[max(1rem,env(safe-area-inset-bottom))]">
               <button onClick={() => setPaymentModalPO(null)} className="px-4 py-2 bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 rounded-lg font-medium transition-colors">
                 Close
               </button>

@@ -57,10 +57,10 @@ export const processCheckout = async (req: Request, res: Response) => {
     const manifestId = validateTenant(req, res);
     if (!manifestId) return;
 
-    const { orderPayload, items, amountPaid, paymentMethod } = req.body;
+    const { orderPayload, items, amountPaid, paymentMethod, transactionId } = req.body;
     try {
         const auditContext = buildAuditContext(req);
-        const data = await ordersService.processCheckout(manifestId, orderPayload, items, amountPaid, paymentMethod, auditContext);
+        const data = await ordersService.processCheckout(manifestId, orderPayload, items, amountPaid, paymentMethod, transactionId, auditContext);
         res.status(201).json(data);
     } catch (err) {
         handleApiError(res, err, 'Failed to process checkout');

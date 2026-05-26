@@ -12,6 +12,7 @@ import { Bell, Search, Menu } from 'lucide-react';
 import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import RoleRedirect from './components/RoleRedirect';
 import ProtectedRoute from './components/ProtectedRoute';
+import ErrorBoundary from './components/ui/ErrorBoundary';
 import ProfileModal from './components/ProfileModal';
 import { isTeamLeader } from './domain/rbac';
 
@@ -240,121 +241,123 @@ const App: React.FC = () => {
 
         {/* Routes */}
         <div className="flex-1 w-full relative">
-          <React.Suspense fallback={<RouteFallback />}>
-            <Routes>
-              <Route index element={<RoleRedirect user={user} />} />
+          <ErrorBoundary moduleName="Application">
+            <React.Suspense fallback={<RouteFallback />}>
+              <Routes>
+                <Route index element={<RoleRedirect user={user} />} />
 
-            {/* Admin dashboard */}
-            <Route element={<ProtectedRoute allowedDepartments={['d0']} allowedRoles={['Super Admin', 'Administrator']} />}>
-              <Route path="dashboard" element={<Dashboard openModal={setModalType} />} />
-            </Route>
+              {/* Admin dashboard */}
+              <Route element={<ProtectedRoute allowedDepartments={['d0']} allowedRoles={['Super Admin', 'Administrator']} />}>
+                <Route path="dashboard" element={<Dashboard openModal={setModalType} />} />
+              </Route>
 
-            <Route element={<ProtectedRoute allowedRoles={['TeamLeader']} />}>
-              <Route path="team-dashboard" element={<TeamLeaderDashboard />} />
-            </Route>
+              <Route element={<ProtectedRoute allowedRoles={['TeamLeader']} />}>
+                <Route path="team-dashboard" element={<TeamLeaderDashboard />} />
+              </Route>
 
-            {/* Administration — self-manages user list internally */}
-            <Route element={<ProtectedRoute allowedDepartments={['d0']} allowedRoles={['Super Admin', 'Administrator', 'TeamLeader']} />}>
-              <Route path="administration/*" element={
-                <React.Suspense fallback={<RouteFallback />}>
-                  <AdministrationDashboard
-                    openModal={setModalType}
-                    onDeleteUser={handleDeleteUser}
+              {/* Administration — self-manages user list internally */}
+              <Route element={<ProtectedRoute allowedDepartments={['d0']} allowedRoles={['Super Admin', 'Administrator', 'TeamLeader']} />}>
+                <Route path="administration/*" element={
+                  <React.Suspense fallback={<RouteFallback />}>
+                    <AdministrationDashboard
+                      openModal={setModalType}
+                      onDeleteUser={handleDeleteUser}
+                      onEditUser={(u) => { setTargetUser(u); setModalType(ModalType.EDIT_USER); }}
+                      refreshTrigger={refreshUsersCounter}
+                    />
+                  </React.Suspense>
+                } />
+              </Route>
+
+              {/* Public */}
+              <Route path="public-soul-entry" element={<PublicSoulEntry />} />
+
+              {/* Settings — self-manage user list internally */}
+              <Route path="settings" element={<SettingsLayout />}>
+                <Route index element={<Navigate to="manifest" replace />} />
+                <Route path="map"      element={<SettingsMapPage      openModal={setModalType} onDeleteUser={handleDeleteUser} onEditUser={(u) => { setTargetUser(u); setModalType(ModalType.EDIT_USER); }} />} />
+                <Route path="manifest" element={<SettingsManifestPage openModal={setModalType} onDeleteUser={handleDeleteUser} onEditUser={(u) => { setTargetUser(u); setModalType(ModalType.EDIT_USER); }} />} />
+              </Route>
+              <Route path="manifest-settings" element={<Navigate to="/settings/manifest" replace />} />
+
+              {/* Departments — unified entry point */}
+              <Route path="departments">
+                <Route index element={<DepartmentsView currentUser={user} />} />
+                <Route path=":deptId/*" element={
+                  <DepartmentRouterProxy
+                    onOpenModal={setModalType}
                     onEditUser={(u) => { setTargetUser(u); setModalType(ModalType.EDIT_USER); }}
-                    refreshTrigger={refreshUsersCounter}
                   />
-                </React.Suspense>
-              } />
-            </Route>
+                } />
+              </Route>
 
-            {/* Public */}
-            <Route path="public-soul-entry" element={<PublicSoulEntry />} />
+              {/* Backward-compat redirects */}
+              <Route path="departments/d0/*" element={<Navigate to="/departments/0b685c69-edb6-44b9-8f21-1a11878b6d7b" replace />} />
+              <Route path="departments/d1/*" element={<Navigate to="/departments/81b8b740-6663-4179-bcfb-e3dc7524d36c" replace />} />
+              <Route path="departments/d2/*" element={<Navigate to="/departments/a9aff0dc-1a78-4c00-ad29-4531942670d0" replace />} />
+              <Route path="departments/d3/*" element={<Navigate to="/departments/65808f94-cf1c-4e0f-b7f0-d3ac2b49d20a" replace />} />
+              <Route path="departments/d4/*" element={<Navigate to="/departments/e35f6789-1862-4c31-8b13-96d59463d257" replace />} />
+              <Route path="departments/d5/*" element={<Navigate to="/departments/4630e48a-f97e-48fd-a901-864b591c282f" replace />} />
+              <Route path="departments/d6/*" element={<Navigate to="/departments/e680342f-72c7-4d10-b7cb-631725afe770" replace />} />
+              <Route path="departments/d7/*" element={<Navigate to="/departments/4d99940e-58ec-40ba-92bd-4a65651bf23a" replace />} />
+              <Route path="departments/d8/*" element={<Navigate to="/departments/f1a0d749-d681-4150-9764-aecfeac8b0ca" replace />} />
+              <Route path="departments/d9/*" element={<Navigate to="/departments/b2c1d3e4-f5a6-7890-bcde-1234567890ab" replace />} />
+              <Route path="departments/d10/*" element={<Navigate to="/departments/c1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d" replace />} />
 
-            {/* Settings — self-manage user list internally */}
-            <Route path="settings" element={<SettingsLayout />}>
-              <Route index element={<Navigate to="manifest" replace />} />
-              <Route path="map"      element={<SettingsMapPage      openModal={setModalType} onDeleteUser={handleDeleteUser} onEditUser={(u) => { setTargetUser(u); setModalType(ModalType.EDIT_USER); }} />} />
-              <Route path="manifest" element={<SettingsManifestPage openModal={setModalType} onDeleteUser={handleDeleteUser} onEditUser={(u) => { setTargetUser(u); setModalType(ModalType.EDIT_USER); }} />} />
-            </Route>
-            <Route path="manifest-settings" element={<Navigate to="/settings/manifest" replace />} />
+              <Route path="registration/*"  element={<Navigate to="/departments/81b8b740-6663-4179-bcfb-e3dc7524d36c" replace />} />
+              <Route path="next-gen/*"      element={<Navigate to="/departments/a9aff0dc-1a78-4c00-ad29-4531942670d0" replace />} />
+              <Route path="parking/*"       element={<Navigate to="/departments/65808f94-cf1c-4e0f-b7f0-d3ac2b49d20a" replace />} />
+              <Route path="finance/*"       element={<Navigate to="/departments/e35f6789-1862-4c31-8b13-96d59463d257" replace />} />
+              <Route path="transportation/*"element={<Navigate to="/departments/4630e48a-f97e-48fd-a901-864b591c282f" replace />} />
+              <Route path="follow-up/*"     element={<Navigate to="/departments/e680342f-72c7-4d10-b7cb-631725afe770" replace />} />
+              <Route path="schools/*"       element={<Navigate to="/departments/4d99940e-58ec-40ba-92bd-4a65651bf23a" replace />} />
+              <Route path="healing/*"       element={<Navigate to="/departments/f1a0d749-d681-4150-9764-aecfeac8b0ca" replace />} />
+              <Route path="campus/*"        element={<Navigate to="/departments/b2c1d3e4-f5a6-7890-bcde-1234567890ab" replace />} />
+              <Route path="residents/*"     element={<Navigate to="/departments/c1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d" replace />} />
+              <Route path="stage-dashboard" element={<Navigate to="/departments/4630e48a-f97e-48fd-a901-864b591c282f/stage-dashboard" replace />} />
+              <Route path="sales/*"         element={<Navigate to="/departments/afc0240b-0faf-48ec-a1d8-ad2f193eb891" replace />} />
 
-            {/* Departments — unified entry point */}
-            <Route path="departments">
-              <Route index element={<DepartmentsView currentUser={user} />} />
-              <Route path=":deptId/*" element={
-                <DepartmentRouterProxy
-                  onOpenModal={setModalType}
-                  onEditUser={(u) => { setTargetUser(u); setModalType(ModalType.EDIT_USER); }}
-                />
-              } />
-            </Route>
+              {/* Global Scopes */}
+              <Route element={<ProtectedRoute allowedRoles={['Administrator', 'Super Admin', 'TeamLeader', 'Finance', 'Dept Finance', 'Head of Dept', 'HOD', 'Dept Admin']} />}>
+                   <Route path="approvals/workplans" element={<WorkplanQueue systemRole={user.role} />} />
+              </Route>
 
-            {/* Backward-compat redirects */}
-            <Route path="departments/d0/*" element={<Navigate to="/departments/0b685c69-edb6-44b9-8f21-1a11878b6d7b" replace />} />
-            <Route path="departments/d1/*" element={<Navigate to="/departments/81b8b740-6663-4179-bcfb-e3dc7524d36c" replace />} />
-            <Route path="departments/d2/*" element={<Navigate to="/departments/a9aff0dc-1a78-4c00-ad29-4531942670d0" replace />} />
-            <Route path="departments/d3/*" element={<Navigate to="/departments/65808f94-cf1c-4e0f-b7f0-d3ac2b49d20a" replace />} />
-            <Route path="departments/d4/*" element={<Navigate to="/departments/e35f6789-1862-4c31-8b13-96d59463d257" replace />} />
-            <Route path="departments/d5/*" element={<Navigate to="/departments/4630e48a-f97e-48fd-a901-864b591c282f" replace />} />
-            <Route path="departments/d6/*" element={<Navigate to="/departments/e680342f-72c7-4d10-b7cb-631725afe770" replace />} />
-            <Route path="departments/d7/*" element={<Navigate to="/departments/4d99940e-58ec-40ba-92bd-4a65651bf23a" replace />} />
-            <Route path="departments/d8/*" element={<Navigate to="/departments/f1a0d749-d681-4150-9764-aecfeac8b0ca" replace />} />
-            <Route path="departments/d9/*" element={<Navigate to="/departments/b2c1d3e4-f5a6-7890-bcde-1234567890ab" replace />} />
-            <Route path="departments/d10/*" element={<Navigate to="/departments/c1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d" replace />} />
+              <Route element={<ProtectedRoute allowedRoles={['TeamLeader']} />}>
+                   <Route path="approvals/requisitions" element={<TeamLeaderRequisitions currentUser={user} />} />
+              </Route>
 
-            <Route path="registration/*"  element={<Navigate to="/departments/81b8b740-6663-4179-bcfb-e3dc7524d36c" replace />} />
-            <Route path="next-gen/*"      element={<Navigate to="/departments/a9aff0dc-1a78-4c00-ad29-4531942670d0" replace />} />
-            <Route path="parking/*"       element={<Navigate to="/departments/65808f94-cf1c-4e0f-b7f0-d3ac2b49d20a" replace />} />
-            <Route path="finance/*"       element={<Navigate to="/departments/e35f6789-1862-4c31-8b13-96d59463d257" replace />} />
-            <Route path="transportation/*"element={<Navigate to="/departments/4630e48a-f97e-48fd-a901-864b591c282f" replace />} />
-            <Route path="follow-up/*"     element={<Navigate to="/departments/e680342f-72c7-4d10-b7cb-631725afe770" replace />} />
-            <Route path="schools/*"       element={<Navigate to="/departments/4d99940e-58ec-40ba-92bd-4a65651bf23a" replace />} />
-            <Route path="healing/*"       element={<Navigate to="/departments/f1a0d749-d681-4150-9764-aecfeac8b0ca" replace />} />
-            <Route path="campus/*"        element={<Navigate to="/departments/b2c1d3e4-f5a6-7890-bcde-1234567890ab" replace />} />
-            <Route path="residents/*"     element={<Navigate to="/departments/c1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d" replace />} />
-            <Route path="stage-dashboard" element={<Navigate to="/departments/4630e48a-f97e-48fd-a901-864b591c282f/stage-dashboard" replace />} />
-            <Route path="sales/*"         element={<Navigate to="/departments/afc0240b-0faf-48ec-a1d8-ad2f193eb891" replace />} />
+              <Route element={<ProtectedRoute allowedRoles={['Administrator', 'Super Admin']} />}>
+                   <Route path="approvals/adhoc-requisitions" element={<AdminRequisitionQueue currentUser={user} />} />
+              </Route>
 
-            {/* Global Scopes */}
-            <Route element={<ProtectedRoute allowedRoles={['Administrator', 'Super Admin', 'TeamLeader', 'Finance', 'Dept Finance', 'Head of Dept', 'HOD', 'Dept Admin']} />}>
-                 <Route path="approvals/workplans" element={<WorkplanQueue systemRole={user.role} />} />
-            </Route>
+              <Route element={<ProtectedRoute allowedRoles={['Dept Finance', 'Finance', 'Head of Dept', 'HOD', 'Dept Admin']} allowedDepartments={['d4', 'e35f6789-1862-4c31-8b13-96d59463d257']} />}>
+                   <Route path="finance/processing" element={<RequisitionQueue systemRole={user.role} />} />
+              </Route>
 
-            <Route element={<ProtectedRoute allowedRoles={['TeamLeader']} />}>
-                 <Route path="approvals/requisitions" element={<TeamLeaderRequisitions currentUser={user} />} />
-            </Route>
-
-            <Route element={<ProtectedRoute allowedRoles={['Administrator', 'Super Admin']} />}>
-                 <Route path="approvals/adhoc-requisitions" element={<AdminRequisitionQueue currentUser={user} />} />
-            </Route>
-
-            <Route element={<ProtectedRoute allowedRoles={['Dept Finance', 'Finance', 'Head of Dept', 'HOD', 'Dept Admin']} allowedDepartments={['d4', 'e35f6789-1862-4c31-8b13-96d59463d257']} />}>
-                 <Route path="finance/processing" element={<RequisitionQueue systemRole={user.role} />} />
-            </Route>
-
-            <Route path="events"      element={<EventsView />} />
-            <Route path="reports"     element={<ReportsView currentUser={user} isGlobal={true} />} />
-            <Route path="schedules"   element={<GlobalSchedulesView />} />
+              <Route path="events"      element={<EventsView />} />
+              <Route path="reports"     element={<ReportsView currentUser={user} isGlobal={true} />} />
+              <Route path="schedules"   element={<GlobalSchedulesView />} />
 
 
 
-            <Route path="assets" element={
-              <div className="p-4 md:p-8">
-                <h1 className="text-3xl font-bold text-ministry-text mb-6">Assets Management</h1>
-                <AssetsTab currentUser={user} />
-              </div>
-            } />
-
-            <Route path="*" element={
-              <div className="flex items-center justify-center h-full text-gray-500">
-                <div className="text-center">
-                  <h2 className="text-2xl font-bold text-gray-700 mb-2">Page Not Found</h2>
-                  <p>The requested page: {location.pathname}</p>
+              <Route path="assets" element={
+                <div className="p-4 md:p-8">
+                  <h1 className="text-3xl font-bold text-ministry-text mb-6">Assets Management</h1>
+                  <AssetsTab currentUser={user} />
                 </div>
-              </div>
-            } />
-          </Routes>
-          </React.Suspense>
+              } />
+
+              <Route path="*" element={
+                <div className="flex items-center justify-center h-full text-gray-500">
+                  <div className="text-center">
+                    <h2 className="text-2xl font-bold text-gray-700 mb-2">Page Not Found</h2>
+                    <p>The requested page: {location.pathname}</p>
+                  </div>
+                </div>
+              } />
+            </Routes>
+            </React.Suspense>
+          </ErrorBoundary>
         </div>
       </main>
 

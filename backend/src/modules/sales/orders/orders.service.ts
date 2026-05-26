@@ -4,7 +4,7 @@ import { logAudit, computeChangedFields } from '../../../services/audit/auditSer
 export const getOrders = async (manifestId: string) => {
     const { data, error } = await supabase
         .from('sales_orders')
-        .select('*, sales_customers(full_name)')
+        .select('*, sales_customers(full_name), sales_order_items(quantity, sales_product_variants(name))')
         .eq('manifest_id', manifestId)
         .order('created_at', { ascending: false });
     if (error) throw error;
@@ -102,7 +102,7 @@ export const createOrder = async (manifestId: string, payload: any, items: any[]
     return order;
 };
 
-export const processCheckout = async (manifestId: string, orderPayload: any, items: any[], amountPaid: number, paymentMethod: string, auditContext: any) => {
+export const processCheckout = async (manifestId: string, orderPayload: any, items: any[], amountPaid: number, paymentMethod: string, transactionId: string | undefined, auditContext: any) => {
     // 1. Validate Stock & Prepare Order
     const variantIds = items.map((i: any) => i.variant_id).filter(Boolean);
     const { data: variants, error: varErr } = await supabase.from('sales_product_variants').select('id, stock_quantity, reserved_quantity, cost_price, selling_price').in('id', variantIds);
@@ -135,7 +135,8 @@ export const processCheckout = async (manifestId: string, orderPayload: any, ite
     // 4. Record Payment
     let paymentRecord = null;
     if (Number(amountPaid) > 0) {
-        const { data: pmt } = await supabase.from('sales_payments').insert([{ manifest_id: manifestId, order_id: order.id, amount: amountPaid, payment_method: paymentMethod, reference: 'POS Checkout' }]).select().single();
+        const reference = transactionId ? `Mobile Money: ${transactionId}` : 'POS Checkout';
+        const { data: pmt } = await supabase.from('sales_payments').insert([{ manifest_id: manifestId, order_id: order.id, amount: amountPaid, payment_method: paymentMethod, reference }]).select().single();
         paymentRecord = pmt;
     }
 

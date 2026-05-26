@@ -128,12 +128,12 @@ const CustomersPage: React.FC = () => {
          <div className={`fixed inset-0 z-50 lg:static lg:z-auto lg:flex lg:w-1/3 bg-white lg:rounded-xl lg:border border-gray-100 shadow-sm flex-col lg:max-h-[80vh] overflow-hidden lg:sticky lg:top-6 ${selectedCustomer ? 'flex' : 'hidden lg:flex'}`}>
            <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50 pt-safe-top">
              <div className="flex items-center gap-3 overflow-hidden">
-               <button onClick={() => setSelectedCustomer(null)} className="lg:hidden p-2 -ml-2 text-gray-500 hover:text-gray-900 rounded-full hover:bg-gray-200 transition-colors">
+               <button onClick={() => setSelectedCustomer(null)} className="lg:hidden w-11 h-11 flex items-center justify-center -ml-2 text-gray-500 hover:text-gray-900 rounded-full hover:bg-gray-200 transition-colors">
                  <X size={20} />
                </button>
                <h2 className="font-bold text-gray-900 truncate">{selectedCustomer.full_name}</h2>
              </div>
-             <button onClick={() => setSelectedCustomer(null)} className="hidden lg:block text-gray-400 hover:text-gray-600">
+             <button onClick={() => setSelectedCustomer(null)} className="hidden lg:flex w-11 h-11 items-center justify-center text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors">
                <X size={18} />
              </button>
            </div>
@@ -219,7 +219,7 @@ const CustomersPage: React.FC = () => {
          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
            <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
              <h2 className="text-lg font-bold text-gray-900">Add New Customer</h2>
-             <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">
+             <button onClick={() => setShowModal(false)} className="w-11 h-11 flex items-center justify-center text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors">
                <X size={20} />
              </button>
            </div>

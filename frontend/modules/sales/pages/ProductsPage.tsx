@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { salesService } from '../../../services/sales/salesService';
 import { useNotification } from '../../../components/ui/NotificationSystem';
 import { SalesCategory, SalesProduct, SalesVariant } from '../types';
-import { Plus, X, Search, Package, Tags, Layers, Printer } from 'lucide-react';
+import { Plus, X, Search, Package, Tags, Layers, Printer, Edit2, Trash2 } from 'lucide-react';
 import TextInput from '../../../components/ui/TextInput';
 import SelectInput from '../../../components/ui/SelectInput';
 
@@ -24,6 +24,7 @@ const ProductsPage: React.FC = () => {
 
  const [activeTab, setActiveTab] = useState<'variants' | 'products' | 'categories'>('variants');
  const [isLoading, setIsLoading] = useState(false);
+ const [isSubmitting, setIsSubmitting] = useState(false);
 
  // Modal States
  const [showCatModal, setShowCatModal] = useState(false);
@@ -34,6 +35,10 @@ const ProductsPage: React.FC = () => {
 
  const [showVarModal, setShowVarModal] = useState(false);
  const [varForm, setVarForm] = useState({ product_id: '', name: '', sku: '', barcode: '', cost_price: '', selling_price: '', _shortId: '' });
+
+ const [editCatId, setEditCatId] = useState<string | null>(null);
+ const [editProdId, setEditProdId] = useState<string | null>(null);
+ const [editVarId, setEditVarId] = useState<string | null>(null);
 
  const updateVarFormAuto = (updates: Partial<typeof varForm>) => {
     const nextState = { ...varForm, ...updates };
@@ -54,7 +59,7 @@ const ProductsPage: React.FC = () => {
            nextState._shortId = shortId;
        }
        
-       nextState.sku = `${pCode}-${vCode}`;
+       nextState.sku = `${pCode}-${vCode}-${shortId}`;
        nextState.barcode = `SALES-${cCode}-${pCode}-${vCode}-${shortId}`;
     }
     setVarForm(nextState);
@@ -81,18 +86,39 @@ const ProductsPage: React.FC = () => {
  };
 
  const handleAddCategory = async (e: React.FormEvent) => {
- e.preventDefault();
- if (!catForm.name) return showToast('Name is required', 'error');
- try {
- await salesService.createCategory(manifestId, catForm.name);
- loadData();
- setShowCatModal(false);
- setCatForm({ name: '' });
- showToast('Category created successfully', 'success');
- } catch (e: any) {
- showToast(e.message, 'error');
- }
- };
+  e.preventDefault();
+  if (isSubmitting) return;
+  if (!catForm.name) return showToast('Name is required', 'error');
+  try {
+  setIsSubmitting(true);
+  if (editCatId) {
+    await salesService.updateCategory(editCatId, catForm.name);
+    showToast('Category updated successfully', 'success');
+  } else {
+    await salesService.createCategory(manifestId, catForm.name);
+    showToast('Category created successfully', 'success');
+  }
+  loadData();
+  setShowCatModal(false);
+  setCatForm({ name: '' });
+  setEditCatId(null);
+  } catch (e: any) {
+  showToast(e.message, 'error');
+  } finally {
+  setIsSubmitting(false);
+  }
+  };
+
+  const handleDeleteCategory = async (id: string) => {
+    if (!window.confirm('Are you sure you want to delete this category?')) return;
+    try {
+      await salesService.deleteCategory(id);
+      showToast('Category deleted successfully', 'success');
+      loadData();
+    } catch (e: any) {
+      showToast(e.message, 'error');
+    }
+  };
 
  const handlePrintAllBarcodes = () => {
  const inStockVariants = variants.filter(v => v.stock_quantity > 0);
@@ -165,42 +191,86 @@ const ProductsPage: React.FC = () => {
  printWindow.document.close();
  };
 
- const handleAddProduct = async (e: React.FormEvent) => {
- e.preventDefault();
- if (!prodForm.name || !prodForm.category_id) return showToast('All fields are required', 'error');
- try {
- await salesService.createProduct(manifestId, prodForm.category_id, prodForm.name);
- loadData();
- setShowProdModal(false);
- setProdForm({ category_id: '', name: '' });
- showToast('Product created successfully', 'success');
- } catch (e: any) {
- showToast(e.message, 'error');
- }
- };
+  const handleAddProduct = async (e: React.FormEvent) => {
+  e.preventDefault();
+  if (isSubmitting) return;
+  if (!prodForm.name || !prodForm.category_id) return showToast('All fields are required', 'error');
+  try {
+  setIsSubmitting(true);
+  if (editProdId) {
+    await salesService.updateProduct(editProdId, prodForm.category_id, prodForm.name);
+    showToast('Product updated successfully', 'success');
+  } else {
+    await salesService.createProduct(manifestId, prodForm.category_id, prodForm.name);
+    showToast('Product created successfully', 'success');
+  }
+  loadData();
+  setShowProdModal(false);
+  setProdForm({ category_id: '', name: '' });
+  setEditProdId(null);
+  } catch (e: any) {
+  showToast(e.message, 'error');
+  } finally {
+  setIsSubmitting(false);
+  }
+  };
 
- const handleAddVariant = async (e: React.FormEvent) => {
- e.preventDefault();
- if (!varForm.product_id) return showToast('Base product is required', 'error');
- if (!varForm.name || !varForm.sku || !varForm.barcode) return showToast('All variant details are required', 'error');
- try {
- await salesService.createVariant(manifestId, {
- product_id: varForm.product_id,
- name: varForm.name,
- sku: varForm.sku,
- barcode: varForm.barcode,
- cost_price: Number(parseMoneyInput(varForm.cost_price || '0')),
- selling_price: Number(parseMoneyInput(varForm.selling_price || '0')),
- stock_quantity: 0
- });
- loadData();
- setShowVarModal(false);
- setVarForm({ product_id: '', name: '', sku: '', barcode: '', cost_price: '', selling_price: '', _shortId: '' });
- showToast('Variant created successfully', 'success');
- } catch (e: any) {
- showToast(e.message, 'error');
- }
- };
+  const handleDeleteProduct = async (id: string) => {
+    if (!window.confirm('Are you sure you want to delete this product?')) return;
+    try {
+      await salesService.deleteProduct(id);
+      showToast('Product deleted successfully', 'success');
+      loadData();
+    } catch (e: any) {
+      showToast(e.message, 'error');
+    }
+  };
+
+  const handleAddVariant = async (e: React.FormEvent) => {
+  e.preventDefault();
+  if (isSubmitting) return;
+  if (!varForm.product_id) return showToast('Base product is required', 'error');
+  if (!varForm.name || !varForm.sku || !varForm.barcode) return showToast('All variant details are required', 'error');
+  try {
+  setIsSubmitting(true);
+  const payload = {
+    product_id: varForm.product_id,
+    name: varForm.name,
+    sku: varForm.sku,
+    barcode: varForm.barcode,
+    cost_price: Number(parseMoneyInput(varForm.cost_price || '0')),
+    selling_price: Number(parseMoneyInput(varForm.selling_price || '0')),
+    stock_quantity: editVarId ? undefined : 0
+  };
+  
+  if (editVarId) {
+    await salesService.updateVariant(editVarId, payload);
+    showToast('Variant updated successfully', 'success');
+  } else {
+    await salesService.createVariant(manifestId, payload);
+    showToast('Variant created successfully', 'success');
+  }
+  loadData();
+  setShowVarModal(false);
+  setVarForm({ product_id: '', name: '', sku: '', barcode: '', cost_price: '', selling_price: '', _shortId: '' });
+  setEditVarId(null);
+  } catch (e: any) {
+  showToast(e.message, 'error');
+  } finally {
+  setIsSubmitting(false);
+  }
+  };
+
+  const handleDeleteVariant = async (id: string) => {
+    if (!window.confirm('Are you sure you want to delete this variant?')) return;
+    try {
+      await salesService.deleteVariant(id);
+      showToast('Variant deleted successfully', 'success');
+      loadData();
+    } catch (e: any) {
+      showToast(e.message, 'error');
+    }
+  };
 
  return (
  <div className="space-y-6">
@@ -256,11 +326,12 @@ const ProductsPage: React.FC = () => {
  <th className="p-4 font-medium">SKU / Barcode</th>
  <th className="p-4 font-medium">Pricing</th>
  <th className="p-4 font-medium text-right">Stock</th>
+ <th className="p-4 font-medium text-right">Actions</th>
  </tr>
  </thead>
  <tbody className="divide-y divide-gray-100 text-sm">
  {variants.length === 0 && !isLoading && (
- <tr><td colSpan={4} className="p-12 text-center text-gray-400">No variants found. Add a variant to get started.</td></tr>
+ <tr><td colSpan={5} className="p-12 text-center text-gray-400">No variants found. Add a variant to get started.</td></tr>
  )}
  {variants.map(v => {
  const parentProd = products.find(p => p.id === v.product_id);
@@ -282,6 +353,16 @@ const ProductsPage: React.FC = () => {
  <span className={`px-2 py-1 rounded-md text-xs font-bold ${v.stock_quantity > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
  {v.stock_quantity} IN STOCK
  </span>
+ </td>
+ <td className="p-4 text-right">
+   <div className="flex items-center justify-end gap-2">
+     <button onClick={() => { setEditVarId(v.id); setVarForm({ product_id: v.product_id, name: v.name, sku: v.sku, barcode: v.barcode, cost_price: v.cost_price.toString(), selling_price: v.selling_price.toString(), _shortId: '' }); setShowVarModal(true); }} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+       <Edit2 size={16} />
+     </button>
+     <button onClick={() => handleDeleteVariant(v.id)} className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+       <Trash2 size={16} />
+     </button>
+   </div>
  </td>
  </tr>
  );
@@ -311,6 +392,14 @@ const ProductsPage: React.FC = () => {
            <div className="text-gray-400 text-xs line-through">Cost: UGX {v.cost_price?.toLocaleString()}</div>
            <div className="font-bold text-ministry-orange">UGX {v.selling_price?.toLocaleString()}</div>
          </div>
+         <div className="flex items-center justify-end gap-2 mt-2">
+           <button onClick={() => { setEditVarId(v.id); setVarForm({ product_id: v.product_id, name: v.name, sku: v.sku, barcode: v.barcode, cost_price: v.cost_price.toString(), selling_price: v.selling_price.toString(), _shortId: '' }); setShowVarModal(true); }} className="px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 rounded-lg transition-colors flex items-center gap-1">
+             <Edit2 size={14} /> Edit
+           </button>
+           <button onClick={() => handleDeleteVariant(v.id)} className="px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 rounded-lg transition-colors flex items-center gap-1">
+             <Trash2 size={14} /> Delete
+           </button>
+         </div>
        </div>
      );
    })}
@@ -326,11 +415,12 @@ const ProductsPage: React.FC = () => {
  <th className="p-4 font-medium">Product Name</th>
  <th className="p-4 font-medium">Category</th>
  <th className="p-4 font-medium">Date Created</th>
+ <th className="p-4 font-medium text-right">Actions</th>
  </tr>
  </thead>
  <tbody className="divide-y divide-gray-100 text-sm">
  {products.length === 0 && !isLoading && (
- <tr><td colSpan={3} className="p-12 text-center text-gray-400">No products found. Add a product to get started.</td></tr>
+ <tr><td colSpan={4} className="p-12 text-center text-gray-400">No products found. Add a product to get started.</td></tr>
  )}
  {products.map(p => {
  const cat = categories.find(c => c.id === p.category_id);
@@ -341,6 +431,16 @@ const ProductsPage: React.FC = () => {
  <span className="bg-gray-100 px-2 py-1 rounded text-xs">{cat?.name || 'Unknown'}</span>
  </td>
  <td className="p-4 text-gray-500">{new Date(p.created_at || '').toLocaleDateString()}</td>
+ <td className="p-4 text-right">
+   <div className="flex items-center justify-end gap-2">
+     <button onClick={() => { setEditProdId(p.id); setProdForm({ category_id: p.category_id, name: p.name }); setShowProdModal(true); }} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+       <Edit2 size={16} />
+     </button>
+     <button onClick={() => handleDeleteProduct(p.id)} className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+       <Trash2 size={16} />
+     </button>
+   </div>
+ </td>
  </tr>
  );
  })}
@@ -354,12 +454,22 @@ const ProductsPage: React.FC = () => {
    {products.map(p => {
      const cat = categories.find(c => c.id === p.category_id);
      return (
-       <div key={p.id} className="p-4 hover:bg-gray-50 flex justify-between items-center">
+       <div key={p.id} className="hover:bg-gray-50">
+        <div className="p-4 flex justify-between items-center">
          <div>
            <div className="font-semibold text-gray-900">{p.name}</div>
            <div className="text-xs text-gray-400 mt-1">{new Date(p.created_at || '').toLocaleDateString()}</div>
          </div>
          <span className="bg-gray-100 px-2 py-1 rounded text-xs text-gray-600">{cat?.name || 'Unknown'}</span>
+        </div>
+        <div className="flex items-center justify-end gap-2 px-4 pb-4 bg-transparent mt-[-8px]">
+           <button onClick={() => { setEditProdId(p.id); setProdForm({ category_id: p.category_id, name: p.name }); setShowProdModal(true); }} className="px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 rounded-lg transition-colors flex items-center gap-1">
+             <Edit2 size={14} /> Edit
+           </button>
+           <button onClick={() => handleDeleteProduct(p.id)} className="px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 rounded-lg transition-colors flex items-center gap-1">
+             <Trash2 size={14} /> Delete
+           </button>
+        </div>
        </div>
      );
    })}
@@ -373,7 +483,7 @@ const ProductsPage: React.FC = () => {
  <div className="col-span-full py-12 text-center text-gray-400">No categories found. Add a category to get started.</div>
  )}
  {categories.map(c => (
- <div key={c.id} className="bg-gray-50 p-4 rounded-xl border border-gray-100 flex items-center justify-between">
+ <div key={c.id} className="bg-gray-50 p-4 rounded-xl border border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
  <div className="flex items-center gap-3">
  <div className="w-10 h-10 rounded-lg bg-gray-200 flex items-center justify-center text-gray-500">
  <Tags size={18} />
@@ -383,6 +493,14 @@ const ProductsPage: React.FC = () => {
  <p className="text-xs text-gray-500">ID: {c.id.substring(0, 8)}...</p>
  </div>
  </div>
+ <div className="flex items-center justify-end gap-2">
+   <button onClick={() => { setEditCatId(c.id); setCatForm({ name: c.name }); setShowCatModal(true); }} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+     <Edit2 size={16} />
+   </button>
+   <button onClick={() => handleDeleteCategory(c.id)} className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+     <Trash2 size={16} />
+   </button>
+ </div>
  </div>
  ))}
  </div>
@@ -391,107 +509,124 @@ const ProductsPage: React.FC = () => {
 
  {/* Category Modal */}
  {showCatModal && (
- <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
- <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl relative border border-gray-200 flex flex-col max-h-[90vh]">
- <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 rounded-t-2xl">
- <h2 className="text-xl font-bold text-gray-900">Add Category</h2>
- <button onClick={() => setShowCatModal(false)} className="text-gray-400 hover:text-gray-900 bg-gray-200 rounded-full p-1"><X size={20} /></button>
- </div>
- <form onSubmit={handleAddCategory} className="flex-1 overflow-y-auto p-6 space-y-4">
- <TextInput label="Category Name" value={catForm.name} onChange={(e) => setCatForm({...catForm, name: e.target.value})} placeholder="e.g. T-Shirts" required />
- <div className="pt-4">
-   <button type="submit"className="w-full bg-ministry-orange text-white rounded-xl py-3 font-bold hover:bg-orange-600 transition-colors">Create Category</button>
- </div>
- </form>
- </div>
- </div>
+  <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+  <div className="bg-white rounded-2xl w-full max-w-md overflow-hidden flex flex-col max-h-[90vh]">
+  <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+  <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+  <Tags size={20} className="text-ministry-orange" />
+  {editCatId ? 'Edit Category' : 'New Category'}
+  </h2>
+  <button onClick={() => { setShowCatModal(false); setEditCatId(null); setCatForm({name: ''}); }} className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-400 hover:text-gray-600">
+  <X size={20}/>
+  </button>
+  </div>
+  
+  <form onSubmit={handleAddCategory} className="flex-1 overflow-y-auto p-6 space-y-4">
+  <TextInput label="Category Name" value={catForm.name} onChange={(e) => setCatForm({...catForm, name: e.target.value})} placeholder="e.g. T-Shirts" required />
+  <div className="pt-4">
+    <button type="submit" disabled={isSubmitting} className={`w-full text-white rounded-xl py-3 font-bold transition-colors ${isSubmitting ? 'bg-orange-400 cursor-not-allowed' : 'bg-ministry-orange hover:bg-orange-600'}`}>{isSubmitting ? (editCatId ? 'Updating...' : 'Creating...') : (editCatId ? 'Update Category' : 'Create Category')}</button>
+  </div>
+  </form>
+  </div>
+  </div>
  )}
 
  {/* Product Modal */}
  {showProdModal && (
- <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
- <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl relative border border-gray-200 flex flex-col max-h-[90vh]">
- <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 rounded-t-2xl">
- <h2 className="text-xl font-bold text-gray-900">Add Product</h2>
- <button onClick={() => setShowProdModal(false)} className="text-gray-400 hover:text-gray-900 bg-gray-200 rounded-full p-1"><X size={20} /></button>
- </div>
- <form onSubmit={handleAddProduct} className="flex-1 overflow-y-auto p-6 space-y-4">
- <SelectInput 
- label="Category" 
- value={prodForm.category_id} 
- onChange={(e) => setProdForm({...prodForm, category_id: e.target.value})} 
- options={categories.map(c => ({ label: c.name, value: c.id }))} 
- placeholder="Select Category..."
- required
- />
- <TextInput label="Product Name" value={prodForm.name} onChange={(e) => setProdForm({...prodForm, name: e.target.value})} placeholder="e.g. Manifesto Tour Tee" required />
- <div className="pt-4">
-   <button type="submit"className="w-full bg-ministry-orange text-white rounded-xl py-3 font-bold hover:bg-orange-600 transition-colors">Create Product</button>
- </div>
- </form>
- </div>
- </div>
+  <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+  <div className="bg-white rounded-2xl w-full max-w-md overflow-hidden flex flex-col max-h-[90vh]">
+  <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+  <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+  <Layers size={20} className="text-ministry-orange" />
+  {editProdId ? 'Edit Product' : 'New Product'}
+  </h2>
+  <button onClick={() => { setShowProdModal(false); setEditProdId(null); setProdForm({category_id: '', name: ''}); }} className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-400 hover:text-gray-600">
+  <X size={20}/>
+  </button>
+  </div>
+  
+  <form onSubmit={handleAddProduct} className="flex-1 overflow-y-auto p-6 space-y-4">
+  <SelectInput 
+  label="Category" 
+  value={prodForm.category_id} 
+  onChange={(e) => setProdForm({...prodForm, category_id: e.target.value})} 
+  options={categories.map(c => ({ value: c.id, label: c.name }))}
+  required
+  />
+  <TextInput label="Product Name" value={prodForm.name} onChange={(e) => setProdForm({...prodForm, name: e.target.value})} placeholder="e.g. Manifesto Tour Tee" required />
+  <div className="pt-4">
+    <button type="submit" disabled={isSubmitting} className={`w-full text-white rounded-xl py-3 font-bold transition-colors ${isSubmitting ? 'bg-orange-400 cursor-not-allowed' : 'bg-ministry-orange hover:bg-orange-600'}`}>{isSubmitting ? (editProdId ? 'Updating...' : 'Creating...') : (editProdId ? 'Update Product' : 'Create Product')}</button>
+  </div>
+  </form>
+  </div>
+  </div>
  )}
 
  {/* Variant Modal */}
  {showVarModal && (
- <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
- <div className="bg-white rounded-2xl w-full max-w-xl shadow-2xl relative border border-gray-200 flex flex-col max-h-[90vh]">
- <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 rounded-t-2xl">
- <h2 className="text-xl font-bold text-gray-900">Add Variant</h2>
- <button onClick={() => setShowVarModal(false)} className="text-gray-400 hover:text-gray-900 bg-gray-200 rounded-full p-1"><X size={20} /></button>
- </div>
- <form onSubmit={handleAddVariant} className="flex-1 overflow-y-auto p-6 space-y-4">
- <SelectInput 
- label="Base Product" 
- value={varForm.product_id} 
- onChange={(e) => updateVarFormAuto({ product_id: e.target.value })} 
- options={products.map(p => ({ label: p.name, value: p.id }))} 
- placeholder="Select Base Product..."
- required
- />
- <TextInput label="Variant Name" value={varForm.name} onChange={(e) => updateVarFormAuto({ name: e.target.value })} placeholder="e.g. Black / Large" required />
- 
- <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
- <TextInput label="SKU" value={varForm.sku} onChange={(e) => setVarForm({...varForm, sku: e.target.value})} placeholder="e.g. MGP-BLK-L" disabled required />
- <TextInput label="Barcode" value={varForm.barcode} onChange={(e) => setVarForm({...varForm, barcode: e.target.value})} placeholder="e.g. SALES-CLO-MGPTEE-BLK-VN-XL" disabled required />
- </div>
- 
- <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
- <div>
- <label className="block text-sm font-medium text-gray-700 mb-1">Cost Price</label>
- <input 
-    type="text" 
-    inputMode="numeric" 
-    required 
-    onWheel={e => e.currentTarget.blur()} 
-    onKeyDown={e => { if (['ArrowUp', 'ArrowDown'].includes(e.key)) e.preventDefault(); }}
-    value={formatMoneyInput(varForm.cost_price)} 
-    onChange={e => { const raw = parseMoneyInput(e.target.value); if (!isNaN(Number(raw))) setVarForm({...varForm, cost_price: raw}); }} 
-    className="w-full bg-white border border-gray-300 rounded-lg px-4 py-2 text-gray-900 font-mono" 
+  <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+  <div className="bg-white rounded-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
+  <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50 shrink-0">
+  <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+  <Package size={20} className="text-ministry-orange" />
+  {editVarId ? 'Edit Variant' : 'New Variant'}
+  </h2>
+  <button onClick={() => { setShowVarModal(false); setEditVarId(null); setVarForm({ product_id: '', name: '', sku: '', barcode: '', cost_price: '', selling_price: '', _shortId: '' }); }} className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-400 hover:text-gray-600">
+  <X size={20}/>
+  </button>
+  </div>
+  
+  <form onSubmit={handleAddVariant} className="flex-1 overflow-y-auto p-6 space-y-5">
+  <SelectInput 
+  label="Base Product" 
+  value={varForm.product_id} 
+  onChange={(e) => updateVarFormAuto({ product_id: e.target.value })} 
+  options={products.map(p => ({ value: p.id, label: p.name }))}
+  required
+  disabled={!!editVarId}
   />
- </div>
- <div>
- <label className="block text-sm font-medium text-gray-700 mb-1">Selling Price</label>
- <input 
-    type="text" 
-    inputMode="numeric" 
-    required 
-    onWheel={e => e.currentTarget.blur()} 
-    onKeyDown={e => { if (['ArrowUp', 'ArrowDown'].includes(e.key)) e.preventDefault(); }}
-    value={formatMoneyInput(varForm.selling_price)} 
-    onChange={e => { const raw = parseMoneyInput(e.target.value); if (!isNaN(Number(raw))) setVarForm({...varForm, selling_price: raw}); }} 
-    className="w-full bg-white border border-gray-300 rounded-lg px-4 py-2 text-gray-900 font-mono" 
-  />
- </div>
- </div>
- 
- <div className="pt-4 mt-2 border-t border-gray-100">
- <button type="submit"className="w-full bg-ministry-orange text-white rounded-xl py-3 font-bold hover:bg-orange-600 transition-colors">Create Variant</button>
- </div>
- </form>
- </div>
- </div>
+  <TextInput label="Variant Name" value={varForm.name} onChange={(e) => updateVarFormAuto({ name: e.target.value })} placeholder="e.g. Black / Large" required />
+  
+  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+  <TextInput label="SKU" value={varForm.sku} onChange={(e) => setVarForm({...varForm, sku: e.target.value})} placeholder="e.g. MGP-BLK-L" disabled required />
+  <TextInput label="Barcode" value={varForm.barcode} onChange={(e) => setVarForm({...varForm, barcode: e.target.value})} placeholder="e.g. SALES-CLO-MGPTEE-BLK-VN-XL" disabled required />
+  </div>
+  
+  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+  <div>
+  <label className="block text-sm font-medium text-gray-700 mb-1">Cost Price</label>
+  <input 
+     type="text" 
+     inputMode="numeric" 
+     required 
+     onWheel={e => e.currentTarget.blur()} 
+     onKeyDown={e => { if (['ArrowUp', 'ArrowDown'].includes(e.key)) e.preventDefault(); }}
+     value={formatMoneyInput(varForm.cost_price)} 
+     onChange={e => { const raw = parseMoneyInput(e.target.value); if (!isNaN(Number(raw))) setVarForm({...varForm, cost_price: raw}); }} 
+     className="w-full bg-white border border-gray-300 rounded-lg px-4 py-2 text-gray-900 font-mono" 
+   />
+  </div>
+  <div>
+  <label className="block text-sm font-medium text-gray-700 mb-1">Selling Price</label>
+  <input 
+     type="text" 
+     inputMode="numeric" 
+     required 
+     onWheel={e => e.currentTarget.blur()} 
+     onKeyDown={e => { if (['ArrowUp', 'ArrowDown'].includes(e.key)) e.preventDefault(); }}
+     value={formatMoneyInput(varForm.selling_price)} 
+     onChange={e => { const raw = parseMoneyInput(e.target.value); if (!isNaN(Number(raw))) setVarForm({...varForm, selling_price: raw}); }} 
+     className="w-full bg-white border border-gray-300 rounded-lg px-4 py-2 text-gray-900 font-mono" 
+   />
+  </div>
+  </div>
+  
+  <div className="pt-4 mt-2 border-t border-gray-100">
+  <button type="submit" disabled={isSubmitting} className={`w-full text-white rounded-xl py-3 font-bold transition-colors ${isSubmitting ? 'bg-orange-400 cursor-not-allowed' : 'bg-ministry-orange hover:bg-orange-600'}`}>{isSubmitting ? (editVarId ? 'Updating...' : 'Creating...') : (editVarId ? 'Update Variant' : 'Create Variant')}</button>
+  </div>
+  </form>
+  </div>
+  </div>
  )}
  </div>
  );

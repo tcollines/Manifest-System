@@ -39,6 +39,31 @@ export const createCategory = async (req: Request, res: Response) => {
     }
 };
 
+export const updateCategory = async (req: Request, res: Response) => {
+    const manifestId = validateTenant(req, res);
+    if (!manifestId) return;
+    try {
+        const auditContext = buildAuditContext(req);
+        const data = await catalogService.updateCategory(manifestId, req.params.id, req.body, auditContext);
+        res.status(200).json(data);
+    } catch (err: any) {
+        if (err.message?.includes('already exists')) return res.status(400).json({ error: err.message });
+        handleApiError(res, err, 'Failed to update category');
+    }
+};
+
+export const deleteCategory = async (req: Request, res: Response) => {
+    const manifestId = validateTenant(req, res);
+    if (!manifestId) return;
+    try {
+        const auditContext = buildAuditContext(req);
+        await catalogService.deleteCategory(manifestId, req.params.id, auditContext);
+        res.status(200).json({ success: true });
+    } catch (err: any) {
+        handleApiError(res, err, 'Failed to delete category');
+    }
+};
+
 export const getProducts = async (req: Request, res: Response) => {
     const manifestId = validateTenant(req, res);
     if (!manifestId) return;
@@ -64,11 +89,39 @@ export const createProduct = async (req: Request, res: Response) => {
     }
 };
 
+export const updateProduct = async (req: Request, res: Response) => {
+    const manifestId = validateTenant(req, res);
+    if (!manifestId) return;
+    const { categoryId, name, description } = req.body;
+    try {
+        const auditContext = buildAuditContext(req);
+        const data = await catalogService.updateProduct(manifestId, req.params.id, { category_id: categoryId, name, description }, auditContext);
+        res.status(200).json(data);
+    } catch (err: any) {
+        if (err.message?.includes('already exists')) return res.status(400).json({ error: err.message });
+        handleApiError(res, err, 'Failed to update product');
+    }
+};
+
+export const deleteProduct = async (req: Request, res: Response) => {
+    const manifestId = validateTenant(req, res);
+    if (!manifestId) return;
+    try {
+        const auditContext = buildAuditContext(req);
+        await catalogService.deleteProduct(manifestId, req.params.id, auditContext);
+        res.status(200).json({ success: true });
+    } catch (err: any) {
+        handleApiError(res, err, 'Failed to delete product');
+    }
+};
+
 export const getVariants = async (req: Request, res: Response) => {
     const manifestId = validateTenant(req, res);
     if (!manifestId) return;
     try {
-        const data = await catalogService.getVariants(manifestId);
+        const page = parseInt(req.query.page as string) || 1;
+        const limit = parseInt(req.query.limit as string) || 20;
+        const data = await catalogService.getVariants(manifestId, page, limit);
         res.status(200).json(data);
     } catch (err) { handleApiError(res, err, 'Failed to fetch variants'); }
 };
@@ -85,6 +138,31 @@ export const createVariant = async (req: Request, res: Response) => {
             return res.status(400).json({ error: err.message });
         }
         handleApiError(res, err, 'Failed to create variant'); 
+    }
+};
+
+export const updateVariant = async (req: Request, res: Response) => {
+    const manifestId = validateTenant(req, res);
+    if (!manifestId) return;
+    try {
+        const auditContext = buildAuditContext(req);
+        const data = await catalogService.updateVariant(manifestId, req.params.id, req.body, auditContext);
+        res.status(200).json(data);
+    } catch (err: any) {
+        if (err.message?.includes('in use')) return res.status(400).json({ error: err.message });
+        handleApiError(res, err, 'Failed to update variant');
+    }
+};
+
+export const deleteVariant = async (req: Request, res: Response) => {
+    const manifestId = validateTenant(req, res);
+    if (!manifestId) return;
+    try {
+        const auditContext = buildAuditContext(req);
+        await catalogService.deleteVariant(manifestId, req.params.id, auditContext);
+        res.status(200).json({ success: true });
+    } catch (err: any) {
+        handleApiError(res, err, 'Failed to delete variant');
     }
 };
 

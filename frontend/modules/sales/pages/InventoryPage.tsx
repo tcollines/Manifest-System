@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { inventoryService } from '../../../services/sales/inventoryService';
 import { salesService } from '../../../services/sales/salesService';
 import { useNotification } from '../../../components/ui/NotificationSystem';
+import { useInfiniteScroll } from '../../../hooks/useInfiniteScroll';
 import { SalesStockTakingSession, SalesVariant, SalesStockTakingItem } from '../types';
 import { Eye, Edit2, Trash2, X } from 'lucide-react';
 
@@ -9,30 +10,34 @@ const InventoryPage: React.FC = () => {
  const { showToast } = useNotification();
  const manifestId = 'default_manifest';
  
- const [sessions, setSessions] = useState<SalesStockTakingSession[]>([]);
- const [variants, setVariants] = useState<SalesVariant[]>([]);
- const [activeSession, setActiveSession] = useState<SalesStockTakingSession | null>(null);
- const [physicalCounts, setPhysicalCounts] = useState<Record<string, number>>({});
- const [viewSession, setViewSession] = useState<SalesStockTakingSession | null>(null);
- const [deleteSessionId, setDeleteSessionId] = useState<string | null>(null);
- const [sessionItems, setSessionItems] = useState<(SalesStockTakingItem & { variant: SalesVariant })[]>([]);
+  const [activeSession, setActiveSession] = useState<SalesStockTakingSession | null>(null);
+  const [physicalCounts, setPhysicalCounts] = useState<Record<string, number>>({});
+  const [viewSession, setViewSession] = useState<SalesStockTakingSession | null>(null);
+  const [deleteSessionId, setDeleteSessionId] = useState<string | null>(null);
+  const [sessionItems, setSessionItems] = useState<(SalesStockTakingItem & { variant: SalesVariant })[]>([]);
 
- useEffect(() => {
- loadData();
- }, []);
+  const fetchSessions = useCallback(async (page: number) => {
+    return await inventoryService.getStockTakingSessions(manifestId, page, 20);
+  }, [manifestId]);
 
- const loadData = async () => {
- try {
- const [sess, vars] = await Promise.all([
- inventoryService.getStockTakingSessions(manifestId),
- salesService.getVariants(manifestId)
- ]);
- setSessions(sess);
- setVariants(vars);
- } catch (e: any) {
- showToast(e.message, 'error');
- }
- };
+  const { data: sessions, isLoading: sessionsLoading, sentinelRef: sessionsSentinel, reset: resetSessions } = useInfiniteScroll<SalesStockTakingSession>({
+    fetchData: fetchSessions,
+    initialPage: 1
+  });
+
+  const fetchVariants = useCallback(async (page: number) => {
+    return await salesService.getVariants(manifestId, page, 50);
+  }, [manifestId]);
+
+  const { data: variants, isLoading: variantsLoading, sentinelRef: variantsSentinel, reset: resetVariants } = useInfiniteScroll<SalesVariant>({
+    fetchData: fetchVariants,
+    initialPage: 1
+  });
+
+  const loadData = () => {
+    resetSessions();
+    resetVariants();
+  };
 
  const handleStartSession = async () => {
  try {
@@ -100,7 +105,7 @@ const InventoryPage: React.FC = () => {
  };
 
  return (
- <div className="space-y-6">
+ <div className={`space-y-6 ${activeSession ? 'pb-24 md:pb-0' : ''}`}>
  <div className="flex items-center justify-between">
  <h1 className="text-2xl font-bold text-gray-900">Inventory & Stock Taking</h1>
  {!activeSession ? (
@@ -108,7 +113,7 @@ const InventoryPage: React.FC = () => {
  Start New Stock Take
  </button>
  ) : (
- <button onClick={handleCompleteSession} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+ <button onClick={handleCompleteSession} className="hidden md:block px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
  Complete Stock Take
  </button>
  )}
@@ -132,7 +137,16 @@ const InventoryPage: React.FC = () => {
  const variance = physical - v.stock_quantity;
  return (
  <tr key={v.id} className="border-b border-gray-100">
- <td className="py-3 font-medium">{v.name}</td>
+ <td className="py-3">
+   <div className="font-medium">{v.name}</div>
+   {((v as any).sales_products?.name || (v as any).sales_products?.description) && (
+     <div className="text-xs text-gray-500 mt-0.5 max-w-[250px] truncate" title={`${(v as any).sales_products?.name || ''} ${(v as any).sales_products?.description || ''}`}>
+       {(v as any).sales_products?.name} 
+       {((v as any).sales_products?.name && (v as any).sales_products?.description) ? ' - ' : ''}
+       {(v as any).sales_products?.description}
+     </div>
+   )}
+ </td>
  <td className="py-3 text-right text-gray-500">{v.stock_quantity}</td>
  <td className="py-3 text-right">
  <input 
@@ -160,8 +174,17 @@ const InventoryPage: React.FC = () => {
      return (
        <div key={v.id} className="py-3 flex flex-col gap-2">
          <div className="flex justify-between items-start">
-           <span className="font-medium text-gray-900">{v.name}</span>
-           <span className={`font-bold ${variance < 0 ? 'text-red-500' : variance > 0 ? 'text-green-500' : 'text-gray-400'}`}>
+           <div>
+             <div className="font-medium text-gray-900">{v.name}</div>
+             {((v as any).sales_products?.name || (v as any).sales_products?.description) && (
+               <div className="text-xs text-gray-500 mt-0.5">
+                 {(v as any).sales_products?.name} 
+                 {((v as any).sales_products?.name && (v as any).sales_products?.description) ? ' - ' : ''}
+                 {(v as any).sales_products?.description}
+               </div>
+             )}
+           </div>
+           <span className={`font-bold mt-0.5 ${variance < 0 ? 'text-red-500' : variance > 0 ? 'text-green-500' : 'text-gray-400'}`}>
              {variance > 0 ? '+' : ''}{variance}
            </span>
          </div>
@@ -182,8 +205,19 @@ const InventoryPage: React.FC = () => {
        </div>
      );
    })}
+   {variantsLoading && <div className="p-4 text-center text-sm text-gray-500">Loading catalog...</div>}
+   <div ref={variantsSentinel} className="h-4" />
  </div>
  </div>
+ )}
+ 
+ {/* Sticky Mobile Footer for Complete Stock Take */}
+ {activeSession && (
+   <div className="md:hidden fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-200 z-40 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+     <button onClick={handleCompleteSession} className="w-full py-3 bg-green-600 text-white rounded-xl font-bold text-sm shadow-lg hover:bg-green-700 active:scale-95 transition-all">
+       Complete Stock Take
+     </button>
+   </div>
  )}
 
  <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
@@ -199,34 +233,38 @@ const InventoryPage: React.FC = () => {
  <th className="p-4 text-right">Actions</th>
  </tr>
  </thead>
- <tbody className="divide-y divide-gray-100">
- {sessions.map(s => (
- <tr key={s.id} className="hover:bg-gray-50">
- <td className="p-4 font-mono text-xs">{s.id.split('-')[0]}</td>
- <td className="p-4">{new Date(s.created_at).toLocaleString()}</td>
- <td className="p-4">
- <span className={`px-2 py-1 rounded-full text-xs font-medium ${s.status === 'COMPLETED' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
- {s.status}
- </span>
- </td>
- <td className="p-4 text-right flex justify-end gap-2">
- {s.status === 'COMPLETED' && (
- <button onClick={() => handleViewSession(s)} className="p-2 text-gray-500 hover:text-blue-600 bg-gray-50 hover:bg-blue-50 rounded-lg transition-colors" title="View Details">
- <Eye size={16} />
- </button>
- )}
- {s.status === 'PENDING' && (
- <button onClick={() => handleEditSession(s)} className="p-2 text-gray-500 hover:text-ministry-orange bg-gray-50 hover:bg-orange-50 rounded-lg transition-colors" title="Edit / Resume">
- <Edit2 size={16} />
- </button>
- )}
- <button onClick={() => setDeleteSessionId(s.id)} className="p-2 text-gray-500 hover:text-red-600 bg-gray-50 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
- <Trash2 size={16} />
- </button>
- </td>
- </tr>
- ))}
- </tbody>
+  <tbody className="divide-y divide-gray-100">
+  {sessions.length === 0 && !sessionsLoading ? (
+    <tr><td colSpan={4} className="p-8 text-center text-gray-400">No stock taking sessions found. Click 'Start New Stock Take' to begin.</td></tr>
+  ) : (
+    sessions.map(s => (
+      <tr key={s.id} className="hover:bg-gray-50">
+      <td className="p-4 font-mono text-xs">{s.id.split('-')[0]}</td>
+      <td className="p-4">{new Date(s.created_at).toLocaleString()}</td>
+      <td className="p-4">
+      <span className={`px-2 py-1 rounded-full text-xs font-medium ${s.status === 'COMPLETED' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+      {s.status}
+      </span>
+      </td>
+      <td className="p-4 text-right flex justify-end gap-2">
+      {s.status === 'COMPLETED' && (
+      <button onClick={() => handleViewSession(s)} className="w-11 h-11 flex items-center justify-center text-gray-500 hover:text-blue-600 bg-gray-50 hover:bg-blue-50 rounded-lg transition-colors" title="View Details">
+      <Eye size={16} />
+      </button>
+      )}
+      {s.status === 'PENDING' && (
+      <button onClick={() => handleEditSession(s)} className="w-11 h-11 flex items-center justify-center text-gray-500 hover:text-ministry-orange bg-gray-50 hover:bg-orange-50 rounded-lg transition-colors" title="Edit / Resume">
+      <Edit2 size={16} />
+      </button>
+      )}
+      <button onClick={() => setDeleteSessionId(s.id)} className="w-11 h-11 flex items-center justify-center text-gray-500 hover:text-red-600 bg-gray-50 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
+      <Trash2 size={16} />
+      </button>
+      </td>
+      </tr>
+    ))
+  )}
+  </tbody>
  </table></div>
  
  <div className="md:hidden divide-y divide-gray-100">
@@ -258,6 +296,8 @@ const InventoryPage: React.FC = () => {
        </div>
      </div>
    ))}
+   {sessionsLoading && <div className="p-4 text-center text-sm text-gray-500">Loading sessions...</div>}
+   <div ref={sessionsSentinel} className="h-4" />
  </div>
  </div>
 

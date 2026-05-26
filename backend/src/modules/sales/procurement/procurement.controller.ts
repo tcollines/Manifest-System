@@ -38,7 +38,9 @@ export const getProcurementRequests = async (req: Request, res: Response) => {
     const manifestId = validateTenant(req, res);
     if (!manifestId) return;
     try {
-        const data = await procurementService.getProcurementRequests(manifestId);
+        const page = parseInt(req.query.page as string) || 1;
+        const limit = parseInt(req.query.limit as string) || 20;
+        const data = await procurementService.getProcurementRequests(manifestId, page, limit);
         res.status(200).json(data);
     } catch (err) { handleApiError(res, err, 'Failed to fetch procurement requests'); }
 };

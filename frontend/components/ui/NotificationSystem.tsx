@@ -240,7 +240,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         };
 
         const handleApiOffline = () => {
-            showToast('You are currently offline. Check your network connection.', 'warning');
+            showToast('Unable to reach the server. Please check your connection or try again later.', 'warning');
         };
         
         const handleApiUnauthorized = () => {

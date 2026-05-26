@@ -82,10 +82,18 @@ router.get('/reports/summary', reportsController.getSalesSummary);
 // ==========================================
 router.get('/catalog/categories', catalogController.getCategories);
 router.post('/catalog/categories', catalogController.createCategory);
+router.put('/catalog/categories/:id', catalogController.updateCategory);
+router.delete('/catalog/categories/:id', catalogController.deleteCategory);
+
 router.get('/catalog/products', catalogController.getProducts);
 router.post('/catalog/products', catalogController.createProduct);
+router.put('/catalog/products/:id', catalogController.updateProduct);
+router.delete('/catalog/products/:id', catalogController.deleteProduct);
+
 router.get('/catalog/variants', catalogController.getVariants);
 router.post('/catalog/variants', catalogController.createVariant);
+router.put('/catalog/variants/:id', catalogController.updateVariant);
+router.delete('/catalog/variants/:id', catalogController.deleteVariant);
 router.patch('/catalog/variants/:id/stock', catalogController.updateVariantStock);
 
 export default router;

@@ -2,8 +2,8 @@ import { apiFetch } from '../api';
 import { SalesOrder, SalesOrderItem } from '../../modules/sales/types';
 
 export const orderService = {
-  async getOrders(manifestId: string): Promise<SalesOrder[]> {
-    const response = await apiFetch('/sales/orders');
+  async getOrders(manifestId: string, page: number = 1, limit: number = 20): Promise<SalesOrder[]> {
+    const response = await apiFetch(`/sales/orders?page=${page}&limit=${limit}`);
     return response as SalesOrder[];
   },
 

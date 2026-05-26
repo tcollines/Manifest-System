@@ -126,12 +126,17 @@ export const getOrders = async (req: Request, res: Response) => {
     const manifestId = validateTenant(req, res);
     if (!manifestId) return;
 
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 20;
+    const offset = (page - 1) * limit;
+
     try {
         const { data, error } = await supabase
             .from('sales_orders')
             .select('*, sales_customers(full_name)')
             .eq('manifest_id', manifestId)
-            .order('created_at', { ascending: false });
+            .order('created_at', { ascending: false })
+            .range(offset, offset + limit - 1);
 
         if (error) throw error;
         sendSuccess(res, data || []);

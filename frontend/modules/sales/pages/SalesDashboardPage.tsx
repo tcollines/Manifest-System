@@ -3,6 +3,7 @@ import { DollarSign, ShoppingBag, Clock, TrendingUp } from 'lucide-react';
 import { reportService } from '../../../services/sales/reportService';
 import { financialReportService } from '../../../services/sales/financialReportService';
 import { useAuth } from '../../../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 const SalesDashboardPage: React.FC = () => {
  const { user } = useAuth();
@@ -10,6 +11,7 @@ const SalesDashboardPage: React.FC = () => {
  const [allTimeData, setAllTimeData] = useState({ totalSales: 0, totalProfit: 0, completedOrdersCount: 0, pendingOrdersCount: 0 });
  const [financialData, setFinancialData] = useState({ cashAtHand: 0, inventoryCostValue: 0, inventoryRetailValue: 0, outstandingBalances: 0, supplierPayables: 0, grossProfit: 0 });
  const manifestId = 'default_manifest';
+ const navigate = useNavigate();
 
  useEffect(() => {
  loadDashboard();
@@ -32,17 +34,17 @@ const SalesDashboardPage: React.FC = () => {
  };
 
  const todayKpis = [
- { title:"Today's Sales", value: `UGX ${data.totalSales.toLocaleString()}`, icon: DollarSign, color:"text-green-500", bg:"bg-green-100"},
+ { title:"Today's Sales", value: `UGX ${data.totalSales.toLocaleString()}`, icon: DollarSign, color:"text-green-500", bg:"bg-green-100", path: '../orders?date=today'},
  { title:"Today's Profit", value: `UGX ${data.totalProfit.toLocaleString()}`, icon: TrendingUp, color:"text-blue-500", bg:"bg-blue-100"},
- { title:"Today's Fulfilled", value: data.completedOrdersCount.toString(), icon: ShoppingBag, color:"text-ministry-orange", bg:"bg-orange-100"},
- { title:"Today's Pending", value: data.pendingOrdersCount.toString(), icon: Clock, color:"text-yellow-500", bg:"bg-yellow-100"},
+ { title:"Today's Fulfilled", value: data.completedOrdersCount.toString(), icon: ShoppingBag, color:"text-ministry-orange", bg:"bg-orange-100", path: '../orders?date=today&status=COMPLETED'},
+ { title:"Today's Pending", value: data.pendingOrdersCount.toString(), icon: Clock, color:"text-yellow-500", bg:"bg-yellow-100", path: '../orders?date=today&status=PENDING'},
  ];
 
  const allTimeKpis = [
- { title:"All-Time Sales", value: `UGX ${allTimeData.totalSales.toLocaleString()}`, icon: DollarSign, color:"text-green-600", bg:"bg-green-50"},
+ { title:"All-Time Sales", value: `UGX ${allTimeData.totalSales.toLocaleString()}`, icon: DollarSign, color:"text-green-600", bg:"bg-green-50", path: '../orders'},
  { title:"All-Time Profit", value: `UGX ${allTimeData.totalProfit.toLocaleString()}`, icon: TrendingUp, color:"text-blue-600", bg:"bg-blue-50"},
- { title:"Total Fulfilled", value: allTimeData.completedOrdersCount.toString(), icon: ShoppingBag, color:"text-orange-600", bg:"bg-orange-50"},
- { title:"Total Pending", value: allTimeData.pendingOrdersCount.toString(), icon: Clock, color:"text-yellow-600", bg:"bg-yellow-50"},
+ { title:"Total Fulfilled", value: allTimeData.completedOrdersCount.toString(), icon: ShoppingBag, color:"text-orange-600", bg:"bg-orange-50", path: '../orders?status=COMPLETED'},
+ { title:"Total Pending", value: allTimeData.pendingOrdersCount.toString(), icon: Clock, color:"text-yellow-600", bg:"bg-yellow-50", path: '../orders?status=PENDING'},
  ];
 
  const financialKpis = [
@@ -65,7 +67,11 @@ const SalesDashboardPage: React.FC = () => {
  <h2 className="text-lg font-bold text-gray-800 mb-4">Today's Overview</h2>
  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
  {todayKpis.map((kpi, index) => (
- <div key={index} className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm flex items-center gap-4">
+ <div 
+   key={index} 
+   onClick={() => kpi.path && navigate(kpi.path)}
+   className={`bg-white p-6 rounded-xl border border-gray-100 shadow-sm flex items-center gap-4 ${kpi.path ? 'cursor-pointer hover:border-ministry-orange transition-colors' : ''}`}
+ >
  <div className={`p-4 rounded-full ${kpi.bg}`}>
  <kpi.icon className={`w-6 h-6 ${kpi.color}`} />
  </div>
@@ -82,7 +88,11 @@ const SalesDashboardPage: React.FC = () => {
  <h2 className="text-lg font-bold text-gray-800 mb-4">All-Time Performance</h2>
  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
  {allTimeKpis.map((kpi, index) => (
- <div key={index} className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm flex items-center gap-4">
+ <div 
+   key={index} 
+   onClick={() => kpi.path && navigate(kpi.path)}
+   className={`bg-white p-6 rounded-xl border border-gray-100 shadow-sm flex items-center gap-4 ${kpi.path ? 'cursor-pointer hover:border-ministry-orange transition-colors' : ''}`}
+ >
  <div className={`p-4 rounded-full ${kpi.bg}`}>
  <kpi.icon className={`w-6 h-6 ${kpi.color}`} />
  </div>

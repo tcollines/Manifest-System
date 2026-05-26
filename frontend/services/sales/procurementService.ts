@@ -15,8 +15,8 @@ export const procurementService = {
     return data as SalesSupplier;
   },
 
-  async getProcurementRequests(manifestId: string): Promise<SalesProcurementRequest[]> {
-    const data = await apiFetch('/sales/procurement/requests');
+  async getProcurementRequests(manifestId: string, page: number = 1, limit: number = 20): Promise<SalesProcurementRequest[]> {
+    const data = await apiFetch(`/sales/procurement/requests?page=${page}&limit=${limit}`);
     return data as SalesProcurementRequest[];
   },
   

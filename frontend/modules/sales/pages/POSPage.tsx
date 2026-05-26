@@ -5,6 +5,7 @@ import { useAuth } from '../../../context/AuthContext';
 import { salesService } from '../../../services/sales/salesService';
 import { customerService } from '../../../services/sales/customerService';
 import { useNotification } from '../../../components/ui/NotificationSystem';
+import { MobileSheet } from '../../../components/mobile/MobileSheet';
 import { SalesProduct, SalesVariant, SalesCustomer } from '../types';
 
 const formatMoneyInput = (val: string) => {
@@ -28,6 +29,7 @@ const POSPage: React.FC = () => {
  const [cart, setCart] = useState<{ variant: SalesVariant; quantity: number }[]>([]);
  const [amountPaid, setAmountPaid] = useState<string>('');
  const [paymentMethod, setPaymentMethod] = useState('Cash');
+ const [transactionId, setTransactionId] = useState('');
  const [isProcessing, setIsProcessing] = useState(false);
 
  const [customers, setCustomers] = useState<SalesCustomer[]>([]);
@@ -95,6 +97,21 @@ const POSPage: React.FC = () => {
    }
  };
 
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      const cleanSearch = searchQuery.trim().toLowerCase();
+      const variant = variants.find(v => 
+        v.barcode?.toLowerCase() === cleanSearch || 
+        v.sku?.toLowerCase() === cleanSearch
+      );
+      if (variant) {
+        addToCart(variant);
+        showToast(`Added ${variant.name} to cart`, 'success');
+        setSearchQuery('');
+      }
+    }
+  };
+
   const addToCart = (variant: SalesVariant) => {
     const availableStock = Math.max(0, variant.stock_quantity - (variant.reserved_quantity || 0));
     
@@ -158,7 +175,8 @@ const POSPage: React.FC = () => {
        },
        items: orderItems,
        amountPaid: paid,
-       paymentMethod: paymentMethod
+       paymentMethod: paymentMethod,
+       transactionId: paymentMethod === 'Mobile Money' ? transactionId : undefined
      });
 
      if (paid >= totalAmount) {
@@ -167,9 +185,11 @@ const POSPage: React.FC = () => {
         showToast(`Order created successfully. (Partial/Unpaid)`, 'success');
      }
 
-     setCart([]);
-     setAmountPaid('');
-     setSelectedCustomerId('');
+       setCart([]);
+       setAmountPaid('');
+       setTransactionId('');
+       setSearchQuery('');
+       setSelectedCustomerId('');
      setShowMobileCart(false);
      loadCatalog(); // refresh stock
    } catch (err: any) {
@@ -179,112 +199,10 @@ const POSPage: React.FC = () => {
    }
  };
 
- const filteredVariants = variants.filter(v => 
-   v.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-   v.sku.toLowerCase().includes(searchQuery.toLowerCase())
- );
-
- const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-   if (e.key === 'Enter' && searchQuery.trim() !== '') {
-     const query = searchQuery.trim().toLowerCase();
-     const variant = variants.find(v => 
-       v.barcode?.toLowerCase() === query || v.sku?.toLowerCase() === query
-     );
-     
-     if (variant) {
-       addToCart(variant);
-       showToast(`Added ${variant.name} to cart`, 'success');
-       setSearchQuery('');
-     } else {
-       showToast('Barcode not found in catalog', 'error');
-     }
-   }
- };
-
- return (
-   <div className="flex flex-col lg:flex-row gap-6 h-full relative">
-     {/* Product Selection Area */}
-     <div className="flex-1 flex flex-col h-full bg-white rounded-xl shadow-sm border border-gray-100 p-4 pb-20 lg:pb-4">
-       <div className="flex items-center gap-4 mb-6">
-         <div className="relative flex-1">
-           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-           <input 
-             type="text"
-             placeholder="Scan barcode or type SKU/name..."
-             value={searchQuery}
-             onChange={e => setSearchQuery(e.target.value)}
-             onKeyDown={handleSearchKeyDown}
-             autoFocus
-             className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-ministry-orange"
-           />
-         </div>
-         <button 
-           onClick={() => setIsScanning(!isScanning)}
-           className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors"
-         >
-           <QrCode size={18} />
-           <span className="hidden sm:inline">{isScanning ? 'Close Scanner' : 'Scan'}</span>
-         </button>
-       </div>
-
-       {isScanning && (
-         <div className="mb-6 p-4 border border-dashed border-gray-300 rounded-xl">
-           <div id="reader"className="w-full max-w-sm mx-auto"></div>
-         </div>
-       )}
-
-        <div className="flex-1 overflow-y-auto flex flex-col gap-3 pr-2">
-          {filteredVariants.map(variant => {
-            const availableStock = Math.max(0, variant.stock_quantity - (variant.reserved_quantity || 0));
-            return (
-              <div 
-                key={variant.id} 
-                onClick={() => addToCart(variant)}
-                className="p-4 bg-white border border-gray-100 rounded-xl cursor-pointer hover:border-ministry-orange hover:shadow-sm transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-2"
-              >
-                <div className="flex-1">
-                  <h3 className="font-semibold text-gray-900">{variant.name}</h3>
-                  <p className="text-xs text-gray-500 mt-1">{variant.sku}</p>
-                </div>
-                <div className="flex items-center justify-between sm:justify-end gap-6">
-                  <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${availableStock > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                    {availableStock} left
-                  </span>
-                  <span className="font-bold text-ministry-orange text-lg text-right">UGX {Number(variant.selling_price).toLocaleString()}</span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-     </div>
-
-     {/* Mobile Floating Cart Summary */}
-     {!showMobileCart && cart.length > 0 && (
-       <div className="lg:hidden fixed bottom-[max(1.5rem,env(safe-area-inset-bottom))] left-4 right-4 z-40">
-         <button onClick={() => setShowMobileCart(true)} className="w-full bg-gray-900 text-white rounded-xl p-4 shadow-2xl flex justify-between items-center font-bold">
-           <div className="flex items-center gap-3">
-             <span className="bg-ministry-orange text-white text-sm font-bold w-6 h-6 flex items-center justify-center rounded-full">{cart.reduce((s,i)=>s+i.quantity, 0)}</span>
-             <span>View Cart</span>
-           </div>
-           <span>UGX {totalAmount.toLocaleString()}</span>
-         </button>
-       </div>
-     )}
-
-     {/* Cart Area */}
-     <div className={`fixed inset-0 z-50 lg:static lg:z-auto lg:flex w-full lg:w-96 flex-col h-full bg-white lg:rounded-xl shadow-sm border border-gray-100 ${showMobileCart ? 'flex' : 'hidden'}`}>
-       <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-gray-50 pt-safe-top">
-         <div className="flex items-center gap-2">
-            <ShoppingCart size={20} className="text-ministry-orange"/>
-            <h2 className="font-bold text-gray-900 text-lg">Current Order</h2>
-         </div>
-         <button onClick={() => setShowMobileCart(false)} className="lg:hidden p-2 text-gray-500 hover:text-gray-900 bg-gray-200 rounded-full">
-           <X size={20} />
-         </button>
-       </div>
-
-       <div className="p-4 border-b border-gray-100 bg-gray-50">
-          <label className="text-xs text-gray-500 uppercase font-semibold mb-1 block flex items-center gap-1"><User size={12}/> Customer (Optional)</label>
+  const renderCartBody = () => (
+    <>
+       <div className="p-4 border-b border-gray-100 bg-gray-50 shrink-0">
+          <label className="text-xs text-gray-500 uppercase font-semibold mb-1 flex items-center gap-1"><User size={12}/> Customer (Optional)</label>
           <select 
              className="w-full p-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-ministry-orange"
              value={selectedCustomerId}
@@ -308,79 +226,195 @@ const POSPage: React.FC = () => {
                  <span className="font-bold text-gray-900">UGX {(item.variant.selling_price * item.quantity).toLocaleString()}</span>
                </div>
                <div className="flex items-center justify-between mt-2">
-                 <div className="flex items-center gap-3 bg-white rounded-lg border border-gray-200 p-1">
-                   <button onClick={() => updateQuantity(item.variant.id, -1)} className="p-1 hover:bg-gray-100 rounded"><Minus size={14} /></button>
-                   <span className="w-6 text-center font-medium text-sm">{item.quantity}</span>
-                   <button onClick={() => updateQuantity(item.variant.id, 1)} className="p-1 hover:bg-gray-100 rounded"><Plus size={14} /></button>
+                 <div className="flex items-center gap-2 bg-white rounded-lg border border-gray-200 p-1">
+                   <button onClick={() => updateQuantity(item.variant.id, -1)} className="w-10 h-10 flex items-center justify-center hover:bg-gray-100 rounded-md"><Minus size={16} /></button>
+                   <span className="w-8 text-center font-bold text-sm">{item.quantity}</span>
+                   <button onClick={() => updateQuantity(item.variant.id, 1)} className="w-10 h-10 flex items-center justify-center hover:bg-gray-100 rounded-md"><Plus size={16} /></button>
                  </div>
-                 <button onClick={() => removeFromCart(item.variant.id)} className="text-red-500 text-xs hover:underline p-1">Remove</button>
+                 <button onClick={() => removeFromCart(item.variant.id)} className="text-red-500 font-medium text-xs hover:underline p-3">Remove</button>
                </div>
              </div>
            ))
          )}
        </div>
+    </>
+  );
 
-       <div className="p-4 border-t border-gray-100 bg-gray-50 lg:rounded-b-xl mb-safe-bottom">
-         <div className="flex justify-between items-center mb-4">
-           <span className="text-gray-600">Total Amount</span>
-           <span className="text-2xl font-bold text-gray-900">UGX {totalAmount.toLocaleString()}</span>
-         </div>
+  const renderCartFooter = () => (
+    <div className="flex flex-col gap-4">
+      <div className="flex justify-between items-center">
+        <span className="text-gray-600">Total Amount</span>
+        <span className="text-2xl font-bold text-gray-900">UGX {totalAmount.toLocaleString()}</span>
+      </div>
 
-         <div className="mb-4 space-y-3">
-           {selectedCustomerId !== '' && (
-             <div>
-               <label className="text-xs text-gray-500 uppercase font-semibold mb-1 block">Amount Paid</label>
-               <div className="relative">
-                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold">UGX</span>
-                 <input 
-                   type="text"
-                   inputMode="numeric"
-                   onWheel={e => e.currentTarget.blur()}
-                   onKeyDown={e => { if (['ArrowUp', 'ArrowDown'].includes(e.key)) e.preventDefault(); }}
-                   className="w-full pl-14 pr-4 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-ministry-orange font-mono"
-                   value={formatMoneyInput(amountPaid)}
-                   onChange={e => { const raw = parseMoneyInput(e.target.value); if (!isNaN(Number(raw))) setAmountPaid(raw); }}
-                 />
+      <div className="space-y-3">
+        {selectedCustomerId !== '' && (
+          <div>
+            <label className="text-xs text-gray-500 uppercase font-semibold mb-1 block">Amount Paid</label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold">UGX</span>
+              <input 
+                type="text"
+                inputMode="numeric"
+                onWheel={e => e.currentTarget.blur()}
+                onKeyDown={e => { if (['ArrowUp', 'ArrowDown'].includes(e.key)) e.preventDefault(); }}
+                className="w-full pl-14 pr-4 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-ministry-orange font-mono"
+                value={formatMoneyInput(amountPaid)}
+                onChange={e => { const raw = parseMoneyInput(e.target.value); if (!isNaN(Number(raw))) setAmountPaid(raw); }}
+              />
+            </div>
+          </div>
+        )}
+        <div>
+          <label className="text-xs text-gray-500 uppercase font-semibold mb-1 block">Payment Method</label>
+          <div className="flex gap-2">
+            {['Cash', 'Mobile Money', 'Card'].map(method => (
+              <button
+                key={method}
+                onClick={() => setPaymentMethod(method)}
+                className={`flex-1 py-2 text-sm rounded-lg border transition-colors ${paymentMethod === method ? 'bg-ministry-orange text-white border-ministry-orange' : 'bg-white text-gray-600 border-gray-300 '}`}
+              >
+                {method}
+              </button>
+            ))}
+          </div>
+        </div>
+        
+        {paymentMethod === 'Mobile Money' && (
+          <div>
+            <label className="text-xs text-gray-500 uppercase font-semibold mb-1 block">Transaction ID (Optional)</label>
+            <input 
+              type="text"
+              placeholder="e.g. 123456789"
+              className="w-full p-2 bg-white border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-ministry-orange"
+              value={transactionId}
+              onChange={e => setTransactionId(e.target.value)}
+            />
+          </div>
+        )}
+      </div>
+
+      <button 
+        onClick={handleCheckout}
+        disabled={cart.length === 0 || isProcessing}
+        className="w-full py-3 bg-gray-900 text-white rounded-xl font-bold hover:bg-gray-800 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+      >
+        {isProcessing ? 'Processing...' : (
+          <>
+            <CheckCircle size={20} />
+            Complete Sale
+          </>
+        )}
+      </button>
+      {selectedCustomerId !== '' && amountPaid !== '' && Number(parseMoneyInput(amountPaid)) < totalAmount && (
+        <p className="text-xs text-orange-500 text-center mt-2">
+          Note: Items will not be released until fully paid.
+        </p>
+      )}
+    </div>
+  );
+
+  const filteredVariants = variants.filter(v => 
+    v.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    v.sku?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    v.barcode?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  return (
+    <div className="flex flex-col lg:flex-row gap-6 h-full relative">
+      {/* Product Selection Area */}
+      <div className="flex-1 flex flex-col h-full bg-white rounded-xl shadow-sm border border-gray-100 p-4 pb-20 lg:pb-4">
+        <div className="flex items-center gap-4 mb-6">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+            <input 
+              type="text"
+              placeholder="Scan barcode or type SKU/name..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              onKeyDown={handleSearchKeyDown}
+              autoFocus
+              className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-ministry-orange"
+            />
+          </div>
+          <button 
+            onClick={() => setIsScanning(!isScanning)}
+            className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors"
+          >
+            <QrCode size={18} />
+            <span className="hidden sm:inline">{isScanning ? 'Close Scanner' : 'Scan'}</span>
+          </button>
+        </div>
+
+        {isScanning && (
+          <div className="mb-6 p-4 border border-dashed border-gray-300 rounded-xl">
+            <div id="reader" className="w-full max-w-sm mx-auto"></div>
+          </div>
+        )}
+
+         <div className="flex-1 overflow-y-auto flex flex-col gap-3 pr-2">
+           {filteredVariants.map(variant => {
+             const availableStock = Math.max(0, variant.stock_quantity - (variant.reserved_quantity || 0));
+             return (
+               <div 
+                 key={variant.id} 
+                 onClick={() => addToCart(variant)}
+                 className="p-4 bg-white border border-gray-100 rounded-xl cursor-pointer hover:border-ministry-orange hover:shadow-sm transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+               >
+                 <div className="flex-1">
+                   <h3 className="font-semibold text-gray-900">{variant.name}</h3>
+                   <p className="text-xs text-gray-500 mt-1">{variant.sku}</p>
+                 </div>
+                 <div className="flex items-center justify-between sm:justify-end gap-6">
+                   <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${availableStock > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                     {availableStock} left
+                   </span>
+                   <span className="font-bold text-ministry-orange text-lg text-right">UGX {Number(variant.selling_price).toLocaleString()}</span>
+                 </div>
                </div>
-             </div>
-           )}
-           <div>
-             <label className="text-xs text-gray-500 uppercase font-semibold mb-1 block">Payment Method</label>
-             <div className="flex gap-2">
-               {['Cash', 'Mobile Money', 'Card'].map(method => (
-                 <button
-                   key={method}
-                   onClick={() => setPaymentMethod(method)}
-                   className={`flex-1 py-2 text-sm rounded-lg border transition-colors ${paymentMethod === method ? 'bg-ministry-orange text-white border-ministry-orange' : 'bg-white text-gray-600 border-gray-300 '}`}
-                 >
-                   {method}
-                 </button>
-               ))}
-             </div>
-           </div>
+             );
+           })}
          </div>
+      </div>
 
-         <button 
-           onClick={handleCheckout}
-           disabled={cart.length === 0 || isProcessing}
-           className="w-full py-3 bg-gray-900 text-white rounded-xl font-bold hover:bg-gray-800 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
-         >
-           {isProcessing ? 'Processing...' : (
-             <>
-               <CheckCircle size={20} />
-               Complete Sale
-             </>
-           )}
-         </button>
-         {selectedCustomerId !== '' && amountPaid !== '' && Number(parseMoneyInput(amountPaid)) < totalAmount && (
-           <p className="text-xs text-orange-500 text-center mt-2">
-             Note: Items will not be released until fully paid.
-           </p>
-         )}
-       </div>
-     </div>
-   </div>
- );
+      {/* Mobile Floating Cart Summary */}
+      {!showMobileCart && cart.length > 0 && (
+        <div className="lg:hidden fixed bottom-[max(1.5rem,env(safe-area-inset-bottom))] left-4 right-4 z-40">
+          <button onClick={() => setShowMobileCart(true)} className="w-full bg-gray-900 text-white rounded-xl p-4 shadow-2xl flex justify-between items-center font-bold">
+            <div className="flex items-center gap-3">
+              <span className="bg-ministry-orange text-white text-sm font-bold w-6 h-6 flex items-center justify-center rounded-full">{cart.reduce((s,i)=>s+i.quantity, 0)}</span>
+              <span>View Cart</span>
+            </div>
+            <span>UGX {totalAmount.toLocaleString()}</span>
+          </button>
+        </div>
+      )}
+
+      {/* Desktop Cart */}
+      <div className="hidden lg:flex w-96 flex-col h-full bg-white rounded-xl shadow-sm border border-gray-100">
+        <div className="p-4 border-b border-gray-100 flex items-center gap-2 bg-gray-50 rounded-t-xl shrink-0">
+           <ShoppingCart size={20} className="text-ministry-orange"/>
+           <h2 className="font-bold text-gray-900 text-lg">Current Order</h2>
+        </div>
+        {renderCartBody()}
+        <div className="p-4 border-t border-gray-100 bg-gray-50 rounded-b-xl shrink-0">
+          {renderCartFooter()}
+        </div>
+      </div>
+
+      {/* Mobile Cart Sheet */}
+      <MobileSheet
+        isOpen={showMobileCart}
+        onClose={() => setShowMobileCart(false)}
+        title="Current Order"
+        footer={renderCartFooter()}
+      >
+        <div className="flex flex-col gap-4 -mx-4 -mt-4">
+          {renderCartBody()}
+        </div>
+      </MobileSheet>
+    </div>
+  );
 };
 
 export default POSPage;

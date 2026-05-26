@@ -1,32 +1,55 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { orderService } from '../../../services/sales/orderService';
 import { paymentService } from '../../../services/sales/paymentService';
 import { fulfillmentService } from '../../../services/sales/fulfillmentService';
 import { useNotification } from '../../../components/ui/NotificationSystem';
+import { useInfiniteScroll } from '../../../hooks/useInfiniteScroll';
 import { SalesOrder } from '../types';
 
 const OrdersPage: React.FC = () => {
  const { showToast } = useNotification();
  const manifestId = 'default_manifest';
  
- const [orders, setOrders] = useState<SalesOrder[]>([]);
  const [payOrder, setPayOrder] = useState<SalesOrder | null>(null);
  const [refundOrder, setRefundOrder] = useState<SalesOrder | null>(null);
  const [fulfillOrder, setFulfillOrder] = useState<SalesOrder | null>(null);
  const [cancelOrder, setCancelOrder] = useState<SalesOrder | null>(null);
 
- useEffect(() => {
-   loadData();
- }, []);
+ const [searchParams] = useSearchParams();
+ const filterDate = searchParams.get('date');
+ const filterStatus = searchParams.get('status');
 
- const loadData = async () => {
-   try {
-     const data = await orderService.getOrders(manifestId);
-     setOrders(data);
-   } catch (e: any) {
-     showToast(e.message, 'error');
-   }
- };
+  const fetchOrders = useCallback(async (page: number) => {
+    return await orderService.getOrders(manifestId, page, 20);
+  }, [manifestId]);
+
+  const { data: orders, isLoading, hasMore, sentinelRef, reset } = useInfiniteScroll<SalesOrder>({
+    fetchData: fetchOrders,
+    initialPage: 1
+  });
+
+  const filteredOrders = useMemo(() => {
+    return orders.filter(o => {
+      let matches = true;
+      if (filterStatus && o.fulfillment_status !== filterStatus) {
+        matches = false;
+      }
+      if (filterDate === 'today') {
+        // We use local date string parsing or just substring comparison. 
+        // Note: created_at might be UTC, but let's do a simple date check.
+        // The dashboard also uses split('T')[0] for today.
+        const orderDate = new Date(o.created_at).toISOString().split('T')[0];
+        const today = new Date().toISOString().split('T')[0];
+        if (orderDate !== today) matches = false;
+      }
+      return matches;
+    });
+  }, [orders, filterStatus, filterDate]);
+
+  const loadData = () => {
+    reset();
+  };
 
  const handlePayBalance = async () => {
    if (!payOrder) return;
@@ -103,10 +126,17 @@ const OrdersPage: React.FC = () => {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100 text-sm">
-            {orders.map(o => (
+            {filteredOrders.map(o => (
               <tr key={o.id} className="hover:bg-gray-50">
                 <td className="p-4 font-mono text-gray-600">{o.id.split('-')[0].toUpperCase()}</td>
-                <td className="p-4 font-medium text-gray-900">{(o as any).sales_customers?.full_name || 'Walk-in'}</td>
+                <td className="p-4">
+                  <div className="font-medium text-gray-900">{(o as any).sales_customers?.full_name || 'Walk-in'}</div>
+                  {((o as any).sales_order_items?.length > 0) && (
+                    <div className="text-xs text-gray-500 mt-1 truncate max-w-[250px]" title={(o as any).sales_order_items.map((i: any) => `${i.quantity}x ${i.sales_product_variants?.name}`).join(', ')}>
+                      {(o as any).sales_order_items.map((i: any) => `${i.quantity}x ${i.sales_product_variants?.name}`).join(', ')}
+                    </div>
+                  )}
+                </td>
                 <td className="p-4 text-gray-500">{new Date(o.created_at).toLocaleString()}</td>
                 <td className="p-4 text-right font-medium">UGX {Number(o.total_amount).toLocaleString()}</td>
                 <td className="p-4 text-right text-gray-500">UGX {Number(o.amount_paid).toLocaleString()}</td>
@@ -155,22 +185,30 @@ const OrdersPage: React.FC = () => {
                 </td>
               </tr>
             ))}
-            {orders.length === 0 && (
-               <tr><td colSpan={8} className="p-8 text-center text-gray-400">No orders found.</td></tr>
+            {filteredOrders.length === 0 && (
+               <tr><td colSpan={8} className="p-8 text-center text-gray-400">No orders found matching the criteria.</td></tr>
             )}
           </tbody>
-        </table></div>
+        </table>
+        {isLoading && <div className="p-4 text-center text-sm text-gray-500">Loading orders...</div>}
+        <div ref={sentinelRef} className="h-4" />
+        </div>
 
         <div className="md:hidden divide-y divide-gray-100">
-          {orders.length === 0 && (
-             <div className="p-8 text-center text-gray-400">No orders found.</div>
+          {filteredOrders.length === 0 && (
+             <div className="p-8 text-center text-gray-400">No orders found matching the criteria.</div>
           )}
-          {orders.map(o => (
+          {filteredOrders.map(o => (
             <div key={o.id} className="p-4 hover:bg-gray-50 flex flex-col gap-3">
               <div className="flex justify-between items-start">
                 <div>
                   <div className="font-semibold text-gray-900">{(o as any).sales_customers?.full_name || 'Walk-in Customer'}</div>
                   <div className="text-xs text-gray-500 font-mono mt-0.5">#{o.id.split('-')[0].toUpperCase()} • {new Date(o.created_at).toLocaleDateString()}</div>
+                  {((o as any).sales_order_items?.length > 0) && (
+                    <div className="text-xs text-gray-600 mt-1">
+                      {(o as any).sales_order_items.map((i: any) => `${i.quantity}x ${i.sales_product_variants?.name}`).join(', ')}
+                    </div>
+                  )}
                 </div>
                 <div className="text-right">
                   <div className="font-bold text-gray-900">UGX {Number(o.total_amount).toLocaleString()}</div>
@@ -198,28 +236,30 @@ const OrdersPage: React.FC = () => {
               </div>
               <div className="flex flex-wrap gap-2 pt-2 mt-1 border-t border-gray-50">
                 {o.payment_status !== 'PAID' && o.payment_status !== 'REFUNDED' && (
-                  <button onClick={() => setPayOrder(o)} className="px-3 py-1.5 bg-ministry-orange text-white rounded-md font-medium text-xs">
+                  <button onClick={() => setPayOrder(o)} className="px-3 min-h-[44px] flex items-center justify-center bg-ministry-orange text-white rounded-md font-medium text-sm">
                     Pay Balance
                   </button>
                 )}
                 {o.payment_status === 'PAID' && (o.fulfillment_status === 'RESERVED' || o.fulfillment_status === 'PENDING') && (
-                   <button onClick={() => setFulfillOrder(o)} className="px-3 py-1.5 bg-blue-600 text-white rounded-md font-medium text-xs">
+                   <button onClick={() => setFulfillOrder(o)} className="px-3 min-h-[44px] flex items-center justify-center bg-blue-600 text-white rounded-md font-medium text-sm">
                      Release Items
                    </button>
                 )}
                 {(o.payment_status === 'PAID' || o.payment_status === 'PARTIAL') && o.fulfillment_status !== 'COMPLETED' && (
-                   <button onClick={() => setRefundOrder(o)} className="px-3 py-1.5 bg-red-100 text-red-700 rounded-md font-medium text-xs">
+                   <button onClick={() => setRefundOrder(o)} className="px-3 min-h-[44px] flex items-center justify-center bg-red-100 text-red-700 rounded-md font-medium text-sm">
                      Refund
                    </button>
                 )}
                 {o.payment_status === 'UNPAID' && o.fulfillment_status !== 'CANCELLED' && (
-                   <button onClick={() => setCancelOrder(o)} className="px-3 py-1.5 bg-gray-100 text-gray-700 hover:text-red-600 rounded-md font-medium text-xs">
+                   <button onClick={() => setCancelOrder(o)} className="px-3 min-h-[44px] flex items-center justify-center bg-gray-100 text-gray-700 hover:text-red-600 rounded-md font-medium text-sm">
                      Cancel
                    </button>
                 )}
               </div>
             </div>
           ))}
+          {isLoading && <div className="p-4 text-center text-sm text-gray-500">Loading orders...</div>}
+          <div ref={sentinelRef} className="h-4" />
         </div>
       </div>
 

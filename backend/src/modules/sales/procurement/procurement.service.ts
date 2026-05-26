@@ -24,8 +24,14 @@ export const createSupplier = async (manifestId: string, payload: any, auditCont
     return data;
 };
 
-export const getProcurementRequests = async (manifestId: string) => {
-    const { data, error } = await supabase.from('sales_procurement_requests').select('*, sales_suppliers(name)').eq('manifest_id', manifestId).order('created_at', { ascending: false });
+export const getProcurementRequests = async (manifestId: string, page: number = 1, limit: number = 20) => {
+    const offset = (page - 1) * limit;
+    const { data, error } = await supabase
+        .from('sales_procurement_requests')
+        .select('*, sales_suppliers(name)')
+        .eq('manifest_id', manifestId)
+        .order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1);
     if (error) throw error;
     return data || [];
 };
