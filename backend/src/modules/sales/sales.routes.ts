@@ -84,6 +84,7 @@ router.get('/reports/summary', reportsController.getSalesSummary);
 router.get('/documents', documentsController.getDocuments);
 router.post('/documents/generate', documentsController.generateDocument);
 router.patch('/documents/:id/status', documentsController.updateDocumentStatus);
+router.delete('/documents/:id', documentsController.deleteDocument);
 
 // ==========================================
 // CATALOG

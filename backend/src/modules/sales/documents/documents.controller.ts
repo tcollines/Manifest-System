@@ -50,3 +50,17 @@ export const updateDocumentStatus = async (req: Request, res: Response) => {
         handleApiError(res, err, 'Failed to update document status');
     }
 };
+
+export const deleteDocument = async (req: Request, res: Response) => {
+    const manifestId = validateTenant(req, res);
+    if (!manifestId) return;
+
+    const { id } = req.params;
+
+    try {
+        const data = await documentsService.deleteDocument(manifestId, id);
+        res.status(200).json(data);
+    } catch (err) {
+        handleApiError(res, err, 'Failed to delete document');
+    }
+};

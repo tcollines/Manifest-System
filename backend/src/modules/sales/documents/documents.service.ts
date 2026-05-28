@@ -59,6 +59,20 @@ export const generateDocument = async (
         // Continue and save without data rather than failing completely
     }
 
+    let finalActorName = actorName;
+    let finalActorRole = 'System Administrator';
+    if (actorId) {
+        const { data: userData } = await supabase.from('users').select('name, role').eq('id', actorId).single();
+        if (userData) {
+            if (!finalActorName && userData.name) finalActorName = userData.name;
+            if (userData.role) finalActorRole = userData.role;
+        }
+    }
+    
+    // Attach the generator role to report data for PDF rendering
+    reportData = reportData || {};
+    reportData.generator_role = finalActorRole;
+
     // 2. Save the record to the database
     const { data: doc, error } = await supabase
         .from('sales_business_documents')
@@ -67,7 +81,7 @@ export const generateDocument = async (
             document_name: documentName,
             report_type: reportType,
             date_range: dateRange,
-            generated_by_name: actorName || 'System',
+            generated_by_name: finalActorName || 'System',
             generated_by_uid: actorId || null,
             status: 'GENERATED',
             format: 'PDF',
@@ -81,14 +95,27 @@ export const generateDocument = async (
 };
 
 export const updateDocumentStatus = async (manifestId: string, documentId: string, status: string) => {
-    const { data, error } = await supabase
+    const { data: doc, error } = await supabase
         .from('sales_business_documents')
         .update({ status })
-        .eq('id', documentId)
         .eq('manifest_id', manifestId)
+        .eq('id', documentId)
         .select()
         .single();
         
     if (error) throw error;
-    return data;
+    return doc;
+};
+
+export const deleteDocument = async (manifestId: string, id: string) => {
+    const { data: doc, error } = await supabase
+        .from('sales_business_documents')
+        .delete()
+        .eq('manifest_id', manifestId)
+        .eq('id', id)
+        .select()
+        .single();
+        
+    if (error) throw error;
+    return doc;
 };

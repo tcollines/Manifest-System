@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  FileText, Download, Eye, Plus, Search, Filter, 
-  CheckCircle2, Clock, Archive 
+  FileText, Download, Eye, Plus, Search, Filter, Trash2
 } from 'lucide-react';
 import { financialStatementService, BusinessDocument } from '../../../services/sales/financialStatementService';
 import { reportExportService } from '../../../services/sales/reportExportService';
@@ -81,13 +80,24 @@ const BusinessDocumentsPage: React.FC = () => {
     }
   };
 
+  const handleDelete = async (doc: BusinessDocument) => {
+    if (!window.confirm(`Are you sure you want to delete "${doc.document_name}"? This action cannot be undone.`)) return;
+    try {
+      await financialStatementService.deleteDocument(doc.id);
+      showToast('Document deleted successfully', 'success');
+      loadDocuments();
+    } catch (e: any) {
+      showToast(e.message || 'Failed to delete document', 'error');
+    }
+  };
+
   const filteredDocs = documents.filter(doc => 
     doc.document_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     doc.report_type.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
+    <div className="space-y-6 max-w-7xl mx-auto w-full min-w-0">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-xl font-bold text-gray-900">Document Archive</h2>
@@ -95,7 +105,7 @@ const BusinessDocumentsPage: React.FC = () => {
         </div>
         <button 
           onClick={() => setShowGenerateModal(true)}
-          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+          className="flex items-center justify-center shrink-0 whitespace-nowrap gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
         >
           <Plus className="w-4 h-4" />
           Generate New Report
@@ -122,8 +132,8 @@ const BusinessDocumentsPage: React.FC = () => {
         </div>
 
         {/* Table */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse min-w-[800px]">
+        <div className="overflow-x-auto w-full">
+          <table className="w-full text-left border-collapse min-w-full">
             <thead>
               <tr className="bg-white border-b border-gray-200 text-xs uppercase tracking-wider text-gray-500">
                 <th className="p-4 font-semibold">Document Name</th>
@@ -131,21 +141,20 @@ const BusinessDocumentsPage: React.FC = () => {
                 <th className="p-4 font-semibold">Period</th>
                 <th className="p-4 font-semibold">Date Generated</th>
                 <th className="p-4 font-semibold">Format</th>
-                <th className="p-4 font-semibold">Status</th>
                 <th className="p-4 font-semibold text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="p-8 text-center text-gray-500">
+                  <td colSpan={6} className="p-8 text-center text-gray-500">
                     <div className="flex justify-center mb-2"><div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div></div>
                     Loading documents...
                   </td>
                 </tr>
               ) : filteredDocs.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="p-12 text-center text-gray-500">
+                  <td colSpan={6} className="p-12 text-center text-gray-500">
                     <FileText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
                     <p className="text-lg font-medium text-gray-900">No documents found</p>
                     <p className="text-sm">Generate a new report to get started.</p>
@@ -159,32 +168,20 @@ const BusinessDocumentsPage: React.FC = () => {
                         <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
                           <FileText className="w-5 h-5" />
                         </div>
-                        <div>
-                          <p className="font-medium text-gray-900">{doc.document_name}</p>
-                          <p className="text-xs text-gray-500">By: {doc.generated_by_name}</p>
+                        <div className="min-w-0">
+                          <p className="font-medium text-gray-900 truncate">{doc.document_name}</p>
+                          <p className="text-xs text-gray-500 truncate">By: {doc.generated_by_name}</p>
                         </div>
                       </div>
                     </td>
-                    <td className="p-4 text-sm text-gray-600">{doc.report_type}</td>
-                    <td className="p-4 text-sm font-medium text-gray-700">{doc.date_range}</td>
-                    <td className="p-4 text-sm text-gray-500">
-                      {new Date(doc.created_at).toLocaleDateString()} <span className="text-xs">{new Date(doc.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                    <td className="p-4 text-sm text-gray-600 truncate max-w-[120px] sm:max-w-none">{doc.report_type}</td>
+                    <td className="p-4 text-sm font-medium text-gray-700 whitespace-nowrap">{doc.date_range}</td>
+                    <td className="p-4 text-sm text-gray-500 whitespace-nowrap">
+                      {new Date(doc.created_at).toLocaleDateString()} <span className="text-xs hidden sm:inline">{new Date(doc.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
                     </td>
                     <td className="p-4">
                       <span className="inline-flex items-center px-2 py-0.5 rounded bg-red-50 text-red-700 text-xs font-medium border border-red-100">
                         PDF
-                      </span>
-                    </td>
-                    <td className="p-4">
-                      <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold
-                        ${doc.status === 'GENERATED' ? 'bg-green-100 text-green-700' : 
-                          doc.status === 'ARCHIVED' ? 'bg-gray-100 text-gray-600' : 
-                          'bg-yellow-100 text-yellow-700'}`}
-                      >
-                        {doc.status === 'GENERATED' && <CheckCircle2 className="w-3 h-3" />}
-                        {doc.status === 'ARCHIVED' && <Archive className="w-3 h-3" />}
-                        {doc.status === 'PENDING' && <Clock className="w-3 h-3" />}
-                        {doc.status}
                       </span>
                     </td>
                     <td className="p-4">
@@ -202,6 +199,13 @@ const BusinessDocumentsPage: React.FC = () => {
                           title="Download PDF"
                         >
                           <Download className="w-5 h-5" />
+                        </button>
+                        <button 
+                          onClick={() => handleDelete(doc)}
+                          className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Delete Document"
+                        >
+                          <Trash2 className="w-5 h-5" />
                         </button>
                       </div>
                     </td>

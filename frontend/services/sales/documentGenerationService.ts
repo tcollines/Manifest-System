@@ -489,7 +489,13 @@ export const documentGenerationService = {
     doc.setFontSize(10);
     doc.text('Prepared By:', 14, sigY);
     doc.line(14, sigY + 10, 70, sigY + 10);
-    doc.text(docRecord.generated_by_name || 'Finance Officer', 14, sigY + 15);
+    doc.text(docRecord.generated_by_name || 'System', 14, sigY + 15);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(100);
+    const roleText = docRecord.report_data?.generator_role || 'System Administrator';
+    doc.text(roleText, 14, sigY + 19);
+    doc.setTextColor(0);
     
     doc.text('Approved By:', pageWidth - 70, sigY);
     doc.line(pageWidth - 70, sigY + 10, pageWidth - 14, sigY + 10);

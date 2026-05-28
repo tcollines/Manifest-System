@@ -3,11 +3,11 @@ import { Outlet, NavLink, useLocation } from 'react-router-dom';
 import { DollarSign, Calculator, Wallet, PieChart, FileText } from 'lucide-react';
 
 const TABS = [
-    { id: 'sales-summary', label: 'Sales & Inventory Summary', mobileLabel: 'Summary', icon: PieChart },
+    { id: 'sales-summary', label: 'Sales Summary', mobileLabel: 'Summary', icon: PieChart },
     { id: 'financial-position', label: 'Financial Position', mobileLabel: 'Position', icon: DollarSign },
     { id: 'inventory-valuation', label: 'Inventory Valuation', mobileLabel: 'Valuation', icon: Calculator },
     { id: 'cash-position', label: 'Cash Position', mobileLabel: 'Cash', icon: Wallet },
-    { id: 'documents', label: 'Downloadable Business Documents', mobileLabel: 'Docs', icon: FileText },
+    { id: 'documents', label: 'Business Documents', mobileLabel: 'Docs', icon: FileText },
 ];
 
 export const SalesFinancialsTabsLayout: React.FC = () => {
@@ -33,7 +33,7 @@ export const SalesFinancialsTabsLayout: React.FC = () => {
                 </div>
 
                 {/* Desktop pill tab strip */}
-                <div className="hidden md:flex space-x-1 bg-gray-100 p-1.5 rounded-xl w-fit mb-6 overflow-x-auto">
+                <div className="hidden md:flex space-x-1 bg-gray-100 p-1.5 rounded-xl w-fit max-w-full mb-6 overflow-x-auto">
                     {TABS.map(({ id, label, icon: Icon }) => (
                         <NavLink
                             key={id}
@@ -54,7 +54,7 @@ export const SalesFinancialsTabsLayout: React.FC = () => {
             </div>
 
             {/* Content */}
-            <div className="flex-1 mb-20 md:mb-0 px-4 md:px-8 pb-8">
+            <div className="flex-1 min-w-0 mb-20 md:mb-0 px-4 md:px-8 pb-8">
                 <React.Suspense fallback={<div className="flex items-center justify-center h-full w-full min-h-[50vh]"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-ministry-orange"></div></div>}>
 <Outlet />
 </React.Suspense>

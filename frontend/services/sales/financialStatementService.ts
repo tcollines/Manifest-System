@@ -35,5 +35,11 @@ export const financialStatementService = {
             body: JSON.stringify({ status })
         });
         return response as BusinessDocument;
+    },
+
+    async deleteDocument(id: string): Promise<void> {
+        await apiFetch(`/sales/documents/${id}`, {
+            method: 'DELETE'
+        });
     }
 };
