@@ -14,7 +14,6 @@ export const mapUserFromDB = (u: any): User => ({
   departmentId: u.department_id,
   departmentUid: u.department_uid,
   username: u.username,
-  password: u.password,
   contact: u.contact,
   email: u.email,
   stationId: u.station_id,
@@ -33,7 +32,6 @@ const mapUserToDB = (u: User) => {
     department_id: u.departmentId, // Map from App camelCase
     department_uid: u.departmentUid,
     username: u.username,
-    password: u.password,
     contact: u.contact,
     email: u.email,
     station_id: u.stationId,

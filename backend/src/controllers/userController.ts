@@ -164,7 +164,8 @@ export const createUser = async (req: Request, res: Response) => {
             }
         }
 
-        // Insert public profile
+        // Insert public profile (strip password to prevent plaintext storage)
+        delete payload.password;
         const { error: dbError } = await supabase.from('users').insert([payload]);
 
         // Rollback Auth if DB fails (e.g., constraint violation)
@@ -283,6 +284,10 @@ export const updateUser = async (req: Request, res: Response) => {
             }
         }
 
+        // Extract password and strip from payload to prevent plaintext storage
+        const rawPassword = payload.password;
+        delete payload.password;
+
         // Execute Update
         const { data, error } = await supabase.from('users')
             .update(payload)
@@ -307,7 +312,7 @@ export const updateUser = async (req: Request, res: Response) => {
         // GoTrue Identity Synchronization (Setup Fix)
         // If updating a password, seamlessly provision or sync the auth identity
         // ==========================================
-        if (payload.password && !payload.password.startsWith('PENDING_')) {
+        if (rawPassword && !rawPassword.startsWith('PENDING_')) {
             const userEmail = payload.email || data[0].email || (payload.username ? `${payload.username.toLowerCase().replace(/\s+/g, '')}@manifest.local` : null);
             if (userEmail) {
                 try {
@@ -316,7 +321,7 @@ export const updateUser = async (req: Request, res: Response) => {
                     if (authCheck?.user) {
                         // Update existing Identity
                         await supabase.auth.admin.updateUserById(id, {
-                            password: payload.password,
+                            password: rawPassword,
                             email: userEmail,
                             email_confirm: true
                         });
@@ -325,7 +330,7 @@ export const updateUser = async (req: Request, res: Response) => {
                         const { error: createErr } = await supabase.auth.admin.createUser({
                             id: id,
                             email: userEmail,
-                            password: payload.password,
+                            password: rawPassword,
                             email_confirm: true
                         });
 

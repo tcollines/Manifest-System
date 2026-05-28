@@ -82,6 +82,7 @@ const FinancialPositionPage = React.lazy(() => import('../modules/sales/pages/Fi
 const InventoryValuationPage = React.lazy(() => import('../modules/sales/pages/InventoryValuationPage'));
 const CashPositionPage = React.lazy(() => import('../modules/sales/pages/CashPositionPage'));
 const SalesSummaryPage = React.lazy(() => import('../modules/sales/pages/SalesSummaryPage'));
+const BusinessDocumentsPage = React.lazy(() => import('../modules/sales/pages/BusinessDocumentsPage'));
 const SalesFinancialsTabsLayout = React.lazy(() => import('../modules/sales/SalesFinancialsTabsLayout').then(m => ({ default: m.SalesFinancialsTabsLayout })));
 
 // Coordinator (my-residency) — modular replacement for CoordinatorResidencyDashboard
@@ -384,6 +385,7 @@ const DepartmentRouterProxy: React.FC<ProxyProps> = ({ onOpenModal, onEditUser }
                             <Route path="financial-position" element={<FinancialPositionPage />} />
                             <Route path="inventory-valuation" element={<InventoryValuationPage />} />
                             <Route path="cash-position" element={<CashPositionPage />} />
+                            <Route path="documents" element={<BusinessDocumentsPage />} />
                         </Route>
                     </Route>
                     <Route path="dashboard/*" element={<GenericDeptDashboard deptId={deptId} currentUser={currentUser} openModal={onOpenModal} onEditUser={onEditUser} />} />

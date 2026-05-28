@@ -7,6 +7,7 @@ import * as catalogController from './catalog/catalog.controller';
 import * as procurementController from './procurement/procurement.controller';
 import * as paymentsController from './payments/payments.controller';
 import * as reportsController from './reports/reports.controller';
+import * as documentsController from './documents/documents.controller';
 
 const router = express.Router();
 
@@ -76,6 +77,13 @@ router.get('/reports/all-time-stats', reportsController.getAllTimeStats);
 router.get('/reports/daily-sales', reportsController.getDailySales);
 router.get('/reports/financial-position', reportsController.getFinancialPosition);
 router.get('/reports/summary', reportsController.getSalesSummary);
+
+// ==========================================
+// DOCUMENTS
+// ==========================================
+router.get('/documents', documentsController.getDocuments);
+router.post('/documents/generate', documentsController.generateDocument);
+router.patch('/documents/:id/status', documentsController.updateDocumentStatus);
 
 // ==========================================
 // CATALOG

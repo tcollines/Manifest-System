@@ -32,8 +32,15 @@ const OrdersPage: React.FC = () => {
   const filteredOrders = useMemo(() => {
     return orders.filter(o => {
       let matches = true;
-      if (filterStatus && o.fulfillment_status !== filterStatus) {
-        matches = false;
+      if (filterStatus) {
+        if (filterStatus === 'PENDING') {
+          // Dashboard treats anything not COMPLETED as pending.
+          if (o.fulfillment_status === 'COMPLETED' || o.fulfillment_status === 'CANCELLED') {
+            matches = false;
+          }
+        } else if (o.fulfillment_status !== filterStatus) {
+          matches = false;
+        }
       }
       if (filterDate === 'today') {
         // We use local date string parsing or just substring comparison. 

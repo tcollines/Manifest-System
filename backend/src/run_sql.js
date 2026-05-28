@@ -1,22 +1,27 @@
-const postgres = require('postgres');
+const { Client } = require('pg');
 const fs = require('fs');
 
 async function run() {
-    const dbUrl = "postgresql://postgres.poazorjmzswectxvakzl:ujrRGd5IZIKOE9Oj@aws-0-us-east-1.pooler.supabase.com:6543/postgres?options=project%3Dpoazorjmzswectxvakzl";
-    const sql = postgres(dbUrl, { ssl: 'require' });
+    const dbUrl = "postgres://postgres.poazorjmzswectxvakzl:ujrRGd5IZIKOE9Oj@aws-0-us-east-1.pooler.supabase.com:6543/postgres";
+    const client = new Client({
+        connectionString: dbUrl,
+        ssl: { rejectUnauthorized: false },
+        options: "project=poazorjmzswectxvakzl"
+    });
     
     try {
-        console.log("Connected to database...");
+        await client.connect();
+        console.log("Connected to database via pg...");
         
-        const script = fs.readFileSync('C:\\Users\\Abraham\\.gemini\\antigravity-ide\\brain\\fa21c07c-eeae-4ba6-8bdc-7a2d8c1a65f7\\RLS_Lockdown_Phase4.sql', 'utf8');
-        console.log("Executing RLS Lockdown Script...");
+        const script = fs.readFileSync('d:\\Manifest System\\frontend\\database\\32_add_business_documents.sql', 'utf8');
+        console.log("Executing 32_add_business_documents.sql...");
         
-        await sql.unsafe(script);
-        console.log("✅ Phase 4 RLS Lockdown completed successfully!");
+        await client.query(script);
+        console.log("✅ Business Documents table created successfully!");
     } catch (err) {
         console.error("❌ Error executing SQL:", err);
     } finally {
-        await sql.end();
+        await client.end();
     }
 }
 

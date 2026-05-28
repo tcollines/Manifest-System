@@ -7,6 +7,7 @@ const TABS = [
     { id: 'financial-position', label: 'Financial Position', mobileLabel: 'Position', icon: DollarSign },
     { id: 'inventory-valuation', label: 'Inventory Valuation', mobileLabel: 'Valuation', icon: Calculator },
     { id: 'cash-position', label: 'Cash Position', mobileLabel: 'Cash', icon: Wallet },
+    { id: 'documents', label: 'Downloadable Business Documents', mobileLabel: 'Docs', icon: FileText },
 ];
 
 export const SalesFinancialsTabsLayout: React.FC = () => {
