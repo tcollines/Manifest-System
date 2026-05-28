@@ -28,16 +28,16 @@ export const generateDocument = async (
         switch (reportType) {
             case 'Profit & Loss Statement':
             case 'Income Statement':
+                reportData = await reportsService.fetchDetailedProfitAndLoss(manifestId);
+                break;
             case 'Sales Report':
-                reportData = await reportsService.fetchAllTimeStats(manifestId);
-                // Also get daily stats if it's for today
-                if (dateRange === 'Today') {
-                    reportData = await reportsService.getDailySales(manifestId, today);
-                }
+                reportData = await reportsService.fetchDetailedSalesReport(manifestId);
                 break;
             case 'Balance Sheet':
-            case 'Cash Position Report':
                 reportData = await reportsService.fetchFinancialPosition(manifestId);
+                break;
+            case 'Cash Position Report':
+                reportData = await reportsService.fetchCashbookData(manifestId);
                 break;
             case 'Inventory Valuation Report':
                 reportData = await reportsService.fetchInventoryValuation(manifestId);
@@ -46,11 +46,13 @@ export const generateDocument = async (
                 reportData = await reportsService.getSalesSummary(manifestId);
                 break;
             case 'Supplier Ledger':
-                // For a specific supplier, we would pass supplierId, but for now we snapshot overall position
-                reportData = await reportsService.fetchFinancialPosition(manifestId);
+                reportData = await reportsService.fetchSupplierLedger(manifestId);
+                break;
+            case 'Procurement Report':
+                reportData = await reportsService.fetchDetailedProcurementReport(manifestId);
                 break;
             default:
-                reportData = { message: 'Snapshot not fully supported for this type yet' };
+                reportData = await reportsService.fetchFinancialPosition(manifestId);
         }
     } catch (e) {
         console.error('Error snapshotting report data:', e);

@@ -5,9 +5,9 @@ export const reportExportService = {
   /**
    * Export to PDF. Future versions will support format='DOCX'|'EXCEL'
    */
-  exportDocument(docRecord: BusinessDocument, format: string = 'PDF') {
+  async exportDocument(docRecord: BusinessDocument, format: string = 'PDF') {
     if (format === 'PDF') {
-      const pdf = documentGenerationService.generatePDF(docRecord);
+      const pdf = await documentGenerationService.generatePDF(docRecord);
       
       // Clean up filename (replace spaces and slashes)
       const cleanName = docRecord.document_name.replace(/[^a-zA-Z0-9]/g, '_');
@@ -22,9 +22,9 @@ export const reportExportService = {
   /**
    * Open the PDF in a new browser tab for previewing
    */
-  previewDocument(docRecord: BusinessDocument) {
+  async previewDocument(docRecord: BusinessDocument) {
     if (docRecord.format === 'PDF' || !docRecord.format) {
-      const pdf = documentGenerationService.generatePDF(docRecord);
+      const pdf = await documentGenerationService.generatePDF(docRecord);
       const pdfBlobUrl = pdf.output('bloburl');
       window.open(pdfBlobUrl, '_blank');
     } else {

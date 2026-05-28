@@ -64,17 +64,17 @@ const BusinessDocumentsPage: React.FC = () => {
     }
   };
 
-  const handlePreview = (doc: BusinessDocument) => {
+  const handlePreview = async (doc: BusinessDocument) => {
     try {
-      reportExportService.previewDocument(doc);
+      await reportExportService.previewDocument(doc);
     } catch (e: any) {
       showToast(e.message || 'Failed to preview document', 'error');
     }
   };
 
-  const handleDownload = (doc: BusinessDocument) => {
+  const handleDownload = async (doc: BusinessDocument) => {
     try {
-      reportExportService.exportDocument(doc, 'PDF');
+      await reportExportService.exportDocument(doc, 'PDF');
       showToast('Download started', 'success');
     } catch (e: any) {
       showToast(e.message || 'Failed to download document', 'error');
@@ -130,6 +130,7 @@ const BusinessDocumentsPage: React.FC = () => {
                 <th className="p-4 font-semibold">Report Type</th>
                 <th className="p-4 font-semibold">Period</th>
                 <th className="p-4 font-semibold">Date Generated</th>
+                <th className="p-4 font-semibold">Format</th>
                 <th className="p-4 font-semibold">Status</th>
                 <th className="p-4 font-semibold text-right">Actions</th>
               </tr>
@@ -137,14 +138,14 @@ const BusinessDocumentsPage: React.FC = () => {
             <tbody className="divide-y divide-gray-100">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="p-8 text-center text-gray-500">
+                  <td colSpan={7} className="p-8 text-center text-gray-500">
                     <div className="flex justify-center mb-2"><div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div></div>
                     Loading documents...
                   </td>
                 </tr>
               ) : filteredDocs.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="p-12 text-center text-gray-500">
+                  <td colSpan={7} className="p-12 text-center text-gray-500">
                     <FileText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
                     <p className="text-lg font-medium text-gray-900">No documents found</p>
                     <p className="text-sm">Generate a new report to get started.</p>
@@ -168,6 +169,11 @@ const BusinessDocumentsPage: React.FC = () => {
                     <td className="p-4 text-sm font-medium text-gray-700">{doc.date_range}</td>
                     <td className="p-4 text-sm text-gray-500">
                       {new Date(doc.created_at).toLocaleDateString()} <span className="text-xs">{new Date(doc.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                    </td>
+                    <td className="p-4">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded bg-red-50 text-red-700 text-xs font-medium border border-red-100">
+                        PDF
+                      </span>
                     </td>
                     <td className="p-4">
                       <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold
