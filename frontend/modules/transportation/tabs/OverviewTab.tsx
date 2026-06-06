@@ -452,7 +452,10 @@ const CoordinatorView: React.FC = () => {
                                                         ListOfTransportedPeople: passengers.map(p => ({
                                                             Name: p.name,
                                                             Phone: p.contact || '',
-                                                            FirstTimer: p.isFirstTime === 'Yes'
+                                                            FirstTimer: p.isFirstTime === 'Yes',
+                                                            Department: p.category === 'Member' ? 'Residential' : (p.category === 'Student' ? 'School' : 'Institution'),
+                                                            Institution: p.school ? 'Yes' : 'No',
+                                                            InstitutionName: p.school || ''
                                                         }))
                                                     };
                                                     const encodedUrl = `${cognitoFormUrl}?entry=${encodeURIComponent(JSON.stringify(payload))}`;
