@@ -158,6 +158,7 @@ const RequisitionsTab: React.FC<Props> = ({ user }) => {
                                                 <th className="py-4 px-4 font-semibold">Status</th>
                                                 <th className="py-4 px-4 font-semibold">Requisition Details</th>
                                                 <th className="py-4 px-4 font-semibold">Date &amp; Items</th>
+                                                <th className="py-4 px-4 font-semibold text-right">Dept Contr</th>
                                                 <th className="py-4 px-4 font-semibold text-right">Amount</th>
                                                 <th className="py-4 px-4 font-semibold text-center">Actions</th>
                                             </tr>
@@ -197,6 +198,9 @@ const RequisitionsTab: React.FC<Props> = ({ user }) => {
                                                     <td className="py-4 px-4 whitespace-nowrap text-sm text-gray-500">
                                                         <div>{new Date(req.createdAt).toLocaleDateString()}</div>
                                                         <div className="text-xs mt-0.5">{(req.items || []).length} Items</div>
+                                                    </td>
+                                                    <td className="py-4 px-4 whitespace-nowrap text-right text-gray-500 font-medium">
+                                                        {req.deptContribution ? `UGX ${req.deptContribution.toLocaleString()}` : '—'}
                                                     </td>
                                                     <td className="py-4 px-4 whitespace-nowrap text-right">
                                                         <div className="text-lg font-black text-gray-900">UGX {req.totalAmount.toLocaleString()}</div>

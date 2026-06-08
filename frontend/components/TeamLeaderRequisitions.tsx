@@ -217,6 +217,7 @@ const TeamLeaderRequisitions: React.FC<TeamLeaderRequisitionsProps> = ({ current
                                                     <th className="pb-3 pr-4">Department</th>
                                                     <th className="pb-3 px-4">Subject</th>
                                                     <th className="pb-3 px-4 text-center">Type</th>
+                                                    <th className="pb-3 px-4 text-right">Dept Contr</th>
                                                     <th className="pb-3 pl-4 text-right">Amount (UGX)</th>
                                                     <th className="pb-3 px-4 text-center">Status</th>
                                                     {activeTab === 'Pending' && <th className="pb-3 pl-4 text-right">Actions</th>}
@@ -233,6 +234,9 @@ const TeamLeaderRequisitions: React.FC<TeamLeaderRequisitionsProps> = ({ current
                                                            <span className={`text-xs font-bold px-2 py-1 rounded-full ${req.type === 'WORKPLAN' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
                                                              {req.type}
                                                             </span>
+                                                        </td>
+                                                        <td className="py-3 px-4 text-right text-gray-500 font-medium">
+                                                            {req.deptContribution ? req.deptContribution.toLocaleString() : '—'}
                                                         </td>
                                                         <td className="py-3 pl-4 text-right font-black text-gray-900">{Number(req.totalAmount).toLocaleString()}</td>
                                                         <td className="py-3 px-4 text-center">

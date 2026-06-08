@@ -81,15 +81,46 @@ export const notifyRole = async (
     excludeUserId?: string
 ) => {
     try {
+        let usersToNotify: any[] = [];
+
         // Fetch users with the specified role
-        const { data: users, error: fetchError } = await supabase
+        const { data: roleUsers, error: fetchError } = await supabase
             .from('users')
             .select('id')
             .eq('manifest_id', manifestId)
             .eq('role', role)
             .ilike('status', 'active');
 
-        if (fetchError || !users || users.length === 0) return;
+        if (roleUsers) {
+            usersToNotify = [...roleUsers];
+        }
+
+        // Fetch users in a department matching the role name (e.g. "Finance")
+        const { data: dept } = await supabase
+            .from('departments')
+            .select('id')
+            .eq('manifest_id', manifestId)
+            .ilike('name', role)
+            .single();
+
+        if (dept) {
+            const { data: deptUsers } = await supabase
+                .from('users')
+                .select('id')
+                .eq('manifest_id', manifestId)
+                .eq('department_id', dept.id)
+                .ilike('status', 'active');
+                
+            if (deptUsers) {
+                usersToNotify = [...usersToNotify, ...deptUsers];
+            }
+        }
+
+        // Deduplicate
+        const uniqueUserIds = Array.from(new Set(usersToNotify.map(u => u.id)));
+        const users = uniqueUserIds.map(id => ({ id }));
+
+        if (users.length === 0) return;
 
         const validUsers = [];
         for (const u of users) {

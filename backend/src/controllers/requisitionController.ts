@@ -9,7 +9,7 @@ export const getAllRequisitions = async (req: Request, res: Response) => {
     try {
         const { data, error } = await supabase
             .from('requisitions')
-            .select(`*, requisition_items (*)`)
+            .select(`*, requisition_items (*), workplan_items (dept_contribution)`)
             .eq('manifest_id', manifestId) // Tenant Isolation
             .order('created_at', { ascending: false });
 
@@ -104,7 +104,7 @@ export const getRequisitionsByDepartment = async (req: Request, res: Response) =
     try {
         const { data, error } = await supabase
             .from('requisitions')
-            .select(`*, requisition_items (*)`)
+            .select(`*, requisition_items (*), workplan_items (dept_contribution)`)
             .eq('manifest_id', manifestId) // Tenant Isolation
             .eq('department_id', deptId)
             .order('created_at', { ascending: false });
@@ -193,6 +193,7 @@ export const updateRequisition = async (req: Request, res: Response) => {
                 total_amount: requisition.totalAmount,
                 notes: requisition.notes,
                 status: REQUISITION_STATUS.PENDING,
+                batch_id: null,
                 rejection_reason: null,
                 updated_at: new Date().toISOString()
             })
@@ -367,7 +368,7 @@ export const getBatches = async (req: Request, res: Response) => {
             .from('requisition_batches')
             .select(`
                 *,
-                requisitions (*)
+                requisitions (*, workplan_items (dept_contribution))
             `)
             // Usually filter by manifest_id here but it relies on requisitions table constraints right now or if added.
             .order('created_at', { ascending: false });
@@ -388,7 +389,7 @@ export const getQueue = async (req: Request, res: Response) => {
         // Fetch all requisitions
         const { data: requisitions, error: reqError } = await supabase
             .from('requisitions')
-            .select(`*, requisition_items (*)`)
+            .select(`*, requisition_items (*), workplan_items (dept_contribution)`)
             .eq('manifest_id', manifestId)
             .order('created_at', { ascending: false });
 
@@ -397,7 +398,7 @@ export const getQueue = async (req: Request, res: Response) => {
         // Fetch all batches
         const { data: batches, error: batchError } = await supabase
             .from('requisition_batches')
-            .select(`*, requisitions (*)`)
+            .select(`*, requisitions (*, workplan_items (dept_contribution))`)
             .order('created_at', { ascending: false });
 
         if (batchError) throw batchError;
@@ -406,7 +407,7 @@ export const getQueue = async (req: Request, res: Response) => {
             finance: {
                 unbatched: requisitions.filter(r => r.status === REQUISITION_STATUS.APPROVED && !r.batch_id),
                 batched_pending_tl: batches.filter(b => [REQUISITION_STATUS.PENDING, REQUISITION_STATUS.TL_APPROVAL].includes(b.status as any)),
-                approved_pending_payment: batches.filter(b => b.status === REQUISITION_STATUS.APPROVED && b.requisitions?.some((r: any) => r.status !== REQUISITION_STATUS.PAID)),
+                approved_pending_payment: batches.filter(b => b.status === REQUISITION_STATUS.APPROVED && b.requisitions?.some((r: any) => r.status !== REQUISITION_STATUS.PAID && r.status !== REQUISITION_STATUS.REJECTED)),
                 history: requisitions.filter(r => [REQUISITION_STATUS.PAID, REQUISITION_STATUS.REJECTED].includes(r.status as any))
             },
             tl: {
@@ -414,7 +415,7 @@ export const getQueue = async (req: Request, res: Response) => {
                 history: batches.filter(b => [REQUISITION_STATUS.APPROVED, REQUISITION_STATUS.PAID, REQUISITION_STATUS.REJECTED].includes(b.status as any))
             },
             admin: {
-                pending_review: requisitions.filter(r => r.status === REQUISITION_STATUS.PENDING && r.type === 'ADHOC')
+                pending_review: requisitions.filter(r => r.status === REQUISITION_STATUS.PENDING)
             }
         });
     } catch (error: any) {

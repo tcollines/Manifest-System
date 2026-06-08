@@ -272,6 +272,15 @@ export const submitWorkplan = async (req: Request, res: Response) => {
             throw error;
         }
 
+        if (nextStatus === WORKPLAN_STATUS.TL_REVIEW) {
+            // If bypassing Admin Review, we must advance pending items to ADMIN_APPROVED so TL can see and act on them.
+            await supabase
+                .from('workplan_items')
+                .update({ status: 'ADMIN_APPROVED' })
+                .eq('workplan_id', workplanId)
+                .in('status', ['PENDING', 'RESUBMITTED']);
+        }
+
         // Fire notifications
         import('../utils/notifications').then(({ notifyRole }) => {
             if (nextStatus === WORKPLAN_STATUS.ADMIN_REVIEW) {

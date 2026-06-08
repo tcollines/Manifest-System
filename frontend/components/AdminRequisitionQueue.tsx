@@ -45,8 +45,8 @@ const AdminRequisitionQueue: React.FC<Props> = ({ currentUser }) => {
             // For now, keep history locally if admin.queue doesn't have history
             // Since the queue primarily gives pending items for admin:
             const allReqs = await RequisitionStore.getAll();
-            const adhocReqs = allReqs.filter(r => r.type === 'ADHOC');
-            setRequisitions(adhocReqs);
+            const visibleReqs = allReqs.filter(r => r.type === 'ADHOC' || r.status === REQUISITION_STATUS.PENDING);
+            setRequisitions(visibleReqs);
         } catch (e: any) {
              showToast('Failed to load requisitions', 'error');
         }

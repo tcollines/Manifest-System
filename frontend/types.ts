@@ -446,6 +446,7 @@ export interface Requisition {
   workplanItemId?: string;
   batchId?: string;
   type: 'WORKPLAN' | 'ADHOC';
+  deptContribution?: number;
   dateRequired?: string;
   notes?: string;
   rejectionReason?: string;

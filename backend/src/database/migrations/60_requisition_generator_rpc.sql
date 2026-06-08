@@ -59,7 +59,7 @@ BEGIN
         ) VALUES (
             new_req_id, req_num, COALESCE(NULLIF(TRIM(item_record.item), ''), item_record.activity),
             wp_record.department_id::UUID, wp_record.created_by::UUID, 'DRAFT',
-            COALESCE(item_record.approved_amount, item_record.amount), item_record.id, 'WORKPLAN',
+            COALESCE(item_record.approved_amount, GREATEST(0, COALESCE(item_record.amount, 0) - COALESCE(item_record.dept_contribution, 0))), item_record.id, 'WORKPLAN',
             item_record.date_needed::DATE,
             wp_record.manifest_id::UUID
         );
@@ -73,10 +73,10 @@ BEGIN
             -- Prevent division by zero, set unit cost safely
             CASE 
                 WHEN COALESCE(item_record.approved_quantity, item_record.quantity) > 0 
-                THEN COALESCE(item_record.approved_amount, item_record.amount) / COALESCE(item_record.approved_quantity, item_record.quantity)
-                ELSE COALESCE(item_record.approved_amount, item_record.amount)
+                THEN COALESCE(item_record.approved_amount, GREATEST(0, COALESCE(item_record.amount, 0) - COALESCE(item_record.dept_contribution, 0))) / COALESCE(item_record.approved_quantity, item_record.quantity)
+                ELSE COALESCE(item_record.approved_amount, GREATEST(0, COALESCE(item_record.amount, 0) - COALESCE(item_record.dept_contribution, 0)))
             END,
-            COALESCE(item_record.approved_amount, item_record.amount),
+            COALESCE(item_record.approved_amount, GREATEST(0, COALESCE(item_record.amount, 0) - COALESCE(item_record.dept_contribution, 0))),
             wp_record.manifest_id::UUID
         );
 

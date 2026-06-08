@@ -13,6 +13,7 @@ export const mapRequisitionFromDB = (dbReq: any): Requisition => ({
     type: dbReq.type,
     dateRequired: dbReq.date_required,
     workplanItemId: dbReq.workplan_item_id,
+    deptContribution: dbReq.workplan_items ? dbReq.workplan_items.dept_contribution : undefined,
     batchId: dbReq.batch_id,
     payments: (dbReq.requisition_payments || []).map((p: any) => ({
         id: p.id,
