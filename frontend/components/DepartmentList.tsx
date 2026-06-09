@@ -51,7 +51,7 @@ const DepartmentList: React.FC<DepartmentListProps> = () => {
             ]);
 
             if (deptRes.status === 'success') {
-                setCustomDepts(deptRes.data.filter(d => d.isCustom));
+                setCustomDepts(deptRes.data.filter((d: Department) => d.isCustom && !DEPARTMENTS.some(nd => nd.id === d.id)));
             }
 
             if (userRes.status === 'success' && userRes.data) {

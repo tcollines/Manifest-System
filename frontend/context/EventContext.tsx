@@ -25,7 +25,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const refreshEvents = useCallback(async () => {
         setIsLoading(true);
         try {
-            const res = await EventStore.getAll({ limit: 50 });
+            const res = await EventStore.getAll({ limit: 200 });
             if (res.status === 'success' && res.data) setEvents(res.data);
         } catch (e) {
             console.error('[EventContext] refreshEvents failed:', e);

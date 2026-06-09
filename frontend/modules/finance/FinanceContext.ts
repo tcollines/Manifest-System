@@ -58,9 +58,7 @@ export interface FinanceContextValue {
 
     // Fleet
     fleetViewMode: 'events' | 'vehicles';
-    setFleetViewMode: (m: 'events' | 'vehicles') => void;
     selectedFleetEvent: MinistryEvent | null;
-    setSelectedFleetEvent: (e: MinistryEvent | null) => void;
     fleetJourneyTab: 'Ongoing' | 'Return' | 'Cleared' | 'All';
     setFleetJourneyTab: (t: 'Ongoing' | 'Return' | 'Cleared' | 'All') => void;
 
@@ -78,7 +76,7 @@ export interface FinanceContextValue {
     handleViewVehicle: (v: Vehicle) => void;
     handleUpdateFinance: () => Promise<void>;
     handleDispatchVehicle: () => Promise<void>;
-    handlePrintFleetReport: () => void;
+    handlePrintFleetReport: (eventToPrint?: MinistryEvent | null) => void;
     handlePrintAccountability: (vehicle: Vehicle) => Promise<void>;
     handlePrintBatchAccountability: (vehicles: Vehicle[]) => Promise<void>;
 }

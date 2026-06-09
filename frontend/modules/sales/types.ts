@@ -23,6 +23,8 @@ export interface SalesVariant {
   name: string;
   sku: string;
   barcode: string;
+  existing_qr_code?: string;
+  system_qr_code?: string;
   cost_price: number;
   selling_price: number;
   stock_quantity: number;

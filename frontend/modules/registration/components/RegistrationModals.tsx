@@ -321,12 +321,9 @@ const RegistrationModals: React.FC = () => {
                                         className="w-full p-3 border border-gray-200 rounded-xl focus:outline-none focus:border-ministry-orange text-sm"
                                         placeholder="Entrant Full Name"
                                     />
-                                    <input
-                                        required
+                                    <PhoneInput
                                         value={stationForm.entrantContact}
-                                        onChange={e => setStationForm({ ...stationForm, entrantContact: e.target.value })}
-                                        className="w-full p-3 border border-gray-200 rounded-xl focus:outline-none focus:border-ministry-orange text-sm"
-                                        placeholder="Contact e.g. 256..."
+                                        onChange={(val: string) => setStationForm({ ...stationForm, entrantContact: val })}
                                     />
                                     <div className="grid grid-cols-2 gap-3">
                                         <input
@@ -374,7 +371,7 @@ const RegistrationModals: React.FC = () => {
                         <div className="flex items-center justify-between mb-6">
                             <h3 className="text-xl font-bold text-gray-900">Add Data Entrant</h3>
                             <button
-                                onClick={() => { setIsAddEntrantOpen(false); setNewEntrant({ name: '', username: '', password: '' }); }}
+                                onClick={() => { setIsAddEntrantOpen(false); setNewEntrant({ name: '', username: '', password: '', contact: '' }); }}
                                 className="p-2 hover:bg-gray-100 rounded-full text-gray-400 hover:text-gray-700 transition-colors"
                             >✕</button>
                         </div>
@@ -390,13 +387,10 @@ const RegistrationModals: React.FC = () => {
                                 />
                             </div>
                             <div className="space-y-1">
-                                <label className="text-sm font-bold text-gray-700">Email</label>
-                                <input
-                                    type="email"
-                                    value={newEntrant.email || ''}
-                                    onChange={e => setNewEntrant({ ...newEntrant, email: e.target.value })}
-                                    className="w-full p-3 border border-gray-200 rounded-xl focus:outline-none focus:border-ministry-orange text-sm"
-                                    placeholder="entrant@example.com"
+                                <label className="text-sm font-bold text-gray-700">Contact</label>
+                                <PhoneInput
+                                    value={newEntrant.contact || ''}
+                                    onChange={(val: string) => setNewEntrant({ ...newEntrant, contact: val })}
                                 />
                             </div>
                             <div className="space-y-1">
@@ -425,7 +419,7 @@ const RegistrationModals: React.FC = () => {
                             <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
                                 <button
                                     type="button"
-                                    onClick={() => { setIsAddEntrantOpen(false); setNewEntrant({ name: '', username: '', password: '', email: '' }); }}
+                                    onClick={() => { setIsAddEntrantOpen(false); setNewEntrant({ name: '', username: '', password: '', contact: '' }); }}
                                     className="px-5 py-2.5 rounded-xl font-bold text-gray-600 hover:bg-gray-100 transition-colors"
                                 >Cancel</button>
                                 <button

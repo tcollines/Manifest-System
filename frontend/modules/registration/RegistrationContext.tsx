@@ -365,7 +365,7 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
       return prev;
     });
   };
-  const [newEntrant, setNewEntrant] = useState({ name: '', username: '', password: '', email: '' });
+  const [newEntrant, setNewEntrant] = useState({ name: '', username: '', password: '', contact: '' });
 
 
 
@@ -2285,7 +2285,7 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
       name: newEntrant.name,
       username: newEntrant.username,
       password: newEntrant.password,
-      email: newEntrant.email || undefined,
+      contact: newEntrant.contact || undefined,
       role: 'Logistics',
       stationId: selectedStation.id,
       departmentId: currentUser.departmentId || '4630e48a-f97e-48fd-a901-864b591c282f' // Default to current user's department or Transportation UUID
@@ -2296,7 +2296,7 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
       if (res.status === 'error') throw new Error(res.message);
 
       setIsAddEntrantOpen(false);
-      setNewEntrant({ name: '', username: '', password: '', email: '' });
+      setNewEntrant({ name: '', username: '', password: '', contact: '' });
       showToast("Data entrant added successfully.", 'success');
 
       // Update local state so it appears immediately

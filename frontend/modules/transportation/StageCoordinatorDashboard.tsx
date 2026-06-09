@@ -45,7 +45,7 @@ const StageCoordinatorDashboard: React.FC = () => {
     const [eventLocation, setEventLocation] = useState<{lat: number, lng: number} | null>(null);
 
     // Forms
-    const [newUser, setNewUser] = useState({ name: '', username: '', password: '', contact: '', role: 'Vehicle Coordinator' });
+    const [newUser, setNewUser] = useState({ firstName: '', lastName: '', username: '', password: '', contact: '', role: 'Vehicle Coordinator' });
     const [isAddingStaff, setIsAddingStaff] = useState(false);
 
     // Google Maps Loader
@@ -265,15 +265,20 @@ const StageCoordinatorDashboard: React.FC = () => {
 
     const handleAddStaff = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!newUser.name || !newUser.username || !newUser.password) {
+        if (!newUser.firstName || !newUser.lastName || !newUser.username || !newUser.password) {
             showToast("Please fill in all required fields", "error");
+            return;
+        }
+
+        if (newUser.password.length < 6) {
+            showToast("Password must be at least 6 characters long for security", "error");
             return;
         }
 
         try {
             const userToAdd: User = {
                 id: crypto.randomUUID(),
-                name: newUser.name,
+                name: `${newUser.firstName.trim()} ${newUser.lastName.trim()}`,
                 username: newUser.username,
                 password: newUser.password,
                 contact: newUser.contact,
@@ -292,7 +297,7 @@ const StageCoordinatorDashboard: React.FC = () => {
 
             await UserStore.add(userToAdd);
             showToast(`${newUser.role} added successfully`, "success");
-            setNewUser({ name: '', username: '', password: '', contact: '', role: 'Vehicle Coordinator' });
+            setNewUser({ firstName: '', lastName: '', username: '', password: '', contact: '', role: 'Vehicle Coordinator' });
             setIsAddingStaff(false);
             loadStationData();
         } catch (error) {
@@ -602,13 +607,23 @@ const StageCoordinatorDashboard: React.FC = () => {
                                         </select>
                                     </div>
                                     <div className="space-y-2">
-                                        <label className="text-sm font-bold text-gray-600">Full Name</label>
+                                        <label className="text-sm font-bold text-gray-600">First Name</label>
                                         <input
                                             required
-                                            value={newUser.name}
-                                            onChange={e => setNewUser({ ...newUser, name: e.target.value })}
+                                            value={newUser.firstName}
+                                            onChange={e => setNewUser({ ...newUser, firstName: e.target.value })}
                                             className="w-full p-3 bg-white border border-gray-200 rounded-xl outline-none focus:border-ministry-orange"
-                                            placeholder="John Doe"
+                                            placeholder="John"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-bold text-gray-600">Last Name</label>
+                                        <input
+                                            required
+                                            value={newUser.lastName}
+                                            onChange={e => setNewUser({ ...newUser, lastName: e.target.value })}
+                                            className="w-full p-3 bg-white border border-gray-200 rounded-xl outline-none focus:border-ministry-orange"
+                                            placeholder="Doe"
                                         />
                                     </div>
                                     <div className="space-y-2">

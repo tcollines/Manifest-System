@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Html5QrcodeScanner } from 'html5-qrcode';
+import { Html5QrcodeScanner, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import { ShoppingCart, QrCode, Search, Plus, Minus, CreditCard, CheckCircle, User, X } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { salesService } from '../../../services/sales/salesService';
@@ -65,11 +65,28 @@ const POSPage: React.FC = () => {
  useEffect(() => {
    if (isScanning) {
      const scanner = new Html5QrcodeScanner("reader", { 
-       fps: 10, 
-       qrbox: { width: 250, height: 250 }, 
-       aspectRatio: 1.0,
-       disableFlip: false
-     }, false);
+        fps: 10, 
+        qrbox: { width: 400, height: 200 },
+        disableFlip: false,
+        useBarCodeDetectorIfSupported: true,
+        rememberLastUsedCamera: true,
+        videoConstraints: {
+          facingMode: "environment",
+          width: { ideal: 1920, min: 1280 },
+          height: { ideal: 1080, min: 720 },
+          advanced: [{ focusMode: "continuous" }] as any
+        },
+        formatsToSupport: [
+          Html5QrcodeSupportedFormats.QR_CODE,
+          Html5QrcodeSupportedFormats.CODE_128,
+          Html5QrcodeSupportedFormats.EAN_13,
+          Html5QrcodeSupportedFormats.EAN_8,
+          Html5QrcodeSupportedFormats.UPC_A,
+          Html5QrcodeSupportedFormats.UPC_E,
+          Html5QrcodeSupportedFormats.CODE_39,
+          Html5QrcodeSupportedFormats.ITF
+        ]
+      }, false);
      
      scanner.render(
        (decodedText) => {
@@ -101,8 +118,10 @@ const POSPage: React.FC = () => {
     if (e.key === 'Enter') {
       const cleanSearch = searchQuery.trim().toLowerCase();
       const variant = variants.find(v => 
+        v.sku?.toLowerCase() === cleanSearch ||
         v.barcode?.toLowerCase() === cleanSearch || 
-        v.sku?.toLowerCase() === cleanSearch
+        v.existing_qr_code?.toLowerCase() === cleanSearch ||
+        v.system_qr_code?.toLowerCase() === cleanSearch
       );
       if (variant) {
         addToCart(variant);

@@ -18,7 +18,7 @@ import {
 const FleetTab: React.FC = () => {
     const {
         events, isRefreshing, refreshData,
-        fleetViewMode, selectedFleetEvent, setSelectedFleetEvent,
+        fleetViewMode, selectedFleetEvent,
         fleetJourneyTab, setFleetJourneyTab,
         pickupStations,
         handleOpenEventFleet, handleBackToEvents,
@@ -75,9 +75,7 @@ const FleetTab: React.FC = () => {
                                                 {isLocked && (
                                                     <button
                                                         onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setSelectedFleetEvent(event);
-                                                            handlePrintFleetReport();
+                                                            handlePrintFleetReport(event);
                                                         }}
                                                         className="p-1.5 text-gray-500 hover:text-gray-900 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200"
                                                         title="Print Report"
@@ -128,7 +126,7 @@ const FleetTab: React.FC = () => {
                                         {isLocked && (
                                             <div className="mt-4 pt-4 border-t border-gray-100" onClick={e => e.stopPropagation()}>
                                                 <button
-                                                    onClick={() => { setSelectedFleetEvent(event); handlePrintFleetReport(); }}
+                                                    onClick={(e) => { e.stopPropagation(); handlePrintFleetReport(event); }}
                                                     className="w-full flex items-center justify-center space-x-2 bg-gray-900 text-white py-2 rounded-lg text-sm font-bold hover:bg-black transition-colors"
                                                 >
                                                     <Printer className="w-4 h-4" /><span>Print Report</span>

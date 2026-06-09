@@ -449,19 +449,24 @@ const CoordinatorView: React.FC = () => {
                                                             NameOfRegionManifest: 'Manifest Entebbe',
                                                             VehicleNumberPlate: myVehicle?.number_plate || 'UAB 123C'
                                                         },
-                                                        ListOfTransportedPeople: passengers.map(p => ({
-                                                            Name: p.name,
-                                                            Phone: p.contact || '',
-                                                            FirstTimer: p.isFirstTime === 'Yes',
-                                                            Department: p.category === 'Member' ? 'Residential' : (p.category === 'Student' ? 'School' : 'Institution'),
-                                                            Institution: p.school ? 'Yes' : 'No',
-                                                            InstitutionName: p.school || ''
-                                                        }))
+                                                        ListOfTransportedPeople: passengers.map(p => {
+                                                            let cleanPhone = p.contact ? p.contact.replace(/\D/g, '') : '';
+                                                            if (cleanPhone.length < 9) cleanPhone = '256700000000';
+                                                            return {
+                                                                Name: p.name,
+                                                                Phone: cleanPhone,
+                                                                FirstTimer: p.isFirstTime === 'Yes',
+                                                                Department: p.category === 'Member' ? 'Residential' : (p.category === 'Student' ? 'School' : 'Institution'),
+                                                                Institution: p.school ? 'Yes' : 'No',
+                                                                InstitutionName: p.school || '',
+                                                                SchoolName: p.school || ''
+                                                            };
+                                                        })
                                                     };
                                                     const encodedUrl = `${cognitoFormUrl}?entry=${encodeURIComponent(JSON.stringify(payload))}`;
                                                     window.open(encodedUrl, '_blank');
                                                 }} className="bg-ministry-orange text-white px-6 py-2 rounded-lg font-bold hover:bg-orange-600 transition-colors flex items-center shadow">
-                                                    <ExternalLink className="w-4 h-4 mr-2" /> Open Passenger Registration Form
+                                                    <ExternalLink className="w-4 h-4 mr-2" /> Open Cognito form
                                                 </button>
                                             )}
                                             <button onClick={() => refreshData()} className="flex items-center text-gray-500 hover:text-ministry-orange transition-colors text-sm font-medium">

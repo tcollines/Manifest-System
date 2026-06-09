@@ -75,8 +75,8 @@ const FinanceLayout: React.FC = () => {
     const [payForm, setPayForm] = useState({ amount: '', method: 'Cash', transactionId: '' });
 
     // ── Fleet state ───────────────────────────────────────────────────────────
-    const [fleetViewMode, setFleetViewMode] = useState<'events' | 'vehicles'>('events');
-    const [selectedFleetEvent, setSelectedFleetEvent] = useState<MinistryEvent | null>(null);
+    const selectedFleetEvent = events.find(e => e.id === selectedEventId) || null;
+    const fleetViewMode = selectedFleetEvent ? 'vehicles' : 'events';
     const [fleetJourneyTab, setFleetJourneyTab] = useState<'Ongoing' | 'Return' | 'Cleared' | 'All'>('Ongoing');
     const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
     const [financeForm, setFinanceForm] = useState({ dispatch: '', balance: '' });
@@ -250,12 +250,10 @@ const FinanceLayout: React.FC = () => {
     }, [selectedFleetEvent, pickupStations, vehicles, fleetJourneyTab]);
 
     const handleOpenEventFleet = (event: MinistryEvent) => {
-        setSelectedFleetEvent(event);
         setSelectedEventId(event.id);
-        setFleetViewMode('vehicles');
         setFleetJourneyTab('Ongoing');
     };
-    const handleBackToEvents = () => { setFleetViewMode('events'); setSelectedFleetEvent(null); };
+    const handleBackToEvents = () => { setSelectedEventId(''); };
 
     const handleViewVehicle = (v: Vehicle) => {
         setSelectedVehicle(v);
@@ -317,10 +315,11 @@ const FinanceLayout: React.FC = () => {
         } catch (error: any) { showToast(`Failed to dispatch: ${error.message || 'Unknown error'}`, 'error'); }
     };
 
-    const handlePrintFleetReport = () => {
-        if (!selectedFleetEvent) return;
-        const eventStationIds = pickupStations.filter(s => s.eventId === selectedFleetEvent.id).map(s => s.id);
-        const allEventVehicles = vehicles.filter(v => v.eventId === selectedFleetEvent.id || eventStationIds.includes(v.stationId));
+    const handlePrintFleetReport = (eventToPrint?: MinistryEvent | null) => {
+        const ev = eventToPrint || selectedFleetEvent;
+        if (!ev) return;
+        const eventStationIds = pickupStations.filter(s => s.eventId === ev.id).map(s => s.id);
+        const allEventVehicles = vehicles.filter(v => v.eventId === ev.id || eventStationIds.includes(v.stationId));
         const totalPax = passengers.filter(p => allEventVehicles.some(v => v.id === p.vehicleId)).length;
         let sumBookingFee = 0, sumBalancePayment = 0, sumTotalCost = 0, sumFinalBalance = 0, totalExpenditure = 0;
         allEventVehicles.forEach(v => {
@@ -333,7 +332,7 @@ const FinanceLayout: React.FC = () => {
         });
         const printWindow = window.open('', '_blank');
         if (!printWindow) return showToast('Please allow popups to print report', 'warning');
-        printWindow.document.write(`<html><head><title>Fleet Finance Report</title><style>body{font-family:monospace;padding:20px}table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #ccc;padding:6px}th{background:#f0f0f0}.money{text-align:right}</style></head><body><h1>MINISTRY FLEET FINANCE REPORT</h1><h2>${selectedFleetEvent.title}</h2><p>Date: ${selectedFleetEvent.date}</p><div style="display:flex;justify-content:space-between;border:1px solid #000;padding:10px;margin-bottom:20px"><div>Total Vehicles: ${allEventVehicles.length}</div><div>Total Pax: ${totalPax}</div><div>Total Expenditure: ${formatMoney(totalExpenditure)}</div></div><table><thead><tr><th>No.</th><th>Plate</th><th>Driver</th><th>Contact</th><th>Pax</th><th class="money">Booking Fee</th><th class="money">Balance</th><th class="money">Total Cost</th><th class="money">Balance</th></tr></thead><tbody>${allEventVehicles.map((v, i) => {
+        printWindow.document.write(`<html><head><title>Fleet Finance Report</title><style>body{font-family:monospace;padding:20px}table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #ccc;padding:6px}th{background:#f0f0f0}.money{text-align:right}</style></head><body><h1>MINISTRY FLEET FINANCE REPORT</h1><h2>${ev.title}</h2><p>Date: ${ev.date}</p><div style="display:flex;justify-content:space-between;border:1px solid #000;padding:10px;margin-bottom:20px"><div>Total Vehicles: ${allEventVehicles.length}</div><div>Total Pax: ${totalPax}</div><div>Total Expenditure: ${formatMoney(totalExpenditure)}</div></div><table><thead><tr><th>No.</th><th>Plate</th><th>Driver</th><th>Contact</th><th>Pax</th><th class="money">Booking Fee</th><th class="money">Balance</th><th class="money">Total Cost</th><th class="money">Balance</th></tr></thead><tbody>${allEventVehicles.map((v, i) => {
             const tc = parseFloat(v.financeDetails?.ongoingDispatch || '0');
             const bf = parseFloat(v.financeDetails?.ongoingBalance || '0');
             const bp = parseFloat(v.financeDetails?.returnDispatch || '0');
@@ -403,7 +402,7 @@ const FinanceLayout: React.FC = () => {
         showTransModal, setShowTransModal, transForm, setTransForm, handleAddTransaction,
         payModalOpen, setPayModalOpen, selectedRequisition, payForm, setPayForm,
         handleOpenPaymentModal, handleProcessPayment,
-        fleetViewMode, setFleetViewMode, selectedFleetEvent, setSelectedFleetEvent,
+        fleetViewMode, selectedFleetEvent,
         fleetJourneyTab, setFleetJourneyTab,
         selectedVehicle, setSelectedVehicle, financeForm, setFinanceForm,
         getEventVehicles, getVehicleJourneyStatus,
@@ -675,13 +674,19 @@ const FinanceLayout: React.FC = () => {
                                 </button>
                                 <div className="flex gap-3">
                                     <button onClick={() => setSelectedVehicle(null)} className="px-6 py-3 text-gray-500 font-bold hover:bg-gray-50 rounded-xl">Cancel</button>
-                                    {effectiveTab !== 'Cleared' && (
-                                        <button onClick={handleDispatchVehicle}
-                                            disabled={effectiveTab === 'Return' && selectedVehicle.currentStage !== 'FinanceApproval'}
-                                            className={`px-8 py-3 font-bold rounded-xl shadow-lg transition-colors ${effectiveTab === 'Return' && selectedVehicle.currentStage !== 'FinanceApproval' ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-ministry-text text-white hover:bg-ministry-orange'}`}>
-                                            {effectiveTab === 'Ongoing' ? 'Dispatch Vehicle' : 'Clear Balance & Approve'}
-                                        </button>
-                                    )}
+                                    {effectiveTab !== 'Cleared' && (() => {
+                                        const isRegApproved = !selectedVehicle.approvals || selectedVehicle.approvals.registration === 'Approved';
+                                        const isReturnDisabled = effectiveTab === 'Return' && selectedVehicle.currentStage !== 'FinanceApproval';
+                                        const isDisabled = isReturnDisabled || !isRegApproved;
+                                        
+                                        return (
+                                            <button onClick={handleDispatchVehicle}
+                                                disabled={isDisabled}
+                                                className={`px-8 py-3 font-bold rounded-xl shadow-lg transition-colors ${isDisabled ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-ministry-text text-white hover:bg-ministry-orange'}`}>
+                                                {effectiveTab === 'Ongoing' ? (isRegApproved ? 'Dispatch Vehicle' : 'Pending Registration') : 'Clear Balance & Approve'}
+                                            </button>
+                                        );
+                                    })()}
                                 </div>
                             </div>
                         </div>
