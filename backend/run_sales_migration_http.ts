@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 
 async function run() {
-    const sqlPath = path.join(__dirname, '../frontend/database/26_add_sales_reservations.sql');
+    const sqlPath = path.join(__dirname, '../frontend/database/33_add_variant_codes.sql');
     const sql = fs.readFileSync(sqlPath, 'utf8');
 
     try {

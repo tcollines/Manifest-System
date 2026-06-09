@@ -234,14 +234,17 @@ const POSPage: React.FC = () => {
           </select>
        </div>
 
-       <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4">
+       <div className="p-4 flex flex-col gap-4">
          {cart.length === 0 ? (
            <div className="text-center text-gray-400 mt-10">Cart is empty</div>
          ) : (
            cart.map(item => (
              <div key={item.variant.id} className="flex flex-col gap-2 p-3 bg-gray-50 rounded-lg border border-gray-100">
                <div className="flex justify-between items-start">
-                 <span className="font-medium text-gray-900">{item.variant.name}</span>
+                  <div className="flex flex-col">
+                    <span className="font-semibold text-gray-900 leading-tight">{products.find(p => p.id === item.variant.product_id)?.name}</span>
+                    <span className="text-xs text-gray-500 mt-0.5">{item.variant.name}</span>
+                  </div>
                  <span className="font-bold text-gray-900">UGX {(item.variant.selling_price * item.quantity).toLocaleString()}</span>
                </div>
                <div className="flex items-center justify-between mt-2">
@@ -380,10 +383,11 @@ const POSPage: React.FC = () => {
                  onClick={() => addToCart(variant)}
                  className="p-4 bg-white border border-gray-100 rounded-xl cursor-pointer hover:border-ministry-orange hover:shadow-sm transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-2"
                >
-                 <div className="flex-1">
-                   <h3 className="font-semibold text-gray-900">{variant.name}</h3>
-                   <p className="text-xs text-gray-500 mt-1">{variant.sku}</p>
-                 </div>
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-gray-900 leading-tight">{products.find(p => p.id === variant.product_id)?.name}</h3>
+                    <span className="text-sm text-gray-600 mt-0.5 block">{variant.name}</span>
+                    <p className="text-[10px] text-gray-400 mt-0.5 uppercase tracking-wider">{variant.sku}</p>
+                  </div>
                  <div className="flex items-center justify-between sm:justify-end gap-6">
                    <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${availableStock > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                      {availableStock} left
@@ -410,14 +414,16 @@ const POSPage: React.FC = () => {
       )}
 
       {/* Desktop Cart */}
-      <div className="hidden lg:flex w-96 flex-col h-full bg-white rounded-xl shadow-sm border border-gray-100">
-        <div className="p-4 border-b border-gray-100 flex items-center gap-2 bg-gray-50 rounded-t-xl shrink-0">
+      <div className="hidden lg:flex w-96 flex-col h-full bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="p-4 border-b border-gray-100 flex items-center gap-2 bg-gray-50 shrink-0">
            <ShoppingCart size={20} className="text-ministry-orange"/>
            <h2 className="font-bold text-gray-900 text-lg">Current Order</h2>
         </div>
-        {renderCartBody()}
-        <div className="p-4 border-t border-gray-100 bg-gray-50 rounded-b-xl shrink-0">
-          {renderCartFooter()}
+        <div className="flex-1 overflow-y-auto flex flex-col bg-gray-50/30">
+          {renderCartBody()}
+          <div className="p-4 border-t border-gray-100 bg-white shadow-sm z-10">
+            {renderCartFooter()}
+          </div>
         </div>
       </div>
 

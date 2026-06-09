@@ -1,6 +1,6 @@
 import { supabase } from '../../../supabase';
 import { logAudit, computeChangedFields } from '../../../services/audit/auditService';
-import { updateProcurementFinancialTotals } from '../payments/payments.service';
+import { updateProcurementFinancialTotals, recordProcurementPayment } from '../payments/payments.service';
 
 export const getSuppliers = async (manifestId: string) => {
     const { data, error } = await supabase.from('sales_suppliers').select('*').eq('manifest_id', manifestId);
@@ -46,7 +46,7 @@ export const getProcurementRequestItems = async (manifestId: string, requestId: 
 };
 
 export const createRequestWithItems = async (manifestId: string, payload: any, auditContext: any) => {
-    const { requestPayload, items } = payload;
+    const { requestPayload, items, initialPayment } = payload;
     
     const { data: request, error: reqError } = await supabase.from('sales_procurement_requests').insert([{ manifest_id: manifestId, ...requestPayload, status: 'DRAFT' }]).select().single();
     if (reqError) throw reqError;
@@ -57,6 +57,19 @@ export const createRequestWithItems = async (manifestId: string, payload: any, a
     if (itemsError) {
         await supabase.from('sales_procurement_requests').delete().eq('id', request.id);
         throw itemsError;
+    }
+
+    await updateProcurementFinancialTotals(request.id);
+
+    if (initialPayment && initialPayment.amount > 0) {
+        await recordProcurementPayment(manifestId, {
+            requestId: request.id,
+            supplierId: requestPayload.supplier_id,
+            amount: initialPayment.amount,
+            paymentMethod: initialPayment.method || 'Cash',
+            recordedBy: initialPayment.recordedBy || auditContext.actorName || 'System',
+            notes: 'Initial payment on creation'
+        }, auditContext);
     }
 
     logAudit({

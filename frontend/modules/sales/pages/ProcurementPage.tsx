@@ -236,26 +236,50 @@ const ProcurementPage: React.FC = () => {
       setPoPayments(updatedPayments);
       
       // Update the PO reference in state so the UI reflects new balance
-      setPaymentModalPO(prev => prev ? { ...prev, amount_paid: prev.amount_paid + amt, balance_due: Math.max(0, prev.balance_due - amt) } : null);
-      
+      setPaymentModalPO(prev => {
+        if (!prev) return null;
+        const newAmountPaid = prev.amount_paid + amt;
+        const newBalanceDue = Math.max(0, prev.balance_due - amt);
+        let newPaymentStatus = 'UNPAID';
+        if (newAmountPaid > 0 && newBalanceDue > 0) newPaymentStatus = 'PARTIAL';
+        else if (newBalanceDue === 0 && prev.total_amount > 0) newPaymentStatus = 'PAID';
+        else if (prev.total_amount === 0 && newAmountPaid === 0) newPaymentStatus = 'PAID';
+        
+        return { ...prev, amount_paid: newAmountPaid, balance_due: newBalanceDue, payment_status: newPaymentStatus };
+      });
       setPaymentAmount('');
       setPaymentRef('');
       setPaymentNotes('');
-    } catch (e: any) {
-      showToast(e.message, 'error');
+    } catch (err: any) {
+      showToast(err.message || 'Failed to record payment', 'error');
     }
   };
 
   const handleDeletePayment = async (paymentId: string) => {
-    if (!paymentModalPO) return;
-    if (!window.confirm('Are you sure you want to delete this payment record? This action is restricted.')) return;
+    if (!paymentModalPO || !confirm('Are you sure you want to delete this payment?')) return;
     try {
       await procurementPaymentService.deletePayment(paymentId, paymentModalPO.id);
       showToast('Payment deleted successfully', 'success');
       
       loadData();
+      
       const updatedPayments = await procurementPaymentService.getPaymentsForRequest(paymentModalPO.id);
       setPoPayments(updatedPayments);
+      
+      const deletedPayment = poPayments.find(p => p.id === paymentId);
+      if (deletedPayment) {
+        setPaymentModalPO(prev => {
+          if (!prev) return null;
+          const newAmountPaid = prev.amount_paid - deletedPayment.amount;
+          const newBalanceDue = prev.balance_due + deletedPayment.amount;
+          let newPaymentStatus = 'UNPAID';
+          if (newAmountPaid > 0 && newBalanceDue > 0) newPaymentStatus = 'PARTIAL';
+          else if (newBalanceDue === 0 && prev.total_amount > 0) newPaymentStatus = 'PAID';
+          else if (prev.total_amount === 0 && newAmountPaid === 0) newPaymentStatus = 'PAID';
+          
+          return { ...prev, amount_paid: newAmountPaid, balance_due: newBalanceDue, payment_status: newPaymentStatus };
+        });
+      }
     } catch (e: any) {
       showToast(e.message, 'error');
     }

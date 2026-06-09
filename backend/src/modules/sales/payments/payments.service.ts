@@ -214,10 +214,10 @@ export const deleteProcurementPayment = async (manifestId: string, paymentId: st
 
 export async function updateProcurementFinancialTotals(requestId: string) {
     const { data: items } = await supabase.from('sales_procurement_request_items').select('expected_cost, quantity_ordered').eq('request_id', requestId);
-    const totalAmount = (items || []).reduce((sum, item) => sum + (Number(item.expected_cost) * Number(item.quantity_ordered)), 0);
+    const totalAmount = Math.round((items || []).reduce((sum, item) => sum + (Number(item.expected_cost) * Number(item.quantity_ordered)), 0));
 
     const { data: payments } = await supabase.from('sales_procurement_payments').select('amount').eq('procurement_request_id', requestId);
-    const amountPaid = (payments || []).reduce((sum, p) => sum + Number(p.amount), 0);
+    const amountPaid = Math.round((payments || []).reduce((sum, p) => sum + Number(p.amount), 0));
 
     const balanceDue = Math.max(0, totalAmount - amountPaid);
     let paymentStatus = 'UNPAID';
