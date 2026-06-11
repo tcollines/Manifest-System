@@ -2187,7 +2187,8 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
               name: stationForm.entrantName,
               username: stationForm.entrantUsername,
               password: stationForm.entrantPassword,
-              contact: stationForm.entrantContact
+              contact: stationForm.entrantContact,
+              eventId: selectedStation!.eventId
             };
             const updateRes = await UserStore.update(updatedUser);
             if (updateRes.status === 'error') throw new Error(updateRes.message);
@@ -2200,7 +2201,8 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
               password: stationForm.entrantPassword,
               role: 'Logistics',
               stationId: stationForm.id,
-              departmentId: '4630e48a-f97e-48fd-a901-864b591c282f' // Transportation UUID
+              eventId: selectedStation!.eventId,
+              departmentId: '81b8b740-6663-4179-bcfb-e3dc7524d36c' // Registration UUID
             };
             const addRes = await UserStore.add(newEntrant);
             if (addRes.status === 'error') throw new Error(addRes.message);
@@ -2253,7 +2255,8 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
           contact: stationForm.entrantContact,
           role: 'Logistics',
           stationId: stationId,
-          departmentId: '4630e48a-f97e-48fd-a901-864b591c282f' // Transportation UUID
+          eventId: selectedLogisticsEvent.id,
+          departmentId: '81b8b740-6663-4179-bcfb-e3dc7524d36c' // Registration UUID
         };
         const addRes = await UserStore.add(newEntrant);
         if (addRes.status === 'error') {
@@ -2288,7 +2291,8 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
       contact: newEntrant.contact || undefined,
       role: 'Logistics',
       stationId: selectedStation.id,
-      departmentId: currentUser.departmentId || '4630e48a-f97e-48fd-a901-864b591c282f' // Default to current user's department or Transportation UUID
+      eventId: selectedStation.eventId,
+      departmentId: currentUser.departmentId || '81b8b740-6663-4179-bcfb-e3dc7524d36c' // Default to current user's department or Registration UUID
     };
 
     try {

@@ -452,7 +452,7 @@ const RegistrationModals: React.FC = () => {
                                     <option value="">Select Coordinator</option>
                                     {coordinators
                                         .filter((coord: any) =>
-                                            (!coord.eventId || coord.eventId === selectedStation?.eventId) &&
+                                            coord.eventId === selectedStation?.eventId &&
                                             (!coord.stationId || coord.stationId === selectedStation?.id)
                                         )
                                         .map((coord: any) => (

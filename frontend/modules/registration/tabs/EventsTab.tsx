@@ -1,4 +1,5 @@
 import React from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { isEventLocked } from '../../../utils';
 import {
     Calendar, CalendarPlus, ArrowLeft, Users, UserPlus, Search, CheckCircle,
@@ -50,9 +51,20 @@ const EventsTab: React.FC = () => {
         handleDeleteVehicle,
         handleDeletePassenger
     } = useRegistration();
+
+    const [searchParams] = useSearchParams();
+    const urlStationId = searchParams.get('stationId');
+    const urlEventId = searchParams.get('eventId');
+    
+    // Determine if we are waiting for a deep link to load its data
+    const isWaitingForStation = !!urlStationId && !selectedStation;
+    const isWaitingForEvent = !!urlEventId && !selectedLogisticsEvent && !urlStationId;
+    
+    const isLoading = isLogisticsInitializing || isWaitingForStation || isWaitingForEvent;
+
     return (
           <div className="space-y-6">
-            {isLogisticsInitializing ? (
+            {isLoading ? (
               <div className="flex flex-col gap-6 py-6 w-full animate-pulse">
                 {/* Header Skeleton */}
                 <div className="h-10 bg-gray-200 rounded-xl w-1/3 mb-2"></div>

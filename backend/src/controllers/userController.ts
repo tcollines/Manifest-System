@@ -164,8 +164,8 @@ export const createUser = async (req: Request, res: Response) => {
             }
         }
 
-        // Insert public profile (strip password to prevent plaintext storage)
-        delete payload.password;
+        // Insert public profile (allow password to be saved for admin reference)
+        // delete payload.password;
         const { error: dbError } = await supabase.from('users').insert([payload]);
 
         // Rollback Auth if DB fails (e.g., constraint violation)
@@ -284,9 +284,9 @@ export const updateUser = async (req: Request, res: Response) => {
             }
         }
 
-        // Extract password and strip from payload to prevent plaintext storage
+        // Extract password to sync with Auth, but keep it in payload for admin reference
         const rawPassword = payload.password;
-        delete payload.password;
+        // delete payload.password;
 
         // Execute Update
         const { data, error } = await supabase.from('users')
@@ -405,7 +405,20 @@ export const deleteUser = async (req: Request, res: Response) => {
             .eq('manifest_id', manifestId)
             .eq('id', id);
 
-        if (dbError) throw dbError;
+        if (dbError) {
+            // Check if violation is due to a foreign key constraint (Postgres error code 23503)
+            if (dbError.code === '23503' || dbError.message?.includes('foreign key constraint')) {
+                console.log(`[deleteUser] Hard delete failed due to foreign key constraint for user ${id}. Falling back to soft-delete.`);
+                const { error: softError } = await supabase.from('users')
+                    .update({ status: 'Deleted', username: null, password: null })
+                    .eq('manifest_id', manifestId)
+                    .eq('id', id);
+                if (softError) throw softError;
+                console.log(`[deleteUser] Successfully soft-deleted user ${id}`);
+                return res.json({ message: 'User soft-deleted due to existing database references' });
+            }
+            throw dbError;
+        }
 
         console.log(`[deleteUser] Successfully hard-deleted user ${id}`);
         res.json({ message: 'User permanently deleted' });

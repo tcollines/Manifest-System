@@ -274,12 +274,18 @@ export const processPushDelivery = async (notification: any) => {
                 await webpush.sendNotification(sub.subscription_data, pushPayload);
                 successCount++;
             } catch (err: any) {
-                if (err.statusCode === 410 || err.statusCode === 404) {
+                const statusCode = err.statusCode;
+                if (statusCode === 410 || statusCode === 404) {
                     console.log(`[Push Delivery] Subscription ${sub.id} expired. Marking inactive.`);
                     await supabase.from('user_push_subscriptions').update({ is_active: false }).eq('id', sub.id);
-                } else if (err.statusCode === 429 || err.statusCode >= 500) {
-                    shouldRetry = true;
-                    console.error(`[Push Delivery] FCM push failed temporarily for sub ${sub.id}:`, err.statusCode);
+                } else {
+                    const isTransient = !statusCode || statusCode === 429 || statusCode >= 500;
+                    if (isTransient) {
+                        shouldRetry = true;
+                        console.error(`[Push Delivery] FCM push failed temporarily for sub ${sub.id}. Status: ${statusCode || 'Network Error'}, Message: ${err.message}`);
+                    } else {
+                        console.error(`[Push Delivery] FCM push failed permanently for sub ${sub.id}. Status: ${statusCode}, Message: ${err.message}`);
+                    }
                 }
                 failCount++;
             }

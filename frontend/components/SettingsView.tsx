@@ -381,6 +381,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ openModal, onDeleteUser, on
                                     <th className="px-6 py-4">Role</th>
                                     <th className="px-6 py-4">Department</th>
                                     <th className="px-6 py-4">Username</th>
+                                    <th className="px-6 py-4">Password</th>
                                     <th className="px-6 py-4 text-right">Actions</th>
                                 </tr>
                             </thead>
@@ -404,6 +405,11 @@ const SettingsView: React.FC<SettingsViewProps> = ({ openModal, onDeleteUser, on
                                             {departments.find(d => d.id === user.departmentId || d.slug === user.departmentId || d.code === user.departmentId)?.name || 'N/A'}
                                         </td>
                                         <td className="px-6 py-4 text-sm font-mono text-gray-500">{user.username}</td>
+                                        <td className="px-6 py-4 text-sm font-mono text-gray-500">
+                                            {user.role?.toLowerCase().includes('temp') || user.name?.toLowerCase().includes('temp') 
+                                                ? (user.password || 'Not Set') 
+                                                : '••••••••'}
+                                        </td>
                                         <td className="px-6 py-4 text-right">
                                             <button onClick={() => onEditUser && onEditUser(user)} className="text-gray-400 hover:text-ministry-orange transition-colors p-2 hover:bg-orange-50 rounded-lg mr-2">
                                                 <Edit2 className="w-4 h-4" />

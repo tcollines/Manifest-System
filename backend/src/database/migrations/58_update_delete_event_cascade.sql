@@ -12,14 +12,16 @@ BEGIN
     -- 3. Next Gen
     DELETE FROM next_gen_souls WHERE service_id = p_event_id AND manifest_id = p_manifest_id;
     
-    -- 4. Logistics
+    -- 4. Users (Delete temp entrants and coordinators before their stations are deleted)
+    DELETE FROM users 
+    WHERE (event_id = p_event_id OR station_id IN (SELECT id FROM pickup_stations WHERE event_id = p_event_id AND manifest_id = p_manifest_id))
+      AND manifest_id = p_manifest_id;
+
+    -- 5. Logistics
     DELETE FROM passengers WHERE event_id = p_event_id AND manifest_id = p_manifest_id;
     DELETE FROM vehicles WHERE event_id = p_event_id AND manifest_id = p_manifest_id;
     DELETE FROM vehicle_attendance WHERE service_id = p_event_id;
     DELETE FROM pickup_stations WHERE event_id = p_event_id AND manifest_id = p_manifest_id;
-
-    -- 5. Users
-    UPDATE users SET event_id = NULL WHERE event_id = p_event_id AND manifest_id = p_manifest_id;
 
     -- 6. Final Stage: Delete the Master Event 
     DELETE FROM ministry_events 

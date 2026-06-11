@@ -151,7 +151,13 @@ export const getDashboardForUser = (user: User): string => {
     if (user.role === 'Super Admin' || user.role === 'Administrator') return '/dashboard';
 
     if (user.role === 'TeamLeader' || user.role === 'Team Leader') return '/dashboard';
-    if (user.role === 'Logistics') return '/departments/d1/events';
+    if (user.role === 'Logistics') {
+        const dId = user.departmentId || '81b8b740-6663-4179-bcfb-e3dc7524d36c';
+        if (user.eventId && user.stationId) {
+            return `/departments/${dId}/events?eventId=${user.eventId}&stationId=${user.stationId}`;
+        }
+        return `/departments/${dId}/events`;
+    }
     if (user.role === 'Vehicle Coordinator') return '/departments/4630e48a-f97e-48fd-a901-864b591c282f/overview';
     if (user.role === 'Stage Coordinator') return '/departments/4630e48a-f97e-48fd-a901-864b591c282f/stage-dashboard';
     if (user.role === 'Resident Coordinator') return '/departments/c1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d/my-residency';

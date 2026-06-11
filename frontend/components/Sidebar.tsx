@@ -169,18 +169,23 @@ const Sidebar: React.FC<SidebarProps> = ({ onLogout, isOpen, onClose }) => {
   
   if (isLogisticsRole) {
       // Data Entrants ONLY get access to their Stage Dashboard
-      let logisticsPath = `/departments/d1/events`;
+      const defaultDeptId = currentUser.departmentId || '81b8b740-6663-4179-bcfb-e3dc7524d36c';
+      let logisticsPath = `/departments/${defaultDeptId}/events`;
       
-      // Try to append cached parameters if they exist to match the exact URL
-      try {
-         const cachedEvent = localStorage.getItem(`cached_logistics_event_${currentUser.id}`);
-         const cachedStation = localStorage.getItem(`cached_logistics_station_${currentUser.id}`);
-         if (cachedEvent && cachedStation) {
-            const e = JSON.parse(cachedEvent);
-            const s = JSON.parse(cachedStation);
-            logisticsPath += `?eventId=${e.id}&stationId=${s.id}`;
-         }
-      } catch(e) {}
+      if (currentUser.eventId && currentUser.stationId) {
+          logisticsPath += `?eventId=${currentUser.eventId}&stationId=${currentUser.stationId}`;
+      } else {
+          // Try to append cached parameters if they exist to match the exact URL
+          try {
+             const cachedEvent = localStorage.getItem(`cached_logistics_event_${currentUser.id}`);
+             const cachedStation = localStorage.getItem(`cached_logistics_station_${currentUser.id}`);
+             if (cachedEvent && cachedStation) {
+                const e = JSON.parse(cachedEvent);
+                const s = JSON.parse(cachedStation);
+                logisticsPath += `?eventId=${e.id}&stationId=${s.id}`;
+             }
+          } catch(e) {}
+      }
 
       sections.push({
           title: 'My Station',
@@ -283,7 +288,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onLogout, isOpen, onClose }) => {
                           } else if (isDashboardLink) {
                               isActiveItem = location.pathname === item.path && !new URLSearchParams(location.search).get('tab');
                           } else {
-                              isActiveItem = location.pathname === item.path;
+                              isActiveItem = item.path ? location.pathname === item.path.split('?')[0] : false;
                           }
 
                           return (

@@ -1,19 +1,25 @@
-require('dotenv').config({ path: 'backend/.env' });
+require('dotenv').config();
 const { createClient } = require('@supabase/supabase-js');
 
-async function checkEventIds() {
-    const sb = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
-    const { data: dbUsers, error } = await sb.from('users')
-        .select('name, role, event_id, department_id, station_id')
-        .in('role', ['Vehicle Coordinator', 'Stage Coordinator', 'Data Entrant', 'Logistics'])
-        .limit(20);
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, {
+    auth: { autoRefreshToken: false, persistSession: false }
+});
 
+async function checkIanCherry() {
+    const { data: users, error } = await supabase
+        .from('users')
+        .select('id, name, username, event_id, role')
+        .or('name.ilike.%Ian%,name.ilike.%Cherry%,username.ilike.%Ian%,username.ilike.%Cherry%');
+        
     if (error) {
-        console.error('DB Error:', error);
+        console.error("Error fetching users:", error);
         return;
     }
-
-    console.table(dbUsers);
+    
+    console.log("Found users:");
+    for (const u of users) {
+        console.log(`- Name: ${u.name} | Username: ${u.username} | EventID: ${u.event_id} | Role: ${u.role}`);
+    }
 }
 
-checkEventIds();
+checkIanCherry();
