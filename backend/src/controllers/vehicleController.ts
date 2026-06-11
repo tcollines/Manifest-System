@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { supabase } from '../supabase';
 import { v4 as uuidv4 } from 'uuid';
 import { toUUID, logLegacyFallback } from '../utils/uuid';
+import { checkAndNotifyVehicleStatus } from '../utils/notifications';
 
 // Helper: Generate simple username
 const generateUsername = (name: string) => {
@@ -164,6 +165,9 @@ export const updateVehicle = async (req: Request, res: Response) => {
 
     const { id } = req.params;
     try {
+        const { data: vRecord } = await supabase.from('vehicles')
+            .select('*').eq('manifest_id', manifestId).eq('id', id).maybeSingle();
+
         const { coordinator, event_id, coordinator_contact } = req.body;
         let { coordinator_uid } = req.body;
 
@@ -249,6 +253,12 @@ export const updateVehicle = async (req: Request, res: Response) => {
             return res.status(409).json({ error: 'Conflict: This vehicle has been modified by another coordinator. Please refresh to get the latest version.' });
         }
 
+        if (data && vRecord) {
+            checkAndNotifyVehicleStatus(manifestId, vRecord, data).catch(err => 
+                console.error('[VEHICLE_NOTIFICATIONS] Error triggering notifications:', err)
+            );
+        }
+
         res.json({ message: 'Vehicle updated', vehicle: data });
     } catch (error: any) {
         res.status(500).json({ error: 'An internal server error occurred.' });
@@ -274,7 +284,7 @@ export const updateVehicleStage = async (req: Request, res: Response) => {
 
         // Pre-Verify Tenant Access
         const { data: vRecord, error: vErr } = await supabase.from('vehicles')
-            .select('id').eq('manifest_id', manifestId).eq('id', id).maybeSingle();
+            .select('*').eq('manifest_id', manifestId).eq('id', id).maybeSingle();
         if (vErr || !vRecord) return res.status(404).json({ error: 'Vehicle not found' });
 
         // Optimistic Locking Requirement Removed for Reversion
@@ -299,7 +309,12 @@ export const updateVehicleStage = async (req: Request, res: Response) => {
 
         if (error) throw error;
         if (!data) return res.status(404).json({ error: 'Vehicle not found during update' });
-        if (error) throw error;
+
+        if (data && vRecord) {
+            checkAndNotifyVehicleStatus(manifestId, vRecord, data).catch(err => 
+                console.error('[VEHICLE_NOTIFICATIONS] Error triggering notifications:', err)
+            );
+        }
 
         res.json({ message: 'Vehicle stage updated', vehicle: data });
     } catch (error: any) {
@@ -315,7 +330,7 @@ export const startReturnJourney = async (req: Request, res: Response) => {
     const { version } = req.body;
     try {
         const { data: vRecord, error: vErr } = await supabase.from('vehicles')
-            .select('id').eq('manifest_id', manifestId).eq('id', id).maybeSingle();
+            .select('*').eq('manifest_id', manifestId).eq('id', id).maybeSingle();
         if (vErr || !vRecord) return res.status(404).json({ error: 'Vehicle not found' });
 
         // 1. Reset all passengers linked to this vehicle
@@ -341,6 +356,12 @@ export const startReturnJourney = async (req: Request, res: Response) => {
         if (error) throw error;
         if (!data) return res.status(404).json({ error: 'Vehicle not found' });
 
+        if (data && vRecord) {
+            checkAndNotifyVehicleStatus(manifestId, vRecord, data).catch(err => 
+                console.error('[VEHICLE_NOTIFICATIONS] Error triggering notifications:', err)
+            );
+        }
+
         res.json({ message: 'Return journey started', vehicle: data });
     } catch (error: any) {
         res.status(500).json({ error: 'An internal server error occurred.' });
@@ -363,6 +384,10 @@ export const updateVehicleFinance = async (req: Request, res: Response) => {
         if (ongoing_start_time !== undefined) payload.ongoing_start_time = ongoing_start_time;
         if (return_start_time !== undefined) payload.return_start_time = return_start_time;
 
+        const { data: vRecord, error: vErr } = await supabase.from('vehicles')
+            .select('*').eq('manifest_id', manifestId).eq('id', id).maybeSingle();
+        if (vErr || !vRecord) return res.status(404).json({ error: 'Vehicle not found' });
+
         let query = supabase.from('vehicles')
             .update({ ...payload, version: version !== undefined ? version + 1 : undefined })
             .eq('manifest_id', manifestId).eq('id', id);
@@ -377,6 +402,12 @@ export const updateVehicleFinance = async (req: Request, res: Response) => {
         // Optimistic Locking Conflict Check
         if (!data && version !== undefined) {
             return res.status(409).json({ error: 'Conflict: This vehicle has been financially updated by another coordinator. Please refresh.' });
+        }
+
+        if (data && vRecord) {
+            checkAndNotifyVehicleStatus(manifestId, vRecord, data).catch(err => 
+                console.error('[VEHICLE_NOTIFICATIONS] Error triggering notifications:', err)
+            );
         }
 
         res.json({ message: 'Vehicle finance updated', vehicle: data });

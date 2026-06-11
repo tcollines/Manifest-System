@@ -17,6 +17,7 @@ const getTitleForType = (type: string) => {
         case 'REQUISITION_APPROVAL': return 'Approval Required';
         case 'FINANCE_ACTION': return 'Finance Action Required';
         case 'PAYMENT': return 'Payment Recorded';
+        case 'FLEET_ALERT': return 'Fleet Alert';
         default: return 'Manifest System';
     }
 };

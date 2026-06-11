@@ -162,3 +162,166 @@ export const notifyRole = async (
         console.error('[NOTIFICATIONS] Exception creating role notifications:', err);
     }
 };
+
+/**
+ * Notifies the active HODs and Admins of the Transportation department.
+ */
+export const notifyTransportationHODAndAdmin = async (
+    manifestId: string,
+    message: string,
+    entityId?: string,
+    url?: string
+) => {
+    try {
+        // Find Transportation department scoped to the manifest
+        const { data: dept } = await supabase
+            .from('departments')
+            .select('id')
+            .eq('manifest_id', manifestId)
+            .or('slug.eq.transportation,name.ilike.Transportation')
+            .maybeSingle();
+
+        if (!dept) {
+            console.error('[NOTIFICATIONS] Transportation department not found for manifest:', manifestId);
+            return;
+        }
+
+        // Query active users with department_id or department_uid matching the dept id
+        // and matching role HOD, Head of Dept, or Dept Admin
+        const { data: users, error: usersErr } = await supabase
+            .from('users')
+            .select('id')
+            .eq('manifest_id', manifestId)
+            .ilike('status', 'active')
+            .or(`department_id.eq.${dept.id},department_uid.eq.${dept.id}`)
+            .in('role', ['HOD', 'Head of Dept', 'Dept Admin']);
+
+        if (usersErr) {
+            console.error('[NOTIFICATIONS] Error fetching transportation users:', usersErr);
+            return;
+        }
+
+        if (!users || users.length === 0) {
+            console.log('[NOTIFICATIONS] No active Transportation HODs/Admins to notify.');
+            return;
+        }
+
+        // De-duplicate user IDs
+        const uniqueUserIds = Array.from(new Set(users.map(u => u.id)));
+
+        // Create notifications
+        const notifications = [];
+        for (const userId of uniqueUserIds) {
+            if (!(await isDuplicate(userId, 'FLEET_ALERT', message, entityId))) {
+                notifications.push({
+                    manifest_id: manifestId,
+                    user_id: userId,
+                    type: 'FLEET_ALERT',
+                    message,
+                    entity_id: entityId || null,
+                    url: url || null,
+                    read: false,
+                    push_status: 'PENDING'
+                });
+            } else {
+                console.log(`[NOTIFICATIONS] Blocked duplicate fleet alert notification for user ${userId}`);
+            }
+        }
+
+        if (notifications.length === 0) return;
+
+        const { data: newNotifications, error } = await supabase
+            .from('notifications')
+            .insert(notifications)
+            .select('*');
+
+        if (error) {
+            console.error('[NOTIFICATIONS] Failed to save fleet alert notifications:', error);
+        } else if (newNotifications && newNotifications.length > 0) {
+            import('../controllers/pushController').then(({ processPushDelivery }) => {
+                newNotifications.forEach(n => {
+                    processPushDelivery(n).catch(err =>
+                        console.error('[NOTIFICATIONS] Background fleet alert push delivery failed:', err)
+                    );
+                });
+            });
+        }
+    } catch (err) {
+        console.error('[NOTIFICATIONS] Exception notifying transportation HOD/Admins:', err);
+    }
+};
+
+/**
+ * Detects vehicle status transitions and notifies the transportation HOD and Admins.
+ */
+export const checkAndNotifyVehicleStatus = async (
+    manifestId: string,
+    oldRecord: any,
+    newRecord: any
+) => {
+    try {
+        if (!oldRecord || !newRecord) return;
+
+        const oldStage = oldRecord.current_stage || oldRecord.currentStage;
+        const newStage = newRecord.current_stage || newRecord.currentStage;
+        const oldDirection = oldRecord.journey_direction || oldRecord.journeyDirection;
+        const newDirection = newRecord.journey_direction || newRecord.journeyDirection;
+        const oldStatus = oldRecord.status;
+        const newStatus = newRecord.status;
+
+        // Ensure we have some transition to check
+        if (oldStage === newStage && oldDirection === newDirection && oldStatus === newStatus) {
+            return;
+        }
+
+        let message = '';
+
+        // Resolve Pickup Station Name
+        let stationName = 'Pickup Station';
+        const stationId = newRecord.station_id || newRecord.stationId;
+        if (stationId) {
+            const { data: station } = await supabase
+                .from('pickup_stations')
+                .select('name')
+                .eq('id', stationId)
+                .maybeSingle();
+            if (station && station.name) {
+                stationName = station.name;
+            }
+        }
+
+        const plate = newRecord.number_plate || newRecord.numberPlate || 'Vehicle';
+
+        // 1. Leaves pickup station (Ongoing, Shifts to RegApproval)
+        if (newDirection === 'Ongoing' && newStage === 'RegApproval' && oldStage !== 'RegApproval') {
+            message = `vehicle ${plate} from ${stationName} has set off`;
+        }
+        // 2. Finance dispatches (Ongoing, Shifts to Transit)
+        else if (newDirection === 'Ongoing' && newStage === 'Transit' && oldStage !== 'Transit') {
+            message = `vehicle ${plate} from ${stationName} has been approved by finance`;
+        }
+        // 3. Arrives at venue (Ongoing, Shifts to Arrived)
+        else if (newDirection === 'Ongoing' && newStage === 'Arrived' && oldStage !== 'Arrived') {
+            message = `vehicle ${plate} from ${stationName} has reached the venue of the event`;
+        }
+        // 4. Finance dispatches return (Return, Shifts to Transit)
+        else if (newDirection === 'Return' && newStage === 'Transit' && oldStage !== 'Transit') {
+            message = `vehicle ${plate} from ${stationName} has started return journey`;
+        }
+        // 5. Confirms arrival back (Return, Shifts to Arrived OR status becomes Completed)
+        else if (newDirection === 'Return' && 
+                 (newStage === 'Arrived' || newStatus === 'Completed') && 
+                 (oldStage !== 'Arrived' && oldStatus !== 'Completed')) {
+            message = `vehicle ${plate} from ${stationName} has arrived`;
+        }
+
+        if (message) {
+            console.log(`[VEHICLE_NOTIFICATIONS] Triggering alert: "${message}"`);
+            const entityId = newRecord.event_id || newRecord.eventId || newRecord.id;
+            const url = `/transportation?eventId=${newRecord.event_id || newRecord.eventId || ''}`;
+            await notifyTransportationHODAndAdmin(manifestId, message, entityId, url);
+        }
+    } catch (err) {
+        console.error('[VEHICLE_NOTIFICATIONS] Exception checking vehicle status:', err);
+    }
+};
