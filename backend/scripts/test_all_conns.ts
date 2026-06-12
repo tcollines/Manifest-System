@@ -1,7 +1,7 @@
 
 import { Client } from 'pg';
 
-const PWD = 'Li9ggyOczGdGPvFy';
+const PWD = 'ujrRGd5IZIKOE9Oj';
 const REF = 'poazorjmzswectxvakzl';
 
 const PERMUTATIONS = [
