@@ -338,15 +338,29 @@ const FinanceLayout: React.FC = () => {
             sumBookingFee += bookingFee; sumBalancePayment += balancePayment;
             sumTotalCost += totalCost; sumFinalBalance += (totalCost - bookingFee - balancePayment);
         });
-        const printWindow = window.open('', '_blank');
-        if (!printWindow) return showToast('Please allow popups to print report', 'warning');
-        printWindow.document.write(`<html><head><title>Fleet Finance Report</title><style>body{font-family:monospace;padding:20px}table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #ccc;padding:6px}th{background:#f0f0f0}.money{text-align:right}</style></head><body><h1>MINISTRY FLEET FINANCE REPORT</h1><h2>${ev.title}</h2><p>Date: ${ev.date}</p><div style="display:flex;justify-content:space-between;border:1px solid #000;padding:10px;margin-bottom:20px"><div>Total Vehicles: ${allEventVehicles.length}</div><div>Total Pax: ${totalPax}</div><div>Total Expenditure: ${formatMoney(totalExpenditure)}</div></div><table><thead><tr><th>No.</th><th>Plate</th><th>Driver</th><th>Contact</th><th>Pax</th><th class="money">Booking Fee</th><th class="money">Balance</th><th class="money">Total Cost</th><th class="money">Balance</th></tr></thead><tbody>${allEventVehicles.map((v, i) => {
+        const htmlContent = `<html><head><title>Fleet Finance Report</title><style>body{font-family:monospace;padding:20px}table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #ccc;padding:6px}th{background:#f0f0f0}.money{text-align:right}</style></head><body><h1>MINISTRY FLEET FINANCE REPORT</h1><h2>${ev.title}</h2><p>Date: ${ev.date}</p><div style="display:flex;justify-content:space-between;border:1px solid #000;padding:10px;margin-bottom:20px"><div>Total Vehicles: ${allEventVehicles.length}</div><div>Total Pax: ${totalPax}</div><div>Total Expenditure: ${formatMoney(totalExpenditure)}</div></div><table><thead><tr><th>No.</th><th>Plate</th><th>Driver</th><th>Contact</th><th>Pax</th><th class="money">Booking Fee</th><th class="money">Balance</th><th class="money">Total Cost</th><th class="money">Balance</th></tr></thead><tbody>${allEventVehicles.map((v, i) => {
             const tc = parseFloat(v.financeDetails?.ongoingDispatch || '0');
             const bf = parseFloat(v.financeDetails?.ongoingBalance || '0');
             const bp = parseFloat(v.financeDetails?.returnDispatch || '0');
             return `<tr><td>${i + 1}</td><td>${v.number_plate}</td><td>${v.driverName || '-'}</td><td>${v.driverContact || '-'}</td><td>${passengers.filter(p => p.vehicleId === v.id).length}</td><td class="money">${formatMoney(bf)}</td><td class="money">${formatMoney(bp)}</td><td class="money">${formatMoney(tc)}</td><td class="money">${formatMoney(tc - bf - bp)}</td></tr>`;
-        }).join('')}<tr style="font-weight:bold;background:#f0f0f0;border-top:2px solid #000"><td colspan="4" style="text-align:right">TOTALS:</td><td>${totalPax}</td><td class="money">${formatMoney(sumBookingFee)}</td><td class="money">${formatMoney(sumBalancePayment)}</td><td class="money">${formatMoney(sumTotalCost)}</td><td class="money">${formatMoney(sumFinalBalance)}</td></tr></tbody></table><div style="margin-top:20px;text-align:center;font-size:10px">Generated on ${new Date().toLocaleString()}</div><script>window.onload=()=>window.print();</script></body></html>`);
-        printWindow.document.close();
+        }).join('')}<tr style="font-weight:bold;background:#f0f0f0;border-top:2px solid #000"><td colspan="4" style="text-align:right">TOTALS:</td><td>${totalPax}</td><td class="money">${formatMoney(sumBookingFee)}</td><td class="money">${formatMoney(sumBalancePayment)}</td><td class="money">${formatMoney(sumTotalCost)}</td><td class="money">${formatMoney(sumFinalBalance)}</td></tr></tbody></table><div style="margin-top:20px;text-align:center;font-size:10px">Generated on ${new Date().toLocaleString()}</div></body></html>`;
+
+        const iframe = document.createElement('iframe');
+        iframe.style.display = 'none';
+        document.body.appendChild(iframe);
+        const doc = iframe.contentWindow?.document;
+        if (doc) {
+            doc.open();
+            doc.write(htmlContent);
+            doc.close();
+        }
+        setTimeout(() => {
+            if (iframe.contentWindow) {
+                iframe.contentWindow.focus();
+                iframe.contentWindow.print();
+            }
+            setTimeout(() => document.body.removeChild(iframe), 1000);
+        }, 500);
     };
 
     const generateAccountabilityHTML = useCallback((vehicle: Vehicle, globalManifest: any, manifestName: string) => {
@@ -366,10 +380,24 @@ const FinanceLayout: React.FC = () => {
         const globalManifest = await ManifestStore.get();
         const manifestName = globalManifest?.name || 'MINISTRY MANIFEST';
         const pagesHtml = batchVehicles.map(v => generateAccountabilityHTML(v, globalManifest, manifestName)).join('');
-        const printWindow = window.open('', '_blank');
-        if (!printWindow) return;
-        printWindow.document.write(`<html><head><title>Accountability Forms Batch</title><style>@media print{@page{size:landscape;margin:10mm}body{-webkit-print-color-adjust:exact}}body{font-family:Arial,sans-serif;font-size:11px;padding:0;margin:0}</style></head><body>${pagesHtml}<script>window.onload=()=>{setTimeout(()=>{window.print();},500)};<\/script></body></html>`);
-        printWindow.document.close();
+        const htmlContent = `<html><head><title>Accountability Forms Batch</title><style>@media print{@page{size:landscape;margin:10mm}body{-webkit-print-color-adjust:exact}}body{font-family:Arial,sans-serif;font-size:11px;padding:0;margin:0}</style></head><body>${pagesHtml}</body></html>`;
+
+        const iframe = document.createElement('iframe');
+        iframe.style.display = 'none';
+        document.body.appendChild(iframe);
+        const doc = iframe.contentWindow?.document;
+        if (doc) {
+            doc.open();
+            doc.write(htmlContent);
+            doc.close();
+        }
+        setTimeout(() => {
+            if (iframe.contentWindow) {
+                iframe.contentWindow.focus();
+                iframe.contentWindow.print();
+            }
+            setTimeout(() => document.body.removeChild(iframe), 1000);
+        }, 500);
     };
 
     const handlePrintAccountability = async (vehicle: Vehicle) => {

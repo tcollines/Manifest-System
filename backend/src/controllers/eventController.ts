@@ -199,22 +199,42 @@ export const getEventHighlights = async (req: Request, res: Response) => {
         // 🚨 CRITICAL FIX: Fetch all passengers directly by event to avoid dropping them 
         // if the event has manual passengers but 0 logistics stations!
         const { data: passengers } = await supabase.from('passengers')
-            .select('id, is_first_time, category, soul_won')
+            .select('id, is_first_time, category, soul_won, school, student_class, residence')
             .eq('manifest_id', manifestId)
             .eq('event_id', eventUuid);
 
         if (passengers && passengers.length > 0) {
             pCount = passengers.length;
             pFirstTimers = passengers.filter(p => p.is_first_time === 'Yes').length;
-            pStudents = passengers.filter(p => p.category === 'Student').length;
             pInstitutions = passengers.filter(p => p.category === 'Institution').length;
             pSouls = passengers.filter(p => p.soul_won === true).length;
+            
+            pStudents = passengers.filter(p => {
+                if (p.category === 'Institution') return false;
+                if (p.category === 'Student') return true;
+                if (p.school || p.student_class) return true;
+                return false;
+            }).length;
+        }
+
+        const { count: pcCount } = await supabase.from('personal_vehicles')
+            .select('*', { count: 'exact', head: true })
+            .eq('manifest_id', manifestId)
+            .contains('attended_service_ids', [eventUuid]);
+
+        let residentialCount = 0;
+        if (passengers && passengers.length > 0) {
+            residentialCount = passengers.filter(p => p.category === 'Member').length;
         }
 
         const { data: stations } = await supabase.from('pickup_stations').select('id').eq('manifest_id', manifestId).eq('event_id', eventUuid);
+        let earliestSetOff: Date | null = null;
+        let pendingCount = 0;
+        let arrivedCount = 0;
+
         if (stations && stations.length > 0) {
             const stationIds = stations.map(s => s.id);
-            const { data: vehicles } = await supabase.from('vehicles').select('id, children, finance_details').eq('manifest_id', manifestId).in('station_id', stationIds);
+            const { data: vehicles } = await supabase.from('vehicles').select('id, children, finance_details, ongoing_start_time, status, current_stage, time_arrival').eq('manifest_id', manifestId).in('station_id', stationIds);
 
             if (vehicles && vehicles.length > 0) {
                 fleetCount = vehicles.length;
@@ -223,19 +243,32 @@ export const getEventHighlights = async (req: Request, res: Response) => {
                     const dispatch = v.finance_details?.ongoingDispatch;
                     return acc + (dispatch ? parseFloat(dispatch) || 0 : 0);
                 }, 0);
+
+                vehicles.forEach(v => {
+                    if (v.status === 'Pending' || v.currentStage === 'Transit') pendingCount++;
+                    if (v.status === 'Arrived' || v.currentStage === 'Arrived' || v.currentStage === 'Completed') arrivedCount++;
+                    
+                    if (v.ongoing_start_time) {
+                        const d = new Date(v.ongoing_start_time);
+                        if (!isNaN(d.getTime())) {
+                            if (!earliestSetOff || d < earliestSetOff) {
+                                earliestSetOff = d;
+                            }
+                        }
+                    }
+                });
             }
         }
-
-        const { count: pcCount } = await supabase.from('personal_vehicles')
-            .select('*', { count: 'exact', head: true })
-            .eq('manifest_id', manifestId)
-            .contains('attended_service_ids', [eventUuid]);
 
         const serviceAttendanceCount = attendanceData?.length || 0;
         const soulsTotal = (soulsData?.length || 0) + (nextGenData?.length || 0) || pSouls;
         const financeExpenditure = financeData?.reduce((acc, t) => acc + (t.amount || 0), 0) || 0;
         const finalAttendees = Math.max(pCount + logisticsChildren, serviceAttendanceCount);
         const snapshot = eventData?.stats || {};
+
+        let estArrivalStr = "Evaluating...";
+        if (arrivedCount > 0 && pendingCount === 0) estArrivalStr = "All vehicles arrived";
+        else if (pendingCount > 0) estArrivalStr = `Estimating for ${pendingCount} pending vehicles`;
 
         const response = {
             vehicles: fleetCount || snapshot.vehicles || 0,
@@ -246,7 +279,11 @@ export const getEventHighlights = async (req: Request, res: Response) => {
             firstTimers: (pFirstTimers + (childrenFirstTimersCount || 0)) || snapshot.firstTimers || 0,
             soulsWon: soulsTotal || snapshot.soulsWon || 0,
             children: logisticsChildren || snapshot.children || 0,
-            expenditure: (fleetExpenditure + financeExpenditure) || (snapshot.expenditure ? parseFloat(snapshot.expenditure.replace(/,/g, '')) : 0) || 0
+            expenditure: (fleetExpenditure + financeExpenditure) || (snapshot.expenditure ? parseFloat(snapshot.expenditure.replace(/,/g, '')) : 0) || 0,
+            setOffTime: earliestSetOff ? earliestSetOff.toISOString() : null,
+            estimatedArrival: estArrivalStr,
+            residentials: residentialCount || 0,
+            vips: 0
         };
 
         res.json(response);
@@ -313,8 +350,7 @@ export const getEventPassengers = async (req: Request, res: Response) => {
         if (category === 'Institution') {
             passQuery = passQuery.eq('category', 'Institution');
         } else if (category === 'Student') {
-            // Include Students + anyone flagged as First Timer (even if category='Member')
-            passQuery = passQuery.or('category.in.(Student,First Timer),is_first_time.eq.Yes,is_first_time.eq.true');
+            // We fetch all to let the JS filter handle school/student_class checks reliably
         }
         // If category === 'All', no additional filter
 
@@ -357,7 +393,6 @@ export const getEventPassengers = async (req: Request, res: Response) => {
             ? mapped.filter(p => {
                 if (p.category === 'Institution') return false;
                 if (p.category === 'Student') return true;
-                if (p.isFirstTime) return true;
                 if (p.school || p.student_class) return true;
                 return false;
             })
