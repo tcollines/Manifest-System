@@ -242,11 +242,19 @@ const FinanceLayout: React.FC = () => {
         const allVehicles = vehicles.filter(v => v.eventId === selectedFleetEvent.id || eventStationIds.includes(v.stationId));
         if (fleetJourneyTab === 'All') return allVehicles;
         
-        const approved = allVehicles.filter(v => !v.approvals || v.approvals.registration === 'Approved');
-        
-        if (fleetJourneyTab === 'Ongoing') return approved.filter(v => getVehicleJourneyStatus(v) === 'Ongoing');
-        if (fleetJourneyTab === 'Return') return approved.filter(v => getVehicleJourneyStatus(v) === 'Return');
-        return approved.filter(v => getVehicleJourneyStatus(v) === 'Cleared');
+        if (fleetJourneyTab === 'Ongoing') {
+            return allVehicles.filter(v => 
+                (!v.approvals || v.approvals.registration === 'Approved') && 
+                getVehicleJourneyStatus(v) === 'Ongoing'
+            );
+        }
+        if (fleetJourneyTab === 'Return') {
+            return allVehicles.filter(v => getVehicleJourneyStatus(v) === 'Return');
+        }
+        if (fleetJourneyTab === 'Cleared') {
+            return allVehicles.filter(v => getVehicleJourneyStatus(v) === 'Cleared');
+        }
+        return [];
     }, [selectedFleetEvent, pickupStations, vehicles, fleetJourneyTab]);
 
     const handleOpenEventFleet = (event: MinistryEvent) => {
@@ -677,7 +685,7 @@ const FinanceLayout: React.FC = () => {
                                     {effectiveTab !== 'Cleared' && (() => {
                                         const isRegApproved = !selectedVehicle.approvals || selectedVehicle.approvals.registration === 'Approved';
                                         const isReturnDisabled = effectiveTab === 'Return' && selectedVehicle.currentStage !== 'FinanceApproval';
-                                        const isDisabled = isReturnDisabled || !isRegApproved;
+                                        const isDisabled = (effectiveTab === 'Ongoing' && !isRegApproved) || isReturnDisabled;
                                         
                                         return (
                                             <button onClick={handleDispatchVehicle}

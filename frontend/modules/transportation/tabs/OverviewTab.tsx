@@ -452,22 +452,38 @@ const CoordinatorView: React.FC = () => {
                                                         ListOfTransportedPeople: [] as any[]
                                                     };
 
-                                                    // Dynamically add passengers one by one up to a safe URL length limit (approx 850 chars)
+                                                    let truncated = false;
+                                                    let addedCount = 0;
+
+                                                    // Dynamically add passengers one by one up to a safe URL length limit (approx 2000 chars)
                                                     for (const p of passengers) {
                                                         let cleanPhone = p.contact ? p.contact.replace(/\D/g, '') : '';
                                                         if (cleanPhone.length < 9) cleanPhone = '256700000000';
                                                         
-                                                        // Construct passenger object, omitting empty fields to minimize URL size
+                                                        // Construct passenger object, omitting default/empty fields to minimize URL size
                                                         const newPassenger: any = {
                                                             Name: p.name,
-                                                            Phone: cleanPhone,
-                                                            FirstTimer: p.isFirstTime === 'Yes',
-                                                            Department: p.category === 'Member' ? 'Residential' : (p.category === 'Student' ? 'School' : 'Institution'),
-                                                            Institution: p.school ? 'Yes' : 'No'
+                                                            Phone: cleanPhone
                                                         };
-                                                        if (p.school) {
-                                                            newPassenger.InstitutionName = p.school;
-                                                            newPassenger.SchoolName = p.school;
+                                                        if (p.isFirstTime === 'Yes') {
+                                                            newPassenger.FirstTimer = true;
+                                                        }
+                                                        if (p.category === 'Member') {
+                                                            newPassenger.Department = 'Residential';
+                                                        } else if (p.category === 'Student') {
+                                                            newPassenger.Department = 'School';
+                                                            newPassenger.Institution = 'Yes';
+                                                            if (p.school) {
+                                                                newPassenger.InstitutionName = p.school;
+                                                                newPassenger.SchoolName = p.school;
+                                                            }
+                                                        } else if (p.category === 'Institution') {
+                                                            newPassenger.Department = 'Institution';
+                                                            newPassenger.Institution = 'Yes';
+                                                            if (p.school) {
+                                                                newPassenger.InstitutionName = p.school;
+                                                                newPassenger.SchoolName = p.school;
+                                                            }
                                                         }
 
                                                         const testPayload = {
@@ -476,10 +492,20 @@ const CoordinatorView: React.FC = () => {
                                                         };
                                                         const testUrl = `${cognitoFormUrl}?entry=${encodeURIComponent(JSON.stringify(testPayload))}`;
                                                         
-                                                        if (testUrl.length > 850) {
+                                                        if (testUrl.length > 2000) {
+                                                            truncated = true;
                                                             break; // Stop adding more passengers to keep the URL size safe from HTTP 400 errors
                                                         }
                                                         basePayload.ListOfTransportedPeople.push(newPassenger);
+                                                        addedCount++;
+                                                    }
+
+                                                    if (truncated) {
+                                                        showToast(`Only ${addedCount} of ${passengers.length} passengers pre-filled due to form size limits.`, 'warning');
+                                                    }
+                                                    
+                                                    if (basePayload.ListOfTransportedPeople.length > 2) {
+                                                        showToast("If you encounter a 'Request Too Long' error, try opening in Incognito or clearing cookies for cognitoforms.com.", "info");
                                                     }
 
                                                     const encodedUrl = `${cognitoFormUrl}?entry=${encodeURIComponent(JSON.stringify(basePayload))}`;
