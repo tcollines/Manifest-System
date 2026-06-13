@@ -244,9 +244,9 @@ export const getEventHighlights = async (req: Request, res: Response) => {
                     return acc + (dispatch ? parseFloat(dispatch) || 0 : 0);
                 }, 0);
 
-                vehicles.forEach(v => {
-                    if (v.status === 'Pending' || v.currentStage === 'Transit') pendingCount++;
-                    if (v.status === 'Arrived' || v.currentStage === 'Arrived' || v.currentStage === 'Completed') arrivedCount++;
+                for (const v of vehicles) {
+                    if (v.status === 'Pending' || v.current_stage === 'Transit') pendingCount++;
+                    if (v.status === 'Arrived' || v.current_stage === 'Arrived' || v.current_stage === 'Completed') arrivedCount++;
                     
                     if (v.ongoing_start_time) {
                         const d = new Date(v.ongoing_start_time);
@@ -256,7 +256,7 @@ export const getEventHighlights = async (req: Request, res: Response) => {
                             }
                         }
                     }
-                });
+                }
             }
         }
 
