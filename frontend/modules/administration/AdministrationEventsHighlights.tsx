@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import * as XLSX from 'xlsx';
 import { MinistryEvent } from '../../types';
 import { EventStore } from '../../database/eventStore';
+import { VehicleStore } from '../../database/vehicleStore';
 import { useNotification } from '../../components/ui/NotificationSystem';
 import {
   Calendar,
@@ -13,7 +15,8 @@ import {
   Award,
   Wallet,
   Baby,
-  UserPlus
+  UserPlus,
+  Download
 } from 'lucide-react';
 
 const AdministrationEventsHighlights: React.FC = () => {
@@ -21,6 +24,7 @@ const AdministrationEventsHighlights: React.FC = () => {
   const [events, setEvents] = useState<MinistryEvent[]>([]);
   const [selectedEventId, setSelectedEventId] = useState<string>('');
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
   const [highlights, setHighlights] = useState<any>(null);
 
   useEffect(() => {
@@ -81,6 +85,109 @@ const AdministrationEventsHighlights: React.FC = () => {
     }
   };
 
+  const exportToExcel = async () => {
+    if (!selectedEventId || !highlights) {
+      showToast('No event selected or no highlights available.', 'error');
+      return;
+    }
+    setExporting(true);
+    try {
+      // 1. Fetch Vehicles and Passengers
+      const vehiclesRes = await VehicleStore.getVehicles({ eventId: selectedEventId });
+      const vehicles = vehiclesRes.data || [];
+      const passengersRes = await VehicleStore.getPassengers({ eventId: selectedEventId });
+      const passengers = passengersRes.data || [];
+
+      // Sheet 1: Summary
+      const summaryData = [
+        { Metric: 'Set off time', Value: formatTime(highlights.setOffTime) },
+        { Metric: 'Est Arrival', Value: highlights.estimatedArrival },
+        { Metric: 'Total Transported', Value: highlights.attendees },
+        { Metric: 'Residentials / Comm', Value: highlights.residentials },
+        { Metric: 'Students Transported', Value: highlights.students },
+        { Metric: 'From Institutions', Value: highlights.institutions },
+        { Metric: 'VIPs', Value: highlights.vips },
+        { Metric: 'Total Budget (UGX)', Value: highlights.expenditure },
+        { Metric: 'Total Children', Value: highlights.children },
+        { Metric: 'Total First Timers', Value: highlights.firstTimers }
+      ];
+
+      // Sheet 2: Passengers
+      const passengersData = passengers.map(p => {
+        const vehicle = vehicles.find(v => v.id === p.vehicleId);
+        return {
+          Name: p.name,
+          Contact: p.contact,
+          Category: p.category,
+          Residence: p.residence,
+          'Is First Time': p.isFirstTime,
+          Verified: p.verified ? 'Yes' : 'No',
+          School: p.school || 'N/A',
+          'Vehicle Number Plate': vehicle ? vehicle.number_plate : 'Unknown'
+        };
+      });
+
+      // Sheet 3: Vehicles Info
+      const passengerCounts: Record<string, number> = {};
+      passengers.forEach(p => {
+        if (p.vehicleId) {
+          passengerCounts[p.vehicleId] = (passengerCounts[p.vehicleId] || 0) + 1;
+        }
+      });
+      const vehiclesData = vehicles.map(v => ({
+        'Number Plate': v.number_plate,
+        Type: v.type,
+        'Driver Name': v.driverName,
+        'Driver Contact': v.driverContact,
+        Coordinator: v.coordinator,
+        'Coordinator Contact': v.coordinatorContact || 'N/A',
+        Status: v.status,
+        Stage: v.currentStage || 'N/A',
+        'Total Passengers': passengerCounts[v.id] || 0
+      }));
+
+      // Sheet 4: Finance Breakdown
+      const financeData = vehicles.map(v => {
+        const ongoingDisp = parseFloat(v.financeDetails?.ongoingDispatch || '0');
+        const ongoingBal = parseFloat(v.financeDetails?.ongoingBalance || '0');
+        const returnDisp = parseFloat(v.financeDetails?.returnDispatch || '0');
+        const returnBal = parseFloat(v.financeDetails?.returnBalance || '0');
+        
+        return {
+          'Number Plate': v.number_plate,
+          Coordinator: v.coordinator,
+          'Ongoing Dispatch (UGX)': ongoingDisp,
+          'Ongoing Balance (UGX)': ongoingBal,
+          'Return Dispatch (UGX)': returnDisp,
+          'Return Balance (UGX)': returnBal,
+          'Total Dispatched (UGX)': ongoingDisp + returnDisp,
+          'Total Balances (UGX)': ongoingBal + returnBal,
+        };
+      });
+
+      // Create Workbook
+      const wb = XLSX.utils.book_new();
+      const ws1 = XLSX.utils.json_to_sheet(summaryData);
+      const ws2 = XLSX.utils.json_to_sheet(passengersData);
+      const ws3 = XLSX.utils.json_to_sheet(vehiclesData);
+      const ws4 = XLSX.utils.json_to_sheet(financeData);
+
+      XLSX.utils.book_append_sheet(wb, ws1, 'Summary');
+      XLSX.utils.book_append_sheet(wb, ws2, 'Passengers');
+      XLSX.utils.book_append_sheet(wb, ws3, 'Vehicles Info');
+      XLSX.utils.book_append_sheet(wb, ws4, 'Finance Breakdown');
+
+      const eventName = events.find(e => e.id === selectedEventId)?.title || 'Event';
+      XLSX.writeFile(wb, `${eventName}_Data.xlsx`);
+      showToast('Export successful!', 'success');
+    } catch (error) {
+      console.error('Export failed', error);
+      showToast('Failed to export event data', 'error');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in">
       <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 border-b border-gray-100 pb-4">
@@ -89,22 +196,38 @@ const AdministrationEventsHighlights: React.FC = () => {
           <p className="text-gray-500">Aggregated insights and logistics data for major events.</p>
         </div>
 
-        <div className="flex-shrink-0 min-w-[250px]">
-          <select
-            className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-ministry-orange font-bold text-gray-700 shadow-sm transition-all"
-            value={selectedEventId}
-            onChange={(e) => setSelectedEventId(e.target.value)}
-          >
-            {events.length === 0 ? (
-              <option value="">No Events Found</option>
-            ) : (
-              events.map((e) => (
-                <option key={e.id} value={e.id}>
-                  {e.title} - {new Date(e.date).toLocaleDateString()}
-                </option>
-              ))
-            )}
-          </select>
+        <div className="flex flex-col md:flex-row items-center gap-4">
+          {selectedEventId && highlights && (
+            <button
+              onClick={exportToExcel}
+              disabled={exporting}
+              className="flex items-center gap-2 px-4 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold transition-colors disabled:opacity-50"
+            >
+              {exporting ? (
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+              ) : (
+                <Download size={18} />
+              )}
+              {exporting ? 'Exporting...' : 'Export Event Data'}
+            </button>
+          )}
+          <div className="flex-shrink-0 min-w-[250px]">
+            <select
+              className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-ministry-orange font-bold text-gray-700 shadow-sm transition-all"
+              value={selectedEventId}
+              onChange={(e) => setSelectedEventId(e.target.value)}
+            >
+              {events.length === 0 ? (
+                <option value="">No Events Found</option>
+              ) : (
+                events.map((e) => (
+                  <option key={e.id} value={e.id}>
+                    {e.title} - {new Date(e.date).toLocaleDateString()}
+                  </option>
+                ))
+              )}
+            </select>
+          </div>
         </div>
       </div>
 
