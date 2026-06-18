@@ -90,36 +90,7 @@ const FinanceLayout: React.FC = () => {
         logoUrl?: string;
     } | null>(null);
 
-    useEffect(() => {
-        if (printPayload) {
-            let cleared = false;
-            const cleanup = () => {
-                if (cleared) return;
-                cleared = true;
-                setPrintPayload(null);
-            };
 
-            // On desktop, afterprint is highly reliable
-            window.addEventListener('afterprint', cleanup);
-
-            // On mobile Chrome, afterprint fires instantly and premature unmounting results in blank previews.
-            // Regaining window focus after print dialog dismissal acts as a reliable mobile dismissal signal.
-            const handleFocus = () => {
-                setTimeout(cleanup, 800);
-            };
-            window.addEventListener('focus', handleFocus);
-
-            const timer = setTimeout(() => {
-                window.print();
-            }, 600);
-
-            return () => {
-                window.removeEventListener('afterprint', cleanup);
-                window.removeEventListener('focus', handleFocus);
-                clearTimeout(timer);
-            };
-        }
-    }, [printPayload]);
 
     // Sync selectedVehicle with realtime vehicle updates
     useEffect(() => {
