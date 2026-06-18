@@ -176,6 +176,10 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
                     return res.status(403).json({ error: 'User not registered. Please ask an Administrator to add your Google email.' });
                 }
 
+                if (['Vehicle Coordinator', 'Stage Coordinator', 'Coordinator'].includes(data.role)) {
+                    return res.status(403).json({ error: 'Temporary users (coordinators) are not allowed to log in via Google SSO. Please use username and password.' });
+                }
+
                 req.user = {
                     id: data.id,
                     email: data.email,

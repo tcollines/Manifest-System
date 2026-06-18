@@ -71,8 +71,13 @@ export const getProfile = async (req: Request, res: Response) => {
                 .maybeSingle();
 
             if (emailData) {
-                data = emailData;
-                console.log(`[PROFILE SUCCESS] Found via email fallback for ${user.email}`);
+                const isTemp = ['Vehicle Coordinator', 'Stage Coordinator', 'Coordinator'].includes(emailData.role);
+                if (isTemp) {
+                    console.log(`[PROFILE FALLBACK BLOCKED] Blocked email fallback for temp coordinator: ${user.email}`);
+                } else {
+                    data = emailData;
+                    console.log(`[PROFILE SUCCESS] Found via email fallback for ${user.email}`);
+                }
             }
         }
 
@@ -107,6 +112,8 @@ export const createUser = async (req: Request, res: Response) => {
             payload.username = payload.username.replace(/\s+/g, '');
         }
 
+        const isTempCoordinator = payload.role === 'Vehicle Coordinator' || payload.role === 'Stage Coordinator' || payload.role === 'Coordinator';
+
         // Prevent Duplicate Usernames natively at the API level
         if (payload.username) {
             const { data: existingUser } = await supabase
@@ -121,6 +128,24 @@ export const createUser = async (req: Request, res: Response) => {
             }
         }
 
+        // Prevent Duplicate Emails for system users
+        if (payload.email && !isTempCoordinator) {
+            const { data: emailMatches } = await supabase
+                .from('users')
+                .select('id, role')
+                .eq('email', payload.email)
+                .neq('status', 'Deleted');
+
+            if (emailMatches && emailMatches.length > 0) {
+                const otherSystemUser = emailMatches.find(u => 
+                    !['Vehicle Coordinator', 'Stage Coordinator', 'Coordinator'].includes(u.role)
+                );
+                if (otherSystemUser) {
+                    return res.status(400).json({ error: 'Email already exists for another system user' });
+                }
+            }
+        }
+
         // --- NEW: Auto-Provision Auth Identity ---
         let authUserId = null;
         if (payload.password && (payload.email || payload.username)) {
@@ -128,7 +153,6 @@ export const createUser = async (req: Request, res: Response) => {
             const synthSuffix = Date.now().toString(36) + Math.random().toString(36).substring(2, 6);
             
             // Temporary coordinators ALWAYS use a synthetic email for Auth to avoid colliding with their permanent user accounts
-            const isTempCoordinator = payload.role === 'Vehicle Coordinator' || payload.role === 'Stage Coordinator' || payload.role === 'Coordinator';
             const baseName = payload.username || payload.name || 'user';
             const syntheticEmail = `${baseName.toLowerCase().replace(/\s+/g, '')}_${synthSuffix}@manifest.local`;
             
@@ -223,12 +247,39 @@ export const updateUser = async (req: Request, res: Response) => {
             payload.username = payload.username.replace(/\s+/g, '');
         }
 
+        // Fetch current profile to get current role/email for uniqueness checks and role guards
+        const { data: targetUser } = await supabase.from('users').select('role, email').eq('id', id).maybeSingle();
+        if (!targetUser) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        const currentRole = payload.role || targetUser.role;
+        const currentEmail = payload.email !== undefined ? payload.email : targetUser.email;
+        const isTempCoordinator = currentRole === 'Vehicle Coordinator' || currentRole === 'Stage Coordinator' || currentRole === 'Coordinator';
+
+        // Prevent Duplicate Emails for system users
+        if (currentEmail && !isTempCoordinator) {
+            const { data: emailMatches } = await supabase
+                .from('users')
+                .select('id, role')
+                .eq('email', currentEmail)
+                .neq('status', 'Deleted');
+
+            if (emailMatches && emailMatches.length > 0) {
+                const otherSystemUser = emailMatches.find(u => 
+                    u.id !== id && 
+                    !['Vehicle Coordinator', 'Stage Coordinator', 'Coordinator'].includes(u.role)
+                );
+                if (otherSystemUser) {
+                    return res.status(400).json({ error: 'Email already exists for another system user' });
+                }
+            }
+        }
+
         // Role Escalation & Invariant Protection
         let oldRole = null;
         if (payload.role) {
-            // 1. Fetch current target state to determine original role
-            const { data: targetUser } = await supabase.from('users').select('role').eq('id', id).maybeSingle();
-            oldRole = targetUser?.role;
+            oldRole = targetUser.role;
             const targetRole = payload.role;
 
             if (oldRole !== targetRole) {

@@ -12,12 +12,12 @@ export const login = async (req: Request, res: Response) => {
         let inputIdentifier = username.trim();
         let targetEmail = inputIdentifier;
 
-        // Search by either exact username OR exact email lookup
+        // Search by exact username lookup
         // Priority 1: Exact Case-Sensitive Match
         let { data: usersData, error } = await supabase
             .from('users')
             .select('id, email, role')
-            .or(`username.eq."${inputIdentifier}",email.eq."${inputIdentifier}"`)
+            .eq('username', inputIdentifier)
             .neq('status', 'Deleted')
             .limit(1);
 
@@ -26,7 +26,7 @@ export const login = async (req: Request, res: Response) => {
             const fallbackResult = await supabase
                 .from('users')
                 .select('id, email, role') // MATCH THE COLUMNS REQUESTED ABOVE
-                .or(`username.ilike."${inputIdentifier}",email.ilike."${inputIdentifier}"`)
+                .ilike('username', inputIdentifier)
                 .neq('status', 'Deleted')
                 .limit(1);
             usersData = fallbackResult.data;

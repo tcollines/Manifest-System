@@ -1,0 +1,123 @@
+=== CHECKING FOR SWAPPED IDENTITIES ===
+
+--- Mismatches between Auth Email and DB Profile ---
+[EMAIL MISMATCH] ID: 42bc49c8-9225-481f-82d6-ec993cf4711f | Auth Email: portia_mqc4f1wq5jz6@manifest.local | DB Email: null (Name: Portia Sunday)
+[EMAIL MISMATCH] ID: be63db95-be5b-4794-938c-721835ecf583 | Auth Email: ian123_mqc3ft9szkg2@manifest.local | DB Email: ian@manifest.com (Name: IAN IAN)
+[EMAIL MISMATCH] ID: de8f5e29-060a-4d73-9cc0-4982946df24d | Auth Email: garuga_mqc0jiib3iao@manifest.local | DB Email: null (Name: Esther Garuga)
+[EMAIL MISMATCH] ID: ddbf1a55-b1c4-48cb-a8c8-7ccf9c695c50 | Auth Email: naome_mqc0b8n6vj8q@manifest.local | DB Email: naomemutoni@gmail.com (Name: Mutoni Naome)
+[EMAIL MISMATCH] ID: f41efbe0-e35d-4189-8a8f-1e8901d96277 | Auth Email: kayesu_mqbzs7drbw3w@manifest.local | DB Email: null (Name: Kayesu Victoria)
+[EMAIL MISMATCH] ID: 68f93735-5731-4b91-9e7e-448c4b19d837 | Auth Email: lisa_mqbygoc71375@manifest.local | DB Email: null (Name: Min Lisa)
+[EMAIL MISMATCH] ID: 005dfbc3-088f-4ec4-aec5-0cf3dc30afe6 | Auth Email: k_mqbxj2rkktp6@manifest.local | DB Email: null (Name: Betty K)
+[EMAIL MISMATCH] ID: 18384a5f-fa02-4085-a718-01ef96547055 | Auth Email: cathy_mqbw1sarwhup@manifest.local | DB Email:  (Name: Catherine Mukisa)
+[EMAIL MISMATCH] ID: 92afa4fd-e24e-4d32-a067-87b52aeb9f98 | Auth Email: esther_mqbvq26t2x0d@manifest.local | DB Email: null (Name: Min Esther)
+[EMAIL MISMATCH] ID: f50e170c-a4b2-4586-a677-dfd6718772a2 | Auth Email: kalule_mqb9t1ofgfuz@manifest.local | DB Email: null (Name: Eliah Kalule)
+[EMAIL MISMATCH] ID: af4d453f-0426-4311-87d8-e7f57f3ea8ee | Auth Email: betty_mqb6p7ltpsek@manifest.local | DB Email: null (Name: Min Betty)
+[EMAIL MISMATCH] ID: 4012c563-1482-4408-84d2-8a0e076d8227 | Auth Email: lazaro_mqatudu87s9a@manifest.local | DB Email: lazaro@manifest.local (Name: Lazaro Oguti)
+[EMAIL MISMATCH] ID: 77b3040f-9200-40e0-9295-32cf7b1f5275 | Auth Email: mugasha_mqaimzcktz1v@manifest.local | DB Email: mugasha@manifest.local (Name: Isaac Mugasha)
+[EMAIL MISMATCH] ID: e9af012c-a050-4df3-9442-bec80fb7947c | Auth Email: sempa_mqaijid6i0pd@manifest.local | DB Email: sempa@manifest.local (Name: Mwesigwa Ssempa)
+[EMAIL MISMATCH] ID: 20d233d0-baa0-4638-982d-b3eb21469e14 | Auth Email: isaac_mqaigbwt5t92@manifest.local | DB Email: isaac@manifest.local (Name: Tunwesige Isaac)
+[EMAIL MISMATCH] ID: 81a133a1-89ca-4699-9cfc-f4f81211b0aa | Auth Email: monicah@manifest.local | DB Email: null (Name: MONICAH ABURA)
+[EMAIL MISMATCH] ID: 9cca1177-43dc-40ff-bf2a-35013a60215c | Auth Email: cherry@manifest.local | DB Email: null (Name: NYAKATO CHERRY )
+[EMAIL MISMATCH] ID: ef8ce348-b17a-4773-a2ad-42a787c03d08 | Auth Email: hellen@manifest.local | DB Email: null (Name: HELLEN MUHANGUZI )
+[ORPHAN AUTH] Auth ID: ecc5757d-870c-4c22-9161-da5b99f857d6 | Email: test-forms@example.com
+[ORPHAN AUTH] Auth ID: 2d8316e1-abff-4f54-85c8-5281a74fbc34 | Email: jm@test.com
+[ORPHAN AUTH] Auth ID: 8a9e749b-917c-4441-9855-61c35fc78b1f | Email: ctumwiine004@gmail.com
+[ORPHAN AUTH] Auth ID: 6e0bd7b3-47a2-471f-ad6a-a11d4dc4781c | Email: kalule@manifest.local
+[ORPHAN AUTH] Auth ID: a3521af4-05b0-4df7-b7e4-8757c8ae7f17 | Email: shivan@manifest.local
+[ORPHAN AUTH] Auth ID: f3677d3f-b2de-4818-82f0-b6bcedefff33 | Email: monica@manifest.local
+[ORPHAN AUTH] Auth ID: 7c3142e7-5c86-4bb8-a112-20fdabd0cfef | Email: tumwesigye@manifest.local
+[ORPHAN AUTH] Auth ID: 5e0c2df5-c897-4097-b490-75e60de53893 | Email: sonko@manifest.local
+[ORPHAN AUTH] Auth ID: 67e58f05-dfab-4385-83e6-d2c5535990f4 | Email: arthur@manifest.local
+[ORPHAN AUTH] Auth ID: 3271eeac-7854-4adb-a770-05d205af4a52 | Email: zawie1@manifest.local
+[ORPHAN AUTH] Auth ID: 0f095f3a-8a86-494e-8cde-ae32d8891873 | Email: harriet@manifest.local
+[ORPHAN AUTH] Auth ID: e5f1656a-e135-4bfe-b448-48f280f90851 | Email: stellah@manifest.local
+[ORPHAN AUTH] Auth ID: dc3350fb-caef-40d6-8a74-a068ff149bf9 | Email: angello@manifest.local
+[ORPHAN AUTH] Auth ID: fd193bcd-b00e-4e8a-8372-3ba1346429e0 | Email: doe@manifest.local
+[ORPHAN AUTH] Auth ID: b994bcea-8658-4eee-ae1d-411aa89f65dc | Email: kwagala@manifest.local
+[ORPHAN AUTH] Auth ID: 393a2063-5c54-42e9-aa5a-c2e45d832397 | Email: daniel@manifest.local
+[ORPHAN AUTH] Auth ID: b594fdd6-10f9-4671-9345-a3190a634fa3 | Email: hope@manifest.local
+[ORPHAN AUTH] Auth ID: 48f26295-18fb-4809-ae0c-88d66eb9aa00 | Email: estherk@manifest.local
+[ORPHAN AUTH] Auth ID: 40608742-d5e2-4b6b-a18f-cdec6d627086 | Email: test@manifest.local
+[ORPHAN AUTH] Auth ID: d2d2de65-f09c-43bf-838d-b62549c91349 | Email: ckazibwe38@gmail.com
+[ORPHAN AUTH] Auth ID: 9c93156a-5c3a-4e5f-95f8-193b027a9707 | Email: lindanabuuma2@gmail.com
+[ORPHAN AUTH] Auth ID: 53cc3e0a-987f-45df-a8ca-f0e287b68aca | Email: ddembe@manifest.local
+[ORPHAN AUTH] Auth ID: 853b9077-1a3b-419c-905c-0066fecc4e9b | Email: angella@manifest.local
+[EMAIL MISMATCH] ID: f1b701e4-3ae0-4ef2-957d-c6e48d4fbe3c | Auth Email: ojemapaul19@manifest.local | DB Email: ojemapaul19@gmail.com (Name: Ojema Paul)
+[ORPHAN AUTH] Auth ID: bd233241-de04-45d0-8f43-aa09d7bbcb28 | Email: ssebuliba@manifest.local
+[ORPHAN AUTH] Auth ID: 4da0bd7c-56c9-414e-a863-34d219390a4c | Email: nyakato@manifest.local
+[ORPHAN AUTH] Auth ID: 7566dae5-5ad5-4100-8d9a-219053a9d713 | Email: mirembe@manifest.local
+[ORPHAN AUTH] Auth ID: f3320454-71c6-45e6-ac4f-006afe533f5d | Email: tcollines004@gmail.com
+[ORPHAN AUTH] Auth ID: 5095846a-f530-40f1-b19e-ac95610edd99 | Email: ddembe2@manifest.local
+[ORPHAN AUTH] Auth ID: e07d1a7a-fb57-4b78-8f68-a2aa1fdeb387 | Email: boss@manifest.local
+[ORPHAN AUTH] Auth ID: 44da0d3e-f314-4b6a-9477-501025d014f2 | Email: gasper@manifest.local
+[ORPHAN AUTH] Auth ID: a4603c16-0ae2-4c01-bf41-f4a79062b74e | Email: wendy@manifest.local
+[ORPHAN AUTH] Auth ID: f4ee2c43-1c5d-4255-9900-512281075633 | Email: kazibwecollins1@manifest.local
+[ORPHAN AUTH] Auth ID: 3ba919d5-cf62-4d6a-b3f5-02a5e97e8204 | Email: ben@manifest.local
+[EMAIL MISMATCH] ID: f96715eb-5094-4ad4-95e1-6d17e364315d | Auth Email: ebbmanifestaine2@gmail.com | DB Email: ainefrancis4@gmail.com (Name: Aine Francis)
+
+--- Mismatches between DB Email and Auth ---
+[MISSING AUTH] Active DB User: COLLINES (6cf97683-d8f6-4807-b860-8cc2d19f9e92) | Email: tcollines004@gmail.com | Role: Resident Coordinator
+[MISSING AUTH] Active DB User: naigaga pavin (436c2bd9-1d7f-4398-a81f-55d95b30e59a) | Email: naigagamutakipavin@gmail.com | Role: Member
+[MISSING AUTH] Active DB User: Cherry Nyakato (5c10e654-7f0a-4491-97fa-eeb33792bd81) | Email: cherrynyakato@gmail.com | Role: Dept Finance
+[MISSING AUTH] Active DB User: Dinah Aguti (3749ad61-38d7-4fc8-9280-7d5cea3a1d57) | Email: agutidinah888@gmail.com | Role: Member
+[MISSING AUTH] Active DB User: Shivan  Namara (2fba3f43-5173-4049-9c9b-91370818ba56) | Email: shivannamara16@gmail.com | Role: Member
+[MISSING AUTH] Active DB User: SARAH LUYIGA (286672e1-75a8-4083-af00-c5dec649165c) | Email: fraiton256@gmail.com | Role: Member
+[MISSING AUTH] Active DB User: Test User (bc919273-3aaa-4d15-8b3b-1a70dd41b6c9) | Email: test_trigger@manifest.local | Role: Member
+[MISSING AUTH] Active DB User: Marvin Ssembatya (27d06815-0262-4dae-b63d-9a01edb52e53) | Email: marvinsenior57@gmail.com | Role: Dept Admin
+[MISSING AUTH] Active DB User: LINDA NABUUMA (f224a968-3b6d-4ba2-9df2-93d7569dea9d) | Email: lindanabuuma2@gmail.com | Role: Dept Finance
+[MISSING AUTH] Active DB User: Kyobugira Betty (01b6e9ba-d2d7-449a-a056-dea723d9e71d) | Email: ejole203@gmail.com | Role: Member
+[MISSING AUTH] Active DB User: Mugasha Isaac (0ab47ef1-6f70-4099-84a8-4e85770d5c31) | Email: isaacmugasha@gmail.com | Role: Member
+[MISSING AUTH] Active DB User: TUSIIME RODNEY (603ff20d-cfcc-42a3-a432-1055d7841741) | Email: tusiimerodney446@gmail.com | Role: Member
+[MISSING AUTH] Active DB User: Onweng Emmy Daniel (061eb172-2dac-4622-8d2b-816a146bcd44) | Email: onwengemmydaniel38@gmail.com | Role: Member
+[MISSING AUTH] Active DB User: Javan Abraham (2bc87a84-d201-45bc-a82b-6b7fa4cbdcaa) | Email: javanemunich160@gmail.com | Role: Head of Dept
+[MISSING AUTH] Active DB User: Coord Test (5bc13844-d264-4f1e-93f5-0b340249f10c) | Email: coordtest@example.com | Role: Resident Coordinator
+[MISSING AUTH] Active DB User: Higenyi Eric (2c9018ec-0f21-49ed-9300-b9d1ef6276a7) | Email: higenyieric100@gmail.com | Role: Member
+[MISSING AUTH] Active DB User: OSHABA OVIA (894e9620-7fd5-40d4-aff5-36f3114c6b08) | Email: oshabaovia360@gmail.com | Role: Member
+
+--- Lukodda Joseph specific DB entries ---
+[
+  {
+    "id": "e7778624-4142-4c52-a904-bf2055b2097e",
+    "name": "Lukodda Joseph",
+    "email": "jlukodda@gmail.com",
+    "username": null,
+    "role": "Stage Coordinator",
+    "status": "Inactive",
+    "event_id": "7ebca242-9f6b-43f9-aa5a-06355ef5c1f4",
+    "department_id": "4630e48a-f97e-48fd-a901-864b591c282f"
+  },
+  {
+    "id": "5e05e5fc-4845-4bbd-99c2-8e4badc0585a",
+    "name": "Lukodda Joseph",
+    "email": "joseph_mmfc96lwtoor@manifest.local",
+    "username": null,
+    "role": "Stage Coordinator",
+    "status": "Inactive",
+    "event_id": "163f08ad-a151-4579-9519-f6a6da3e3269",
+    "department_id": "4630e48a-f97e-48fd-a901-864b591c282f"
+  }
+]
+
+--- Temp User 'stage' DB entries ---
+[
+  {
+    "id": "8b97de51-2881-493d-81b4-28fb15903d69",
+    "name": "Test Stage",
+    "email": "stage_mnuqjj73vkyi@manifest.local",
+    "username": null,
+    "role": "Stage Coordinator",
+    "status": "Inactive",
+    "event_id": "f878d7b6-a6cd-41f6-83c2-4dde4354c6b2",
+    "department_id": "4630e48a-f97e-48fd-a901-864b591c282f"
+  },
+  {
+    "id": "0cf45ebb-bd90-47e2-8a0a-ad050452d921",
+    "name": "Stage Stage",
+    "email": "stage@manifest.local",
+    "username": "stage",
+    "role": "Stage Coordinator",
+    "status": "Active",
+    "event_id": null,
+    "department_id": "4630e48a-f97e-48fd-a901-864b591c282f"
+  }
+]

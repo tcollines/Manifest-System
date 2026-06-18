@@ -1,0 +1,21 @@
+Type of mapping: Array
+Length: 3275
+Sample: [
+  {
+    "legacy_id": "m-bulk-1767018649125-zkf1c",
+    "new_id": "46de6edc-e567-4a04-adc3-8d9d4b6c047c",
+    "migrated_at": "2026-02-08T18:30:13.464Z"
+  },
+  {
+    "legacy_id": "m-bulk-1767018649123-ud3w5",
+    "new_id": "7c8d7a67-f44d-4370-878c-08e269ef06f3",
+    "migrated_at": "2026-02-08T18:30:15.024Z"
+  },
+  {
+    "legacy_id": "m-bulk-1767018649123-kfca5",
+    "new_id": "2b96017f-e347-4793-a433-a9dc2fa26ec5",
+    "migrated_at": "2026-02-08T18:30:16.457Z"
+  }
+]
+Search match: undefined
+Lukodda matches: []
