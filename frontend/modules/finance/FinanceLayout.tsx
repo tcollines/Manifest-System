@@ -709,7 +709,6 @@ const FinanceLayout: React.FC = () => {
             })()}
             {printPayload && createPortal(
                 <div className="print-area">
-                    <PrintStyle />
                     {printPayload.type === 'fleet' ? (
                         <FleetPrintReport
                             title={printPayload.title}
@@ -738,53 +737,6 @@ const FinanceLayout: React.FC = () => {
 };
 
 // ─── Print helper components ────────────────────────────────────────────────
-
-const PrintStyle: React.FC = () => (
-    <style dangerouslySetInnerHTML={{ __html: `
-        @media screen {
-            .print-area {
-                position: fixed !important;
-                left: 0 !important;
-                top: 0 !important;
-                right: 0 !important;
-                bottom: 0 !important;
-                width: 100vw !important;
-                height: 100vh !important;
-                z-index: 99999 !important;
-                background: white !important;
-                overflow-y: auto !important;
-                display: block !important;
-            }
-        }
-        @media print {
-            body {
-                background: white !important;
-                color: black !important;
-                padding: 0 !important;
-                margin: 0 !important;
-                font-family: 'Courier New', Courier, monospace !important;
-                font-size: 12px !important;
-            }
-            #root {
-                display: none !important;
-            }
-            .print-area {
-                display: block !important;
-                position: static !important;
-                width: 100% !important;
-                height: auto !important;
-                overflow: visible !important;
-                padding: 0 !important;
-                margin: 0 !important;
-            }
-            .page-break-after-always {
-                page-break-after: always !important;
-                break-after: page !important;
-                padding: 20px;
-            }
-        }
-    ` }} />
-);
 
 const FleetPrintReport: React.FC<{
     title: string;
