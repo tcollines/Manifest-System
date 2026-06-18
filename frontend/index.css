@@ -29,7 +29,10 @@ input[type='number'] {
   }
 }
 @media print {
-  body {
+  html, body {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
     background: white !important;
     color: black !important;
     padding: 0 !important;
@@ -37,18 +40,33 @@ input[type='number'] {
     font-family: 'Courier New', Courier, monospace !important;
     font-size: 12px !important;
   }
-  #root {
-    display: none !important;
+  
+  /* Hide #root and other sibling elements by positioning offscreen and collapsing
+     to preserve rendering trees for mobile browsers instead of using display: none */
+  #root, body > *:not(.print-area) {
+    position: absolute !important;
+    left: -9999px !important;
+    top: -9999px !important;
+    width: 1px !important;
+    height: 1px !important;
+    overflow: hidden !important;
+    display: block !important;
   }
+
   .print-area {
     display: block !important;
-    position: static !important;
+    position: relative !important;
     width: 100% !important;
     height: auto !important;
     overflow: visible !important;
     padding: 0 !important;
     margin: 0 !important;
   }
+
+  .no-print, .noprint {
+    display: none !important;
+  }
+
   .page-break-after-always {
     page-break-after: always !important;
     break-after: page !important;

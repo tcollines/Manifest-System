@@ -696,7 +696,7 @@ const FinanceLayout: React.FC = () => {
             {printPayload && createPortal(
                 <div className="print-area">
                     {/* Screen-only floating close control bar */}
-                    <div className="no-print fixed top-4 right-4 z-[100000] flex gap-3">
+                    <div className="no-print print:hidden fixed top-4 right-4 z-[100000] flex gap-3">
                         <button
                             onClick={() => window.print()}
                             className="bg-black text-white px-5 py-2.5 rounded-full font-bold text-sm shadow-xl hover:bg-gray-800 transition-all flex items-center gap-2"
