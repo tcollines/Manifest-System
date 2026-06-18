@@ -92,15 +92,30 @@ const FinanceLayout: React.FC = () => {
 
     useEffect(() => {
         if (printPayload) {
-            const handleAfterPrint = () => {
+            let cleared = false;
+            const cleanup = () => {
+                if (cleared) return;
+                cleared = true;
                 setPrintPayload(null);
             };
-            window.addEventListener('afterprint', handleAfterPrint);
+
+            // On desktop, afterprint is highly reliable
+            window.addEventListener('afterprint', cleanup);
+
+            // On mobile Chrome, afterprint fires instantly and premature unmounting results in blank previews.
+            // Regaining window focus after print dialog dismissal acts as a reliable mobile dismissal signal.
+            const handleFocus = () => {
+                setTimeout(cleanup, 800);
+            };
+            window.addEventListener('focus', handleFocus);
+
             const timer = setTimeout(() => {
                 window.print();
-            }, 500);
+            }, 600);
+
             return () => {
-                window.removeEventListener('afterprint', handleAfterPrint);
+                window.removeEventListener('afterprint', cleanup);
+                window.removeEventListener('focus', handleFocus);
                 clearTimeout(timer);
             };
         }
@@ -709,6 +724,22 @@ const FinanceLayout: React.FC = () => {
             })()}
             {printPayload && createPortal(
                 <div className="print-area">
+                    {/* Screen-only floating close control bar */}
+                    <div className="no-print fixed top-4 right-4 z-[100000] flex gap-3">
+                        <button
+                            onClick={() => window.print()}
+                            className="bg-black text-white px-5 py-2.5 rounded-full font-bold text-sm shadow-xl hover:bg-gray-800 transition-all flex items-center gap-2"
+                        >
+                            <Printer className="w-4 h-4" />
+                            <span>Print</span>
+                        </button>
+                        <button
+                            onClick={() => setPrintPayload(null)}
+                            className="bg-white border border-gray-200 text-gray-700 px-5 py-2.5 rounded-full font-bold text-sm shadow-xl hover:bg-gray-50 transition-all"
+                        >
+                            Close Preview
+                        </button>
+                    </div>
                     {printPayload.type === 'fleet' ? (
                         <FleetPrintReport
                             title={printPayload.title}
