@@ -41,16 +41,22 @@ input[type='number'] {
     font-size: 12px !important;
   }
   
-  /* Hide #root and other sibling elements by positioning offscreen and collapsing
-     to preserve rendering trees for mobile browsers instead of using display: none */
-  #root, body > *:not(.print-area) {
-    position: absolute !important;
-    left: -9999px !important;
-    top: -9999px !important;
-    width: 1px !important;
-    height: 1px !important;
-    overflow: hidden !important;
+  /* Hide all contents of #root (including position: fixed navigation/bars) 
+     while keeping #root itself as display: block with 0 height. This preserves 
+     the layout rendering tree for mobile print engines but hides all screen contents. */
+  #root {
     display: block !important;
+    height: 0 !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+  }
+  #root * {
+    display: none !important;
+  }
+
+  /* Hide other direct body portal elements (toasts, generic modal wrappers) */
+  body > *:not(#root):not(.print-area) {
+    display: none !important;
   }
 
   .print-area {
