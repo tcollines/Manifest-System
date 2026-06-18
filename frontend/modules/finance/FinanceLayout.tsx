@@ -10,8 +10,9 @@
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { Outlet, NavLink, useSearchParams } from 'react-router-dom';
-import { DollarSign, TrendingUp, CreditCard, FileText, Bus, X } from 'lucide-react';
+import { DollarSign, TrendingUp, CreditCard, FileText, Bus, X, Printer } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useEvent } from '../../context/EventContext';
 import { useNotification } from '../../components/ui/NotificationSystem';
@@ -80,6 +81,30 @@ const FinanceLayout: React.FC = () => {
     const [fleetJourneyTab, setFleetJourneyTab] = useState<'Ongoing' | 'Return' | 'Cleared' | 'All'>('Ongoing');
     const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
     const [financeForm, setFinanceForm] = useState({ dispatch: '', balance: '' });
+    const [printPayload, setPrintPayload] = useState<{
+        type: 'fleet' | 'accountability';
+        title: string;
+        date: string;
+        vehicles: Vehicle[];
+        manifestName?: string;
+        logoUrl?: string;
+    } | null>(null);
+
+    useEffect(() => {
+        if (printPayload) {
+            const handleAfterPrint = () => {
+                setPrintPayload(null);
+            };
+            window.addEventListener('afterprint', handleAfterPrint);
+            const timer = setTimeout(() => {
+                window.print();
+            }, 500);
+            return () => {
+                window.removeEventListener('afterprint', handleAfterPrint);
+                clearTimeout(timer);
+            };
+        }
+    }, [printPayload]);
 
     // Sync selectedVehicle with realtime vehicle updates
     useEffect(() => {
@@ -323,81 +348,34 @@ const FinanceLayout: React.FC = () => {
         } catch (error: any) { showToast(`Failed to dispatch: ${error.message || 'Unknown error'}`, 'error'); }
     };
 
-    const handlePrintFleetReport = (eventToPrint?: MinistryEvent | null) => {
-        const ev = eventToPrint || selectedFleetEvent;
+    const handlePrintFleetReport = (eventToPrint?: MinistryEvent | React.MouseEvent | null) => {
+        const ev = (eventToPrint && typeof eventToPrint === 'object' && 'id' in eventToPrint)
+            ? eventToPrint
+            : selectedFleetEvent;
         if (!ev) return;
         const eventStationIds = pickupStations.filter(s => s.eventId === ev.id).map(s => s.id);
         const allEventVehicles = vehicles.filter(v => v.eventId === ev.id || eventStationIds.includes(v.stationId));
-        const totalPax = passengers.filter(p => allEventVehicles.some(v => v.id === p.vehicleId)).length;
-        let sumBookingFee = 0, sumBalancePayment = 0, sumTotalCost = 0, sumFinalBalance = 0, totalExpenditure = 0;
-        allEventVehicles.forEach(v => {
-            const totalCost = parseFloat(v.financeDetails?.ongoingDispatch || '0');
-            const bookingFee = parseFloat(v.financeDetails?.ongoingBalance || '0');
-            const balancePayment = parseFloat(v.financeDetails?.returnDispatch || '0');
-            totalExpenditure += bookingFee + balancePayment;
-            sumBookingFee += bookingFee; sumBalancePayment += balancePayment;
-            sumTotalCost += totalCost; sumFinalBalance += (totalCost - bookingFee - balancePayment);
+        
+        setPrintPayload({
+            type: 'fleet',
+            title: ev.title,
+            date: ev.date,
+            vehicles: allEventVehicles
         });
-        const htmlContent = `<html><head><title>Fleet Finance Report</title><style>body{font-family:monospace;padding:20px}table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #ccc;padding:6px}th{background:#f0f0f0}.money{text-align:right}</style></head><body><h1>MINISTRY FLEET FINANCE REPORT</h1><h2>${ev.title}</h2><p>Date: ${ev.date}</p><div style="display:flex;justify-content:space-between;border:1px solid #000;padding:10px;margin-bottom:20px"><div>Total Vehicles: ${allEventVehicles.length}</div><div>Total Pax: ${totalPax}</div><div>Total Expenditure: ${formatMoney(totalExpenditure)}</div></div><table><thead><tr><th>No.</th><th>Plate</th><th>Driver</th><th>Contact</th><th>Pax</th><th class="money">Booking Fee</th><th class="money">Balance</th><th class="money">Total Cost</th><th class="money">Balance</th></tr></thead><tbody>${allEventVehicles.map((v, i) => {
-            const tc = parseFloat(v.financeDetails?.ongoingDispatch || '0');
-            const bf = parseFloat(v.financeDetails?.ongoingBalance || '0');
-            const bp = parseFloat(v.financeDetails?.returnDispatch || '0');
-            return `<tr><td>${i + 1}</td><td>${v.number_plate}</td><td>${v.driverName || '-'}</td><td>${v.driverContact || '-'}</td><td>${passengers.filter(p => p.vehicleId === v.id).length}</td><td class="money">${formatMoney(bf)}</td><td class="money">${formatMoney(bp)}</td><td class="money">${formatMoney(tc)}</td><td class="money">${formatMoney(tc - bf - bp)}</td></tr>`;
-        }).join('')}<tr style="font-weight:bold;background:#f0f0f0;border-top:2px solid #000"><td colspan="4" style="text-align:right">TOTALS:</td><td>${totalPax}</td><td class="money">${formatMoney(sumBookingFee)}</td><td class="money">${formatMoney(sumBalancePayment)}</td><td class="money">${formatMoney(sumTotalCost)}</td><td class="money">${formatMoney(sumFinalBalance)}</td></tr></tbody></table><div style="margin-top:20px;text-align:center;font-size:10px">Generated on ${new Date().toLocaleString()}</div></body></html>`;
-
-        const iframe = document.createElement('iframe');
-        iframe.style.display = 'none';
-        document.body.appendChild(iframe);
-        const doc = iframe.contentWindow?.document;
-        if (doc) {
-            doc.open();
-            doc.write(htmlContent);
-            doc.close();
-        }
-        setTimeout(() => {
-            if (iframe.contentWindow) {
-                iframe.contentWindow.focus();
-                iframe.contentWindow.print();
-            }
-            setTimeout(() => document.body.removeChild(iframe), 1000);
-        }, 500);
     };
-
-    const generateAccountabilityHTML = useCallback((vehicle: Vehicle, globalManifest: any, manifestName: string) => {
-        const vPassengers = passengers.filter(p => p.vehicleId === vehicle.id);
-        const coordinator = availableCoordinators.find(u => u.name === vehicle.coordinator);
-        const coordContact = coordinator?.contact || '______________________';
-        const residents = vPassengers.filter(p => p.category === 'Member');
-        const schoolStudents = vPassengers.filter(p => p.category === 'Student');
-        const institutionStudents = vPassengers.filter(p => p.category === 'Institution');
-        const totalSouls = vPassengers.length;
-        const vehicleCost = parseFloat(vehicle.financeDetails?.ongoingDispatch || '0');
-        const costPerHead = totalSouls > 0 ? vehicleCost / totalSouls : 0;
-        return `<div style="page-break-after:always;padding:20px;height:95vh;box-sizing:border-box"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px"><div style="font-size:24px;font-weight:bold">${manifestName}</div><div style="font-size:18px;font-weight:bold;text-transform:uppercase;text-align:center;width:100%">Regional Transport Accountability Form</div>${globalManifest?.logoUrl ? `<img src="${globalManifest.logoUrl}" style="width:50px;height:50px;object-fit:contain;border-radius:50%;border:2px solid black">` : `<div style="font-size:10px;border:2px solid black;border-radius:50%;width:50px;height:50px;display:flex;align-items:center;justify-content:center;text-align:center">${manifestName}</div>`}</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px"><div><div>REGION: <strong>CENTRAL</strong></div><div>MANIFEST NAME: <strong>${manifestName}</strong></div><div>MANIFEST ID: <strong>CTL/EBB01R</strong></div></div><div><div>EVENT NAME: <strong>${selectedFleetEvent?.title || ''}</strong></div><div>EVENT DATE: <strong>${selectedFleetEvent?.date || ''}</strong></div><div>COORD: <strong>${vehicle.coordinator}</strong></div><div>CONTACT: <strong>${coordContact}</strong></div></div></div><div style="background:black;color:white;font-weight:bold;padding:5px 10px;text-transform:uppercase">DRIVER DETAILS</div><table style="width:100%;border-collapse:collapse;margin-bottom:20px"><tr><td style="border:1px solid black;padding:8px">NAME: <strong>${vehicle.driverName}</strong><br><br>NIN: <strong>${vehicle.driverNin}</strong></td><td style="border:1px solid black;padding:8px">CONTACT: <strong>${vehicle.driverContact}</strong><br><br>TYPE: <strong>${vehicle.type}</strong></td><td style="border:1px solid black;padding:8px">PLATE: <strong>${vehicle.number_plate}</strong></td></tr></table><table style="width:100%;border-collapse:collapse"><thead><tr><th style="border:1px solid black;padding:5px"></th><th style="border:1px solid black;padding:5px">RESIDENTS</th><th style="border:1px solid black;padding:5px">SCHOOLS</th><th style="border:1px solid black;padding:5px">INSTITUTIONS</th></tr></thead><tbody><tr><td style="border:1px solid black;padding:5px;font-weight:bold">NO TRANSPORTED:</td><td style="border:1px solid black;padding:5px;text-align:center">${residents.length || ''}</td><td style="border:1px solid black;padding:5px;text-align:center">${schoolStudents.length || ''}</td><td style="border:1px solid black;padding:5px;text-align:center">${institutionStudents.length || ''}</td></tr><tr><td style="border:1px solid black;padding:5px;font-weight:bold">FIRST TIMERS:</td><td style="border:1px solid black;padding:5px;text-align:center">${residents.filter(p => p.isFirstTime === 'Yes').length || ''}</td><td style="border:1px solid black;padding:5px;text-align:center">${schoolStudents.filter(p => p.isFirstTime === 'Yes').length || ''}</td><td style="border:1px solid black;padding:5px;text-align:center">${institutionStudents.filter(p => p.isFirstTime === 'Yes').length || ''}</td></tr><tr><td style="border:1px solid black;padding:5px;font-weight:bold;border-top:2px solid black">TOTAL SOULS:</td><td colspan="3" style="border:1px solid black;padding:5px;font-weight:bold;font-size:14px;text-align:center;border-top:2px solid black">${totalSouls}</td></tr></tbody></table><div style="background:black;color:white;font-weight:bold;padding:5px 10px;text-transform:uppercase;margin-top:10px">VEHICLE DETAILS</div><div style="display:grid;grid-template-columns:1fr 1fr;border:1px solid black"><div style="border-right:1px solid black;padding:10px">COST OF VEHICLE: <strong>${formatMoney(vehicleCost)}</strong><br><br><br>VERIFIED BY: ___________</div><div style="padding:10px">COST PER HEAD: <strong>${formatMoney(costPerHead)}</strong><br><br><br>SIGNATURE: ___________</div></div></div>`;
-    }, [passengers, availableCoordinators, selectedFleetEvent, formatMoney]);
 
     const handlePrintBatchAccountability = async (batchVehicles: Vehicle[]) => {
         const globalManifest = await ManifestStore.get();
         const manifestName = globalManifest?.name || 'MINISTRY MANIFEST';
-        const pagesHtml = batchVehicles.map(v => generateAccountabilityHTML(v, globalManifest, manifestName)).join('');
-        const htmlContent = `<html><head><title>Accountability Forms Batch</title><style>@media print{@page{size:landscape;margin:10mm}body{-webkit-print-color-adjust:exact}}body{font-family:Arial,sans-serif;font-size:11px;padding:0;margin:0}</style></head><body>${pagesHtml}</body></html>`;
-
-        const iframe = document.createElement('iframe');
-        iframe.style.display = 'none';
-        document.body.appendChild(iframe);
-        const doc = iframe.contentWindow?.document;
-        if (doc) {
-            doc.open();
-            doc.write(htmlContent);
-            doc.close();
-        }
-        setTimeout(() => {
-            if (iframe.contentWindow) {
-                iframe.contentWindow.focus();
-                iframe.contentWindow.print();
-            }
-            setTimeout(() => document.body.removeChild(iframe), 1000);
-        }, 500);
+        
+        setPrintPayload({
+            type: 'accountability',
+            title: selectedFleetEvent?.title || '',
+            date: selectedFleetEvent?.date || '',
+            vehicles: batchVehicles,
+            manifestName,
+            logoUrl: globalManifest?.logoUrl || undefined
+        });
     };
 
     const handlePrintAccountability = async (vehicle: Vehicle) => {
@@ -467,7 +445,7 @@ const FinanceLayout: React.FC = () => {
                                 return (
                                     <NavLink
                                         key={tab.to}
-                                        to={tab.to}
+                                        to={selectedEventId ? `${tab.to}?eventId=${selectedEventId}` : tab.to}
                                         className={({ isActive }) =>
                                             `flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold transition-all duration-300 whitespace-nowrap ${isActive ? 'bg-black text-white shadow-md ring-1 ring-gray-200/50' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50/50'}`
                                         }
@@ -515,7 +493,7 @@ const FinanceLayout: React.FC = () => {
                         return (
                             <NavLink
                                 key={tab.to}
-                                to={tab.to}
+                                to={selectedEventId ? `${tab.to}?eventId=${selectedEventId}` : tab.to}
                                 className={({ isActive }) =>
                                     `flex flex-col items-center justify-center w-full py-2 rounded-full transition-all duration-300 relative overflow-hidden ${
                                         isActive ? 'text-ministry-neon' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50/50'
@@ -729,7 +707,263 @@ const FinanceLayout: React.FC = () => {
                     </div>
                 );
             })()}
+            {printPayload && createPortal(
+                <div className="print-area">
+                    <PrintStyle />
+                    {printPayload.type === 'fleet' ? (
+                        <FleetPrintReport
+                            title={printPayload.title}
+                            date={printPayload.date}
+                            vehicles={printPayload.vehicles}
+                            passengers={passengers}
+                            formatMoney={formatMoney}
+                        />
+                    ) : (
+                        <AccountabilityPrintReport
+                            vehicles={printPayload.vehicles}
+                            passengers={passengers}
+                            availableCoordinators={availableCoordinators}
+                            eventTitle={printPayload.title}
+                            eventDate={printPayload.date}
+                            manifestName={printPayload.manifestName || ''}
+                            logoUrl={printPayload.logoUrl}
+                            formatMoney={formatMoney}
+                        />
+                    )}
+                </div>,
+                document.body
+            )}
         </FinanceContext.Provider>
+    );
+};
+
+// ─── Print helper components ────────────────────────────────────────────────
+
+const PrintStyle: React.FC = () => (
+    <style dangerouslySetInnerHTML={{ __html: `
+        @media print {
+            body {
+                background: white !important;
+                color: black !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                font-family: 'Courier New', Courier, monospace !important;
+                font-size: 12px !important;
+            }
+            #root {
+                display: none !important;
+            }
+            .print-area {
+                display: block !important;
+                width: 100% !important;
+            }
+            .page-break-after-always {
+                page-break-after: always !important;
+                break-after: page !important;
+                padding: 20px;
+            }
+        }
+        @media screen {
+            .print-area {
+                display: none !important;
+            }
+        }
+    ` }} />
+);
+
+const FleetPrintReport: React.FC<{
+    title: string;
+    date: string;
+    vehicles: Vehicle[];
+    passengers: Passenger[];
+    formatMoney: (val: number) => string;
+}> = ({ title, date, vehicles, passengers, formatMoney }) => {
+    let sumBookingFee = 0, sumBalancePayment = 0, sumTotalCost = 0, sumFinalBalance = 0, totalExpenditure = 0;
+    const totalPax = passengers.filter(p => vehicles.some(v => v.id === p.vehicleId)).length;
+    
+    vehicles.forEach(v => {
+        const totalCost = parseFloat(v.financeDetails?.ongoingDispatch || '0');
+        const bookingFee = parseFloat(v.financeDetails?.ongoingBalance || '0');
+        const balancePayment = parseFloat(v.financeDetails?.returnDispatch || '0');
+        totalExpenditure += bookingFee + balancePayment;
+        sumBookingFee += bookingFee; sumBalancePayment += balancePayment;
+        sumTotalCost += totalCost; sumFinalBalance += (totalCost - bookingFee - balancePayment);
+    });
+
+    return (
+        <div className="p-8 font-mono text-xs bg-white text-black">
+            <h1 className="text-2xl font-bold mb-1">MINISTRY FLEET FINANCE REPORT</h1>
+            <h2 className="text-lg font-bold mb-2">{title}</h2>
+            <p className="mb-4">Date: {date}</p>
+            
+            <div className="flex justify-between border border-black p-4 mb-6 font-bold text-sm">
+                <div>Total Vehicles: {vehicles.length}</div>
+                <div>Total Pax: {totalPax}</div>
+                <div>Total Expenditure: {formatMoney(totalExpenditure)}</div>
+            </div>
+            
+            <table className="w-full border-collapse border border-gray-400">
+                <thead>
+                    <tr className="bg-gray-100">
+                        <th className="border border-gray-400 p-2 text-left">No.</th>
+                        <th className="border border-gray-400 p-2 text-left">Plate</th>
+                        <th className="border border-gray-400 p-2 text-left">Driver</th>
+                        <th className="border border-gray-400 p-2 text-left">Contact</th>
+                        <th className="border border-gray-400 p-2 text-center">Pax</th>
+                        <th className="border border-gray-400 p-2 text-right">Booking Fee</th>
+                        <th className="border border-gray-400 p-2 text-right">Balance Paid</th>
+                        <th className="border border-gray-400 p-2 text-right">Total Cost</th>
+                        <th className="border border-gray-400 p-2 text-right">Balance Due</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {vehicles.map((v, i) => {
+                        const tc = parseFloat(v.financeDetails?.ongoingDispatch || '0');
+                        const bf = parseFloat(v.financeDetails?.ongoingBalance || '0');
+                        const bp = parseFloat(v.financeDetails?.returnDispatch || '0');
+                        const paxCount = passengers.filter(p => p.vehicleId === v.id).length;
+                        return (
+                            <tr key={v.id}>
+                                <td className="border border-gray-400 p-2">{i + 1}</td>
+                                <td className="border border-gray-400 p-2 font-mono font-bold">{v.number_plate}</td>
+                                <td className="border border-gray-400 p-2">{v.driverName || '-'}</td>
+                                <td className="border border-gray-400 p-2">{v.driverContact || '-'}</td>
+                                <td className="border border-gray-400 p-2 text-center">{paxCount}</td>
+                                <td className="border border-gray-400 p-2 text-right">{formatMoney(bf)}</td>
+                                <td className="border border-gray-400 p-2 text-right">{formatMoney(bp)}</td>
+                                <td className="border border-gray-400 p-2 text-right">{formatMoney(tc)}</td>
+                                <td className="border border-gray-400 p-2 text-right">{formatMoney(tc - bf - bp)}</td>
+                            </tr>
+                        );
+                    })}
+                    <tr className="font-bold bg-gray-100">
+                        <td colSpan={4} className="border border-gray-400 p-2 text-right">TOTALS:</td>
+                        <td className="border border-gray-400 p-2 text-center">{totalPax}</td>
+                        <td className="border border-gray-400 p-2 text-right">{formatMoney(sumBookingFee)}</td>
+                        <td className="border border-gray-400 p-2 text-right">{formatMoney(sumBalancePayment)}</td>
+                        <td className="border border-gray-400 p-2 text-right">{formatMoney(sumTotalCost)}</td>
+                        <td className="border border-gray-400 p-2 text-right">{formatMoney(sumFinalBalance)}</td>
+                    </tr>
+                </tbody>
+            </table>
+            <div className="mt-8 text-center text-[10px] text-gray-500">
+                Generated on {new Date().toLocaleString()}
+            </div>
+        </div>
+    );
+};
+
+const AccountabilityPrintReport: React.FC<{
+    vehicles: Vehicle[];
+    passengers: Passenger[];
+    availableCoordinators: any[];
+    eventTitle: string;
+    eventDate: string;
+    manifestName: string;
+    logoUrl?: string;
+    formatMoney: (val: number) => string;
+}> = ({ vehicles, passengers, availableCoordinators, eventTitle, eventDate, manifestName, logoUrl, formatMoney }) => {
+    return (
+        <div className="bg-white text-black font-sans text-xs">
+            {vehicles.map((v) => {
+                const vPassengers = passengers.filter(p => p.vehicleId === v.id);
+                const coordinator = availableCoordinators.find(u => u.name === v.coordinator);
+                const coordContact = coordinator?.contact || '______________________';
+                const residents = vPassengers.filter(p => p.category === 'Member');
+                const schoolStudents = vPassengers.filter(p => p.category === 'Student');
+                const institutionStudents = vPassengers.filter(p => p.category === 'Institution');
+                const totalSouls = vPassengers.length;
+                const vehicleCost = parseFloat(v.financeDetails?.ongoingDispatch || '0');
+                const costPerHead = totalSouls > 0 ? vehicleCost / totalSouls : 0;
+
+                return (
+                    <div key={v.id} className="page-break-after-always">
+                        <div>
+                            <div className="flex justify-between items-center mb-6">
+                                <div className="text-xl font-bold">{manifestName}</div>
+                                <div className="text-sm font-bold uppercase text-center flex-1">Regional Transport Accountability Form</div>
+                                {logoUrl ? (
+                                    <img src={logoUrl} alt="Logo" className="w-12 h-12 object-contain rounded-full border-2 border-black" />
+                                ) : (
+                                    <div className="w-12 h-12 border-2 border-black rounded-full flex items-center justify-center text-[8px] text-center font-bold">{manifestName}</div>
+                                )}
+                            </div>
+                            
+                            <div className="grid grid-cols-2 gap-4 mb-6 border border-gray-300 p-4 rounded-lg bg-gray-50">
+                                <div>
+                                    <div className="mb-1">REGION: <strong>CENTRAL</strong></div>
+                                    <div className="mb-1">MANIFEST NAME: <strong>{manifestName}</strong></div>
+                                    <div>MANIFEST ID: <strong>CTL/EBB01R</strong></div>
+                                </div>
+                                <div>
+                                    <div className="mb-1">EVENT NAME: <strong>{eventTitle}</strong></div>
+                                    <div className="mb-1">EVENT DATE: <strong>{eventDate}</strong></div>
+                                    <div className="mb-1">COORD: <strong>{v.coordinator}</strong></div>
+                                    <div>CONTACT: <strong>{coordContact}</strong></div>
+                                </div>
+                            </div>
+
+                            <div className="bg-black text-white font-bold px-3 py-1.5 uppercase text-[10px] tracking-wider rounded mb-3">DRIVER DETAILS</div>
+                            <table className="w-full border-collapse mb-6 text-sm">
+                                <tbody>
+                                    <tr>
+                                        <td className="border border-black p-3 w-1/3">
+                                            NAME: <strong>{v.driverName}</strong><br />NIN: <strong>{v.driverNin}</strong>
+                                        </td>
+                                        <td className="border border-black p-3 w-1/3">
+                                            CONTACT: <strong>{v.driverContact}</strong><br />TYPE: <strong>{v.type}</strong>
+                                        </td>
+                                        <td className="border border-black p-3 w-1/3 font-mono font-bold text-center text-lg">
+                                            PLATE: {v.number_plate}
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+
+                            <div className="bg-black text-white font-bold px-3 py-1.5 uppercase text-[10px] tracking-wider rounded mb-3">PASSENGER DETAILS</div>
+                            <table className="w-full border-collapse mb-6 text-center text-sm">
+                                <thead>
+                                    <tr className="bg-gray-100">
+                                        <th className="border border-black p-2"></th>
+                                        <th className="border border-black p-2">RESIDENTS</th>
+                                        <th className="border border-black p-2">SCHOOLS</th>
+                                        <th className="border border-black p-2">INSTITUTIONS</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td className="border border-black p-2 font-bold text-left">NO TRANSPORTED:</td>
+                                        <td className="border border-black p-2">{residents.length || '-'}</td>
+                                        <td className="border border-black p-2">{schoolStudents.length || '-'}</td>
+                                        <td className="border border-black p-2">{institutionStudents.length || '-'}</td>
+                                    </tr>
+                                    <tr>
+                                        <td className="border border-black p-2 font-bold text-left">FIRST TIMERS:</td>
+                                        <td className="border border-black p-2">{residents.filter(p => p.isFirstTime === 'Yes').length || '-'}</td>
+                                        <td className="border border-black p-2">{schoolStudents.filter(p => p.isFirstTime === 'Yes').length || '-'}</td>
+                                        <td className="border border-black p-2">{institutionStudents.filter(p => p.isFirstTime === 'Yes').length || '-'}</td>
+                                    </tr>
+                                    <tr className="font-bold bg-gray-50 text-base">
+                                        <td className="border border-black p-2 text-left">TOTAL SOULS:</td>
+                                        <td colSpan={3} className="border border-black p-2 text-center">{totalSouls}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div>
+                            <div className="bg-black text-white font-bold px-3 py-1.5 uppercase text-[10px] tracking-wider rounded mb-3">FINANCIAL DETAILS</div>
+                            <div className="grid grid-cols-2 border border-black rounded p-4 text-sm gap-y-4">
+                                <div>COST OF VEHICLE: <strong>{formatMoney(vehicleCost)}</strong></div>
+                                <div>COST PER HEAD: <strong>{formatMoney(costPerHead)}</strong></div>
+                                <div className="mt-4">VERIFIED BY: ______________________</div>
+                                <div className="mt-4">SIGNATURE: ______________________</div>
+                            </div>
+                        </div>
+                    </div>
+                );
+            })}
+        </div>
     );
 };
 
