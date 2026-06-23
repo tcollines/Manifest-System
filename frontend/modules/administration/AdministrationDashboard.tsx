@@ -25,7 +25,7 @@ const AdministrationDashboard: React.FC<Props> = (props) => {
       <ModuleTabs
         tabs={[
           { to: '/administration/users', label: 'System Users', icon: <Users size={16} /> },
-          { to: '/administration/events-highlights', label: 'Events Highlights', icon: <Calendar size={16} /> }
+          { to: '/administration/events-highlights', label: 'Events Highlights', icon: <Calendar size={16} /> },
         ]}
       />
 

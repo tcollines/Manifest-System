@@ -11,7 +11,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Outlet, NavLink, useSearchParams, useLocation } from 'react-router-dom';
-import { Calendar, Users, Database, Search, UserPlus, BarChart3 } from 'lucide-react';
+import { Calendar, Users, Database, Search, UserPlus, BarChart3, FileSearch } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../components/ui/NotificationSystem';
 import { useSafeAsync } from '../../hooks/useSafeAsync';
@@ -313,12 +313,13 @@ const FollowUpLayout: React.FC = () => {
 
     // ── Nav tabs ──────────────────────────────────────────────────────────────
     const navTabs = [
-        { to: 'services',     icon: Calendar,  label: 'Services',        mobileLabel: 'Services' },
-        { to: 'events',       icon: Users,      label: 'Events',          mobileLabel: 'Events' },
-        { to: 'database',     icon: Database,   label: 'Souls Database',  mobileLabel: 'Souls' },
-        { to: 'first-timers', icon: UserPlus,   label: 'First Timers',    mobileLabel: 'Timers' },
-        { to: 'members',      icon: Database,   label: 'Members DB',      mobileLabel: 'Members' },
-        { to: 'analysis',     icon: BarChart3,   label: 'Needs Follow Up', mobileLabel: 'Follow Up' },
+        { to: 'services',     icon: Calendar,    label: 'Services',        mobileLabel: 'Services' },
+        { to: 'events',       icon: Users,        label: 'Events',          mobileLabel: 'Events' },
+        { to: 'database',     icon: Database,     label: 'Souls Database',  mobileLabel: 'Souls' },
+        { to: 'first-timers', icon: UserPlus,     label: 'First Timers',    mobileLabel: 'Timers' },
+        { to: 'members',      icon: Database,     label: 'Members DB',      mobileLabel: 'Members' },
+        { to: 'analysis',     icon: BarChart3,    label: 'Needs Follow Up', mobileLabel: 'Follow Up' },
+        { to: 'queries',      icon: FileSearch,   label: 'Queries',         mobileLabel: 'Queries' },
     ];
 
     // ── Context value ─────────────────────────────────────────────────────────
