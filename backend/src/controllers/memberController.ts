@@ -81,7 +81,7 @@ export const addMember = async (req: Request, res: Response) => {
             _born_again: typeof m.born_again === 'boolean' ? m.born_again : (m.born_again === 'Yes'),
             _joined_date: m.joined_date || m.joinedDate || new Date().toISOString(),
             _attended_service_ids: safeServiceIds || [],
-            _current_service_id: m.currentServiceId ? toUUID(m.currentServiceId) : null
+            _current_service_id: m.category === 'First Timer' && m.currentServiceId ? toUUID(m.currentServiceId) : null
         });
 
         if (error) {
@@ -141,7 +141,7 @@ export const updateMember = async (req: Request, res: Response) => {
                 .eq('id', toUUID(id))
                 .single();
 
-            if (oldRecord && oldRecord.category === 'First Timer' && m.category === 'Member') {
+            if (m.category === 'Member') {
                 updates.is_first_timer = false;
                 updates.first_timer_service_id = null;
                 updates.first_timer_date = null;

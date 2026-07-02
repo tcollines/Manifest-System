@@ -214,15 +214,13 @@ export default function CheckInTab() {
                                     <Baby className="w-4 h-4" />
                                     <span className="hidden md:inline">Children Count</span>
                                 </button>
-                                {elevatedRoles.includes(currentUser.role) && (
-                                    <button
-                                        onClick={handleCopyReport}
-                                        className="flex items-center justify-center p-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 border border-gray-200 shadow-sm transition-colors"
-                                        title="Copy WhatsApp Report"
-                                    >
-                                        <Copy className="w-4 h-4" />
-                                    </button>
-                                )}
+                                <button
+                                    onClick={handleCopyReport}
+                                    className="flex items-center justify-center p-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 border border-gray-200 shadow-sm transition-colors"
+                                    title="Copy WhatsApp Report"
+                                >
+                                    <Copy className="w-4 h-4" />
+                                </button>
                                 <button
                                     onClick={() => { setViewMode('register-new'); setSearchParams((prev: URLSearchParams) => { prev.set('view', 'register'); return prev; }, { replace: true }); }}
                                     className="flex items-center space-x-2 bg-ministry-orange text-white px-4 py-2 rounded-lg hover:bg-orange-600 shadow-md"

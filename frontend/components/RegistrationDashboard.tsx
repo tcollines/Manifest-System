@@ -1340,15 +1340,23 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
       });
 
       // Optimistically increment check-in totals
+      const member = members.find(m => m.id === memberId);
+      const joinedDate = member?.joinedDate ? member.joinedDate.split('T')[0].split(' ')[0] : null;
+      const serviceDate = serviceToUse.date;
+      const isFirstTimerForService = member && member.category === 'First Timer' && joinedDate === serviceDate;
+      const isReturningFirstTimer = member && member.category === 'First Timer' && joinedDate && joinedDate < serviceDate;
+
       setCheckInStats(prev => ({
         ...prev,
-        total: prev.total + 1
+        total: prev.total + 1,
+        firstTimers: isFirstTimerForService ? prev.firstTimers + 1 : prev.firstTimers
       }));
 
       // Update the local member object for UI badges/lists
       setMembers(prev => prev.map(m => m.id === memberId ? {
         ...m,
         status: 'Checked In',
+        category: isReturningFirstTimer ? 'Member' : m.category,
         checkInTime: new Date().toLocaleTimeString()
       } : m));
 
@@ -1369,6 +1377,11 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
     } catch (error: any) {
       console.error("Check-in Error:", error);
 
+      const member = members.find(m => m.id === memberId);
+      const joinedDate = member?.joinedDate ? member.joinedDate.split('T')[0].split(' ')[0] : null;
+      const serviceDate = serviceToUse.date;
+      const isFirstTimerForService = member && member.category === 'First Timer' && joinedDate === serviceDate;
+
       // Rollback Optimistic UI on failure
       setCheckedInIds(prev => {
         const next = new Set(prev);
@@ -1377,11 +1390,13 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
       });
       setCheckInStats(prev => ({
         ...prev,
-        total: Math.max(0, prev.total - 1)
+        total: Math.max(0, prev.total - 1),
+        firstTimers: isFirstTimerForService ? Math.max(0, prev.firstTimers - 1) : prev.firstTimers
       }));
       setMembers(prev => prev.map(m => m.id === memberId ? {
         ...m,
         status: 'Member', // Assuming default is 'Member', might need exact prior state in edge cases
+        category: member ? member.category : m.category,
         checkInTime: undefined
       } : m));
 
@@ -1417,14 +1432,21 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
         return next;
       });
 
+      const member = members.find(m => m.id === memberId);
+      const joinedDate = member?.joinedDate ? member.joinedDate.split('T')[0].split(' ')[0] : null;
+      const serviceDate = selectedService.date;
+      const isFirstTimerForService = member && member.category === 'First Timer' && joinedDate === serviceDate;
+
       setCheckInStats(prev => ({
         ...prev,
-        total: Math.max(0, prev.total - 1)
+        total: Math.max(0, prev.total - 1),
+        firstTimers: isFirstTimerForService ? Math.max(0, prev.firstTimers - 1) : prev.firstTimers
       }));
 
       setMembers(prev => prev.map(m => m.id === memberId ? {
         ...m,
         status: 'Member',
+        category: (member && member.firstTimerServiceId === selectedService.id) ? 'First Timer' : m.category,
         checkInTime: undefined
       } : m));
 
@@ -1834,7 +1856,17 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
       if (!checkedInIds.has(m.id)) return false;
 
       // If specific category
-      if (effectiveFilterCategory !== 'CHECKED_IN_ALL' && m.category !== effectiveFilterCategory) return false;
+      if (effectiveFilterCategory !== 'CHECKED_IN_ALL') {
+        if (effectiveFilterCategory === 'First Timer') {
+          const joinedDate = m.joinedDate ? m.joinedDate.split('T')[0].split(' ')[0] : null;
+          const serviceDate = selectedService?.date;
+          const isFirstTimerForService = (m.category === 'First Timer' && joinedDate === serviceDate) ||
+                                         (m.firstTimerServiceId === selectedService?.id);
+          if (!isFirstTimerForService) return false;
+        } else if (m.category !== effectiveFilterCategory) {
+          return false;
+        }
+      }
     }
 
     const tokens = searchQuery.toLowerCase().split(/\s+/).filter(Boolean);
@@ -2732,16 +2764,13 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
                     <Baby className="w-4 h-4" />
                     <span className="hidden md:inline">Children Count</span>
                   </button>
-                  {/* Copy Report Permission: Explicit Roles Only */}
-                  {['Administrator', 'Head of Dept', 'Department Head', 'Dept Admin', 'Reg. Admin', 'Registration Admin', 'Registration Head'].includes(currentUser.role) && (
-                    <button
-                      onClick={handleCopyReport}
-                      className="flex items-center justify-center p-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 border border-gray-200 shadow-sm transition-colors"
-                      title="Copy WhatsApp Report"
-                    >
-                      <Copy className="w-4 h-4" />
-                    </button>
-                  )}
+                  <button
+                    onClick={handleCopyReport}
+                    className="flex items-center justify-center p-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 border border-gray-200 shadow-sm transition-colors"
+                    title="Copy WhatsApp Report"
+                  >
+                    <Copy className="w-4 h-4" />
+                  </button>
                   <button onClick={() => { setViewMode('register-new'); setSearchParams(prev => { prev.set('view', 'register'); return prev; }, { replace: true }); }} className="flex items-center space-x-2 bg-ministry-orange text-white px-4 py-2 rounded-lg hover:bg-orange-600 shadow-md">
                     <UserPlus className="w-4 h-4" />
                     <span className="hidden md:inline">Register New</span>

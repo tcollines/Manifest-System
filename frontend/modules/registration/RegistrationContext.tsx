@@ -576,15 +576,20 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
 
             // Update first timer stats if this member is a first timer
             const member = membersRef.current.find(m => m.id.toLowerCase() === memberId);
+            const serviceDate = selectedServiceRef.current?.date;
             if (member) {
-              if (member.category === 'First Timer') {
+              const joinedDate = member.joinedDate ? member.joinedDate.split('T')[0].split(' ')[0] : null;
+              if (member.category === 'First Timer' && joinedDate === serviceDate) {
                 setCheckInStats(stats => ({ ...stats, firstTimers: stats.firstTimers + 1 }));
               }
             } else {
               // Member not loaded locally (newly registered on another device)
               MemberStore.getById(memberId).then((data) => {
-                if (data && data.category === 'First Timer') {
-                  setCheckInStats(stats => ({ ...stats, firstTimers: stats.firstTimers + 1 }));
+                if (data) {
+                  const joinedDate = data.joinedDate ? data.joinedDate.split('T')[0].split(' ')[0] : null;
+                  if (data.category === 'First Timer' && joinedDate === serviceDate) {
+                    setCheckInStats(stats => ({ ...stats, firstTimers: stats.firstTimers + 1 }));
+                  }
                 }
               });
             }
@@ -603,14 +608,19 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
 
             // Update first timer stats if this member is a first timer
             const member = membersRef.current.find(m => m.id.toLowerCase() === memberId);
+            const serviceDate = selectedServiceRef.current?.date;
             if (member) {
-              if (member.category === 'First Timer') {
+              const joinedDate = member.joinedDate ? member.joinedDate.split('T')[0].split(' ')[0] : null;
+              if (member.category === 'First Timer' && joinedDate === serviceDate) {
                 setCheckInStats(stats => ({ ...stats, firstTimers: Math.max(0, stats.firstTimers - 1) }));
               }
             } else {
               MemberStore.getById(memberId).then((data) => {
-                if (data && data.category === 'First Timer') {
-                  setCheckInStats(stats => ({ ...stats, firstTimers: Math.max(0, stats.firstTimers - 1) }));
+                if (data) {
+                  const joinedDate = data.joinedDate ? data.joinedDate.split('T')[0].split(' ')[0] : null;
+                  if (data.category === 'First Timer' && joinedDate === serviceDate) {
+                    setCheckInStats(stats => ({ ...stats, firstTimers: Math.max(0, stats.firstTimers - 1) }));
+                  }
                 }
               });
             }
@@ -1549,16 +1559,22 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
 
       // Optimistically increment check-in totals
       const member = members.find(m => m.id === memberId);
+      const joinedDate = member?.joinedDate ? member.joinedDate.split('T')[0].split(' ')[0] : null;
+      const serviceDate = serviceToUse.date;
+      const isFirstTimerForService = member && member.category === 'First Timer' && joinedDate === serviceDate;
+      const isReturningFirstTimer = member && member.category === 'First Timer' && joinedDate && joinedDate < serviceDate;
+
       setCheckInStats(prev => ({
         ...prev,
         total: prev.total + 1,
-        firstTimers: (member && member.category === 'First Timer') ? prev.firstTimers + 1 : prev.firstTimers
+        firstTimers: isFirstTimerForService ? prev.firstTimers + 1 : prev.firstTimers
       }));
 
       // Update the local member object for UI badges/lists
       setMembers(prev => prev.map(m => m.id === memberId ? {
         ...m,
         status: 'Checked In',
+        category: isReturningFirstTimer ? 'Member' : m.category,
         checkInTime: new Date().toLocaleTimeString()
       } : m));
 
@@ -1579,6 +1595,11 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
     } catch (error: any) {
       console.error("Check-in Error:", error);
 
+      const member = members.find(m => m.id === memberId);
+      const joinedDate = member?.joinedDate ? member.joinedDate.split('T')[0].split(' ')[0] : null;
+      const serviceDate = serviceToUse.date;
+      const isFirstTimerForService = member && member.category === 'First Timer' && joinedDate === serviceDate;
+
       // Rollback Optimistic UI on failure
       setCheckedInIds(prev => {
         const next = new Set(prev);
@@ -1587,11 +1608,13 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
       });
       setCheckInStats(prev => ({
         ...prev,
-        total: Math.max(0, prev.total - 1)
+        total: Math.max(0, prev.total - 1),
+        firstTimers: isFirstTimerForService ? Math.max(0, prev.firstTimers - 1) : prev.firstTimers
       }));
       setMembers(prev => prev.map(m => m.id === memberId ? {
         ...m,
         status: 'Member', // Assuming default is 'Member', might need exact prior state in edge cases
+        category: member ? member.category : m.category,
         checkInTime: undefined
       } : m));
 
@@ -1628,15 +1651,20 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
       });
 
       const member = members.find(m => m.id === memberId);
+      const joinedDate = member?.joinedDate ? member.joinedDate.split('T')[0].split(' ')[0] : null;
+      const serviceDate = selectedService.date;
+      const isFirstTimerForService = member && member.category === 'First Timer' && joinedDate === serviceDate;
+
       setCheckInStats(prev => ({
         ...prev,
         total: Math.max(0, prev.total - 1),
-        firstTimers: (member && member.category === 'First Timer') ? Math.max(0, prev.firstTimers - 1) : prev.firstTimers
+        firstTimers: isFirstTimerForService ? Math.max(0, prev.firstTimers - 1) : prev.firstTimers
       }));
 
       setMembers(prev => prev.map(m => m.id === memberId ? {
         ...m,
         status: 'Member',
+        category: (member && member.firstTimerServiceId === selectedService.id) ? 'First Timer' : m.category,
         checkInTime: undefined
       } : m));
 
@@ -2071,7 +2099,17 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
       if (!checkedInIds.has(m.id)) return false;
 
       // If specific category
-      if (effectiveFilterCategory !== 'CHECKED_IN_ALL' && m.category !== effectiveFilterCategory) return false;
+      if (effectiveFilterCategory !== 'CHECKED_IN_ALL') {
+        if (effectiveFilterCategory === 'First Timer') {
+          const joinedDate = m.joinedDate ? m.joinedDate.split('T')[0].split(' ')[0] : null;
+          const serviceDate = selectedService?.date;
+          const isFirstTimerForService = (m.category === 'First Timer' && joinedDate === serviceDate) ||
+                                         (m.firstTimerServiceId === selectedService?.id);
+          if (!isFirstTimerForService) return false;
+        } else if (m.category !== effectiveFilterCategory) {
+          return false;
+        }
+      }
     }
 
     const tokens = searchQuery.toLowerCase().split(/\s+/).filter(Boolean);
