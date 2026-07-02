@@ -49,6 +49,7 @@ const FollowUpDatabasePage = React.lazy(() => import('../modules/follow-up/Follo
 const FollowUpFirstTimersPage = React.lazy(() => import('../modules/follow-up/FollowUpFirstTimersPage'));
 const FollowUpMembersPage = React.lazy(() => import('../modules/follow-up/FollowUpMembersPage'));
 const FollowUpAnalysisPage = React.lazy(() => import('../modules/follow-up/FollowUpAnalysisPage'));
+const FollowUpQueriesPage = React.lazy(() => import('../modules/follow-up/FollowUpQueriesPage'));
 
 const SchoolsLayout = React.lazy(() => import('../modules/schools/SchoolsLayout'));
 const SchoolsTabsLayout = React.lazy(() => import('../modules/schools/SchoolsTabsLayout').then(m => ({ default: m.SchoolsTabsLayout })));
@@ -272,6 +273,7 @@ const DepartmentRouterProxy: React.FC<ProxyProps> = ({ onOpenModal, onEditUser }
                         <Route path="first-timers" element={<FollowUpFirstTimersPage />} />
                         <Route path="members"      element={<FollowUpMembersPage />} />
                         <Route path="analysis"     element={<FollowUpAnalysisPage />} />
+                        <Route path="queries"      element={<FollowUpQueriesPage />} />
                     </Route>
                     <Route path="dashboard/*" element={<GenericDeptDashboard deptId={deptId} currentUser={currentUser} openModal={onOpenModal} onEditUser={onEditUser} />} />
                 </Route>

@@ -1,4 +1,4 @@
-import { Request, Response } from 'express';
+﻿import { Request, Response } from 'express';
 import { supabase } from '../supabase';
 import { v4 as uuidv4 } from 'uuid';
 import { toUUID, logLegacyFallback } from '../utils/uuid';
@@ -11,7 +11,7 @@ export const getMembers = async (req: Request, res: Response) => {
 
     const page = parseInt(req.query.page as string) || 1;
     const requestedSize = parseInt(req.query.pageSize as string) || 50;
-    const pageSize = Math.min(requestedSize, 100); // 🚨 CRITICAL ENFORCEMENT: Hard limit of 100 rows per request.
+    const pageSize = Math.min(requestedSize, 100); // ≡ƒÜ¿ CRITICAL ENFORCEMENT: Hard limit of 100 rows per request.
     const searchQuery = req.query.search as string || '';
 
     try {
@@ -567,7 +567,7 @@ export const getEventAttendees = async (req: Request, res: Response) => {
             return res.json(members || []);
         }
 
-        // Step 2: Fallback — Ministry Events use passengers as attendees
+        // Step 2: Fallback ΓÇö Ministry Events use passengers as attendees
         // (e.g. Men Gather, Return Journey events where check-in is via vehicles/transport)
         const { data: passengers, error: passError } = await supabase
             .from('passengers')
@@ -645,7 +645,7 @@ export const getMemberById = async (req: Request, res: Response) => {
     }
 };
 
-// Helper function for fuzzy string matching (Sørensen–Dice coefficient)
+// Helper function for fuzzy string matching (S├╕rensenΓÇôDice coefficient)
 function calculateSimilarity(str1: string, str2: string): number {
     if (!str1 || !str2) return 0;
     const s1 = str1.toLowerCase().trim();
@@ -907,3 +907,64 @@ export const getPassengerDetails = async (req: Request, res: Response) => {
     }
 };
 
+export const getAttendanceSummary = async (req: any, res: any) => {
+    const manifestId = req.manifestId;
+    if (!manifestId) return res.status(401).json({ error: 'Unauthorized: Missing Manifest ID' });
+
+    const { dateFrom, dateTo } = req.query;
+
+    try {
+        // Fetch Service-type events, optionally filtered by date range
+        let evtQuery = supabase
+            .from('ministry_events')
+            .select('id')
+            .eq('manifest_id', manifestId)
+            .eq('type', 'Service');
+
+        if (dateFrom) evtQuery = (evtQuery as any).gte('date', dateFrom);
+        if (dateTo)   evtQuery = (evtQuery as any).lte('date', dateTo);
+
+        const { data: serviceEvents, error: evtError } = await evtQuery;
+        if (evtError) throw evtError;
+
+        const serviceEventIds = (serviceEvents || []).map((e: any) => e.id);
+        const totalServices = serviceEventIds.length;
+
+        if (totalServices === 0) {
+            return res.json({ summary: {}, totalServices: 0 });
+        }
+
+        const serviceIdSet = new Set(serviceEventIds);
+        const summary: Record<string, number> = {};
+        const CHUNK = 1000;
+        let offset = 0;
+        let totalFetched = 0;
+
+        while (true) {
+            const { data: rows, error: attError } = await supabase
+                .from('service_attendance')
+                .select('member_id, service_id')
+                .eq('manifest_id', manifestId)
+                .in('service_id', serviceEventIds)
+                .range(offset, offset + CHUNK - 1);
+
+            if (attError) throw attError;
+            if (!rows || rows.length === 0) break;
+
+            for (const row of rows) {
+                if (!serviceIdSet.has(row.service_id)) continue;
+                summary[row.member_id] = (summary[row.member_id] || 0) + 1;
+            }
+
+            totalFetched += rows.length;
+            if (rows.length < CHUNK) break;
+            offset += CHUNK;
+        }
+
+        console.log('[ATTENDANCE SUMMARY] dateFrom=' + (dateFrom || 'all') + ', dateTo=' + (dateTo || 'all') + ', totalFetched=' + totalFetched + ', services=' + totalServices + ', members=' + Object.keys(summary).length);
+        res.json({ summary, totalServices });
+    } catch (error: any) {
+        console.error('[ATTENDANCE SUMMARY ERROR]', error);
+        res.status(500).json({ error: 'An internal server error occurred.' });
+    }
+};

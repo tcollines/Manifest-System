@@ -15,7 +15,8 @@ import {
     bulkUpdateResidency,
     uncheckInMember,
     getFirstTimers,
-    getPassengerDetails
+    getPassengerDetails,
+    getAttendanceSummary
 } from '../controllers/memberController';
 
 const router = Router();
@@ -33,6 +34,7 @@ router.get('/passengers/:id/details', getPassengerDetails);
 router.get('/search-status/:serviceId', searchMembersWithStatus);
 router.get('/attendees/:id', getEventAttendees);
 router.get('/search-by-residency', searchMembersByResidency);
+router.get('/attendance-summary', getAttendanceSummary);
 router.post('/bulk-update-residency', bulkUpdateResidency);
 router.get('/:id', getMemberById);
 
