@@ -1,4 +1,4 @@
-﻿import { Request, Response } from 'express';
+import { Request, Response } from 'express';
 import { supabase } from '../supabase';
 import { v4 as uuidv4 } from 'uuid';
 import { toUUID, logLegacyFallback } from '../utils/uuid';
@@ -15,7 +15,7 @@ export const getMembers = async (req: Request, res: Response) => {
     const searchQuery = req.query.search as string || '';
 
     try {
-        let query = supabase.from('members').select('id, name, category, phone, status, check_in_time, gender, residency, born_again, joined_date, attended_service_ids, created_at, occupation, place_of_work', { count: 'exact' })
+        let query = supabase.from('members').select('id, name, category, phone, status, check_in_time, gender, residency, born_again, joined_date, attended_service_ids, created_at, occupation, place_of_work, email, is_phaneroo_member, referral_source', { count: 'exact' })
             .eq('manifest_id', manifestId); // Tenant Isolation
 
         if (searchQuery) {
@@ -93,6 +93,36 @@ export const addMember = async (req: Request, res: Response) => {
             console.warn('[ADD MEMBER WARNING] Ignored Temporary/Invalid IDs:', data._meta.ignored_service_ids);
         }
 
+        const memberId = data?.id;
+        if (memberId) {
+            const updates: any = {};
+            if (m.occupation !== undefined) updates.occupation = m.occupation;
+            if (m.place_of_work !== undefined || m.placeOfWork !== undefined) {
+                updates.place_of_work = m.place_of_work !== undefined ? m.place_of_work : m.placeOfWork;
+            }
+            if (m.email !== undefined) updates.email = m.email;
+            if (m.is_phaneroo_member !== undefined || m.isPhanerooMember !== undefined) {
+                updates.is_phaneroo_member = m.is_phaneroo_member !== undefined ? m.is_phaneroo_member : m.isPhanerooMember;
+            }
+            if (m.referral_source !== undefined || m.referralSource !== undefined) {
+                updates.referral_source = m.referral_source !== undefined ? m.referral_source : m.referralSource;
+            }
+
+            if (Object.keys(updates).length > 0) {
+                const { error: updateError } = await supabase
+                    .from('members')
+                    .update(updates)
+                    .eq('manifest_id', manifestId)
+                    .eq('id', toUUID(memberId));
+
+                if (updateError) {
+                    console.error('[ADD MEMBER UPDATE ERROR] Failed to save extra columns:', updateError);
+                } else {
+                    Object.assign(data, updates);
+                }
+            }
+        }
+
         res.status(201).json(data);
 
     } catch (error: any) {
@@ -116,20 +146,43 @@ export const updateMember = async (req: Request, res: Response) => {
     if (m.category !== undefined) updates.category = m.category;
     if (m.phone !== undefined) updates.phone = m.phone;
     if (m.status !== undefined) updates.status = m.status;
-    if (m.checkInTime !== undefined) updates.check_in_time = m.checkInTime;
     if (m.gender !== undefined) updates.gender = m.gender;
     if (m.residency !== undefined) updates.residency = m.residency;
-    if (m.bornAgain !== undefined) updates.born_again = m.bornAgain;
-    if (m.joinedDate !== undefined) updates.joined_date = m.joinedDate;
-    if (m.placeOfWork !== undefined) updates.place_of_work = m.placeOfWork;
     if (m.occupation !== undefined) updates.occupation = m.occupation;
     if (m.email !== undefined) updates.email = m.email;
-    if (m.attendedServiceIds !== undefined) updates.attended_service_ids = m.attendedServiceIds;
-    if (m.firstTimerServiceId !== undefined) {
-        updates.first_timer_service_id = m.firstTimerServiceId ? toUUID(m.firstTimerServiceId) : null;
+
+    // Support both camelCase and snake_case for frontend requests
+    if (m.check_in_time !== undefined || m.checkInTime !== undefined) {
+        updates.check_in_time = m.check_in_time !== undefined ? m.check_in_time : m.checkInTime;
     }
-    if (m.followUpStatus !== undefined) updates.follow_up_status = m.followUpStatus;
-    if (m.followUpNotes !== undefined) updates.follow_up_notes = m.followUpNotes;
+    if (m.born_again !== undefined || m.bornAgain !== undefined) {
+        updates.born_again = m.born_again !== undefined ? m.born_again : m.bornAgain;
+    }
+    if (m.joined_date !== undefined || m.joinedDate !== undefined) {
+        updates.joined_date = m.joined_date !== undefined ? m.joined_date : m.joinedDate;
+    }
+    if (m.place_of_work !== undefined || m.placeOfWork !== undefined) {
+        updates.place_of_work = m.place_of_work !== undefined ? m.place_of_work : m.placeOfWork;
+    }
+    if (m.is_phaneroo_member !== undefined || m.isPhanerooMember !== undefined) {
+        updates.is_phaneroo_member = m.is_phaneroo_member !== undefined ? m.is_phaneroo_member : m.isPhanerooMember;
+    }
+    if (m.referral_source !== undefined || m.referralSource !== undefined) {
+        updates.referral_source = m.referral_source !== undefined ? m.referral_source : m.referralSource;
+    }
+    if (m.attended_service_ids !== undefined || m.attendedServiceIds !== undefined) {
+        updates.attended_service_ids = m.attended_service_ids !== undefined ? m.attended_service_ids : m.attendedServiceIds;
+    }
+    if (m.first_timer_service_id !== undefined || m.firstTimerServiceId !== undefined) {
+        const val = m.first_timer_service_id !== undefined ? m.first_timer_service_id : m.firstTimerServiceId;
+        updates.first_timer_service_id = val ? toUUID(val) : null;
+    }
+    if (m.follow_up_status !== undefined || m.followUpStatus !== undefined) {
+        updates.follow_up_status = m.follow_up_status !== undefined ? m.follow_up_status : m.followUpStatus;
+    }
+    if (m.follow_up_notes !== undefined || m.followUpNotes !== undefined) {
+        updates.follow_up_notes = m.follow_up_notes !== undefined ? m.follow_up_notes : m.followUpNotes;
+    }
 
     try {
         // [FIX] Administrative Correction: If shifting a First Timer to Member, explicitly clear First Timer flags

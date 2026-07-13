@@ -19,6 +19,9 @@ export const mapMemberFromDB = (m: any): Member => ({
   createdAt: m.created_at,
   occupation: m.occupation,
   placeOfWork: m.place_of_work,
+  email: m.email,
+  isPhanerooMember: m.is_phaneroo_member,
+  referralSource: m.referral_source,
   // Passenger-specific flags returned by getEventAttendees for ministry events
   isFirstTime: m.isFirstTime ?? false,
   soulWon: m.soulWon ?? false,
@@ -40,6 +43,9 @@ const mapMemberToDB = (m: Member) => ({
   currentServiceId: m.currentServiceId,
   occupation: m.occupation,
   place_of_work: m.placeOfWork,
+  email: m.email,
+  is_phaneroo_member: m.isPhanerooMember,
+  referral_source: m.referralSource,
 });
 
 const MEMBER_CACHE = new Map<string, { timestamp: number, data: ServiceResponse<Member[]> }>();

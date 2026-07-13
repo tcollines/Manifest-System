@@ -2567,16 +2567,38 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
   /* --- EXPORT MEMBERS --- */
   const handleExportMembers = async () => {
     try {
-      // Export is now safely bounded to the currently searched dataset up to 100 rows to prevent Node.js OOM crashes.
-      const result = await MemberStore.getMembers(1, 100, debouncedSearchQuery);
-      if (result.status === 'error') {
-        showToast(`Export failed: ${result.message}`, 'error');
+      showToast("Preparing database export...", "info");
+
+      const pageSize = 100;
+      // 1. Fetch first page to get total count
+      const firstResult = await MemberStore.getMembers(1, pageSize, debouncedSearchQuery);
+      if (firstResult.status === 'error') {
+        showToast(`Export failed: ${firstResult.message}`, 'error');
         return;
       }
 
-      const allMembers = result.data;
+      let allMembers = firstResult.data || [];
+      const totalCount = firstResult.count || 0;
 
-      if (!allMembers || allMembers.length === 0) {
+      // 2. If there are more pages, fetch them in parallel
+      if (totalCount > pageSize) {
+        const totalPages = Math.ceil(totalCount / pageSize);
+        const promises = [];
+        for (let p = 2; p <= totalPages; p++) {
+          promises.push(MemberStore.getMembers(p, pageSize, debouncedSearchQuery));
+        }
+
+        const results = await Promise.all(promises);
+        for (const res of results) {
+          if (res.status === 'error') {
+            showToast(`Export failed on a background page: ${res.message}`, 'error');
+            return;
+          }
+          allMembers = allMembers.concat(res.data || []);
+        }
+      }
+
+      if (allMembers.length === 0) {
         showToast("No members to export.", 'error');
         return;
       }

@@ -7,7 +7,10 @@
 
 import React from 'react';
 import { useFollowUp } from '../FollowUpContext';
-import { Database, Search, ChevronLeft, ChevronRight, Users, Clock, Calendar, Check } from 'lucide-react';
+import { Database, Search, ChevronLeft, ChevronRight, Users, Clock, Calendar, Check, Download, Loader2 } from 'lucide-react';
+import { useNotification } from '../../../components/ui/NotificationSystem';
+import * as XLSX from 'xlsx';
+import { MemberStore } from '../../../database/memberStore';
 
 const MembersTab: React.FC = () => {
     const {
@@ -18,6 +21,77 @@ const MembersTab: React.FC = () => {
         memberFormData, setMemberFormData,
         handleViewMemberDb, handleUpdateMemberDb,
     } = useFollowUp();
+
+    const { showToast } = useNotification();
+    const [isExporting, setIsExporting] = React.useState(false);
+
+    const handleExportMembers = async () => {
+        try {
+            setIsExporting(true);
+            showToast("Preparing database export...", "info");
+
+            const pageSize = 100;
+            // 1. Fetch first page to get total count
+            const firstResult = await MemberStore.getMembers(1, pageSize, membersDbQuery);
+            if (firstResult.status === 'error') {
+                showToast(`Export failed: ${firstResult.message}`, 'error');
+                return;
+            }
+
+            let allMembers = firstResult.data || [];
+            const totalCount = firstResult.count || 0;
+
+            // 2. If there are more pages, fetch them in parallel
+            if (totalCount > pageSize) {
+                const totalPages = Math.ceil(totalCount / pageSize);
+                const promises = [];
+                for (let p = 2; p <= totalPages; p++) {
+                    promises.push(MemberStore.getMembers(p, pageSize, membersDbQuery));
+                }
+
+                const results = await Promise.all(promises);
+                for (const res of results) {
+                    if (res.status === 'error') {
+                        showToast(`Export failed on a background page: ${res.message}`, 'error');
+                        return;
+                    }
+                    allMembers = allMembers.concat(res.data || []);
+                }
+            }
+
+            if (allMembers.length === 0) {
+                showToast("No members to export.", 'error');
+                return;
+            }
+
+            // Format data for Excel
+            const exportData = allMembers.map(m => ({
+                'Full Name': m.name,
+                'Phone Number': m.phone,
+                'Category': m.category,
+                'Gender': m.gender,
+                'Residency': m.residency,
+                'Born Again': m.bornAgain,
+                'Ministry Member': m.status,
+                'Joined Date': m.joinedDate,
+                'Status': m.status
+            }));
+
+            const ws = XLSX.utils.json_to_sheet(exportData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Members Database");
+
+            const dateStr = new Date().toISOString().split('T')[0];
+            XLSX.writeFile(wb, `Members_Database_${dateStr}.xlsx`);
+
+            showToast(`Successfully exported ${allMembers.length} members!`, 'success');
+        } catch (error) {
+            console.error("Export failed:", error);
+            showToast("Failed to export members.", 'error');
+        } finally {
+            setIsExporting(false);
+        }
+    };
 
     // ── Member detail view ────────────────────────────────────────────────────
     if (viewMode === 'member-detail' && selectedMemberDetails) {
@@ -131,10 +205,24 @@ const MembersTab: React.FC = () => {
             <div className="bg-white md:rounded-xl md:shadow-sm md:border md:border-gray-100 overflow-hidden">
                 {/* Header */}
                 <div className="p-4 md:p-5 border-b border-gray-100 space-y-3">
-                    <h3 className="text-base md:text-lg font-bold text-gray-800 flex items-center">
-                        <Database className="w-5 h-5 mr-2 text-gray-500" />Member Database
-                        <span className="ml-2 bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-xs">{totalMembersDb}</span>
-                    </h3>
+                    <div className="flex items-center justify-between">
+                        <h3 className="text-base md:text-lg font-bold text-gray-800 flex items-center">
+                            <Database className="w-5 h-5 mr-2 text-gray-500" />Member Database
+                            <span className="ml-2 bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-xs">{totalMembersDb}</span>
+                        </h3>
+                        <button
+                            onClick={handleExportMembers}
+                            disabled={isExporting || totalMembersDb === 0}
+                            className="flex items-center justify-center p-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors shadow-sm"
+                            title="Export to Excel"
+                        >
+                            {isExporting ? (
+                                <Loader2 className="w-5 h-5 animate-spin" />
+                            ) : (
+                                <Download className="w-5 h-5" />
+                            )}
+                        </button>
+                    </div>
 
                     {/* Search */}
                     <div className="relative w-full">
