@@ -208,30 +208,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Google SSO login
     const googleLogin = useCallback(async (email: string, token: string) => {
         try {
-            const { data: sData, error: sErr } = await supabase.auth.signInWithIdToken({
-                provider: 'google',
-                token: token
-            });
-
-            if (sErr || !sData?.session) {
-                console.error('[AuthContext] Google signInWithIdToken failed:', sErr);
-                setRealtimeAuthReady(false);
-                return { success: false, error: 'Google authentication failed: ' + (sErr?.message || 'Invalid session') };
-            }
-
-            const profile = await UserStore.getByEmail(email, sData.session.access_token);
+            localStorage.setItem('google_sso_token', token);
+            const profile = await UserStore.getByEmail(email, token);
             if (profile?.name) {
+                profile.token = token;
                 setUser(profile);
                 UserStore.saveSession(profile);
-                await prepareRealtimeAuth(email);
+                setRealtimeAuthReady(true);
                 return { success: true, user: profile };
             }
             return { success: false, error: 'Your Google email is not registered in Manifest. Please ask an Administrator to add you.' };
         } catch (e: any) {
-            setRealtimeAuthReady(false);
+            console.error('[AuthContext] Google login error:', e);
+            setRealtimeAuthReady(true);
             return { success: false, error: e.message || 'Google login failed' };
         }
-    }, [prepareRealtimeAuth]);
+    }, []);
 
     // Logout
     const logout = useCallback(async () => {

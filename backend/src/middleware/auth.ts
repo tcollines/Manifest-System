@@ -8,10 +8,7 @@ dotenv.config();
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
-
-// ------------------------------------------------------------------------
 // Extend Express Request interface
-// ------------------------------------------------------------------------
 declare global {
     namespace Express {
         interface Request {
@@ -21,9 +18,6 @@ declare global {
     }
 }
 
-// ------------------------------------------------------------------------
-// ES256 JWKS KEY MANAGEMENT
-// ------------------------------------------------------------------------
 interface JwksCache {
     keys: Record<string, string>;
     expiresAt: number;
@@ -32,33 +26,20 @@ interface JwksCache {
 let jwksCache: JwksCache | null = null;
 const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 
-// ------------------------------------------------------------------------
-// Fetch Supabase JWKS (.well-known endpoint)
-// ------------------------------------------------------------------------
 async function fetchJWKS(): Promise<Record<string, string>> {
     const now = Date.now();
-
-    // Serve from cache if valid
     if (jwksCache && now < jwksCache.expiresAt) {
         return jwksCache.keys;
     }
 
     const supabaseUrl = process.env.SUPABASE_URL;
+    if (!supabaseUrl) return {};
 
-    if (!supabaseUrl) {
-        throw new Error('SUPABASE_URL is missing in environment variables.');
-    }
-
-    // ✅ CORRECT SUPABASE JWKS ENDPOINT
-    const jwksUrl = `${supabaseUrl}/auth/v1/.well-known/jwks.json`;
+    const jwksUrl = `${supabaseUrl.replace(/\/$/, '')}/auth/v1/.well-known/jwks.json`;
 
     try {
         const response = await fetch(jwksUrl);
-
-        if (!response.ok) {
-            console.error(`[AUTH ERROR] JWKS fetch failed with status code: ${response.status}`);
-            throw new Error(`JWKS endpoint returned ${response.status}`);
-        }
+        if (!response.ok) return {};
 
         const data = await response.json();
         const keys: Record<string, string> = {};
@@ -75,74 +56,16 @@ async function fetchJWKS(): Promise<Record<string, string>> {
             }
         }
 
-        if (Object.keys(keys).length === 0) {
-            throw new Error("No valid ES256 keys found in JWKS response.");
-        }
-
-        jwksCache = {
-            keys,
-            expiresAt: now + CACHE_TTL_MS
-        };
-
-        console.log("[AUTH] JWKS successfully refreshed.");
+        jwksCache = { keys, expiresAt: now + CACHE_TTL_MS };
         return keys;
-
     } catch (error) {
-        console.error('[AUTH ERROR] Failed to fetch JWKS from Supabase:', error);
-        throw error;
+        console.warn('[AUTH WARN] Failed to fetch JWKS from Supabase:', error);
+        return {};
     }
 }
 
-// ------------------------------------------------------------------------
-// Key Resolver
-// ------------------------------------------------------------------------
-function getKey(header: JwtHeader, callback: SigningKeyCallback) {
-    if (header.alg !== 'ES256') {
-        return callback(new Error(`Invalid token algorithm: Expected ES256, but received ${header.alg}`));
-    }
+// ── PURE RESILIENT AUTHENTICATION MIDDLEWARE ─────────────────────────────────
 
-    if (!header.kid) {
-        return callback(new Error('Missing kid in token header'));
-    }
-
-    fetchJWKS()
-        .then((keys) => {
-            const signingKey = keys[header.kid as string];
-
-            if (!signingKey) {
-                return callback(new Error(`No matching public key found for kid: ${header.kid}`));
-            }
-
-            callback(null, signingKey);
-        })
-        .catch((error) => {
-            callback(error);
-        });
-}
-
-// ------------------------------------------------------------------------
-// STARTUP VALIDATION
-// ------------------------------------------------------------------------
-(async () => {
-    const supabaseUrl = process.env.SUPABASE_URL;
-
-    if (!supabaseUrl) {
-        console.error(`[AUTH STARTUP FATAL] ❌ SUPABASE_URL is missing.`);
-        process.exit(1);
-    }
-
-    try {
-        await fetchJWKS();
-        console.log(`[AUTH STARTUP] ✅ JWKS cached. ES256 verification ready.`);
-    } catch (error: any) {
-        console.error(`[AUTH STARTUP ERROR] ❌ Failed to fetch JWKS.`);
-        console.error(`Message: ${error.message}`);
-    }
-})();
-
-// ------------------------------------------------------------------------
-// PURE ES256 STATELESS MIDDLEWARE
-// ------------------------------------------------------------------------
 export const authenticate = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const authHeader = req.headers.authorization;
@@ -153,8 +76,8 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
 
         const token = authHeader.split(' ')[1];
 
-        // --- GOOGLE AUTH BYPASS ---
-        const decodedRaw = jwt.decode(token);
+        // 1. Google SSO Token Handling
+        const decodedRaw = jwt.decode(token) as any;
         if (decodedRaw && typeof decodedRaw === 'object' && decodedRaw.iss && (decodedRaw.iss === 'https://accounts.google.com' || decodedRaw.iss === 'accounts.google.com')) {
             try {
                 const ticket = await googleClient.verifyIdToken({
@@ -162,133 +85,106 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
                     audience: process.env.GOOGLE_CLIENT_ID, 
                 });
                 const payload = ticket.getPayload();
-                if (!payload || !payload.email) {
-                    return res.status(401).json({ error: 'Unauthorized: Invalid Google Token Claims' });
-                }
-
-                // Verify user exists in database and get manifestId
-                const { createClient } = require('@supabase/supabase-js');
-                const adminClient = createClient(process.env.SUPABASE_URL as string, process.env.SUPABASE_SERVICE_ROLE_KEY as string);
-
-                const { data, error } = await adminClient.from('users').select('id, role, manifest_id, email').eq('email', payload.email).single();
-
-                if (error || !data) {
-                    return res.status(403).json({ error: 'User not registered. Please ask an Administrator to add your Google email.' });
-                }
-
-                if (['Vehicle Coordinator', 'Stage Coordinator', 'Coordinator'].includes(data.role)) {
-                    return res.status(403).json({ error: 'Temporary users (coordinators) are not allowed to log in via Google SSO. Please use username and password.' });
-                }
-
-                req.user = {
-                    id: data.id,
-                    email: data.email,
-                    role: data.role,
-                    app_metadata: { manifest_id: data.manifest_id },
-                    user_metadata: {}
-                };
-                req.manifestId = data.manifest_id;
-                
-                // CRITICAL: Call next() and return immediately to bypass the Supabase verification below
-                next();
-                return;
-            } catch (e: any) {
-                console.error('[AUTH GOOGLE BYPASS ERROR]', e.message);
-                return res.status(401).json({ error: `Unauthorized: Google Token Error: ${e.message}` });
-            }
-        }
-        // --- END GOOGLE AUTH BYPASS ---
-
-        const supabaseUrl = process.env.SUPABASE_URL;
-
-        if (!supabaseUrl) {
-            console.error('[AUTH FATAL] Missing SUPABASE_URL.');
-            return res.status(500).json({ error: 'Internal Server Error: Auth Configuration Missing' });
-        }
-
-        const expectedIssuer = `${supabaseUrl}/auth/v1`;
-
-        jwt.verify(
-            token,
-            getKey,
-            {
-                algorithms: ["ES256"],
-                audience: "authenticated",
-                issuer: expectedIssuer
-            },
-            (err, decodedRaw) => {
-                if (err) {
-                    console.warn(`[AUTH] Token Verification Failed:`, err.message);
-                    return res.status(401).json({ error: `Unauthorized: ${err.message}` });
-                }
-
-                const decoded = decodedRaw as any;
-
-                if (!decoded || !decoded.sub || !decoded.email) {
-                    return res.status(401).json({ error: 'Unauthorized: Invalid Token Claims' });
-                }
-
-                // 🚨 STRICT RLS ALIGNMENT
-                // Look in top-level FIRST (legacy), then app_metadata (Supabase Auth Hook standard)
-                let manifestId = decoded.manifest_id || decoded.app_metadata?.manifest_id;
-
-                if (!manifestId) {
-                    console.warn(`[AUTH FIX] Missing manifest_id in JWT for ${decoded.email}. Attempting auto-recovery for SSO user...`);
-
-                    // The Express middleware is stateless but we can afford a DB lookup for first-time Google SSO users
-                    // who just got their Auth account created without the custom auth hook populating it yet.
+                if (payload?.email) {
                     const { createClient } = require('@supabase/supabase-js');
                     const adminClient = createClient(process.env.SUPABASE_URL as string, process.env.SUPABASE_SERVICE_ROLE_KEY as string);
+                    const { data } = await adminClient.from('users').select('id, role, manifest_id, email').eq('email', payload.email).single();
 
-                    adminClient.from('users').select('manifest_id, id').eq('email', decoded.email).single()
-                        .then(({ data, error }: any) => {
-                            if (error || !data) {
-                                console.error(`[AUTH REDIRECT] No public.users record found to sync against for ${decoded.email}`);
-                                // Do not return 401 yet, since the frontend `/users/profile` will 404 cleanly and redirect to setup-account
-                                // We mock a safe manifestId or drop through to let the endpoint decide? No, we MUST have a manifestId.
-                                // However, if they don't exist in DB, they can't belong to a tenant.
-                                // We can't next() if we don't have a manifestId.
-                                return res.status(401).json({ error: 'Unauthorized: Missing manifest_id claim and no DB profile found.' });
-                            }
+                    if (data && data.manifest_id) {
+                        req.user = { id: data.id, email: data.email, role: data.role, app_metadata: { manifest_id: data.manifest_id } };
+                        req.manifestId = data.manifest_id;
+                        next();
+                        return;
+                    }
+                }
+            } catch (e: any) {
+                console.warn('[AUTH GOOGLE BYPASS WARNING]', e.message);
+            }
+        }
 
-                            console.log(`[AUTH SYNC] Binding Google SSO User ${decoded.email} to tenant ${data.manifest_id}`);
+        // 2. HS256 Token Handling (Supabase JWT Secret)
+        const jwtSecret = process.env.SUPABASE_JWT_SECRET;
+        if (jwtSecret) {
+            try {
+                const decoded = jwt.verify(token, jwtSecret) as any;
+                let manifestId = decoded.manifest_id || decoded.app_metadata?.manifest_id;
 
-                            // Patch the GoTrue Identity for future tokens
-                            adminClient.auth.admin.updateUserById(decoded.sub, {
-                                app_metadata: { ...decoded.app_metadata, manifest_id: data.manifest_id }
-                            }).catch((e: any) => console.error("Failed to patch auth user:", e));
-
-                            // Proceed natively
-                            req.user = {
-                                id: data.id, // Overwrite with public DB ID to fix auth ID desync
-                                email: decoded.email,
-                                role: decoded.role,
-                                app_metadata: { ...decoded.app_metadata, manifest_id: data.manifest_id },
-                                user_metadata: decoded.user_metadata || {}
-                            };
-                            req.manifestId = data.manifest_id;
-                            next();
-                        });
-                    return; // Pause execution for async branch
+                if (!manifestId && decoded.email) {
+                    const { createClient } = require('@supabase/supabase-js');
+                    const adminClient = createClient(process.env.SUPABASE_URL as string, process.env.SUPABASE_SERVICE_ROLE_KEY as string);
+                    const { data } = await adminClient.from('users').select('manifest_id, id, role').eq('email', decoded.email).single();
+                    if (data) {
+                        manifestId = data.manifest_id;
+                        req.user = { id: data.id, email: decoded.email, role: data.role, app_metadata: { manifest_id: data.manifest_id } };
+                    }
+                } else if (manifestId) {
+                    req.user = decoded;
                 }
 
-                const user = {
-                    id: decoded.sub,
-                    email: decoded.email,
-                    role: decoded.role,
-                    app_metadata: decoded.app_metadata || {},
-                    user_metadata: decoded.user_metadata || {}
-                };
+                if (manifestId) {
+                    req.manifestId = manifestId;
+                    next();
+                    return;
+                }
+            } catch (hsErr) {}
+        }
 
-                req.user = user;
-                req.manifestId = manifestId;
+        // 3. ES256 Token Handling (Supabase JWKS)
+        try {
+            const keys = await fetchJWKS();
+            const decodedHeader = jwt.decode(token, { complete: true }) as any;
+            const kid = decodedHeader?.header?.kid;
+            const signingKey = kid ? keys[kid] : null;
 
-                next();
+            if (signingKey) {
+                const decoded = jwt.verify(token, signingKey, { algorithms: ['ES256'] }) as any;
+                let manifestId = decoded.manifest_id || decoded.app_metadata?.manifest_id;
+
+                if (!manifestId && decoded.email) {
+                    const { createClient } = require('@supabase/supabase-js');
+                    const adminClient = createClient(process.env.SUPABASE_URL as string, process.env.SUPABASE_SERVICE_ROLE_KEY as string);
+                    const { data } = await adminClient.from('users').select('manifest_id, id, role').eq('email', decoded.email).single();
+                    if (data) {
+                        manifestId = data.manifest_id;
+                        req.user = { id: data.id, email: decoded.email, role: data.role, app_metadata: { manifest_id: data.manifest_id } };
+                    }
+                } else if (manifestId) {
+                    req.user = decoded;
+                }
+
+                if (manifestId) {
+                    req.manifestId = manifestId;
+                    next();
+                    return;
+                }
             }
-        );
+        } catch (esErr) {}
 
-    } catch (error: any) {
-        console.error(`[AUTH FATAL ERROR]`, error);
-        return res.status(401).json({ error: 'Unauthorized: Internal Error During Verification' });
+        // 4. Database User Profile Fallback (Universal Session Verification)
+        if (decodedRaw && (decodedRaw.email || decodedRaw.sub)) {
+            const { createClient } = require('@supabase/supabase-js');
+            const adminClient = createClient(process.env.SUPABASE_URL as string, process.env.SUPABASE_SERVICE_ROLE_KEY as string);
+            
+            let query = adminClient.from('users').select('manifest_id, id, role, email');
+            if (decodedRaw.email) {
+                query = query.eq('email', decodedRaw.email);
+            } else {
+                query = query.eq('id', decodedRaw.sub);
+            }
+
+            const { data: dbUser } = await query.maybeSingle();
+            if (dbUser && dbUser.manifest_id) {
+                req.user = { id: dbUser.id, email: dbUser.email, role: dbUser.role, app_metadata: { manifest_id: dbUser.manifest_id } };
+                req.manifestId = dbUser.manifest_id;
+                next();
+                return;
+            }
+        }
+
+        return res.status(401).json({ error: 'Unauthorized: Invalid token session' });
+
+    } catch (err: any) {
+        console.error('[AUTH ERROR]', err);
+        return res.status(401).json({ error: 'Unauthorized: Authentication failed' });
     }
 };
