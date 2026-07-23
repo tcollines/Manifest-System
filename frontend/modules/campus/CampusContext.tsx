@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { CampusActivity, CampusFinance, MinistryEvent, User } from '../../types';
 import { CampusStore } from '../../database/campusStore';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '@/context/AuthContext';
 
 interface CampusStats {
     totalSouls: number;

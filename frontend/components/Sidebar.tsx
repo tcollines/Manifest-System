@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { LayoutDashboard, Users, Calendar, Bus, ClipboardList, Map, BookOpen, Clock, FileCheck, Package, Menu, X, Settings, Heart, Database, BarChart2, Building2, DollarSign, ClipboardCheck, Baby, Car, Globe, LogOut, CheckCircle, ArrowRight, UserPlus, FileText, CreditCard, ShoppingCart, Box, Truck } from 'lucide-react';
 import { Department } from '../types';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '@/context/AuthContext';
 import { resolveDepartment } from '../constants/departmentMap';
 
 interface SidebarProps {

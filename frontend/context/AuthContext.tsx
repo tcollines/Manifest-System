@@ -215,18 +215,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Logout
     const logout = useCallback(async () => {
-        try {
-            if (user?.id) {
-                analyticsService.track({
+        const userId = user?.id;
+
+        if (userId) {
+            try {
+                await analyticsService.trackEvent({
                     eventType: 'USER_LOGOUT',
-                    userId: user.id,
-                    metadata: { role: user.role }
+                    userId,
+                    metadata: { role: user?.role }
                 });
-                await unsubscribeFromPush(user.id);
+            } catch (aErr) {
+                console.warn('[AuthContext] Analytics track logout warning:', aErr);
             }
+
+            try {
+                await unsubscribeFromPush(userId);
+            } catch (pErr) {
+                console.warn('[AuthContext] Push unsubscribe warning:', pErr);
+            }
+        }
+
+        try {
             await supabase.auth.signOut();
-        } catch (e) {
-            console.warn('[AuthContext] SignOut error:', e);
+        } catch (sErr) {
+            console.warn('[AuthContext] SignOut error:', sErr);
         } finally {
             setUser(null);
             setRealtimeAuthReady(false);

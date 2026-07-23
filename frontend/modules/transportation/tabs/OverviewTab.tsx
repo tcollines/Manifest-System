@@ -24,7 +24,7 @@ import {
     Printer, Circle, Check, Plus, ThumbsUp, RefreshCw, ArrowLeft, Activity,
     Phone, Loader2, ExternalLink, Heart, Users, LocateFixed
 } from 'lucide-react';
-import { useAuth } from '../../../context/AuthContext';
+import { useAuth } from '@/context/AuthContext';
 
 const mapContainerStyle = { width: '100%', height: '100%' };
 

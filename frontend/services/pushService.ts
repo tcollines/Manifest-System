@@ -67,7 +67,7 @@ export const subscribeToPush = async () => {
     return subscription;
 };
 
-export const unsubscribeFromPush = async () => {
+export const unsubscribeFromPush = async (userId?: string) => {
     if (!('serviceWorker' in navigator)) return;
     const registration = await navigator.serviceWorker.getRegistration();
     if (!registration) return;

@@ -80,6 +80,17 @@ export const analyticsService = {
         if (from) query.append('from', from);
         if (to) query.append('to', to);
         return await apiFetch(`/analytics/workflow/team-leader?${query.toString()}`);
+    },
+
+    trackEvent: async (params: { eventType: string; userId?: string; metadata?: any }) => {
+        try {
+            await apiFetch('/analytics/track', {
+                method: 'POST',
+                body: JSON.stringify(params)
+            });
+        } catch (e) {
+            console.warn('[Analytics] trackEvent failed:', e);
+        }
     }
 };
 

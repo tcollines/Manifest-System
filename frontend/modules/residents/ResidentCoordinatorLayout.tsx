@@ -11,7 +11,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Outlet, NavLink } from 'react-router-dom';
 import { ClipboardList, Users, Calendar, Home, MapPin, Activity, Link as LinkIcon, Loader2 } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '@/context/AuthContext';
 import { useNotification } from '../../components/ui/NotificationSystem';
 import { useResidentStore } from '../../database/residentStore';
 import { EventStore } from '../../database/eventStore';

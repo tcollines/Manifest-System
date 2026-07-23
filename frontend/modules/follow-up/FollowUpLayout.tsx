@@ -12,7 +12,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Outlet, NavLink, useSearchParams, useLocation } from 'react-router-dom';
 import { Calendar, Users, Database, Search, UserPlus, BarChart3, FileSearch } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '@/context/AuthContext';
 import { useNotification } from '../../components/ui/NotificationSystem';
 import { useSafeAsync } from '../../hooks/useSafeAsync';
 import { isServiceClosed } from '../../utils';

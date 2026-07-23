@@ -94,9 +94,9 @@ const AdministrationEventsHighlights: React.FC = () => {
     try {
       // 1. Fetch Vehicles and Passengers
       const vehiclesRes = await VehicleStore.getVehicles({ eventId: selectedEventId });
-      const vehicles = vehiclesRes.data || [];
+      const vehicles = (vehiclesRes.status === 'success' && vehiclesRes.data) ? vehiclesRes.data : [];
       const passengersRes = await VehicleStore.getPassengers({ eventId: selectedEventId });
-      const passengers = passengersRes.data || [];
+      const passengers = (passengersRes.status === 'success' && passengersRes.data) ? passengersRes.data : [];
 
       // Sheet 1: Summary
       const summaryData = [

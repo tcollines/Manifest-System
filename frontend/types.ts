@@ -97,6 +97,7 @@ export interface User {
   invitationToken?: string;
   status?: 'Active' | 'Pending';
   createdBy?: string;
+  token?: string;
 }
 
 export interface Member {

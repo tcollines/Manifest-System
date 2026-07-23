@@ -3,7 +3,7 @@ import { Plus, Save, Trash2 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import PhoneInput from '../../../components/PhoneInput';
 import { useHealing } from '../HealingContext';
-import { useAuth } from '../../../context/AuthContext';
+import { useAuth } from '@/context/AuthContext';
 import { useNotification } from '../../../components/ui/NotificationSystem';
 import { HealingStore } from '../../../database/HealingStore';
 

@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Bell, CheckCircle2, Settings, ArrowLeft } from 'lucide-react';
 import { useNotificationStore } from '../../database/NotificationStore';
-import { useAuth } from "../../context/AuthContext";
+import { useAuth } from "@/context/AuthContext";
 import { subscribeToPush, unsubscribeFromPush, checkPushStatus, getPushPreferences, updatePushPreferences } from '../../services/pushService';
 
 

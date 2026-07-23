@@ -17,7 +17,7 @@ import ProfileModal from './components/ProfileModal';
 import { isTeamLeader } from './domain/rbac';
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
-import { useAuth } from './context/AuthContext';
+import { useAuth } from '@/context/AuthContext';
 
 // ── Event Context ─────────────────────────────────────────────────────────────
 import { useEvent } from './context/EventContext';

@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, MinistryEvent, Residence, ResidenceOutreachReport } from '../../types';
 import { useResidentStore } from '../../database/residentStore';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '@/context/AuthContext';
 
 interface ResidentContextValue {
     currentUser: User | null;

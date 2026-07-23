@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { DollarSign, ShoppingBag, Clock, TrendingUp } from 'lucide-react';
 import { reportService } from '../../../services/sales/reportService';
 import { financialReportService } from '../../../services/sales/financialReportService';
-import { useAuth } from '../../../context/AuthContext';
+import { useAuth } from '@/context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
 const SalesDashboardPage: React.FC = () => {

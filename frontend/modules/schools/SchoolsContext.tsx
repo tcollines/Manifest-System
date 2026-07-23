@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { User, MinistryEvent, SchoolOutreachReport } from '../../types';
 import { SchoolsStore, mapSchoolReportFromDB } from '../../database/schoolsStore';
 import { supabase } from '../../services/supabaseClient';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '@/context/AuthContext';
 
 interface SchoolsContextValue {
     currentUser: User | null;

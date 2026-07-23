@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Html5QrcodeScanner, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import { ShoppingCart, QrCode, Search, Plus, Minus, CreditCard, CheckCircle, User, X } from 'lucide-react';
-import { useAuth } from '../../../context/AuthContext';
+import { useAuth } from '@/context/AuthContext';
 import { salesService } from '../../../services/sales/salesService';
 import { customerService } from '../../../services/sales/customerService';
 import { useNotification } from '../../../components/ui/NotificationSystem';

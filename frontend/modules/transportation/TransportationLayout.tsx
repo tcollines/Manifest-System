@@ -13,7 +13,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Outlet, NavLink, useSearchParams } from 'react-router-dom';
 import { Navigation, Users, LayoutList } from 'lucide-react';
 import { isVehicleCoordinator, isStageCoordinator } from '../../domain/rbac';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '@/context/AuthContext';
 import { useEvent } from '../../context/EventContext';
 import { useNotification } from '../../components/ui/NotificationSystem';
 import { VehicleStore, mapPassengerFromDB, mapVehicleFromDB } from '../../database/vehicleStore';

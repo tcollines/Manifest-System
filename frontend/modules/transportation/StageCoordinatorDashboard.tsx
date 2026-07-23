@@ -18,7 +18,7 @@ import {
     RefreshCw
 } from 'lucide-react';
 import PhoneInput from '../../components/PhoneInput';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '@/context/AuthContext';
 import { TrackedVehicle } from './types';
 import { GoogleMap, useJsApiLoader, Marker, Polyline } from '@react-google-maps/api';
 

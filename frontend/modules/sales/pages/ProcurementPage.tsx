@@ -6,7 +6,7 @@ import { useInfiniteScroll } from '../../../hooks/useInfiniteScroll';
 import { SalesProcurementRequest, SalesSupplier, SalesVariant, SalesProcurementRequestItem } from '../types';
 import { X, Plus, Package, Truck, Search, ShoppingCart, CheckCircle, Edit, Trash2, Eye, DollarSign, CreditCard } from 'lucide-react';
 import TextInput from '../../../components/ui/TextInput';
-import { useAuth } from '../../../context/AuthContext';
+import { useAuth } from '@/context/AuthContext';
 import { procurementPaymentService } from '../../../services/sales/procurementPaymentService';
 import { SalesProcurementPayment } from '../types';
 

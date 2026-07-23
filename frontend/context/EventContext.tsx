@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { MinistryEvent } from '../types';
 import { EventStore } from '../database/eventStore';
 import { supabase } from '../services/supabaseClient';
-import { useAuth } from './AuthContext';
+import { useAuth } from '@/context/AuthContext';
 
 // ─── Context shape ────────────────────────────────────────────────────────────
 

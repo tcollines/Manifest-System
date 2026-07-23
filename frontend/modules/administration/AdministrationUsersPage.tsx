@@ -4,7 +4,7 @@ import { Search, Edit2, Trash2, Shield, Plus } from 'lucide-react';
 import { DEPARTMENTS } from '../../constants/departments';
 import { UserStore } from '../../database/userStore';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '@/context/AuthContext';
 
 interface Props {
   openModal: (t: ModalType) => void;

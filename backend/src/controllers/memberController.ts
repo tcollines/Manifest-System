@@ -269,51 +269,38 @@ export const checkInMember = async (req: Request, res: Response) => {
 
             const uuidServiceIds = validIds.map(toUUID).filter((id): id is string => !!id);
 
-            const { data: existing } = await supabase
-                .from('service_attendance')
-                .select('service_id')
-                .eq('manifest_id', manifestId) // Tenant Isolation
-                .eq('member_id', uuidMemberId)
-                .in('service_id', uuidServiceIds);
+            for (const sid of uuidServiceIds) {
+                const { error: rpcErr } = await supabase.rpc('atomic_check_in_member', {
+                    _manifest_id: manifestId,
+                    _member_id: uuidMemberId,
+                    _service_id: sid,
+                    _is_first_timer: req.body.isFirstTimer === true || req.body.category === 'First Timer'
+                });
 
-            const existingSet = new Set(existing?.map(e => e.service_id));
-            const toInsert = uuidServiceIds.filter(id => !existingSet.has(id));
-
-            results.alreadyCheckedIn = Array.from(existingSet) as string[];
-
-            if (toInsert.length > 0) {
-                const rows = toInsert.map((sid) => {
-                    return {
-                        manifest_id: manifestId, // INJECT TENANT ID
+                if (rpcErr) {
+                    await supabase.from('service_attendance').insert({
+                        manifest_id: manifestId,
                         member_id: uuidMemberId,
                         service_id: sid,
                         check_in_time: new Date().toISOString()
-                    };
-                });
+                    });
 
-                const { error } = await supabase.from('service_attendance').insert(rows);
-                if (error) throw error;
-                results.checkedIn = toInsert;
+                    const { data: member } = await supabase.from('members')
+                        .select('attended_service_ids')
+                        .eq('manifest_id', manifestId)
+                        .eq('id', uuidMemberId)
+                        .single();
+
+                    const currentIds = member?.attended_service_ids || [];
+                    const newIds = Array.from(new Set([...currentIds, sid]));
+                    await supabase.from('members')
+                        .update({ check_in_time: new Date().toISOString(), attended_service_ids: newIds })
+                        .eq('manifest_id', manifestId)
+                        .eq('id', uuidMemberId);
+                }
             }
 
-            const { data: member } = await supabase.from('members')
-                .select('attended_service_ids')
-                .eq('manifest_id', manifestId) // Tenant Isolation
-                .eq('id', uuidMemberId)
-                .single();
-
-            const currentIds = member?.attended_service_ids || [];
-            const newIds = Array.from(new Set([...currentIds, ...validIds.map(toUUID)]));
-
-            const updatePayload: any = {
-                check_in_time: new Date().toISOString(),
-                attended_service_ids: newIds
-            };
-
-            await supabase.from('members')
-                .update(updatePayload)
-                .eq('manifest_id', manifestId) // Tenant Isolation
-                .eq('id', uuidMemberId);
+            results.checkedIn = uuidServiceIds;
         }
 
         res.json({

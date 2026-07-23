@@ -23,7 +23,7 @@
 import React from 'react';
 import { Outlet, NavLink } from 'react-router-dom';
 import { ClipboardCheck, Calendar, Database } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '@/context/AuthContext';
 import { useEvent } from '../../context/EventContext';
 import { RegistrationProvider } from './RegistrationContext';
 import RegistrationModals from './components/RegistrationModals';

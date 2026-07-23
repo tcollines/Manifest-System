@@ -5,7 +5,7 @@ import { CURRENCIES } from '../constants/currencies';
 import { User, ModalType, ManifestDetails } from '../types';
 import { UserStore } from '../database/userStore';
 import { ManifestStore } from '../database/manifestStore';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '@/context/AuthContext';
 import {
     Users,
     Map,

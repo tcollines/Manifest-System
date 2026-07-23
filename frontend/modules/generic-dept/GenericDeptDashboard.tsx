@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '@/context/AuthContext';
 import { DepartmentStore } from '../../database/departmentStore';
 import { getAccessibleTabs, DeptTabId } from '../../domain/deptAccessRules';
 import { Department, User, ModalType } from '../../types';

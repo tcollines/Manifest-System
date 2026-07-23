@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNotification } from './ui/NotificationSystem';
 import KPIGrid from './KPIGrid';
 import AnalyticsCharts from './AnalyticsCharts';
@@ -20,11 +20,11 @@ interface DashboardProps {
 
 const Dashboard: React.FC<DashboardProps> = ({ openModal }) => {
    const { showToast } = useNotification();
-   const [events, setEvents] = React.useState<MinistryEvent[]>([]);
-   const [selectedEventId, setSelectedEventId] = React.useState<string>('');
+   const [events, setEvents] = useState<MinistryEvent[]>([]);
+   const [selectedEventId, setSelectedEventId] = useState<string>('');
 
    // Sync initial event selection
-   React.useEffect(() => {
+   useEffect(() => {
       if (!selectedEventId && events && events.length > 0) {
          const first = events.find(e => e.type === 'Event' || e.type === 'Service');
          if (first) setSelectedEventId(first.id);

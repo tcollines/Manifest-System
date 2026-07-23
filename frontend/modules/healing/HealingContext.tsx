@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { HealingStore, HealingReport, HealingTestimony } from '../../database/HealingStore';
 import { Soul } from '../../types';
 import { useNotification } from '../../components/ui/NotificationSystem';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '@/context/AuthContext';
 
 interface FormDataType {
     date: string;

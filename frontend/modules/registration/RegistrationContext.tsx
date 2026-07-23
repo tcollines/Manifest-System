@@ -15,7 +15,7 @@ import { ManifestStore } from '../../database/manifestStore';
 import { SoulsStore } from '../../database/soulsStore';
 import { UserStore } from '../../database/userStore';
 
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '@/context/AuthContext';
 import { useEvent } from '../../context/EventContext';
 
 // Types

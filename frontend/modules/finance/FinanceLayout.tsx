@@ -13,7 +13,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Outlet, NavLink, useSearchParams } from 'react-router-dom';
 import { DollarSign, TrendingUp, CreditCard, FileText, Bus, X, Printer } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '@/context/AuthContext';
 import { useEvent } from '../../context/EventContext';
 import { useNotification } from '../../components/ui/NotificationSystem';
 import { isEventLocked, isServiceClosed } from '../../utils';

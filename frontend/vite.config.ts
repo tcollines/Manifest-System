@@ -18,7 +18,13 @@ export default defineConfig(({ mode }) => {
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
-      }
+        'react': path.resolve(__dirname, 'node_modules/react'),
+        'react-dom': path.resolve(__dirname, 'node_modules/react-dom'),
+      },
+      dedupe: ['react', 'react-dom', 'react-router-dom']
+    },
+    optimizeDeps: {
+      include: ['react', 'react-dom', 'react-router-dom', '@tanstack/react-query', 'lucide-react'],
     },
     build: {
       rollupOptions: {
@@ -29,7 +35,6 @@ export default defineConfig(({ mode }) => {
             supabase: ['@supabase/supabase-js'],
             charts: ['recharts'],
             maps: ['mapbox-gl'],
-            // Group export libs into one predictable chunk — avoids orphaned dynamic chunks in production
             'forms-export': ['xlsx', 'jspdf', 'jspdf-autotable'],
           }
         }

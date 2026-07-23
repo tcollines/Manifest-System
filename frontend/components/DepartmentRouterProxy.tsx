@@ -1,7 +1,7 @@
 import React from 'react';
 import { useParams, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import ProtectedRoute from './ProtectedRoute';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '@/context/AuthContext';
 import { useEvent } from '../context/EventContext';
 import { ModalType, User } from '../types';
 import { hasLogisticsAccess } from '../domain/rbac';

@@ -7,7 +7,7 @@ import PublicResidentSoulEntry from './components/PublicResidentSoulEntry';
 import PublicScheduleAvailability from './components/PublicScheduleAvailability';
 
 import { NotificationProvider } from './components/ui/NotificationSystem';
-import { AuthProvider, useAuth } from './context/AuthContext';
+import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { EventProvider } from './context/EventContext';
 import ScrollRestoration from './components/ScrollRestoration';
 

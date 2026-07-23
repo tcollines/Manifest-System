@@ -2,6 +2,7 @@
 -- Purpose:
 -- 1. Adds unique constraint on public.service_attendance (manifest_id, service_id, member_id) to prevent duplicate check-ins.
 -- 2. Creates/replaces public.get_service_snapshot_v2 single-statement SQL CTE snapshot RPC with complete fields and safe display summaries.
+-- 3. Creates atomic_check_in_member RPC to execute attendance insertion and member state updates in one atomic transaction.
 
 -- 1. Unique Attendance Constraint Guard
 DO $$
@@ -119,3 +120,68 @@ $$;
 
 REVOKE EXECUTE ON FUNCTION public.get_service_snapshot_v2 FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.get_service_snapshot_v2 TO service_role;
+
+-- 3. Atomic Member Check-in RPC
+CREATE OR REPLACE FUNCTION public.atomic_check_in_member(
+    _manifest_id uuid,
+    _member_id uuid,
+    _service_id uuid,
+    _is_first_timer boolean DEFAULT false
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+    _att_inserted boolean := false;
+    _curr_attended text[];
+BEGIN
+    -- Insert attendance row idempotently
+    INSERT INTO public.service_attendance (manifest_id, service_id, member_id, check_in_time)
+    VALUES (_manifest_id, _service_id, _member_id, now())
+    ON CONFLICT (manifest_id, service_id, member_id) DO NOTHING;
+    
+    _att_inserted := FOUND;
+
+    -- Fetch current member record
+    SELECT attended_service_ids INTO _curr_attended
+    FROM public.members
+    WHERE id = _member_id AND manifest_id = _manifest_id;
+
+    -- Append service_id to attended_service_ids array if not present
+    IF _curr_attended IS NULL THEN
+        _curr_attended := ARRAY[_service_id::text];
+    ELSIF NOT (_service_id::text = ANY(_curr_attended)) THEN
+        _curr_attended := array_append(_curr_attended, _service_id::text);
+    END IF;
+
+    -- Update member record; preserve immutable original first_timer fields if already set
+    UPDATE public.members
+    SET check_in_time = now(),
+        attended_service_ids = _curr_attended,
+        first_timer_service_id = CASE 
+            WHEN _is_first_timer AND first_timer_service_id IS NULL THEN _service_id 
+            ELSE first_timer_service_id 
+        END,
+        first_timer_date = CASE 
+            WHEN _is_first_timer AND first_timer_date IS NULL THEN CURRENT_DATE 
+            ELSE first_timer_date 
+        END,
+        is_first_timer = CASE 
+            WHEN _is_first_timer THEN true 
+            ELSE is_first_timer 
+        END
+    WHERE id = _member_id AND manifest_id = _manifest_id;
+
+    RETURN jsonb_build_object(
+        'success', true,
+        'attendanceInserted', _att_inserted,
+        'memberId', _member_id,
+        'serviceId', _service_id
+    );
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.atomic_check_in_member FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.atomic_check_in_member TO service_role;

@@ -114,6 +114,10 @@ export const EventStore = {
 
   getServiceSnapshot: async (id: string): Promise<{
     serviceId: string;
+    checkedInMemberIds?: string[];
+    checkedInMembers?: Array<{ id: string; name: string; phone: string }>;
+    firstTimerMemberIds?: string[];
+    memberAttendanceCount?: number;
     memberIds: string[];
     total: number;
     manualChildrenCount: number;
