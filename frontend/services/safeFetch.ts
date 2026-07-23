@@ -39,15 +39,21 @@ export async function safeFetch<T, R = T>(
 
         let finalData = response;
         let count = undefined;
+        let hasMore = undefined;
+        let page = undefined;
 
-        if (response && typeof response === 'object' && 'data' in response) {
-            finalData = response.data;
-            count = response.count;
+        if (response && typeof response === 'object') {
+            if ('data' in response) {
+                finalData = response.data;
+                count = response.count;
 
-            // Support for meta.total pagination style
-            if (count === undefined && response.meta && typeof response.meta.total === 'number') {
-                count = response.meta.total;
+                // Support for meta.total pagination style
+                if (count === undefined && response.meta && typeof response.meta.total === 'number') {
+                    count = response.meta.total;
+                }
             }
+            if ('hasMore' in response) hasMore = response.hasMore;
+            if ('page' in response) page = response.page;
         }
 
         // -------------------------------------------------------------------------
@@ -66,7 +72,9 @@ export async function safeFetch<T, R = T>(
         return {
             status: 'success',
             data: payload,
-            count
+            count,
+            hasMore,
+            page
         };
 
     } catch (error: any) {

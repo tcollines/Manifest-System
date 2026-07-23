@@ -558,7 +558,7 @@ export interface ReportSubmission {
 }
 
 export type ServiceResponse<T> =
-  | { status: 'success'; data: T; count?: number }
+  | { status: 'success'; data: T; count?: number; hasMore?: boolean; page?: number }
   | { status: 'error'; message: string; error?: any };
 
 // ─────────────────────────────────────────────────────────────

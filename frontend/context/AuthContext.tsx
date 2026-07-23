@@ -205,12 +205,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
         }
         keysToRemove.forEach(k => localStorage.removeItem(k));
-        localStorage.setItem('google_sso_token', token);
 
-        // Ensure Realtime WebSocket connection carries the SSO token for authorization
-        if (token) {
+        // Attempt Supabase native ID token exchange
+        let effectiveRealtimeToken = token;
+        try {
+            const { data: sData } = await supabase.auth.signInWithIdToken({
+                provider: 'google',
+                token: token
+            });
+            if (sData?.session?.access_token) {
+                effectiveRealtimeToken = sData.session.access_token;
+            } else {
+                localStorage.setItem('google_sso_token', token);
+            }
+        } catch (sErr) {
+            console.warn('[AuthContext] signInWithIdToken fallback:', sErr);
+            localStorage.setItem('google_sso_token', token);
+        }
+
+        // Ensure Realtime WebSocket connection carries the token for authorization
+        if (effectiveRealtimeToken) {
             try {
-                await supabase.realtime.setAuth(token);
+                await supabase.realtime.setAuth(effectiveRealtimeToken);
             } catch (err) {
                 console.warn('[AuthContext] Realtime setAuth warning for Google SSO:', err);
             }

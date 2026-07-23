@@ -110,5 +110,23 @@ export const EventStore = {
       console.error('Error fetching event highlights:', e.message || e);
       return null;
     }
+  },
+
+  getServiceSnapshot: async (id: string): Promise<{
+    serviceId: string;
+    memberIds: string[];
+    total: number;
+    manualChildrenCount: number;
+    firstTimers: number;
+    soulIds: string[];
+    soulsWon: number;
+    generatedAt: string;
+  } | null> => {
+    try {
+      return await apiFetch(`/events/${id}/snapshot`);
+    } catch (e: any) {
+      console.error('Error fetching service snapshot:', e.message || e);
+      return null;
+    }
   }
 };

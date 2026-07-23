@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getAllEvents, createEvent, updateEvent, deleteEvent, getEventHighlights, getEventPassengers } from '../controllers/eventController';
+import { getAllEvents, createEvent, updateEvent, deleteEvent, getEventHighlights, getEventPassengers, getServiceSnapshot } from '../controllers/eventController';
 
 const router = Router();
 
@@ -9,5 +9,6 @@ router.put('/:id', updateEvent);
 router.delete('/:id', deleteEvent);
 router.get('/:id/highlights', getEventHighlights);
 router.get('/:id/passengers', getEventPassengers);
+router.get('/:id/snapshot', getServiceSnapshot);
 
 export default router;

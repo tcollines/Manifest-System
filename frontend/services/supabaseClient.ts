@@ -27,5 +27,11 @@ export const supabase = createClient(supabaseUrl, supabaseKey, {
         autoRefreshToken: true,
         detectSessionInUrl: true,
         ...hmrLockBypass
+    },
+    realtime: {
+        worker: true,
+        params: {
+            eventsPerSecond: 10
+        }
     }
 });

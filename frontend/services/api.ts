@@ -6,11 +6,8 @@ export const apiFetch = async (endpoint: string, options: RequestInit & { token?
     // Dynamically retrieve the latest session token if not explicitly provided
     let token = options.token;
     if (!token) {
-        token = localStorage.getItem('google_sso_token') || undefined;
-        if (!token) {
-            const { data: { session } } = await supabase.auth.getSession();
-            token = session?.access_token;
-        }
+        const { data: { session } } = await supabase.auth.getSession();
+        token = session?.access_token || localStorage.getItem('google_sso_token') || undefined;
     }
 
     const headers: Record<string, string> = {

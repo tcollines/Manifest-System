@@ -452,3 +452,89 @@ export const cleanupPastEvents = async () => {
         console.error("Error in cleanupPastEvents:", e);
     }
 };
+
+export const getServiceSnapshot = async (req: Request, res: Response) => {
+    const manifestId = (req as any).manifestId || (req as any).user?.manifest_id;
+    const serviceId = req.params.id || req.params.serviceId || (req.query.serviceId as string);
+
+    if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
+    if (!serviceId) return res.status(400).json({ error: 'Service ID is required' });
+
+    try {
+        // 1. Fetch Service Details
+        const { data: serviceData, error: serviceError } = await supabase
+            .from('services')
+            .select('id, date, manual_children_count')
+            .eq('id', serviceId)
+            .eq('manifest_id', manifestId)
+            .single();
+
+        if (serviceError || !serviceData) {
+            return res.status(404).json({ error: 'Service not found or unauthorized' });
+        }
+
+        // 2. Fetch Attendees (service_attendance)
+        const { data: attendanceData, error: attError } = await supabase
+            .from('service_attendance')
+            .select('member_id')
+            .eq('service_id', serviceId)
+            .eq('manifest_id', manifestId);
+
+        if (attError) throw attError;
+        const memberIds = attendanceData ? attendanceData.map(a => String(a.member_id)) : [];
+
+        // 3. Calculate First Timers (joined on service date)
+        const serviceDate = serviceData.date;
+        let firstTimersCount = 0;
+        if (serviceDate) {
+            const { count, error: ftError } = await supabase
+                .from('members')
+                .select('id', { count: 'exact', head: true })
+                .eq('manifest_id', manifestId)
+                .eq('joined_date', serviceDate);
+            if (!ftError && count !== null) {
+                firstTimersCount = count;
+            }
+        }
+
+        // 4. Fetch Main Souls
+        const { data: mainSouls, error: msError } = await supabase
+            .from('souls')
+            .select('id')
+            .eq('manifest_id', manifestId)
+            .or(`source_id.eq.${serviceId},event_id.eq.${serviceId}`);
+
+        if (msError) throw msError;
+        const mainSoulIds = mainSouls ? mainSouls.map(s => String(s.id)) : [];
+
+        // 5. Fetch NextGen Souls
+        let nextGenSoulIds: string[] = [];
+        try {
+            const { data: ngSouls } = await supabase
+                .from('next_gen_souls')
+                .select('id')
+                .eq('manifest_id', manifestId)
+                .eq('service_id', serviceId);
+            if (ngSouls) nextGenSoulIds = ngSouls.map(s => String(s.id));
+        } catch (e) {
+            // NextGen souls table is optional
+        }
+
+        const allSoulIds = Array.from(new Set([...mainSoulIds, ...nextGenSoulIds]));
+
+        return res.json({
+            serviceId,
+            memberIds,
+            total: memberIds.length,
+            manualChildrenCount: serviceData.manual_children_count || 0,
+            firstTimers: firstTimersCount,
+            soulIds: allSoulIds,
+            soulsWon: allSoulIds.length,
+            generatedAt: new Date().toISOString()
+        });
+
+    } catch (error: any) {
+        console.error('[getServiceSnapshot] Error:', error);
+        return res.status(500).json({ error: 'Failed to fetch service snapshot' });
+    }
+};

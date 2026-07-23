@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, createContext, useContext, useMemo, useCallback } from 'react';
+import { Capacitor } from '@capacitor/core';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '../../services/supabaseClient';
 import { v4 as uuidv4 } from 'uuid';
@@ -541,13 +542,18 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 50;
 
-  // Resync Guard for Foreground Recovery
+  // Resync Guard for Foreground Recovery & Snapshot Queuing
   const resyncInProgressRef = useRef(false);
+  const pendingResyncRef = useRef(false);
+  const [manualChildrenCount, setManualChildrenCount] = useState(0);
 
-  // Authoritative Reconciliation Function
+  // Authoritative Reconciliation Function (Uses Single Snapshot API)
   const reconcileCheckInsAndSouls = useCallback(async () => {
     if (!selectedService || viewMode !== 'service-active') return;
-    if (resyncInProgressRef.current) return;
+    if (resyncInProgressRef.current) {
+      pendingResyncRef.current = true;
+      return;
+    }
     resyncInProgressRef.current = true;
 
     try {
@@ -562,98 +568,100 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
         }
       }
 
-      // 2. Fetch Authoritative Service Stats & Attendees
-      const [stats, soulsList, attendees] = await Promise.all([
-        MemberStore.getServiceStats(selectedService.id, selectedService.date),
-        SoulsStore.getAll(selectedService.id),
-        MemberStore.getAttendees(selectedService.id)
-      ]);
+      // 2. Fetch Single Authoritative Service Snapshot
+      const snapshot = await EventStore.getServiceSnapshot(selectedService.id);
 
-      if (attendees && Array.isArray(attendees)) {
-        const attendeeIds = new Set(attendees.map(m => String(m.id).toLowerCase()));
-        setCheckedInIds(attendeeIds);
-        checkedInIdsRef.current = attendeeIds;
-      }
+      if (snapshot) {
+        if (Array.isArray(snapshot.memberIds)) {
+          const attendeeIds = new Set(snapshot.memberIds.map(id => String(id).toLowerCase()));
+          setCheckedInIds(attendeeIds);
+          checkedInIdsRef.current = attendeeIds;
+        }
 
-      if (soulsList && Array.isArray(soulsList)) {
-        const soulIds = new Set(soulsList.map((s: any) => String(s.id).toLowerCase()));
-        setCheckedSoulIds(soulIds);
-      }
+        if (Array.isArray(snapshot.soulIds)) {
+          const soulIds = new Set(snapshot.soulIds.map(id => String(id).toLowerCase()));
+          setCheckedSoulIds(soulIds);
+        }
 
-      if (stats) {
+        setManualChildrenCount(snapshot.manualChildrenCount || 0);
+
         setCheckInStats({
-          total: stats.total || 0,
-          firstTimers: stats.firstTimers || 0,
-          soulsWon: Array.isArray(soulsList) ? soulsList.length : 0
+          total: snapshot.total || 0,
+          firstTimers: snapshot.firstTimers || 0,
+          soulsWon: snapshot.soulsWon || 0
         });
       }
     } catch (err) {
       console.warn('[RegistrationContext] Authoritative reconciliation warning:', err);
     } finally {
       resyncInProgressRef.current = false;
+      if (pendingResyncRef.current) {
+        pendingResyncRef.current = false;
+        reconcileCheckInsAndSouls();
+      }
     }
-  }, [selectedService?.id, selectedService?.date, viewMode]);
+  }, [selectedService?.id, viewMode]);
 
-  // --- REALTIME SYNC: Service Check-Ins & Broadcast Invalidation Signals ---
+  // --- REALTIME SYNC: Private Broadcast Channel & Foreground Lifecycle ---
   useEffect(() => {
     const manifestId = currentUser.manifestId || (currentUser as any).manifest_id;
     if (!selectedService || viewMode !== 'service-active' || !manifestId) return;
 
-    let debounceTimer: NodeJS.Timeout | null = null;
-    const debouncedReconcile = () => {
-      if (debounceTimer) clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(() => {
-        reconcileCheckInsAndSouls();
-      }, 300);
-    };
+    let isSubscribed = true;
+    let reconnectTimeout: NodeJS.Timeout | null = null;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
 
     const broadcastTopic = `manifest:${manifestId}:service:${selectedService.id}`;
-    const channel = supabase
-      .channel(broadcastTopic)
-      .on('broadcast', { event: 'invalidate' }, () => {
-        debouncedReconcile();
-      })
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'service_attendance',
-          filter: `service_id=eq.${selectedService.id}`
-        },
-        () => {
-          debouncedReconcile();
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'souls',
-          filter: `source_id=eq.${selectedService.id}`
-        },
-        () => {
-          debouncedReconcile();
-        }
-      )
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
+
+    const setupChannel = () => {
+      if (!isSubscribed) return;
+
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
+
+      channel = supabase
+        .channel(broadcastTopic, {
+          config: { private: true }
+        })
+        .on('broadcast', { event: 'invalidate' }, () => {
           reconcileCheckInsAndSouls();
-        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-          setTimeout(() => {
-            if (selectedServiceRef.current?.id === selectedService.id) {
-              reconcileCheckInsAndSouls();
-            }
-          }, 3000);
-        }
-      });
+        })
+        .subscribe((status) => {
+          if (!isSubscribed) return;
+
+          if (status === 'SUBSCRIBED') {
+            reconcileCheckInsAndSouls();
+          } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+            console.warn(`[RegistrationContext] Realtime channel status: ${status}. Scheduling reconnect.`);
+            if (reconnectTimeout) clearTimeout(reconnectTimeout);
+            reconnectTimeout = setTimeout(() => {
+              if (isSubscribed) {
+                setupChannel();
+              }
+            }, 3000 + Math.random() * 2000);
+          }
+        });
+    };
+
+    setupChannel();
+
+    // Visible Fallback Polling (15s)
+    const fallbackPollInterval = setInterval(() => {
+      if (document.visibilityState === 'visible' && isSubscribed) {
+        reconcileCheckInsAndSouls();
+      }
+    }, 15000);
 
     return () => {
-      if (debounceTimer) clearTimeout(debounceTimer);
-      supabase.removeChannel(channel);
+      isSubscribed = false;
+      if (reconnectTimeout) clearTimeout(reconnectTimeout);
+      clearInterval(fallbackPollInterval);
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
     };
-  }, [selectedService?.id, viewMode, currentUser.manifestId, (currentUser as any).manifest_id, reconcileCheckInsAndSouls]);
+  }, [selectedService, viewMode, currentUser, reconcileCheckInsAndSouls]);
 
   // --- FOREGROUND RECOVERY: Web & Capacitor iOS/Android Wake Listener ---
   useEffect(() => {
@@ -674,25 +682,29 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
     window.addEventListener('pageshow', handleForegroundWake);
     window.addEventListener('online', handleForegroundWake);
 
-    // Native Capacitor appStateChange event
-    let capListener: any = null;
-    import('@capacitor/app').then(({ App }) => {
-      capListener = App.addListener('appStateChange', ({ isActive }) => {
-        if (isActive) {
-          handleForegroundWake();
-        }
-      });
-    }).catch(() => {});
+    // Native Capacitor appStateChange event (Native platform guard)
+    let capListenerHandle: any = null;
+    if (Capacitor.isNativePlatform()) {
+      import('@capacitor/app').then(({ App }) => {
+        App.addListener('appStateChange', ({ isActive }) => {
+          if (isActive) {
+            handleForegroundWake();
+          }
+        }).then(handle => {
+          capListenerHandle = handle;
+        });
+      }).catch(() => {});
+    }
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('pageshow', handleForegroundWake);
       window.removeEventListener('online', handleForegroundWake);
-      if (capListener && typeof capListener.remove === 'function') {
-        capListener.remove();
+      if (capListenerHandle && typeof capListenerHandle.remove === 'function') {
+        capListenerHandle.remove();
       }
     };
-  }, [selectedService?.id, viewMode, reconcileCheckInsAndSouls]);
+  }, [selectedService, viewMode, reconcileCheckInsAndSouls]);
 
 
   // Robust Role Check: Case-insensitive and includes Department ID 'd5' (Transportation/Logistics) - Fixes Data Entrant Guard
@@ -772,6 +784,10 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
   }
 
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearchQuery]);
 
   // Ultra-Fast Search Logic
   const abortControllerRef = useRef<AbortController | null>(null);
