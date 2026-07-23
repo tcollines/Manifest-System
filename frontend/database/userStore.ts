@@ -21,7 +21,8 @@ export const mapUserFromDB = (u: any): User => ({
   eventId: u.event_id,
   invitationToken: u.invitation_token,
   status: u.status,
-  createdBy: u.created_by
+  createdBy: u.created_by,
+  token: u.token || u.access_token
 });
 
 // Helper to map App camelCase to DB snake_case
@@ -82,17 +83,16 @@ export const UserStore = {
           authResult = { error: { message: errData.error || 'Login failed' } };
         } else {
           const { session } = await response.json();
-          // Store session into the local Supabase client instance so realtime & api fetch works
-          const { data: setSessionData, error: setSessionError } = await supabase.auth.setSession({
-            access_token: session.access_token,
-            refresh_token: session.refresh_token,
-          });
-
-          if (setSessionError) {
-            authResult = { error: setSessionError };
-          } else {
-            authResult = { data: { session } };
+          // Store session into the local Supabase client instance safely
+          try {
+            await supabase.auth.setSession({
+              access_token: session.access_token,
+              refresh_token: session.refresh_token,
+            });
+          } catch (sErr) {
+            console.warn('[USERSTORE] supabase.auth.setSession soft warning:', sErr);
           }
+          authResult = { data: { session } };
         }
       } catch (err: any) {
         authResult = { error: err };
@@ -134,8 +134,6 @@ export const UserStore = {
 
       console.log(`[USERSTORE] Auth Success. JWT acquired. Fetching core profile via /users/profile endpoints...`);
       // Fetch full user profile from database now that we have a JWT
-      // We must use the API getProfile, because it securely handles Legacy ID vs Auth ID duplication 
-      // by falling back to the email with the most complete profile data.
       let profileData = null;
       try {
         profileData = await apiFetch('/users/profile', { token: authResult.data.session.access_token });
@@ -149,6 +147,7 @@ export const UserStore = {
         return { status: 'error', message: 'User profile not found in database' };
       }
 
+      profileData.token = authResult.data.session.access_token;
       console.log(`[USERSTORE] Core Profile Fetched. Login Complete.`);
       return { status: 'success', data: mapUserFromDB(profileData) };
 
