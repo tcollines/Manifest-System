@@ -37,6 +37,65 @@ export const getAllUsers = async (req: Request, res: Response) => {
 
 const SAFE_USER_COLUMNS = 'id, name, role, department_id, department_uid, username, contact, email, station_id, event_id, status, created_at, manifest_id';
 
+export const syncManifestClaim = async (req: Request, res: Response) => {
+    const user = (req as any).user;
+    if (!user || (!user.id && !user.authUserId && !user.sub)) {
+        return res.status(401).json({ error: 'Unauthorized: Missing verified token user' });
+    }
+
+    const verifiedSub = String(user.authUserId || user.id || user.sub);
+    const verifiedEmail = user.email ? String(user.email).trim() : null;
+
+    try {
+        const { createClient } = require('@supabase/supabase-js');
+        const adminClient = createClient(process.env.SUPABASE_URL as string, process.env.SUPABASE_SERVICE_ROLE_KEY as string);
+
+        const { data: idRows } = await adminClient
+            .from('users')
+            .select('id, manifest_id, email')
+            .eq('id', verifiedSub)
+            .neq('status', 'Deleted');
+
+        let profile: any = null;
+
+        if (idRows && idRows.length === 1) {
+            profile = idRows[0];
+        } else if (idRows && idRows.length > 1) {
+            return res.status(401).json({ error: 'Unauthorized: Ambiguous profile match for user ID' });
+        } else if (verifiedEmail) {
+            const { data: emailRows } = await adminClient
+                .from('users')
+                .select('id, manifest_id, email')
+                .eq('email', verifiedEmail)
+                .neq('status', 'Deleted');
+
+            if (emailRows && emailRows.length === 1) {
+                profile = emailRows[0];
+            } else if (emailRows && emailRows.length > 1) {
+                return res.status(401).json({ error: 'Unauthorized: Ambiguous profile match for email' });
+            }
+        }
+
+        if (!profile || !profile.manifest_id) {
+            return res.status(404).json({ error: 'User profile or manifest association not found' });
+        }
+
+        const { error: updateErr } = await adminClient.auth.admin.updateUserById(verifiedSub, {
+            app_metadata: { manifest_id: profile.manifest_id }
+        });
+
+        if (updateErr) {
+            console.error('[syncManifestClaim] Failed to update GoTrue app_metadata:', updateErr.message);
+            return res.status(500).json({ error: 'Failed to update auth claims' });
+        }
+
+        return res.json({ success: true, manifestId: profile.manifest_id });
+    } catch (error: any) {
+        console.error('[syncManifestClaim EXCEPTION]', error);
+        return res.status(500).json({ error: 'An internal server error occurred' });
+    }
+};
+
 export const getProfile = async (req: Request, res: Response) => {
     const requestId = (req.headers['x-request-id'] as string) || uuidv4();
     const manifestId = (req as any).manifestId;

@@ -529,15 +529,13 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
   // Check-in Stats State
   const [checkInStats, setCheckInStats] = useState({ total: 0, firstTimers: 0, soulsWon: 0 });
   const [checkedInIds, setCheckedInIds] = useState<Set<string>>(new Set());
+  const [firstTimerMemberIds, setFirstTimerMemberIds] = useState<Set<string>>(new Set());
   const [checkedSoulIds, setCheckedSoulIds] = useState<Set<string>>(new Set());
+  const firstTimerIdsRef = useRef<Set<string>>(new Set());
 
   // Member Details View State
   const [selectedMemberDetails, setSelectedMemberDetails] = useState<{ member: Member, attendedCount: number, totalServices: number, history: any[] } | null>(null);
   const [isEditingMember, setIsEditingMember] = useState(false);
-
-
-
-
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
@@ -548,52 +546,80 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
   const pendingResyncRef = useRef(false);
   const [manualChildrenCount, setManualChildrenCount] = useState(0);
 
-  // Authoritative Reconciliation Function (Uses Single Snapshot API)
+  // Authoritative Reconciliation Function (Coalesced Single Snapshot Pipeline)
   const reconcileCheckInsAndSouls = useCallback(async () => {
-    if (!selectedService || viewMode !== 'service-active') return;
+    if (!selectedService?.id || viewMode !== 'service-active') return;
     if (resyncInProgressRef.current) {
       pendingResyncRef.current = true;
       return;
     }
     resyncInProgressRef.current = true;
+    const currentGen = generationRef.current;
+    const startTs = Date.now();
 
     try {
-      // 1. Refresh Supabase / Realtime auth token
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.access_token) {
-        await supabase.realtime.setAuth(session.access_token);
-      } else {
-        const googleToken = localStorage.getItem('google_sso_token');
-        if (googleToken) {
-          await supabase.realtime.setAuth(googleToken);
-        }
-      }
-
-      // 2. Fetch Single Authoritative Service Snapshot
+      console.log(`[REG-RT] Reconciliation started for service generation ${currentGen} (${selectedService.id})`);
       const snapshot = await EventStore.getServiceSnapshot(selectedService.id);
 
+      if (currentGen !== generationRef.current) {
+        console.warn(`[REG-RT] Stale service generation response ignored for gen ${currentGen}`);
+        return;
+      }
+
       if (snapshot) {
-        if (Array.isArray(snapshot.memberIds)) {
-          const attendeeIds = new Set(snapshot.memberIds.map(id => String(id).toLowerCase()));
-          setCheckedInIds(attendeeIds);
-          checkedInIdsRef.current = attendeeIds;
-        }
+        const rawMemberIds = snapshot.checkedInMemberIds || snapshot.memberIds || [];
+        const attendeeIds = new Set(rawMemberIds.map((id: any) => String(id).toLowerCase()));
+        setCheckedInIds(attendeeIds);
+        checkedInIdsRef.current = attendeeIds;
+
+        const rawFtIds = snapshot.firstTimerMemberIds || [];
+        const ftIds = new Set(rawFtIds.map((id: any) => String(id).toLowerCase()));
+        setFirstTimerMemberIds(ftIds);
+        firstTimerIdsRef.current = ftIds;
 
         if (Array.isArray(snapshot.soulIds)) {
-          const soulIds = new Set(snapshot.soulIds.map(id => String(id).toLowerCase()));
+          const soulIds = new Set(snapshot.soulIds.map((id: any) => String(id).toLowerCase()));
           setCheckedSoulIds(soulIds);
         }
 
         setManualChildrenCount(snapshot.manualChildrenCount || 0);
 
+        const calculatedTotal = attendeeIds.size + (snapshot.manualChildrenCount || 0);
         setCheckInStats({
-          total: snapshot.total || 0,
-          firstTimers: snapshot.firstTimers || 0,
+          total: calculatedTotal,
+          firstTimers: snapshot.firstTimers ?? ftIds.size,
           soulsWon: snapshot.soulsWon || 0
         });
+
+        // Merge returned safe member summaries into local member map
+        if (Array.isArray(snapshot.checkedInMembers) && snapshot.checkedInMembers.length > 0) {
+          setMembers(prev => {
+            const existingMap = new Map(prev.map(m => [m.id, m]));
+            let updated = false;
+            for (const sMem of snapshot.checkedInMembers) {
+              if (sMem && sMem.id) {
+                const sId = String(sMem.id);
+                if (!existingMap.has(sId)) {
+                  existingMap.set(sId, {
+                    id: sId,
+                    name: sMem.name || 'Member',
+                    phone: sMem.phone || '',
+                    category: 'Member',
+                    status: 'Checked In',
+                    joinedDate: new Date().toISOString().split('T')[0]
+                  } as any);
+                  updated = true;
+                }
+              }
+            }
+            return updated ? Array.from(existingMap.values()) : prev;
+          });
+        }
+
+        console.log(`[REG-RT] Reconciliation completed in ${Date.now() - startTs}ms. Total: ${calculatedTotal}, FT: ${snapshot.firstTimers}`);
       }
     } catch (err) {
-      console.warn('[RegistrationContext] Authoritative reconciliation warning:', err);
+      console.error('[REG-RT] Authoritative reconciliation warning (preserving state):', err);
     } finally {
       resyncInProgressRef.current = false;
       if (pendingResyncRef.current) {
@@ -618,6 +644,7 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
     const currentGen = ++generationRef.current;
 
     const broadcastTopic = `manifest:${manifestId}:service:${serviceId}`;
+    console.log(`[REG-RT] Subscribing to private topic: ${broadcastTopic} (Gen ${currentGen})`);
 
     const setupChannel = () => {
       if (!isSubscribed || intentionalRemoval || currentGen !== generationRef.current) return;
@@ -631,19 +658,22 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
         .channel(broadcastTopic, {
           config: { private: true }
         })
-        .on('broadcast', { event: 'invalidate' }, () => {
+        .on('broadcast', { event: 'invalidate' }, (payload) => {
           if (currentGen === generationRef.current) {
+            console.log(`[REG-RT] Broadcast invalidation received:`, payload?.event || 'invalidate');
             reconcileCheckInsAndSouls();
           }
         })
         .subscribe((status, err) => {
           if (!isSubscribed || intentionalRemoval || currentGen !== generationRef.current) return;
 
+          console.log(`[REG-RT] Channel status (${broadcastTopic}): ${status}`);
+
           if (status === 'SUBSCRIBED') {
             attempt = 0;
             reconcileCheckInsAndSouls();
           } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-            console.warn(`[RegistrationContext] Realtime channel status (${status}) err:`, err);
+            console.warn(`[REG-RT] Realtime channel status (${status}) err:`, err?.message || err);
             if (reconnectTimer) clearTimeout(reconnectTimer);
             attempt++;
             const backoffMs = Math.min(30000, Math.pow(2, attempt) * 1000 + Math.random() * 1000);
@@ -660,9 +690,10 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
 
     setupChannel();
 
-    // Visible Fallback Polling (15s)
+    // Secondary fallback polling (15s) with diagnostic instrumentation
     const fallbackPollInterval = setInterval(() => {
       if (document.visibilityState === 'visible' && isSubscribed && currentGen === generationRef.current) {
+        console.log('[REG-RT] 15s secondary recovery poll triggering reconciliation');
         reconcileCheckInsAndSouls();
       }
     }, 15000);

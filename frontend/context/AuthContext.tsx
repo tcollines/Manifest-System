@@ -6,6 +6,7 @@ import { supabase } from '../services/supabaseClient';
 import { getDashboardForUser } from '../utils';
 import { unsubscribeFromPush } from '../services/pushService';
 import { analyticsService } from '../services/analyticsService';
+import { apiFetch } from '../services/api';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -35,39 +36,52 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const isHandlingSignIn = useRef(false);
 
-    // Complete pipeline: Session refresh -> profile resolution -> manifest verification -> realtime.setAuth() -> realtimeAuthReady -> setUser
+    // Complete Phase 2 Auth Pipeline
     const completeAuthPreparation = useCallback(async (token: string, email: string) => {
+        setRealtimeAuthReady(false);
         try {
-            // 1. Refresh session to ensure latest JWT & app_metadata
+            // 1. Resolve trusted profile from backend
+            const profile = await UserStore.getByEmail(email, token);
+            if (!profile || !profile.manifestId) {
+                throw new Error('User profile or manifestId missing');
+            }
+
+            // 2. Check if app_metadata.manifest_id is in current session
             let activeToken = token;
-            const { data: refreshData, error: refreshErr } = await supabase.auth.refreshSession();
-            if (!refreshErr && refreshData?.session?.access_token) {
-                activeToken = refreshData.session.access_token;
+            const currentSession = (await supabase.auth.getSession()).data.session;
+            let jwtManifestId = currentSession?.user?.app_metadata?.manifest_id;
+
+            if (!jwtManifestId || jwtManifestId !== profile.manifestId) {
+                try {
+                    await apiFetch('/users/sync-manifest', { method: 'POST', token });
+                } catch (syncErr) {
+                    console.warn('[REG-RT] Sync manifest endpoint warning:', syncErr);
+                }
+
+                // Refresh session to acquire updated JWT claim
+                const { data: refreshData } = await supabase.auth.refreshSession();
+                if (refreshData?.session?.access_token) {
+                    activeToken = refreshData.session.access_token;
+                    jwtManifestId = refreshData.session.user?.app_metadata?.manifest_id;
+                }
             }
 
-            // 2. Profile resolution via /api/users/profile
-            const profile = await UserStore.getByEmail(email, activeToken);
-            if (!profile) {
-                throw new Error('User profile not found in database');
+            // 3. Verify JWT claim matches trusted profile
+            if (jwtManifestId && jwtManifestId !== profile.manifestId) {
+                console.error(`[REG-RT] JWT claim mismatch: expected ${profile.manifestId}, got ${jwtManifestId}`);
+                throw new Error('JWT tenant claim mismatch');
             }
 
-            // 3. Manifest verification
-            if (!profile.manifestId) {
-                throw new Error('User profile missing manifest association');
-            }
-
-            // 4. Realtime auth binding
+            // 4. Bind Realtime Auth and set readiness
             await supabase.realtime.setAuth(activeToken);
-
-            // 5. Complete preparation: set realtimeAuthReady & save session before setting user
             setRealtimeAuthReady(true);
+
             profile.token = activeToken;
             UserStore.saveSession(profile);
             setUser(profile);
-
             return profile;
         } catch (err) {
-            console.error('[AuthContext] Auth preparation failed:', err);
+            console.error('[REG-RT] Auth preparation failed:', err);
             setRealtimeAuthReady(false);
             setUser(null);
             throw err;
@@ -121,16 +135,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
     }, [completeAuthPreparation]);
 
-    // Supabase Auth listener (Deferred outside callback to avoid calling auth methods inside awaited callback)
+    // Supabase Auth listener (Deferred outside callback to avoid auth-lock problems)
     useEffect(() => {
         const { data: authSub } = supabase.auth.onAuthStateChange((event, session) => {
             setTimeout(() => {
                 if (session?.access_token) {
-                    supabase.realtime.setAuth(session.access_token).catch(() => {});
+                    const jwtManifest = session.user?.app_metadata?.manifest_id;
+                    if (jwtManifest) {
+                        supabase.realtime.setAuth(session.access_token).catch(() => {});
+                    }
                 }
 
                 if (event === 'TOKEN_REFRESHED' && session?.access_token) {
-                    setRealtimeAuthReady(true);
+                    const jwtManifest = session.user?.app_metadata?.manifest_id;
+                    if (jwtManifest) {
+                        supabase.realtime.setAuth(session.access_token).then(() => setRealtimeAuthReady(true)).catch(() => {});
+                    }
                 }
 
                 if (event === 'SIGNED_IN' && session?.user?.email) {
@@ -212,7 +232,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setRealtimeAuthReady(false);
             UserStore.clearSession();
             queryClient.clear();
-            localStorage.removeItem('google_sso_token');
         }
     }, [user, queryClient]);
 

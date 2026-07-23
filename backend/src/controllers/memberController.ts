@@ -204,21 +204,6 @@ export const updateMember = async (req: Request, res: Response) => {
     }
 
     try {
-        // [FIX] Administrative Correction: If shifting a First Timer to Member, explicitly clear First Timer flags
-        if (m.category !== undefined) {
-            const { data: oldRecord } = await supabase
-                .from('members')
-                .select('category')
-                .eq('manifest_id', manifestId)
-                .eq('id', toUUID(id))
-                .single();
-
-            if (m.category === 'Member') {
-                updates.is_first_timer = false;
-                updates.first_timer_service_id = null;
-                updates.first_timer_date = null;
-            }
-        }
         const { error } = await supabase.from('members')
             .update(updates)
             .eq('manifest_id', manifestId) // Tenant Isolation
@@ -312,7 +297,7 @@ export const checkInMember = async (req: Request, res: Response) => {
             }
 
             const { data: member } = await supabase.from('members')
-                .select('attended_service_ids, category, first_timer_service_id, joined_date')
+                .select('attended_service_ids')
                 .eq('manifest_id', manifestId) // Tenant Isolation
                 .eq('id', uuidMemberId)
                 .single();
@@ -320,21 +305,10 @@ export const checkInMember = async (req: Request, res: Response) => {
             const currentIds = member?.attended_service_ids || [];
             const newIds = Array.from(new Set([...currentIds, ...validIds.map(toUUID)]));
 
-            const todayStr = new Date().toISOString().split('T')[0];
-            const joinedStr = member?.joined_date ? new Date(member.joined_date).toISOString().split('T')[0] : todayStr;
-            const isReturnVisit = joinedStr < todayStr;
-            const newCategory = (member?.category === 'First Timer' && isReturnVisit) ? 'Member' : (member?.category);
-
             const updatePayload: any = {
                 check_in_time: new Date().toISOString(),
-                attended_service_ids: newIds,
-                category: newCategory
+                attended_service_ids: newIds
             };
-
-            if (member?.first_timer_service_id && validIds.map(toUUID).includes(member.first_timer_service_id)) {
-                updatePayload.first_timer_service_id = null;
-                updatePayload.legacy_first_timer_service_id = null;
-            }
 
             await supabase.from('members')
                 .update(updatePayload)
@@ -381,9 +355,9 @@ export const uncheckInMember = async (req: Request, res: Response) => {
 
         if (deleteError) throw deleteError;
 
-        // 2. Safely Update the members table cache arrays and first timer flags
+        // 2. Safely Update the members table cache array (never erase historical first timer fields!)
         const { data: member } = await supabase.from('members')
-            .select('attended_service_ids, first_timer_service_id')
+            .select('attended_service_ids')
             .eq('manifest_id', manifestId) // Tenant Isolation
             .eq('id', uuidMemberId)
             .single();
@@ -395,15 +369,6 @@ export const uncheckInMember = async (req: Request, res: Response) => {
             const updatePayload: any = {
                 attended_service_ids: newIds
             };
-
-            // If this exact service triggered their First Timer status, revoke it
-            // So they can be cleanly flagged as a First Timer at the correct service next time
-            if (member.first_timer_service_id === uuidServiceId) {
-                updatePayload.first_timer_service_id = null;
-                updatePayload.legacy_first_timer_service_id = null;
-                updatePayload.is_first_timer = false;
-                updatePayload.first_timer_date = null;
-            }
 
             const { error: updateError } = await supabase.from('members')
                 .update(updatePayload)

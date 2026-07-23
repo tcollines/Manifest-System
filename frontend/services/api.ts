@@ -19,10 +19,6 @@ export const apiFetch = async (endpoint: string, options: RequestInit & { token?
                     token = parsed?.token || parsed?.access_token;
                 }
             } catch (e) {}
-
-            if (!token) {
-                token = localStorage.getItem('google_sso_token') || undefined;
-            }
         }
     }
 
