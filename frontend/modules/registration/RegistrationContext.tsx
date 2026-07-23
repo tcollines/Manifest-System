@@ -57,7 +57,7 @@ interface RegistrationProviderProps {
 }
 
 export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ children }) => {
-  const { user: currentUser, realtimeAuthReady } = useAuth();
+  const { user: currentUser, realtimeAuthReady, verifiedRealtimeManifestId } = useAuth();
   const { events, refreshEvents: refreshParentData, isLoading: isEventsLoading } = useEvent();
   const [searchParams, setSearchParams] = useSearchParams();
   const urlTab = searchParams.get('tab') as any;
@@ -546,27 +546,37 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
   const pendingResyncRef = useRef(false);
   const [manualChildrenCount, setManualChildrenCount] = useState(0);
 
-  // Authoritative Reconciliation Function (Coalesced Single Snapshot Pipeline)
-  const reconcileCheckInsAndSouls = useCallback(async () => {
-    if (!selectedService?.id || viewMode !== 'service-active') return;
-    if (resyncInProgressRef.current) {
-      pendingResyncRef.current = true;
-      return;
-    }
-    resyncInProgressRef.current = true;
-    const currentGen = generationRef.current;
+  type ReconcileJob = {
+    generation: number;
+    manifestId: string;
+    serviceId: string;
+    reason: 'initial' | 'broadcast' | 'subscribed' | 'poll' | 'foreground' | 'online';
+  };
+
+  const activeJobRef = useRef<ReconcileJob | null>(null);
+  const queuedJobRef = useRef<ReconcileJob | null>(null);
+  const selectedServiceSnapshotIdRef = useRef<string | null>(null);
+
+  const processReconcileJob = useCallback(async (job: ReconcileJob) => {
+    activeJobRef.current = job;
     const startTs = Date.now();
 
     try {
-      console.log(`[REG-RT] Reconciliation started for service generation ${currentGen} (${selectedService.id})`);
-      const snapshot = await EventStore.getServiceSnapshot(selectedService.id);
+      console.log(`[REG-RT] Reconcile job started (reason: ${job.reason}, gen: ${job.generation}, service: ${job.serviceId})`);
+      const snapshot = await EventStore.getServiceSnapshot(job.serviceId);
 
-      if (currentGen !== generationRef.current) {
-        console.warn(`[REG-RT] Stale service generation response ignored for gen ${currentGen}`);
+      const activeManifestId = currentUser?.manifestId || (currentUser as any)?.manifest_id;
+      if (
+        job.generation !== generationRef.current ||
+        job.manifestId !== activeManifestId ||
+        job.serviceId !== selectedService?.id
+      ) {
+        console.warn(`[REG-RT] Stale reconcile job response ignored for service ${job.serviceId} (reason: ${job.reason})`);
         return;
       }
 
       if (snapshot) {
+        selectedServiceSnapshotIdRef.current = job.serviceId;
         const rawMemberIds = snapshot.checkedInMemberIds || snapshot.memberIds || [];
         const attendeeIds = new Set(rawMemberIds.map((id: any) => String(id).toLowerCase()));
         setCheckedInIds(attendeeIds);
@@ -616,25 +626,51 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
           });
         }
 
-        console.log(`[REG-RT] Reconciliation completed in ${Date.now() - startTs}ms. Total: ${calculatedTotal}, FT: ${snapshot.firstTimers}`);
+        console.log(`[REG-RT] Reconcile job completed in ${Date.now() - startTs}ms (reason: ${job.reason}). Total: ${calculatedTotal}, FT: ${snapshot.firstTimers}`);
       }
     } catch (err) {
-      console.error('[REG-RT] Authoritative reconciliation warning (preserving state):', err);
+      console.error(`[REG-RT] Reconcile job failed (reason: ${job.reason}); preserving previous state:`, err);
     } finally {
-      resyncInProgressRef.current = false;
-      if (pendingResyncRef.current) {
-        pendingResyncRef.current = false;
-        reconcileCheckInsAndSouls();
+      activeJobRef.current = null;
+      if (queuedJobRef.current) {
+        const nextJob = queuedJobRef.current;
+        queuedJobRef.current = null;
+        processReconcileJob(nextJob);
       }
     }
-  }, [selectedService?.id, viewMode]);
+  }, [selectedService?.id, currentUser?.manifestId]);
+
+  const enqueueReconcileJob = useCallback((reason: ReconcileJob['reason']) => {
+    const serviceId = selectedService?.id;
+    const manifestId = currentUser?.manifestId || (currentUser as any)?.manifest_id;
+    if (!serviceId || !manifestId || viewMode !== 'service-active') return;
+
+    const job: ReconcileJob = {
+      generation: generationRef.current,
+      manifestId,
+      serviceId,
+      reason
+    };
+
+    if (activeJobRef.current) {
+      queuedJobRef.current = job;
+      return;
+    }
+
+    processReconcileJob(job);
+  }, [selectedService?.id, currentUser?.manifestId, viewMode, processReconcileJob]);
+
+  // Backward-compatible trigger callback
+  const reconcileCheckInsAndSouls = useCallback(() => {
+    enqueueReconcileJob('broadcast');
+  }, [enqueueReconcileJob]);
 
   // --- REALTIME SYNC: Private Broadcast Channel & Generation-Guarded Lifecycle ---
   useEffect(() => {
     const serviceId = selectedService?.id;
     const manifestId = currentUser?.manifestId || (currentUser as any)?.manifest_id;
 
-    if (!serviceId || viewMode !== 'service-active' || !manifestId || !realtimeAuthReady) return;
+    if (!serviceId || viewMode !== 'service-active' || !manifestId || !realtimeAuthReady || verifiedRealtimeManifestId !== manifestId) return;
 
     let isSubscribed = true;
     let intentionalRemoval = false;
@@ -661,7 +697,7 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
         .on('broadcast', { event: 'invalidate' }, (payload) => {
           if (currentGen === generationRef.current) {
             console.log(`[REG-RT] Broadcast invalidation received:`, payload?.event || 'invalidate');
-            reconcileCheckInsAndSouls();
+            enqueueReconcileJob('broadcast');
           }
         })
         .subscribe((status, err) => {
@@ -671,7 +707,7 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
 
           if (status === 'SUBSCRIBED') {
             attempt = 0;
-            reconcileCheckInsAndSouls();
+            enqueueReconcileJob('subscribed');
           } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
             console.warn(`[REG-RT] Realtime channel status (${status}) err:`, err?.message || err);
             if (reconnectTimer) clearTimeout(reconnectTimer);
@@ -693,8 +729,7 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
     // Secondary fallback polling (15s) with diagnostic instrumentation
     const fallbackPollInterval = setInterval(() => {
       if (document.visibilityState === 'visible' && isSubscribed && currentGen === generationRef.current) {
-        console.log('[REG-RT] 15s secondary recovery poll triggering reconciliation');
-        reconcileCheckInsAndSouls();
+        enqueueReconcileJob('poll');
       }
     }, 15000);
 
@@ -708,50 +743,54 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
         currentChannel = null;
       }
     };
-  }, [selectedService?.id, viewMode, currentUser?.manifestId, realtimeAuthReady, reconcileCheckInsAndSouls]);
+  }, [selectedService?.id, viewMode, currentUser?.manifestId, realtimeAuthReady, verifiedRealtimeManifestId, enqueueReconcileJob]);
 
-  // --- FOREGROUND RECOVERY: Web & Capacitor iOS/Android Wake Listener ---
+  // --- FOREGROUND & ONLINE RECOVERY LISTENERS ---
   useEffect(() => {
     if (!selectedService || viewMode !== 'service-active') return;
 
-    const handleForegroundWake = () => {
-      reconcileCheckInsAndSouls();
-    };
-
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        handleForegroundWake();
+        enqueueReconcileJob('foreground');
       }
+    };
+
+    const handleOnline = () => {
+      enqueueReconcileJob('online');
+    };
+
+    const handleHeartbeatUnhealthy = () => {
+      enqueueReconcileJob('subscribed');
     };
 
     // Web lifecycle events
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('pageshow', handleForegroundWake);
-    window.addEventListener('online', handleForegroundWake);
+    window.addEventListener('pageshow', handleVisibilityChange);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('realtime:heartbeat_unhealthy', handleHeartbeatUnhealthy);
 
     // Native Capacitor appStateChange event (Native platform guard)
     let capListenerHandle: any = null;
     if (Capacitor.isNativePlatform()) {
       import('@capacitor/app').then(({ App }) => {
-        App.addListener('appStateChange', ({ isActive }) => {
-          if (isActive) {
-            handleForegroundWake();
+        App.addListener('appStateChange', (state) => {
+          if (state.isActive) {
+            enqueueReconcileJob('foreground');
           }
-        }).then(handle => {
-          capListenerHandle = handle;
-        });
+        }).then(handle => { capListenerHandle = handle; });
       }).catch(() => {});
     }
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('pageshow', handleForegroundWake);
-      window.removeEventListener('online', handleForegroundWake);
+      window.removeEventListener('pageshow', handleVisibilityChange);
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('realtime:heartbeat_unhealthy', handleHeartbeatUnhealthy);
       if (capListenerHandle && typeof capListenerHandle.remove === 'function') {
         capListenerHandle.remove();
       }
     };
-  }, [selectedService, viewMode, reconcileCheckInsAndSouls]);
+  }, [selectedService?.id, viewMode, enqueueReconcileJob]);
 
 
   // Robust Role Check: Case-insensitive and includes Department ID 'd5' (Transportation/Logistics) - Fixes Data Entrant Guard

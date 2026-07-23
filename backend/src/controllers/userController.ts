@@ -80,8 +80,14 @@ export const syncManifestClaim = async (req: Request, res: Response) => {
             return res.status(404).json({ error: 'User profile or manifest association not found' });
         }
 
+        const { data: authUserData } = await adminClient.auth.admin.getUserById(verifiedSub);
+        const existingAppMetadata = authUserData?.user?.app_metadata || {};
+
         const { error: updateErr } = await adminClient.auth.admin.updateUserById(verifiedSub, {
-            app_metadata: { manifest_id: profile.manifest_id }
+            app_metadata: {
+                ...existingAppMetadata,
+                manifest_id: profile.manifest_id
+            }
         });
 
         if (updateErr) {
@@ -89,7 +95,7 @@ export const syncManifestClaim = async (req: Request, res: Response) => {
             return res.status(500).json({ error: 'Failed to update auth claims' });
         }
 
-        return res.json({ success: true, manifestId: profile.manifest_id });
+        return res.json({ success: true });
     } catch (error: any) {
         console.error('[syncManifestClaim EXCEPTION]', error);
         return res.status(500).json({ error: 'An internal server error occurred' });

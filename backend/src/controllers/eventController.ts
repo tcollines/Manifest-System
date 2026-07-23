@@ -466,96 +466,18 @@ export const getServiceSnapshot = async (req: Request, res: Response) => {
             _manifest_id: manifestId
         });
 
-        if (!error && data && Object.keys(data).length > 0) {
-            return res.json(data);
-        }
-
-        // Fallback if RPC is missing or schema cache pending
         if (error) {
-            console.warn('[getServiceSnapshot] RPC unavailable, executing direct query fallback:', error.message);
+            console.error('[getServiceSnapshot RPC ERROR]', error);
+            return res.status(500).json({ error: 'Failed to fetch authoritative service snapshot', details: error.message });
         }
 
-        const { data: serviceData } = await supabase
-            .from('ministry_events')
-            .select('id, date, stats')
-            .eq('id', serviceId)
-            .eq('manifest_id', manifestId)
-            .maybeSingle();
-
-        if (!serviceData) {
-            return res.status(404).json({ error: 'Service not found or unauthorized' });
+        if (!data || Object.keys(data).length === 0) {
+            return res.status(404).json({ error: 'Service snapshot not found or unauthorized' });
         }
 
-        const manualChildrenCount = (serviceData as any).manual_children_count || 
-            parseInt(serviceData.stats?.manualChildrenCount || '0', 10) || 0;
-
-        const { data: attendanceData } = await supabase
-            .from('service_attendance')
-            .select('member_id')
-            .eq('service_id', serviceId)
-            .eq('manifest_id', manifestId);
-
-        const memberIds = attendanceData ? attendanceData.map(a => String(a.member_id)) : [];
-
-        let firstTimersCount = 0;
-        if (memberIds.length > 0) {
-            const { data: ftMembers } = await supabase
-                .from('members')
-                .select('id, category, joined_date, first_timer_service_id')
-                .eq('manifest_id', manifestId)
-                .in('id', memberIds);
-
-            if (ftMembers) {
-                const serviceDateStr = serviceData.date ? String(serviceData.date).split('T')[0] : '';
-                firstTimersCount = ftMembers.filter(m => {
-                    const isServiceMatch = (m as any).first_timer_service_id === serviceId || (m as any).firstTimerServiceId === serviceId;
-                    if (isServiceMatch) return true;
-
-                    if (m.category === 'First Timer') {
-                        if (m.joined_date && serviceDateStr) {
-                            const mJoinedStr = String(m.joined_date).split('T')[0];
-                            return mJoinedStr === serviceDateStr;
-                        }
-                        return true;
-                    }
-                    return false;
-                }).length;
-            }
-        }
-
-        const { data: mainSouls } = await supabase
-            .from('souls')
-            .select('id')
-            .eq('manifest_id', manifestId)
-            .or(`source_id.eq.${serviceId},event_id.eq.${serviceId}`);
-
-        const mainSoulIds = mainSouls ? mainSouls.map(s => String(s.id)) : [];
-
-        let nextGenSoulIds: string[] = [];
-        try {
-            const { data: ngSouls } = await supabase
-                .from('next_gen_souls')
-                .select('id')
-                .eq('manifest_id', manifestId)
-                .eq('service_id', serviceId);
-            if (ngSouls) nextGenSoulIds = ngSouls.map(s => String(s.id));
-        } catch (e) {}
-
-        const allSoulIds = Array.from(new Set([...mainSoulIds, ...nextGenSoulIds]));
-
-        return res.json({
-            serviceId,
-            memberIds,
-            total: memberIds.length,
-            manualChildrenCount: manualChildrenCount,
-            firstTimers: firstTimersCount,
-            soulIds: allSoulIds,
-            soulsWon: allSoulIds.length,
-            generatedAt: new Date().toISOString()
-        });
-
+        return res.json(data);
     } catch (error: any) {
-        console.error('[getServiceSnapshot] Error:', error);
-        return res.status(500).json({ error: 'Failed to fetch service snapshot' });
+        console.error('[getServiceSnapshot EXCEPTION]', error);
+        return res.status(500).json({ error: 'An internal server error occurred' });
     }
 };

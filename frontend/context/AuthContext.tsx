@@ -15,6 +15,7 @@ interface AuthContextType {
     isInitialLoading: boolean;
     isAuthenticated: boolean;
     realtimeAuthReady: boolean;
+    verifiedRealtimeManifestId: string | null;
     login: (username: string, password: string) => Promise<{ success: boolean; user?: User; error?: string }>;
     googleLogin: (email: string, token: string) => Promise<{ success: boolean; user?: User; error?: string }>;
     logout: () => Promise<void>;
@@ -33,12 +34,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [user, setUser] = useState<User | null>(null);
     const [isInitialLoading, setIsInitialLoading] = useState(true);
     const [realtimeAuthReady, setRealtimeAuthReady] = useState(false);
+    const [verifiedRealtimeManifestId, setVerifiedRealtimeManifestId] = useState<string | null>(null);
 
     const isHandlingSignIn = useRef(false);
+    const authGenRef = useRef(0);
 
-    // Complete Phase 2 Auth Pipeline
+    // Complete Phase 3 Auth Preparation Pipeline
     const completeAuthPreparation = useCallback(async (token: string, email: string) => {
         setRealtimeAuthReady(false);
+        setVerifiedRealtimeManifestId(null);
+        const currentGen = ++authGenRef.current;
+
         try {
             // 1. Resolve trusted profile from backend
             const profile = await UserStore.getByEmail(email, token);
@@ -51,29 +57,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const currentSession = (await supabase.auth.getSession()).data.session;
             let jwtManifestId = currentSession?.user?.app_metadata?.manifest_id;
 
-            if (!jwtManifestId || jwtManifestId !== profile.manifestId) {
-                try {
-                    await apiFetch('/users/sync-manifest', { method: 'POST', token });
-                } catch (syncErr) {
-                    console.warn('[REG-RT] Sync manifest endpoint warning:', syncErr);
-                }
+            if (jwtManifestId !== profile.manifestId) {
+                // Call secure backend sync endpoint; DO NOT swallow error
+                await apiFetch('/users/sync-manifest', { method: 'POST', token: activeToken });
 
                 // Refresh session to acquire updated JWT claim
-                const { data: refreshData } = await supabase.auth.refreshSession();
-                if (refreshData?.session?.access_token) {
-                    activeToken = refreshData.session.access_token;
-                    jwtManifestId = refreshData.session.user?.app_metadata?.manifest_id;
+                const { data: refreshData, error: refreshErr } = await supabase.auth.refreshSession();
+                if (refreshErr || !refreshData?.session?.access_token) {
+                    throw new Error('Session refresh failed after claims sync: ' + (refreshErr?.message || 'No session'));
                 }
+                activeToken = refreshData.session.access_token;
+                jwtManifestId = refreshData.session.user?.app_metadata?.manifest_id;
             }
 
-            // 3. Verify JWT claim matches trusted profile
-            if (jwtManifestId && jwtManifestId !== profile.manifestId) {
-                console.error(`[REG-RT] JWT claim mismatch: expected ${profile.manifestId}, got ${jwtManifestId}`);
-                throw new Error('JWT tenant claim mismatch');
+            // 3. Exact equality check required (never truthy-only comparison)
+            if (jwtManifestId !== profile.manifestId) {
+                throw new Error(`JWT tenant claim mismatch: expected ${profile.manifestId}, got ${jwtManifestId}`);
             }
 
-            // 4. Bind Realtime Auth and set readiness
+            // 4. Bind Realtime auth
             await supabase.realtime.setAuth(activeToken);
+
+            if (currentGen !== authGenRef.current) {
+                console.warn('[REG-RT] Stale auth preparation completed; ignoring state update');
+                return profile;
+            }
+
+            setVerifiedRealtimeManifestId(profile.manifestId);
             setRealtimeAuthReady(true);
 
             profile.token = activeToken;
@@ -83,6 +93,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } catch (err) {
             console.error('[REG-RT] Auth preparation failed:', err);
             setRealtimeAuthReady(false);
+            setVerifiedRealtimeManifestId(null);
             setUser(null);
             throw err;
         }
@@ -139,17 +150,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     useEffect(() => {
         const { data: authSub } = supabase.auth.onAuthStateChange((event, session) => {
             setTimeout(() => {
-                if (session?.access_token) {
-                    const jwtManifest = session.user?.app_metadata?.manifest_id;
-                    if (jwtManifest) {
-                        supabase.realtime.setAuth(session.access_token).catch(() => {});
-                    }
-                }
-
-                if (event === 'TOKEN_REFRESHED' && session?.access_token) {
-                    const jwtManifest = session.user?.app_metadata?.manifest_id;
-                    if (jwtManifest) {
-                        supabase.realtime.setAuth(session.access_token).then(() => setRealtimeAuthReady(true)).catch(() => {});
+                if (event === 'TOKEN_REFRESHED' && session?.access_token && user?.manifestId) {
+                    const refreshedJwtManifest = session.user?.app_metadata?.manifest_id;
+                    if (refreshedJwtManifest === user.manifestId) {
+                        supabase.realtime.setAuth(session.access_token)
+                            .then(() => {
+                                setVerifiedRealtimeManifestId(user.manifestId || null);
+                                setRealtimeAuthReady(true);
+                            })
+                            .catch(() => {
+                                setRealtimeAuthReady(false);
+                                setVerifiedRealtimeManifestId(null);
+                            });
+                    } else {
+                        setRealtimeAuthReady(false);
+                        setVerifiedRealtimeManifestId(null);
                     }
                 }
 
@@ -163,8 +178,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 }
 
                 if (event === 'SIGNED_OUT') {
+                    authGenRef.current++;
                     setUser(null);
                     setRealtimeAuthReady(false);
+                    setVerifiedRealtimeManifestId(null);
                     isHandlingSignIn.current = false;
                 }
             }, 0);
@@ -173,7 +190,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return () => {
             authSub?.subscription?.unsubscribe();
         };
-    }, [completeAuthPreparation]);
+    }, [completeAuthPreparation, user?.manifestId]);
 
     // Login (username + password)
     const login = useCallback(async (username: string, password: string) => {
@@ -201,6 +218,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (sErr || !sData?.session) {
                 console.error('[AuthContext] Google signInWithIdToken failed:', sErr);
                 setRealtimeAuthReady(false);
+                setVerifiedRealtimeManifestId(null);
                 return { success: false, error: 'Google authentication failed: ' + (sErr?.message || 'Invalid session') };
             }
 
@@ -209,12 +227,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } catch (e: any) {
             console.error('[AuthContext] Google login error:', e);
             setRealtimeAuthReady(false);
+            setVerifiedRealtimeManifestId(null);
             return { success: false, error: e.message || 'Google login failed' };
         }
     }, [completeAuthPreparation]);
 
     // Logout
     const logout = useCallback(async () => {
+        authGenRef.current++;
         const userId = user?.id;
 
         if (userId) {
@@ -242,6 +262,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } finally {
             setUser(null);
             setRealtimeAuthReady(false);
+            setVerifiedRealtimeManifestId(null);
             UserStore.clearSession();
             queryClient.clear();
         }
@@ -270,6 +291,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             isInitialLoading,
             isAuthenticated: !!user,
             realtimeAuthReady,
+            verifiedRealtimeManifestId,
             login,
             googleLogin,
             logout,

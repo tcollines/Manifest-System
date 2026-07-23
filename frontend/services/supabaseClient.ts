@@ -31,8 +31,11 @@ export const supabase = createClient(supabaseUrl, supabaseKey, {
     realtime: {
         worker: true,
         heartbeatCallback: (status: string) => {
-            if (status === 'timeout' || status === 'error') {
+            if (status === 'timeout' || status === 'error' || status === 'disconnected') {
                 console.warn(`[Supabase Realtime Heartbeat] Connection status: ${status}`);
+                if (typeof window !== 'undefined') {
+                    window.dispatchEvent(new CustomEvent('realtime:heartbeat_unhealthy', { detail: { status } }));
+                }
             }
         },
         params: {

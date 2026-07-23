@@ -84,11 +84,42 @@ export const addMember = async (req: Request, res: Response) => {
 
     try {
         const m = req.body;
+        const serviceId = m.currentServiceId || m.first_timer_service_id || (Array.isArray(m.attended_service_ids) ? m.attended_service_ids[0] : m.attended_service_ids);
+
+        if (m.category === 'First Timer' || m.isFirstTimer || serviceId) {
+            const uuidServiceId = serviceId ? toUUID(serviceId) : null;
+
+            if (uuidServiceId) {
+                const { data, error } = await supabase.rpc('atomic_register_first_timer', {
+                    _manifest_id: manifestId,
+                    _service_id: uuidServiceId,
+                    _name: m.name || 'Unnamed Member',
+                    _phone: m.phone || '',
+                    _gender: m.gender || null,
+                    _residency: m.residency || null,
+                    _occupation: m.occupation || null,
+                    _place_of_work: m.place_of_work || m.placeOfWork || null,
+                    _born_again: m.born_again !== undefined ? String(m.born_again) : (m.bornAgain !== undefined ? String(m.bornAgain) : null),
+                    _referral_source: m.referral_source || m.referralSource || null,
+                    _is_phaneroo_member: m.is_phaneroo_member || m.isPhanerooMember || null,
+                    _joined_date: m.joined_date || m.joinedDate || new Date().toISOString().split('T')[0]
+                });
+
+                if (error) {
+                    console.error('[ATOMIC REGISTER FIRST TIMER ERROR]', error);
+                    return res.status(500).json({ error: 'Failed to register member', details: error.message });
+                }
+
+                return res.status(201).json(data.member);
+            }
+        }
+
+        // Standard member creation fallback via submit_member_entry
         const rawIds = m.attended_service_ids || [];
         const safeServiceIds = Array.isArray(rawIds) ? rawIds : [rawIds];
 
         const { data, error } = await supabase.rpc('submit_member_entry', {
-            _manifest_id: manifestId, // INJECT TENANT ID
+            _manifest_id: manifestId,
             _id: m.id ? toUUID(m.id) : uuidv4(),
             _name: m.name || null,
             _category: m.category || null,
@@ -105,49 +136,15 @@ export const addMember = async (req: Request, res: Response) => {
 
         if (error) {
             console.error('[ADD MEMBER RPC ERROR]', error);
-            throw error;
-        }
-
-        if (data?._meta?.ignored_service_ids?.length > 0) {
-            console.warn('[ADD MEMBER WARNING] Ignored Temporary/Invalid IDs:', data._meta.ignored_service_ids);
-        }
-
-        const memberId = data?.id;
-        if (memberId) {
-            const updates: any = {};
-            if (m.occupation !== undefined) updates.occupation = m.occupation;
-            if (m.place_of_work !== undefined || m.placeOfWork !== undefined) {
-                updates.place_of_work = m.place_of_work !== undefined ? m.place_of_work : m.placeOfWork;
-            }
-            if (m.email !== undefined) updates.email = m.email;
-            if (m.is_phaneroo_member !== undefined || m.isPhanerooMember !== undefined) {
-                updates.is_phaneroo_member = m.is_phaneroo_member !== undefined ? m.is_phaneroo_member : m.isPhanerooMember;
-            }
-            if (m.referral_source !== undefined || m.referralSource !== undefined) {
-                updates.referral_source = m.referral_source !== undefined ? m.referral_source : m.referralSource;
-            }
-
-            if (Object.keys(updates).length > 0) {
-                const { error: updateError } = await supabase
-                    .from('members')
-                    .update(updates)
-                    .eq('manifest_id', manifestId)
-                    .eq('id', toUUID(memberId));
-
-                if (updateError) {
-                    console.error('[ADD MEMBER UPDATE ERROR] Failed to save extra columns:', updateError);
-                } else {
-                    Object.assign(data, updates);
-                }
-            }
+            return res.status(500).json({ error: 'Failed to add member', details: error.message });
         }
 
         res.status(201).json(data);
-
     } catch (error: any) {
         if (error.message && error.message.includes('idx_members_unique_identity')) {
             res.status(409).json({ error: 'This member (Name + Phone) is already registered in this Manifest.' });
         } else {
+            console.error('[ADD MEMBER EXCEPTION]', error);
             res.status(500).json({ error: 'An internal server error occurred.' });
         }
     }
@@ -162,39 +159,23 @@ export const updateMember = async (req: Request, res: Response) => {
 
     const updates: any = {};
     if (m.name !== undefined) updates.name = m.name;
-    if (m.category !== undefined) updates.category = m.category;
     if (m.phone !== undefined) updates.phone = m.phone;
-    if (m.status !== undefined) updates.status = m.status;
     if (m.gender !== undefined) updates.gender = m.gender;
     if (m.residency !== undefined) updates.residency = m.residency;
     if (m.occupation !== undefined) updates.occupation = m.occupation;
     if (m.email !== undefined) updates.email = m.email;
 
-    // Support both camelCase and snake_case for frontend requests
-    if (m.check_in_time !== undefined || m.checkInTime !== undefined) {
-        updates.check_in_time = m.check_in_time !== undefined ? m.check_in_time : m.checkInTime;
+    if (m.place_of_work !== undefined || m.placeOfWork !== undefined) {
+        updates.place_of_work = m.place_of_work !== undefined ? m.place_of_work : m.placeOfWork;
     }
     if (m.born_again !== undefined || m.bornAgain !== undefined) {
         updates.born_again = m.born_again !== undefined ? m.born_again : m.bornAgain;
-    }
-    if (m.joined_date !== undefined || m.joinedDate !== undefined) {
-        updates.joined_date = m.joined_date !== undefined ? m.joined_date : m.joinedDate;
-    }
-    if (m.place_of_work !== undefined || m.placeOfWork !== undefined) {
-        updates.place_of_work = m.place_of_work !== undefined ? m.place_of_work : m.placeOfWork;
     }
     if (m.is_phaneroo_member !== undefined || m.isPhanerooMember !== undefined) {
         updates.is_phaneroo_member = m.is_phaneroo_member !== undefined ? m.is_phaneroo_member : m.isPhanerooMember;
     }
     if (m.referral_source !== undefined || m.referralSource !== undefined) {
         updates.referral_source = m.referral_source !== undefined ? m.referral_source : m.referralSource;
-    }
-    if (m.attended_service_ids !== undefined || m.attendedServiceIds !== undefined) {
-        updates.attended_service_ids = m.attended_service_ids !== undefined ? m.attended_service_ids : m.attendedServiceIds;
-    }
-    if (m.first_timer_service_id !== undefined || m.firstTimerServiceId !== undefined) {
-        const val = m.first_timer_service_id !== undefined ? m.first_timer_service_id : m.firstTimerServiceId;
-        updates.first_timer_service_id = val ? toUUID(val) : null;
     }
     if (m.follow_up_status !== undefined || m.followUpStatus !== undefined) {
         updates.follow_up_status = m.follow_up_status !== undefined ? m.follow_up_status : m.followUpStatus;
@@ -203,11 +184,19 @@ export const updateMember = async (req: Request, res: Response) => {
         updates.follow_up_notes = m.follow_up_notes !== undefined ? m.follow_up_notes : m.followUpNotes;
     }
 
+    // EXPLICIT IMMUTABILITY GUARD: Strip updates to first_timer fields or manifest_id
+    delete updates.manifest_id;
+    delete updates.first_timer_service_id;
+    delete updates.first_timer_date;
+    delete updates.is_first_timer;
+    delete updates.id;
+
     try {
         const { error } = await supabase.from('members')
             .update(updates)
-            .eq('manifest_id', manifestId) // Tenant Isolation
+            .eq('manifest_id', manifestId)
             .eq('id', toUUID(id));
+
         if (error) throw error;
         res.json({ message: 'Member updated', updates });
     } catch (error: any) {
@@ -257,59 +246,36 @@ export const checkInMember = async (req: Request, res: Response) => {
             });
         }
 
-        const results = {
-            checkedIn: [] as string[],
-            alreadyCheckedIn: [] as string[],
-            ignored: tempIds
-        };
+        const uuidMemberId = toUUID(memberId);
+        if (!uuidMemberId) return res.status(400).json({ error: 'Invalid Member ID' });
 
-        if (validIds.length > 0) {
-            const uuidMemberId = toUUID(memberId);
-            if (!uuidMemberId) throw new Error("Invalid Member UUID");
+        const uuidServiceIds = validIds.map(toUUID).filter((id): id is string => !!id);
 
-            const uuidServiceIds = validIds.map(toUUID).filter((id): id is string => !!id);
+        for (const sid of uuidServiceIds) {
+            const { error: rpcErr } = await supabase.rpc('atomic_check_in_member', {
+                _manifest_id: manifestId,
+                _member_id: uuidMemberId,
+                _service_id: sid
+            });
 
-            for (const sid of uuidServiceIds) {
-                const { error: rpcErr } = await supabase.rpc('atomic_check_in_member', {
-                    _manifest_id: manifestId,
-                    _member_id: uuidMemberId,
-                    _service_id: sid,
-                    _is_first_timer: req.body.isFirstTimer === true || req.body.category === 'First Timer'
-                });
-
-                if (rpcErr) {
-                    await supabase.from('service_attendance').insert({
-                        manifest_id: manifestId,
-                        member_id: uuidMemberId,
-                        service_id: sid,
-                        check_in_time: new Date().toISOString()
-                    });
-
-                    const { data: member } = await supabase.from('members')
-                        .select('attended_service_ids')
-                        .eq('manifest_id', manifestId)
-                        .eq('id', uuidMemberId)
-                        .single();
-
-                    const currentIds = member?.attended_service_ids || [];
-                    const newIds = Array.from(new Set([...currentIds, sid]));
-                    await supabase.from('members')
-                        .update({ check_in_time: new Date().toISOString(), attended_service_ids: newIds })
-                        .eq('manifest_id', manifestId)
-                        .eq('id', uuidMemberId);
-                }
+            if (rpcErr) {
+                console.error('[checkInMember RPC ERROR]', rpcErr);
+                return res.status(500).json({ error: 'Check-in failed: ' + rpcErr.message });
             }
-
-            results.checkedIn = uuidServiceIds;
         }
 
         res.json({
             message: 'Check-in processed',
-            results,
+            results: {
+                checkedIn: uuidServiceIds,
+                alreadyCheckedIn: [],
+                ignored: tempIds
+            },
             _meta: { ignored_service_ids: tempIds }
         });
 
     } catch (error: any) {
+        console.error('[checkInMember EXCEPTION]', error);
         res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
@@ -329,46 +295,23 @@ export const uncheckInMember = async (req: Request, res: Response) => {
         const uuidServiceId = toUUID(serviceId);
 
         if (!uuidMemberId || !uuidServiceId) {
-            throw new Error("Invalid UUIDs provided");
+            return res.status(400).json({ error: 'Invalid UUIDs provided' });
         }
 
-        // 1. Delete from service_attendance
-        const { error: deleteError } = await supabase
-            .from('service_attendance')
-            .delete()
-            .eq('manifest_id', manifestId) // Tenant Isolation
-            .eq('member_id', uuidMemberId)
-            .eq('service_id', uuidServiceId);
+        const { data, error } = await supabase.rpc('atomic_undo_check_in', {
+            _manifest_id: manifestId,
+            _member_id: uuidMemberId,
+            _service_id: uuidServiceId
+        });
 
-        if (deleteError) throw deleteError;
-
-        // 2. Safely Update the members table cache array (never erase historical first timer fields!)
-        const { data: member } = await supabase.from('members')
-            .select('attended_service_ids')
-            .eq('manifest_id', manifestId) // Tenant Isolation
-            .eq('id', uuidMemberId)
-            .single();
-
-        if (member) {
-            const currentIds = member.attended_service_ids || [];
-            const newIds = currentIds.filter((id: string) => toUUID(id) !== uuidServiceId);
-
-            const updatePayload: any = {
-                attended_service_ids: newIds
-            };
-
-            const { error: updateError } = await supabase.from('members')
-                .update(updatePayload)
-                .eq('manifest_id', manifestId) // Tenant Isolation
-                .eq('id', uuidMemberId);
-
-            if (updateError) throw updateError;
+        if (error) {
+            console.error('[UNCHECKIN RPC ERROR]', error);
+            return res.status(500).json({ error: 'Failed to uncheck member: ' + error.message });
         }
 
-        res.json({ message: 'Undo Check-in processed successfully' });
-
+        return res.json({ message: 'Unchecked in successfully', data });
     } catch (error: any) {
-        console.error('[UNCHECK-IN ERROR]', error);
+        console.error('[UNCHECKIN EXCEPTION]', error);
         res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
@@ -378,61 +321,23 @@ export const getServiceStats = async (req: Request, res: Response) => {
     if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
 
     const { serviceId } = req.params;
-    const serviceDate = req.query.date as string;
-
     try {
-        const { data: attendance, error: attError } = await supabase
-            .from('service_attendance')
-            .select('member_id, check_in_time')
-            .eq('manifest_id', manifestId) // Tenant Isolation
-            .eq('service_id', toUUID(serviceId));
-
-        if (attError) throw attError;
-
-        const validAttendance = (attendance || []).filter(a => {
-            if (!a.check_in_time) return true;
-            return !a.check_in_time.startsWith('1970-01-01');
+        const { data, error } = await supabase.rpc('get_service_snapshot_v2', {
+            _service_id: toUUID(serviceId),
+            _manifest_id: manifestId
         });
 
-        const memberIds = validAttendance.map(a => a.member_id);
-
-        if (memberIds.length === 0) {
-            return res.json({ total: 0, firstTimers: 0, memberIds: [] });
+        if (error) {
+            console.error('[getServiceStats RPC ERROR]', error);
+            return res.status(500).json({ error: 'Failed to fetch service stats' });
         }
 
-        const uuidIds = memberIds.map(toUUID).filter(Boolean);
-        const legacyIds = memberIds.filter(id => !toUUID(id));
-
-        let members: any[] = [];
-        const { data: fetchedMembers, error: membersError } = await supabase
-            .from('members')
-            .select('id, joined_date, category, first_timer_service_id')
-            .eq('manifest_id', manifestId) // Tenant Isolation
-            .in('id', uuidIds);
-
-        if (membersError) throw membersError;
-        members = fetchedMembers || [];
-
-        const firstTimerCount = (members || []).filter(m => {
-            const joinedDate = m.joined_date ? m.joined_date.split('T')[0].split(' ')[0] : null;
-            // Only count them as a First Timer if they were actually registered as a First Timer
-            if (m.category === 'First Timer' && joinedDate === serviceDate) return true;
-            // Or if their first timer origin event is this exact service
-            if (m.first_timer_service_id === toUUID(serviceId)) return true;
-            return false;
-        }).length;
-
-        const validMemberIds = members?.map(m => m.id) || [];
-
-        res.json({
-            total: members?.length || 0,
-            firstTimers: firstTimerCount,
-            memberIds: validMemberIds
-        });
+        return res.json(data);
     } catch (error: any) {
+        console.error('[getServiceStats EXCEPTION]', error);
         res.status(500).json({ error: 'An internal server error occurred.' });
     }
-}
+};
 
 export const getMemberDetails = async (req: Request, res: Response) => {
     const manifestId = (req as any).manifestId;

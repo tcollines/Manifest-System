@@ -194,7 +194,7 @@ export const MemberStore = {
       return await apiFetch(`/members/stats/${serviceId}?date=${serviceDate}`);
     } catch (e: any) {
       console.error('Failed to get service stats:', e.message || e);
-      return { total: 0, firstTimers: 0, memberIds: [] };
+      throw e;
     }
   },
 
