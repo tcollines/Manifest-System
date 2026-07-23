@@ -107,9 +107,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Single Mount Session Restoration
     useEffect(() => {
         let isMounted = true;
+
+        // Force maximum splash timeout of 2 seconds so UI never gets stuck loading
+        const maxSplashTimeout = setTimeout(() => {
+            if (isMounted) {
+                console.warn('[AuthContext] Maximum splash loading threshold reached. Unblocking UI.');
+                setIsInitialLoading(false);
+            }
+        }, 2000);
+
         const restoreSession = async () => {
             try {
-                const { data: { session } } = await supabase.auth.getSession();
+                // Race getSession with a fast 1200ms timeout for mobile WebViews
+                const sessionRes = await Promise.race([
+                    supabase.auth.getSession(),
+                    new Promise<{ data: { session: null } }>((resolve) => 
+                        setTimeout(() => resolve({ data: { session: null } }), 1200)
+                    )
+                ]);
+
+                const session = sessionRes?.data?.session;
+
                 if (session?.user?.email) {
                     await fetchAndSyncProfile(session.user.email, session.access_token);
                 } else {
@@ -122,6 +140,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             } catch (e) {
                 console.error('[AuthContext] Session restoration error:', e);
             } finally {
+                clearTimeout(maxSplashTimeout);
                 if (isMounted) {
                     setIsInitialLoading(false);
                 }
@@ -131,6 +150,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         return () => {
             isMounted = false;
+            clearTimeout(maxSplashTimeout);
         };
     }, []); // Run ONCE on mount
 
