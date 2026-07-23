@@ -1,7 +1,17 @@
 const { Client } = require('pg');
+const dotenv = require('dotenv');
+dotenv.config();
+
+const dbUrl = process.env.DATABASE_URL;
+
+if (!dbUrl) {
+  console.error("DATABASE_URL is not set.");
+  process.exit(1);
+}
 
 const client = new Client({
-  connectionString: 'postgres://postgres.poazorjmzswectxvakzl:ujrRGd5IZIKOE9Oj@aws-0-us-east-1.pooler.supabase.com:6543/postgres?options=project%3Dpoazorjmzswectxvakzl'
+  connectionString: dbUrl,
+  ssl: { rejectUnauthorized: false }
 });
 
 async function run() {
@@ -15,13 +25,6 @@ async function run() {
   
   console.log("Policies for service_attendance:");
   console.table(rows);
-  
-  const { rows: rlsEnabled } = await client.query(`
-    SELECT relrowsecurity 
-    FROM pg_class 
-    WHERE relname = 'service_attendance';
-  `);
-  console.log("RLS Enabled:", rlsEnabled[0]?.relrowsecurity);
   
   await client.end();
 }

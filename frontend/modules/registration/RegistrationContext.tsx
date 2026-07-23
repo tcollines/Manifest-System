@@ -57,11 +57,12 @@ interface RegistrationProviderProps {
 }
 
 export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ children }) => {
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, realtimeAuthReady } = useAuth();
   const { events, refreshEvents: refreshParentData, isLoading: isEventsLoading } = useEvent();
   const [searchParams, setSearchParams] = useSearchParams();
   const urlTab = searchParams.get('tab') as any;
   const { showToast, confirm: askConfirm } = useNotification();
+  const generationRef = useRef(0);
 
 
   
@@ -602,66 +603,81 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
     }
   }, [selectedService?.id, viewMode]);
 
-  // --- REALTIME SYNC: Private Broadcast Channel & Foreground Lifecycle ---
+  // --- REALTIME SYNC: Private Broadcast Channel & Generation-Guarded Lifecycle ---
   useEffect(() => {
-    const manifestId = currentUser.manifestId || (currentUser as any).manifest_id;
-    if (!selectedService || viewMode !== 'service-active' || !manifestId) return;
+    const serviceId = selectedService?.id;
+    const manifestId = currentUser?.manifestId || (currentUser as any)?.manifest_id;
+
+    if (!serviceId || viewMode !== 'service-active' || !manifestId || !realtimeAuthReady) return;
 
     let isSubscribed = true;
-    let reconnectTimeout: NodeJS.Timeout | null = null;
-    let channel: ReturnType<typeof supabase.channel> | null = null;
+    let intentionalRemoval = false;
+    let reconnectTimer: NodeJS.Timeout | null = null;
+    let attempt = 0;
+    let currentChannel: ReturnType<typeof supabase.channel> | null = null;
+    const currentGen = ++generationRef.current;
 
-    const broadcastTopic = `manifest:${manifestId}:service:${selectedService.id}`;
+    const broadcastTopic = `manifest:${manifestId}:service:${serviceId}`;
 
     const setupChannel = () => {
-      if (!isSubscribed) return;
+      if (!isSubscribed || intentionalRemoval || currentGen !== generationRef.current) return;
 
-      if (channel) {
-        supabase.removeChannel(channel);
+      if (currentChannel) {
+        supabase.removeChannel(currentChannel);
+        currentChannel = null;
       }
 
-      channel = supabase
+      const channel = supabase
         .channel(broadcastTopic, {
           config: { private: true }
         })
         .on('broadcast', { event: 'invalidate' }, () => {
-          reconcileCheckInsAndSouls();
+          if (currentGen === generationRef.current) {
+            reconcileCheckInsAndSouls();
+          }
         })
-        .subscribe((status) => {
-          if (!isSubscribed) return;
+        .subscribe((status, err) => {
+          if (!isSubscribed || intentionalRemoval || currentGen !== generationRef.current) return;
 
           if (status === 'SUBSCRIBED') {
+            attempt = 0;
             reconcileCheckInsAndSouls();
           } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-            console.warn(`[RegistrationContext] Realtime channel status: ${status}. Scheduling reconnect.`);
-            if (reconnectTimeout) clearTimeout(reconnectTimeout);
-            reconnectTimeout = setTimeout(() => {
-              if (isSubscribed) {
+            console.warn(`[RegistrationContext] Realtime channel status (${status}) err:`, err);
+            if (reconnectTimer) clearTimeout(reconnectTimer);
+            attempt++;
+            const backoffMs = Math.min(30000, Math.pow(2, attempt) * 1000 + Math.random() * 1000);
+            reconnectTimer = setTimeout(() => {
+              if (isSubscribed && !intentionalRemoval && currentGen === generationRef.current) {
                 setupChannel();
               }
-            }, 3000 + Math.random() * 2000);
+            }, backoffMs);
           }
         });
+
+      currentChannel = channel;
     };
 
     setupChannel();
 
     // Visible Fallback Polling (15s)
     const fallbackPollInterval = setInterval(() => {
-      if (document.visibilityState === 'visible' && isSubscribed) {
+      if (document.visibilityState === 'visible' && isSubscribed && currentGen === generationRef.current) {
         reconcileCheckInsAndSouls();
       }
     }, 15000);
 
     return () => {
       isSubscribed = false;
-      if (reconnectTimeout) clearTimeout(reconnectTimeout);
+      intentionalRemoval = true;
+      if (reconnectTimer) clearTimeout(reconnectTimer);
       clearInterval(fallbackPollInterval);
-      if (channel) {
-        supabase.removeChannel(channel);
+      if (currentChannel) {
+        supabase.removeChannel(currentChannel);
+        currentChannel = null;
       }
     };
-  }, [selectedService, viewMode, currentUser, reconcileCheckInsAndSouls]);
+  }, [selectedService?.id, viewMode, currentUser?.manifestId, realtimeAuthReady, reconcileCheckInsAndSouls]);
 
   // --- FOREGROUND RECOVERY: Web & Capacitor iOS/Android Wake Listener ---
   useEffect(() => {
@@ -2917,7 +2933,7 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
 
 
 
-  const computedTotal = checkedInIds.size + (selectedService?.stats?.manualChildrenCount || 0);
+  const computedTotal = checkedInIds.size + (manualChildrenCount || 0);
   const derivedCheckInStats = {
     ...checkInStats,
     total: computedTotal

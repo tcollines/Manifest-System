@@ -461,53 +461,61 @@ export const getServiceSnapshot = async (req: Request, res: Response) => {
     if (!serviceId) return res.status(400).json({ error: 'Service ID is required' });
 
     try {
-        // 1. Fetch Service Details
-        const { data: serviceData, error: serviceError } = await supabase
-            .from('services')
-            .select('id, date, manual_children_count')
+        const { data, error } = await supabase.rpc('get_service_snapshot_v2', {
+            _service_id: serviceId,
+            _manifest_id: manifestId
+        });
+
+        if (!error && data && Object.keys(data).length > 0) {
+            return res.json(data);
+        }
+
+        // Fallback if RPC is missing or schema cache pending
+        if (error) {
+            console.warn('[getServiceSnapshot] RPC unavailable, executing direct query fallback:', error.message);
+        }
+
+        const { data: serviceData } = await supabase
+            .from('ministry_events')
+            .select('id, date, stats')
             .eq('id', serviceId)
             .eq('manifest_id', manifestId)
-            .single();
+            .maybeSingle();
 
-        if (serviceError || !serviceData) {
+        if (!serviceData) {
             return res.status(404).json({ error: 'Service not found or unauthorized' });
         }
 
-        // 2. Fetch Attendees (service_attendance)
-        const { data: attendanceData, error: attError } = await supabase
+        const manualChildrenCount = (serviceData as any).manual_children_count || 
+            parseInt(serviceData.stats?.manualChildrenCount || '0', 10) || 0;
+
+        const { data: attendanceData } = await supabase
             .from('service_attendance')
             .select('member_id')
             .eq('service_id', serviceId)
             .eq('manifest_id', manifestId);
 
-        if (attError) throw attError;
         const memberIds = attendanceData ? attendanceData.map(a => String(a.member_id)) : [];
 
-        // 3. Calculate First Timers (joined on service date)
-        const serviceDate = serviceData.date;
         let firstTimersCount = 0;
-        if (serviceDate) {
-            const { count, error: ftError } = await supabase
+        if (serviceData.date && memberIds.length > 0) {
+            const { count } = await supabase
                 .from('members')
                 .select('id', { count: 'exact', head: true })
                 .eq('manifest_id', manifestId)
-                .eq('joined_date', serviceDate);
-            if (!ftError && count !== null) {
-                firstTimersCount = count;
-            }
+                .eq('joined_date', serviceData.date)
+                .in('id', memberIds);
+            if (count !== null) firstTimersCount = count;
         }
 
-        // 4. Fetch Main Souls
-        const { data: mainSouls, error: msError } = await supabase
+        const { data: mainSouls } = await supabase
             .from('souls')
             .select('id')
             .eq('manifest_id', manifestId)
             .or(`source_id.eq.${serviceId},event_id.eq.${serviceId}`);
 
-        if (msError) throw msError;
         const mainSoulIds = mainSouls ? mainSouls.map(s => String(s.id)) : [];
 
-        // 5. Fetch NextGen Souls
         let nextGenSoulIds: string[] = [];
         try {
             const { data: ngSouls } = await supabase
@@ -516,9 +524,7 @@ export const getServiceSnapshot = async (req: Request, res: Response) => {
                 .eq('manifest_id', manifestId)
                 .eq('service_id', serviceId);
             if (ngSouls) nextGenSoulIds = ngSouls.map(s => String(s.id));
-        } catch (e) {
-            // NextGen souls table is optional
-        }
+        } catch (e) {}
 
         const allSoulIds = Array.from(new Set([...mainSoulIds, ...nextGenSoulIds]));
 
@@ -526,7 +532,7 @@ export const getServiceSnapshot = async (req: Request, res: Response) => {
             serviceId,
             memberIds,
             total: memberIds.length,
-            manualChildrenCount: serviceData.manual_children_count || 0,
+            manualChildrenCount: manualChildrenCount,
             firstTimers: firstTimersCount,
             soulIds: allSoulIds,
             soulsWon: allSoulIds.length,

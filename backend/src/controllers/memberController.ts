@@ -14,24 +14,26 @@ export const getMembers = async (req: Request, res: Response) => {
 
     try {
         if (searchQuery) {
-            // Attempt RPC search with hasMore contract first
-            const { data: rpcData, error: rpcError } = await supabase.rpc('search_members_v2', {
+            const { data: rpcResult, error: rpcError } = await supabase.rpc('search_members_v2', {
                 _manifest_id: manifestId,
                 _search_query: searchQuery,
                 _page: page,
                 _page_size: pageSize
             });
 
-            if (!rpcError && Array.isArray(rpcData)) {
-                const hasMore = rpcData.length > 0 ? Boolean(rpcData[0].has_more) : false;
-                const cleanedData = rpcData.map(({ has_more, row_num, ...m }: any) => m);
-                return res.json({ data: cleanedData, count: cleanedData.length, hasMore, page });
+            if (!rpcError && rpcResult) {
+                return res.json(rpcResult);
             }
 
-            // Fallback: Use pageSize + 1 range query without { count: 'exact' }
+            console.warn('[getMembers] search_members_v2 RPC fallback:', rpcError?.message);
+
+            const from = (page - 1) * pageSize;
+            const to = from + pageSize;
             const cleanPhone = searchQuery.replace(/\D/g, '');
-            let query = supabase.from('members')
-                .select('id, name, category, phone, status, check_in_time, gender, residency, born_again, joined_date, attended_service_ids, created_at, occupation, place_of_work, email, is_phaneroo_member, referral_source')
+
+            let query = supabase
+                .from('members')
+                .select('*')
                 .eq('manifest_id', manifestId);
 
             if (cleanPhone.length >= 7) {
@@ -40,20 +42,17 @@ export const getMembers = async (req: Request, res: Response) => {
                 query = query.ilike('name', `%${searchQuery}%`);
             }
 
-            const from = (page - 1) * pageSize;
-            const to = from + pageSize; // Fetch 1 extra row to check hasMore
-
-            const { data, error } = await query
-                .range(from, to)
-                .order('created_at', { ascending: false });
+            const { data: items, error } = await query
+                .order('name', { ascending: true })
+                .range(from, to);
 
             if (error) throw error;
 
-            const items = data || [];
-            const hasMore = items.length > pageSize;
-            const finalData = hasMore ? items.slice(0, pageSize) : items;
+            const rows = items || [];
+            const hasMore = rows.length > pageSize;
+            const finalData = hasMore ? rows.slice(0, pageSize) : rows;
 
-            return res.json({ data: finalData, count: finalData.length, hasMore, page });
+            return res.json({ data: finalData, page, hasMore });
         }
 
         // Unfiltered database view: retain exact total count for standard pagination

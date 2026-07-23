@@ -84,10 +84,46 @@ export const getProfile = async (req: Request, res: Response) => {
         if (error) throw error;
         if (!data) return res.status(404).json({ error: 'User profile not found in database' });
 
-        res.json(data);
+        return res.json(data);
     } catch (error: any) {
         console.error('[PROFILE ERROR]', error);
-        res.status(500).json({ error: 'An internal server error occurred.' });
+        return res.status(500).json({ error: 'An internal server error occurred.' });
+    }
+};
+
+export const getUserByEmail = async (req: Request, res: Response) => {
+    const email = (req.query.email as string || '').trim();
+    if (!email) return res.status(400).json({ error: 'Email is required' });
+
+    try {
+        const { data, error } = await supabase
+            .from('users')
+            .select('*')
+            .eq('email', email)
+            .neq('status', 'Deleted')
+            .order('name', { ascending: false, nullsFirst: false })
+            .limit(1)
+            .maybeSingle();
+
+        if (error) throw error;
+        if (!data) return res.status(404).json({ error: 'User profile not found' });
+
+        // Bake manifest_id into app_metadata immediately if user context exists
+        const userId = (req as any).user?.id || data.id;
+        if (data.manifest_id && userId) {
+            try {
+                await supabase.auth.admin.updateUserById(userId, {
+                    app_metadata: { manifest_id: data.manifest_id }
+                });
+            } catch (e) {
+                console.warn('[getUserByEmail] Failed to bake app_metadata:', e);
+            }
+        }
+
+        return res.json(data);
+    } catch (err: any) {
+        console.error('[getUserByEmail] Error:', err);
+        return res.status(500).json({ error: 'Failed to fetch user profile by email' });
     }
 };
 
