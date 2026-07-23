@@ -83,16 +83,18 @@ export const UserStore = {
           authResult = { error: { message: errData.error || 'Login failed' } };
         } else {
           const { session } = await response.json();
-          // Store session into the local Supabase client instance safely
-          try {
-            await supabase.auth.setSession({
-              access_token: session.access_token,
-              refresh_token: session.refresh_token,
-            });
-          } catch (sErr) {
-            console.warn('[USERSTORE] supabase.auth.setSession soft warning:', sErr);
+          // Store session into the local Supabase client instance
+          const { data: setSessionData, error: setSessionError } = await supabase.auth.setSession({
+            access_token: session.access_token,
+            refresh_token: session.refresh_token,
+          });
+
+          if (setSessionError) {
+            console.error('[USERSTORE] supabase.auth.setSession failed:', setSessionError);
+            authResult = { error: setSessionError };
+          } else {
+            authResult = { data: { session: setSessionData?.session || session } };
           }
-          authResult = { data: { session } };
         }
       } catch (err: any) {
         authResult = { error: err };

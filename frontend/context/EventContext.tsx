@@ -18,7 +18,7 @@ const EventContext = createContext<EventContextValue | null>(null);
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
 export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const { user } = useAuth();
+    const { user, realtimeAuthReady } = useAuth();
     const [events, setEvents] = useState<MinistryEvent[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
@@ -26,9 +26,13 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setIsLoading(true);
         try {
             const res = await EventStore.getAll({ limit: 200 });
-            if (res.status === 'success' && res.data) setEvents(res.data);
+            if (res.status === 'success' && res.data && Array.isArray(res.data)) {
+                setEvents(res.data);
+            } else {
+                console.warn('[EventContext] Protected fetch returned non-success; preserving previous data:', res);
+            }
         } catch (e) {
-            console.error('[EventContext] refreshEvents failed:', e);
+            console.error('[EventContext] Protected fetch failed; preserving previous data:', e);
         } finally {
             setIsLoading(false);
         }
@@ -44,15 +48,16 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         });
     }, []);
 
-    // Initial fetch once user is available
+    // Initial fetch: Wait for user, valid manifestId, and realtimeAuthReady before protected fetch
+    // Also refetches when authenticated tenant readiness changes
     useEffect(() => {
-        if (!user) return;
+        if (!user || !user.manifestId || !realtimeAuthReady) return;
         refreshEvents();
-    }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [user?.id, user?.manifestId, realtimeAuthReady, refreshEvents]);
 
     // Realtime subscription
     useEffect(() => {
-        if (!user) return;
+        if (!user || !user.manifestId || !realtimeAuthReady) return;
 
         const sub = supabase
             .channel('event-context:ministry_events')
@@ -84,7 +89,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             .subscribe();
 
         return () => { supabase.removeChannel(sub); };
-    }, [user?.id]);
+    }, [user?.id, user?.manifestId, realtimeAuthReady]);
 
     return (
         <EventContext.Provider value={{ events, refreshEvents, addEvent, isLoading }}>

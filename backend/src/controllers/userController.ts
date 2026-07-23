@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { supabase } from '../supabase';
+import { v4 as uuidv4 } from 'uuid';
 
 export const getAllUsers = async (req: Request, res: Response) => {
     const manifestId = (req as any).manifestId;
@@ -34,96 +35,90 @@ export const getAllUsers = async (req: Request, res: Response) => {
     }
 };
 
+const SAFE_USER_COLUMNS = 'id, name, role, department_id, department_uid, username, contact, email, station_id, event_id, status, created_at, manifest_id';
+
 export const getProfile = async (req: Request, res: Response) => {
+    const requestId = (req.headers['x-request-id'] as string) || uuidv4();
     const manifestId = (req as any).manifestId;
     const user = (req as any).user;
 
     if (!manifestId || !user) {
         return res.status(401).json({
             error: 'Unauthorized',
-            details: `Missing ${!user ? 'user context' : 'manifest association'}.`
+            details: `Missing ${!user ? 'user context' : 'manifest association'}.`,
+            requestId
         });
     }
 
     try {
-        // Prevent stale browser caching on profile authentications
         res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
         res.setHeader('Pragma', 'no-cache');
         res.setHeader('Expires', '0');
 
-        let { data, error } = await supabase
-            .from('users')
-            .select('*')
-            .eq('id', user.id)
-            .eq('manifest_id', manifestId)
-            .maybeSingle();
+        let profile: any = null;
+        let queryError: any = null;
 
-        // Fallback by email if ID lookup fails
-        if (!data && !error && user.email) {
-            console.warn(`[PROFILE FALLBACK] Row not found by ID (${user.id}). Trying email: ${user.email}`);
-            const { data: emailData, error: emailError } = await supabase
+        // 1. Query by verified auth ID first (never pass undefined)
+        const targetAuthId = user.profileId || user.authUserId || user.id;
+        if (targetAuthId && typeof targetAuthId === 'string' && targetAuthId !== 'undefined') {
+            const { data, error } = await supabase
                 .from('users')
-                .select('*')
-                .eq('email', user.email)
+                .select(SAFE_USER_COLUMNS)
+                .eq('id', targetAuthId)
                 .eq('manifest_id', manifestId)
-                .order('name', { ascending: false, nullsFirst: false }) // Prioritize profiles with a name
-                .limit(1)
                 .maybeSingle();
 
-            if (emailData) {
-                const isTemp = ['Vehicle Coordinator', 'Stage Coordinator', 'Coordinator'].includes(emailData.role);
-                if (isTemp) {
-                    console.log(`[PROFILE FALLBACK BLOCKED] Blocked email fallback for temp coordinator: ${user.email}`);
-                } else {
-                    data = emailData;
-                    console.log(`[PROFILE SUCCESS] Found via email fallback for ${user.email}`);
-                }
+            if (error) {
+                console.error(`[getProfile][ReqID: ${requestId}] Supabase error ${error.code}: ${error.message}`, error);
+                queryError = error;
+            } else if (data) {
+                profile = data;
             }
         }
 
-        if (error) throw error;
-        if (!data) return res.status(404).json({ error: 'User profile not found in database' });
+        // 2. Query by verified email for legacy accounts if not found by ID
+        if (!profile && !queryError && user.email && typeof user.email === 'string') {
+            const { data: emailRows, error: emailError } = await supabase
+                .from('users')
+                .select(SAFE_USER_COLUMNS)
+                .eq('email', user.email)
+                .eq('manifest_id', manifestId)
+                .neq('status', 'Deleted');
 
-        return res.json(data);
+            if (emailError) {
+                console.error(`[getProfile][ReqID: ${requestId}] Supabase error ${emailError.code}: ${emailError.message}`, emailError);
+                queryError = emailError;
+            } else if (emailRows && emailRows.length === 1) {
+                profile = emailRows[0];
+            } else if (emailRows && emailRows.length > 1) {
+                console.warn(`[getProfile][ReqID: ${requestId}] Ambiguous multiple profiles found for verified email: ${user.email}`);
+            }
+        }
+
+        if (queryError) {
+            return res.status(500).json({ error: 'Database error fetching user profile', requestId });
+        }
+
+        if (!profile) {
+            return res.status(404).json({ error: 'User profile not found in database', requestId });
+        }
+
+        // 3. Verify returned profile belongs to req.manifestId
+        if (String(profile.manifest_id) !== String(manifestId)) {
+            console.error(`[getProfile][ReqID: ${requestId}] Manifest mismatch: Expected ${manifestId}, got ${profile.manifest_id}`);
+            return res.status(403).json({ error: 'Forbidden: Manifest mismatch', requestId });
+        }
+
+        // 4. Ensure password, tokens, or other authentication fields are omitted (guaranteed by SAFE_USER_COLUMNS)
+        delete (profile as any).password;
+        delete (profile as any).token;
+        delete (profile as any).tokens;
+        delete (profile as any).invitation_token;
+
+        return res.json(profile);
     } catch (error: any) {
-        console.error('[PROFILE ERROR]', error);
-        return res.status(500).json({ error: 'An internal server error occurred.' });
-    }
-};
-
-export const getUserByEmail = async (req: Request, res: Response) => {
-    const email = (req.query.email as string || '').trim();
-    if (!email) return res.status(400).json({ error: 'Email is required' });
-
-    try {
-        const { data, error } = await supabase
-            .from('users')
-            .select('*')
-            .eq('email', email)
-            .neq('status', 'Deleted')
-            .order('name', { ascending: false, nullsFirst: false })
-            .limit(1)
-            .maybeSingle();
-
-        if (error) throw error;
-        if (!data) return res.status(404).json({ error: 'User profile not found' });
-
-        // Bake manifest_id into app_metadata immediately if user context exists
-        const userId = (req as any).user?.id || data.id;
-        if (data.manifest_id && userId) {
-            try {
-                await supabase.auth.admin.updateUserById(userId, {
-                    app_metadata: { manifest_id: data.manifest_id }
-                });
-            } catch (e) {
-                console.warn('[getUserByEmail] Failed to bake app_metadata:', e);
-            }
-        }
-
-        return res.json(data);
-    } catch (err: any) {
-        console.error('[getUserByEmail] Error:', err);
-        return res.status(500).json({ error: 'Failed to fetch user profile by email' });
+        console.error(`[PROFILE ERROR][ReqID: ${requestId}]`, error);
+        return res.status(500).json({ error: 'An internal server error occurred.', requestId });
     }
 };
 

@@ -1,12 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
-import jwt, { JwtHeader, SigningKeyCallback } from 'jsonwebtoken';
+import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
 import crypto from 'crypto';
-import { OAuth2Client } from 'google-auth-library';
 
 dotenv.config();
-
-const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 // Extend Express Request interface
 declare global {
@@ -64,8 +61,6 @@ async function fetchJWKS(): Promise<Record<string, string>> {
     }
 }
 
-// ── PURE RESILIENT AUTHENTICATION MIDDLEWARE ─────────────────────────────────
-
 export const authenticate = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const authHeader = req.headers.authorization;
@@ -75,114 +70,102 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
         }
 
         const token = authHeader.split(' ')[1];
+        let decoded: any = null;
 
-        // 1. Google SSO Token Handling
-        const decodedRaw = jwt.decode(token) as any;
-        if (decodedRaw && typeof decodedRaw === 'object' && decodedRaw.iss && (decodedRaw.iss === 'https://accounts.google.com' || decodedRaw.iss === 'accounts.google.com')) {
-            try {
-                const ticket = await googleClient.verifyIdToken({
-                    idToken: token,
-                    audience: process.env.GOOGLE_CLIENT_ID, 
-                });
-                const payload = ticket.getPayload();
-                if (payload?.email) {
-                    const { createClient } = require('@supabase/supabase-js');
-                    const adminClient = createClient(process.env.SUPABASE_URL as string, process.env.SUPABASE_SERVICE_ROLE_KEY as string);
-                    const { data } = await adminClient.from('users').select('id, role, manifest_id, email').eq('email', payload.email).single();
-
-                    if (data && data.manifest_id) {
-                        req.user = { id: data.id, email: data.email, role: data.role, app_metadata: { manifest_id: data.manifest_id } };
-                        req.manifestId = data.manifest_id;
-                        next();
-                        return;
-                    }
-                }
-            } catch (e: any) {
-                console.warn('[AUTH GOOGLE BYPASS WARNING]', e.message);
-            }
-        }
-
-        // 2. HS256 Token Handling (Supabase JWT Secret)
+        // 1. Try verifying via HS256 if SUPABASE_JWT_SECRET is set
         const jwtSecret = process.env.SUPABASE_JWT_SECRET;
         if (jwtSecret) {
             try {
-                const decoded = jwt.verify(token, jwtSecret) as any;
-                let manifestId = decoded.manifest_id || decoded.app_metadata?.manifest_id;
-
-                if (!manifestId && decoded.email) {
-                    const { createClient } = require('@supabase/supabase-js');
-                    const adminClient = createClient(process.env.SUPABASE_URL as string, process.env.SUPABASE_SERVICE_ROLE_KEY as string);
-                    const { data } = await adminClient.from('users').select('manifest_id, id, role').eq('email', decoded.email).single();
-                    if (data) {
-                        manifestId = data.manifest_id;
-                        req.user = { id: data.id, email: decoded.email, role: data.role, app_metadata: { manifest_id: data.manifest_id } };
-                    }
-                } else if (manifestId) {
-                    req.user = decoded;
-                }
-
-                if (manifestId) {
-                    req.manifestId = manifestId;
-                    next();
-                    return;
-                }
-            } catch (hsErr) {}
-        }
-
-        // 3. ES256 Token Handling (Supabase JWKS)
-        try {
-            const keys = await fetchJWKS();
-            const decodedHeader = jwt.decode(token, { complete: true }) as any;
-            const kid = decodedHeader?.header?.kid;
-            const signingKey = kid ? keys[kid] : null;
-
-            if (signingKey) {
-                const decoded = jwt.verify(token, signingKey, { algorithms: ['ES256'] }) as any;
-                let manifestId = decoded.manifest_id || decoded.app_metadata?.manifest_id;
-
-                if (!manifestId && decoded.email) {
-                    const { createClient } = require('@supabase/supabase-js');
-                    const adminClient = createClient(process.env.SUPABASE_URL as string, process.env.SUPABASE_SERVICE_ROLE_KEY as string);
-                    const { data } = await adminClient.from('users').select('manifest_id, id, role').eq('email', decoded.email).single();
-                    if (data) {
-                        manifestId = data.manifest_id;
-                        req.user = { id: data.id, email: decoded.email, role: data.role, app_metadata: { manifest_id: data.manifest_id } };
-                    }
-                } else if (manifestId) {
-                    req.user = decoded;
-                }
-
-                if (manifestId) {
-                    req.manifestId = manifestId;
-                    next();
-                    return;
-                }
-            }
-        } catch (esErr) {}
-
-        // 4. Database User Profile Fallback (Universal Session Verification)
-        if (decodedRaw && (decodedRaw.email || decodedRaw.sub)) {
-            const { createClient } = require('@supabase/supabase-js');
-            const adminClient = createClient(process.env.SUPABASE_URL as string, process.env.SUPABASE_SERVICE_ROLE_KEY as string);
-            
-            let query = adminClient.from('users').select('manifest_id, id, role, email');
-            if (decodedRaw.email) {
-                query = query.eq('email', decodedRaw.email);
-            } else {
-                query = query.eq('id', decodedRaw.sub);
-            }
-
-            const { data: dbUser } = await query.maybeSingle();
-            if (dbUser && dbUser.manifest_id) {
-                req.user = { id: dbUser.id, email: dbUser.email, role: dbUser.role, app_metadata: { manifest_id: dbUser.manifest_id } };
-                req.manifestId = dbUser.manifest_id;
-                next();
-                return;
+                decoded = jwt.verify(token, jwtSecret);
+            } catch (hsErr) {
+                // Ignore and try ES256 / JWKS
             }
         }
 
-        return res.status(401).json({ error: 'Unauthorized: Invalid token session' });
+        // 2. Try verifying via ES256 / JWKS if not decoded yet
+        if (!decoded) {
+            try {
+                const keys = await fetchJWKS();
+                const decodedHeader = jwt.decode(token, { complete: true }) as any;
+                const kid = decodedHeader?.header?.kid;
+                const signingKey = kid ? keys[kid] : null;
 
+                if (signingKey) {
+                    decoded = jwt.verify(token, signingKey, { algorithms: ['ES256'] });
+                }
+            } catch (esErr) {
+                // Ignore
+            }
+        }
+
+        // Never trust unverified jwt.decode(). If token verification failed, reject immediately.
+        if (!decoded || !decoded.sub || !decoded.email) {
+            return res.status(401).json({ error: 'Unauthorized: Invalid or unverified token' });
+        }
+
+        // Normalize verified JWT identity
+        const verifiedSub = String(decoded.sub);
+        const verifiedEmail = String(decoded.email);
+
+        req.user = {
+            ...decoded,
+            id: verifiedSub,
+            authUserId: verifiedSub,
+            email: verifiedEmail
+        };
+
+        // Securely resolve profile & manifestId from public.users using adminClient
+        const { createClient } = require('@supabase/supabase-js');
+        const adminClient = createClient(process.env.SUPABASE_URL as string, process.env.SUPABASE_SERVICE_ROLE_KEY as string);
+
+        // First attempt: match by id (GoTrue auth id)
+        const { data: idData } = await adminClient
+            .from('users')
+            .select('id, manifest_id, email, role')
+            .eq('id', verifiedSub)
+            .neq('status', 'Deleted');
+
+        let resolvedProfile: any = null;
+
+        if (idData && idData.length === 1) {
+            resolvedProfile = idData[0];
+        } else if (idData && idData.length > 1) {
+            console.error(`[AUTH] Ambiguous multiple user rows found for auth ID: ${verifiedSub}`);
+            return res.status(401).json({ error: 'Unauthorized: Ambiguous profile match for user ID' });
+        } else {
+            // Second attempt: match by verified email for legacy accounts where public.users.id differs from decoded.sub
+            const { data: emailData } = await adminClient
+                .from('users')
+                .select('id, manifest_id, email, role')
+                .eq('email', verifiedEmail)
+                .neq('status', 'Deleted');
+
+            if (emailData && emailData.length === 1) {
+                resolvedProfile = emailData[0];
+                console.log(`[AUTH] Profile resolved via verified email for legacy user: ${verifiedEmail}`);
+            } else if (emailData && emailData.length > 1) {
+                // Reject ambiguous duplicate-email matches instead of selecting arbitrarily
+                console.error(`[AUTH] Ambiguous duplicate email profiles found for verified email: ${verifiedEmail}`);
+                return res.status(401).json({ error: 'Unauthorized: Ambiguous profile match for email' });
+            }
+        }
+
+        // Resolve manifestId only from securely resolved public.users profile or a verified matching JWT claim
+        let resolvedManifestId = resolvedProfile?.manifest_id || decoded.app_metadata?.manifest_id || decoded.manifest_id;
+
+        if (!resolvedManifestId) {
+            console.error(`[AUTH] Unable to securely resolve manifestId for ${verifiedEmail}`);
+            return res.status(401).json({ error: 'Unauthorized: Missing manifest association' });
+        }
+
+        if (resolvedProfile) {
+            req.user.profileId = resolvedProfile.id;
+            req.user.role = resolvedProfile.role;
+            req.user.manifest_id = resolvedProfile.manifest_id;
+        }
+
+        req.manifestId = resolvedManifestId;
+        next();
     } catch (err: any) {
         console.error('[AUTH ERROR]', err);
         return res.status(401).json({ error: 'Unauthorized: Authentication failed' });

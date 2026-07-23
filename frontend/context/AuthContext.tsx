@@ -6,7 +6,6 @@ import { supabase } from '../services/supabaseClient';
 import { getDashboardForUser } from '../utils';
 import { unsubscribeFromPush } from '../services/pushService';
 import { analyticsService } from '../services/analyticsService';
-import { apiFetch } from '../services/api';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -34,111 +33,78 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [isInitialLoading, setIsInitialLoading] = useState(true);
     const [realtimeAuthReady, setRealtimeAuthReady] = useState(false);
 
-    // Deduplication refs
     const isHandlingSignIn = useRef(false);
-    const profileFetchPromise = useRef<Promise<any> | null>(null);
 
-    // Shared Routine: Backend metadata sync -> refreshSession -> setAuth -> realtimeAuthReady
-    const prepareRealtimeAuth = useCallback(async (userEmail?: string) => {
+    // Complete pipeline: Session refresh -> profile resolution -> manifest verification -> realtime.setAuth() -> realtimeAuthReady -> setUser
+    const completeAuthPreparation = useCallback(async (token: string, email: string) => {
         try {
-            if (userEmail) {
-                try {
-                    await apiFetch(`/users/by-email?email=${encodeURIComponent(userEmail)}`);
-                } catch (e) {
-                    console.warn('[AuthContext] Backend profile sync warning:', e);
-                }
+            // 1. Refresh session to ensure latest JWT & app_metadata
+            let activeToken = token;
+            const { data: refreshData, error: refreshErr } = await supabase.auth.refreshSession();
+            if (!refreshErr && refreshData?.session?.access_token) {
+                activeToken = refreshData.session.access_token;
             }
 
-            const { data: { session } } = await supabase.auth.getSession();
-            let activeToken = session?.access_token;
-
-            if (session?.refresh_token) {
-                try {
-                    const { data: refreshData } = await supabase.auth.refreshSession();
-                    if (refreshData?.session?.access_token) {
-                        activeToken = refreshData.session.access_token;
-                    }
-                } catch (rErr) {
-                    console.warn('[AuthContext] Session refresh skipped:', rErr);
-                }
+            // 2. Profile resolution via /api/users/profile
+            const profile = await UserStore.getByEmail(email, activeToken);
+            if (!profile) {
+                throw new Error('User profile not found in database');
             }
 
-            if (activeToken) {
-                try {
-                    await supabase.realtime.setAuth(activeToken);
-                } catch (rErr) {
-                    console.warn('[AuthContext] Realtime setAuth warning:', rErr);
-                }
+            // 3. Manifest verification
+            if (!profile.manifestId) {
+                throw new Error('User profile missing manifest association');
             }
 
+            // 4. Realtime auth binding
+            await supabase.realtime.setAuth(activeToken);
+
+            // 5. Complete preparation: set realtimeAuthReady & save session before setting user
             setRealtimeAuthReady(true);
-            return true;
+            profile.token = activeToken;
+            UserStore.saveSession(profile);
+            setUser(profile);
+
+            return profile;
         } catch (err) {
-            console.error('[AuthContext] prepareRealtimeAuth failed:', err);
-            setRealtimeAuthReady(true); // Always unblock UI
-            return false;
+            console.error('[AuthContext] Auth preparation failed:', err);
+            setRealtimeAuthReady(false);
+            setUser(null);
+            throw err;
         }
     }, []);
 
-    // Centralized profile fetch with deduplication
-    const fetchAndSyncProfile = async (email: string, token?: string) => {
-        if (profileFetchPromise.current) return profileFetchPromise.current;
-        
-        profileFetchPromise.current = (async () => {
-            try {
-                const profile = await UserStore.getByEmail(email, token);
-                if (profile) {
-                    setUser(profile);
-                    UserStore.saveSession(profile);
-                    await prepareRealtimeAuth(email);
-                }
-                return profile;
-            } catch (err) {
-                console.error('[AuthContext] fetchAndSyncProfile error:', err);
-                return null;
-            } finally {
-                profileFetchPromise.current = null;
-            }
-        })();
-
-        return profileFetchPromise.current;
-    };
-
-    // Single Mount Session Restoration
+    // Session restoration on mount
     useEffect(() => {
         let isMounted = true;
 
-        // Force maximum splash timeout of 2 seconds so UI never gets stuck loading
         const maxSplashTimeout = setTimeout(() => {
             if (isMounted) {
-                console.warn('[AuthContext] Maximum splash loading threshold reached. Unblocking UI.');
                 setIsInitialLoading(false);
             }
-        }, 2000);
+        }, 2500);
 
         const restoreSession = async () => {
             try {
-                // Race getSession with a fast 1200ms timeout for mobile WebViews
                 const sessionRes = await Promise.race([
                     supabase.auth.getSession(),
-                    new Promise<{ data: { session: null } }>((resolve) => 
-                        setTimeout(() => resolve({ data: { session: null } }), 1200)
+                    new Promise<{ data: { session: null } }>((resolve) =>
+                        setTimeout(() => resolve({ data: { session: null } }), 1500)
                     )
                 ]);
 
                 const session = sessionRes?.data?.session;
 
                 if (session?.user?.email) {
-                    await fetchAndSyncProfile(session.user.email, session.access_token);
+                    await completeAuthPreparation(session.access_token, session.user.email);
                 } else {
                     const localSession = UserStore.getSession();
-                    if (localSession?.email) {
-                        setUser(localSession);
-                        prepareRealtimeAuth(localSession.email).catch(() => {});
+                    if (localSession?.email && localSession?.token) {
+                        await completeAuthPreparation(localSession.token, localSession.email);
                     }
                 }
             } catch (e) {
-                console.error('[AuthContext] Session restoration error:', e);
+                console.error('[AuthContext] Session restoration failed:', e);
             } finally {
                 clearTimeout(maxSplashTimeout);
                 if (isMounted) {
@@ -146,84 +112,86 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 }
             }
         };
+
         restoreSession();
 
         return () => {
             isMounted = false;
             clearTimeout(maxSplashTimeout);
         };
-    }, []); // Run ONCE on mount
+    }, [completeAuthPreparation]);
 
-    // Supabase Auth state listener
+    // Supabase Auth listener (Deferred outside callback to avoid calling auth methods inside awaited callback)
     useEffect(() => {
-        const { data: authSub } = supabase.auth.onAuthStateChange(async (event, session) => {
-            if (session?.access_token) {
-                try {
-                    await supabase.realtime.setAuth(session.access_token);
-                } catch (e) {}
-            }
+        const { data: authSub } = supabase.auth.onAuthStateChange((event, session) => {
+            setTimeout(() => {
+                if (session?.access_token) {
+                    supabase.realtime.setAuth(session.access_token).catch(() => {});
+                }
 
-            if (event === 'TOKEN_REFRESHED' && session?.access_token) {
-                setRealtimeAuthReady(true);
-            }
+                if (event === 'TOKEN_REFRESHED' && session?.access_token) {
+                    setRealtimeAuthReady(true);
+                }
 
-            if (event === 'SIGNED_IN' && session?.user?.email) {
-                if (isHandlingSignIn.current) return;
-                isHandlingSignIn.current = true;
+                if (event === 'SIGNED_IN' && session?.user?.email) {
+                    if (isHandlingSignIn.current) return;
+                    isHandlingSignIn.current = true;
 
-                try {
-                    await fetchAndSyncProfile(session.user.email, session.access_token);
-                } catch (e) {
-                    console.warn('[AuthContext] SIGNED_IN profile fetch failed:', e);
-                } finally {
+                    completeAuthPreparation(session.access_token, session.user.email)
+                        .catch((e) => console.warn('[AuthContext] SIGNED_IN prep failed:', e))
+                        .finally(() => { isHandlingSignIn.current = false; });
+                }
+
+                if (event === 'SIGNED_OUT') {
+                    setUser(null);
+                    setRealtimeAuthReady(false);
                     isHandlingSignIn.current = false;
                 }
-            }
-
-            if (event === 'SIGNED_OUT') {
-                setUser(null);
-                setRealtimeAuthReady(false);
-                isHandlingSignIn.current = false;
-            }
+            }, 0);
         });
 
         return () => {
             authSub?.subscription?.unsubscribe();
         };
-    }, []);
+    }, [completeAuthPreparation]);
 
     // Login (username + password)
     const login = useCallback(async (username: string, password: string) => {
         const response = await UserStore.login(username, password);
-        if (response.status === 'success' && response.data) {
-            setUser(response.data);
-            UserStore.saveSession(response.data);
-            await prepareRealtimeAuth(response.data.email);
-            return { success: true, user: response.data };
+        if (response.status === 'success' && response.data && response.data.email && response.data.token) {
+            try {
+                const profile = await completeAuthPreparation(response.data.token, response.data.email);
+                return { success: true, user: profile };
+            } catch (err: any) {
+                return { success: false, error: err.message || 'Authentication preparation failed' };
+            }
         }
         const errMsg = response.status === 'error' ? response.message : 'Invalid credentials';
         return { success: false, error: errMsg };
-    }, [prepareRealtimeAuth]);
+    }, [completeAuthPreparation]);
 
-    // Google SSO login
+    // Google SSO login using signInWithIdToken()
     const googleLogin = useCallback(async (email: string, token: string) => {
         try {
-            localStorage.setItem('google_sso_token', token);
-            const profile = await UserStore.getByEmail(email, token);
-            if (profile?.name) {
-                profile.token = token;
-                setUser(profile);
-                UserStore.saveSession(profile);
-                setRealtimeAuthReady(true);
-                return { success: true, user: profile };
+            const { data: sData, error: sErr } = await supabase.auth.signInWithIdToken({
+                provider: 'google',
+                token: token
+            });
+
+            if (sErr || !sData?.session) {
+                console.error('[AuthContext] Google signInWithIdToken failed:', sErr);
+                setRealtimeAuthReady(false);
+                return { success: false, error: 'Google authentication failed: ' + (sErr?.message || 'Invalid session') };
             }
-            return { success: false, error: 'Your Google email is not registered in Manifest. Please ask an Administrator to add you.' };
+
+            const profile = await completeAuthPreparation(sData.session.access_token, email);
+            return { success: true, user: profile };
         } catch (e: any) {
             console.error('[AuthContext] Google login error:', e);
-            setRealtimeAuthReady(true);
+            setRealtimeAuthReady(false);
             return { success: false, error: e.message || 'Google login failed' };
         }
-    }, []);
+    }, [completeAuthPreparation]);
 
     // Logout
     const logout = useCallback(async () => {
