@@ -2,14 +2,13 @@
 -- Purpose:
 -- 1. Adds a safe preflight check before adding unique constraint uq_service_attendance_manifest_service_member (no automatic data deletion).
 -- 2. Creates get_service_snapshot_v2 single-statement SQL CTE snapshot RPC.
--- 3. Creates atomic_check_in_member, atomic_register_first_timer, and atomic_undo_check_in RPCs.
+-- 3. Creates atomic_check_in_member, atomic_register_first_timer, and atomic_undo_check_in RPCs with consistent locking order and duplicate handling.
 
 -- 1. Tenant-Aware Unique Attendance Constraint with Safe Preflight
 DO $$
 DECLARE
     _dup_count integer := 0;
 BEGIN
-    -- Preflight check: detect duplicate (manifest_id, service_id, member_id) groups
     SELECT count(*) INTO _dup_count
     FROM (
         SELECT manifest_id, service_id, member_id
@@ -113,7 +112,6 @@ AS $$
         'manualChildrenCount', COALESCE((SELECT manual_children_count FROM service_info), 0),
         'generatedAt', to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
         
-        -- Backward-compatibility fields
         'memberIds', COALESCE((SELECT jsonb_agg(member_id) FROM valid_attendees), '[]'::jsonb),
         'total', COALESCE((SELECT count(*) FROM valid_attendees), 0),
         'soulIds', COALESCE((SELECT jsonb_agg(soul_id) FROM combined_souls), '[]'::jsonb),
@@ -125,7 +123,7 @@ $$;
 REVOKE EXECUTE ON FUNCTION public.get_service_snapshot_v2 FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.get_service_snapshot_v2 TO service_role;
 
--- 3. Atomic Existing-Member Check-in RPC
+-- 3. Atomic Existing-Member Check-in RPC (Strict Locking Order)
 CREATE OR REPLACE FUNCTION public.atomic_check_in_member(
     _manifest_id uuid,
     _member_id uuid,
@@ -137,12 +135,13 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 DECLARE
-    _att_inserted boolean := false;
-    _curr_attended text[];
     _service_exists boolean;
     _member_exists boolean;
+    _att_inserted boolean := false;
+    _already_checked_in boolean := false;
+    _new_attended text[];
 BEGIN
-    -- Verify tenant-isolated service exists
+    -- 1. Validate tenant-scoped service & lock row FOR SHARE
     SELECT EXISTS (
         SELECT 1 FROM public.ministry_events 
         WHERE id = _service_id AND manifest_id = _manifest_id
@@ -151,43 +150,45 @@ BEGIN
         RAISE EXCEPTION 'Service % not found for tenant %', _service_id, _manifest_id;
     END IF;
 
-    -- Verify tenant-isolated member exists
+    -- 2. Lock tenant-scoped member row FOR UPDATE
     SELECT EXISTS (
         SELECT 1 FROM public.members 
         WHERE id = _member_id AND manifest_id = _manifest_id
+        FOR UPDATE
     ) INTO _member_exists;
     IF NOT _member_exists THEN
         RAISE EXCEPTION 'Member % not found for tenant %', _member_id, _manifest_id;
     END IF;
 
-    -- Insert attendance row idempotently
+    -- Check existing attendance
+    SELECT EXISTS (
+        SELECT 1 FROM public.service_attendance
+        WHERE manifest_id = _manifest_id AND service_id = _service_id AND member_id = _member_id
+    ) INTO _already_checked_in;
+
+    -- 3. Insert attendance row idempotently
     INSERT INTO public.service_attendance (manifest_id, service_id, member_id, check_in_time)
     VALUES (_manifest_id, _service_id, _member_id, now())
     ON CONFLICT (manifest_id, service_id, member_id) DO NOTHING;
     
     _att_inserted := FOUND;
 
-    -- Update member record for update (lock row for update)
-    SELECT attended_service_ids INTO _curr_attended
-    FROM public.members
-    WHERE id = _member_id AND manifest_id = _manifest_id
-    FOR UPDATE;
+    -- 4. Rebuild attended_service_ids from authoritative attendance while holding member lock
+    SELECT COALESCE(array_agg(sa.service_id::text), '{}'::text[])
+    INTO _new_attended
+    FROM public.service_attendance sa
+    WHERE sa.member_id = _member_id AND sa.manifest_id = _manifest_id;
 
-    IF _curr_attended IS NULL THEN
-        _curr_attended := ARRAY[_service_id::text];
-    ELSIF NOT (_service_id::text = ANY(_curr_attended)) THEN
-        _curr_attended := array_append(_curr_attended, _service_id::text);
-    END IF;
-
-    -- Update check_in_time and attended_service_ids ONLY; NEVER mutate first_timer fields
     UPDATE public.members
     SET check_in_time = now(),
-        attended_service_ids = _curr_attended
+        attended_service_ids = _new_attended
     WHERE id = _member_id AND manifest_id = _manifest_id;
 
     RETURN jsonb_build_object(
         'success', true,
         'attendanceInserted', _att_inserted,
+        'alreadyCheckedIn', _already_checked_in,
+        'attendanceRemoved', false,
         'memberId', _member_id,
         'serviceId', _service_id
     );
@@ -209,8 +210,7 @@ CREATE OR REPLACE FUNCTION public.atomic_register_first_timer(
     _place_of_work text DEFAULT NULL,
     _born_again text DEFAULT NULL,
     _referral_source text DEFAULT NULL,
-    _is_phaneroo_member text DEFAULT NULL,
-    _joined_date date DEFAULT CURRENT_DATE
+    _is_phaneroo_member text DEFAULT NULL
 )
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -218,34 +218,58 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 DECLARE
+    _service_date date;
+    _service_exists boolean;
     _new_member_id uuid := gen_random_uuid();
-    _clean_phone text := regexp_replace(_phone, '\D', '', 'g');
-    _existing_id uuid;
-    _new_member_rec jsonb;
+    _clean_phone text := regexp_replace(COALESCE(_phone, ''), '\D', '', 'g');
+    _phone_match_count integer := 0;
+    _existing_id uuid := NULL;
+    _member_rec jsonb;
+    _checkin_res jsonb;
 BEGIN
-    -- Check if member already exists by clean phone or exact name in this tenant
-    IF _clean_phone <> '' THEN
-        SELECT id INTO _existing_id
-        FROM public.members
-        WHERE manifest_id = _manifest_id AND phone_digits = _clean_phone
-        LIMIT 1;
+    -- 1. Validate tenant & service BEFORE writing anything
+    SELECT date::date INTO _service_date
+    FROM public.ministry_events
+    WHERE id = _service_id AND manifest_id = _manifest_id;
+    
+    IF _service_date IS NULL THEN
+        RAISE EXCEPTION 'Service % not found for tenant %', _service_id, _manifest_id;
     END IF;
 
+    -- 2. Check duplicate policy: only match phone if non-blank and >= 7 digits
+    IF _clean_phone <> '' AND length(_clean_phone) >= 7 THEN
+        SELECT count(*) INTO _phone_match_count
+        FROM public.members
+        WHERE manifest_id = _manifest_id AND phone_digits = _clean_phone;
+
+        IF _phone_match_count > 1 THEN
+            RAISE EXCEPTION 'Ambiguous member resolution: multiple records match phone for tenant %', _manifest_id;
+        ELSIF _phone_match_count = 1 THEN
+            SELECT id INTO _existing_id
+            FROM public.members
+            WHERE manifest_id = _manifest_id AND phone_digits = _clean_phone;
+        END IF;
+    END IF;
+
+    -- If existing member candidate matched: perform atomic check-in, do NOT create new member
     IF _existing_id IS NOT NULL THEN
-        -- Member already exists! Perform atomic check-in instead of creating duplicate member
-        PERFORM public.atomic_check_in_member(_manifest_id, _existing_id, _service_id);
+        _checkin_res := public.atomic_check_in_member(_manifest_id, _existing_id, _service_id);
         
-        SELECT to_jsonb(m) INTO _new_member_rec
-        FROM public.members m WHERE id = _existing_id;
+        SELECT to_jsonb(m) INTO _member_rec
+        FROM public.members m WHERE id = _existing_id AND manifest_id = _manifest_id;
 
         RETURN jsonb_build_object(
             'success', true,
             'isNewMember', false,
-            'member', _new_member_rec
+            'alreadyExisted', true,
+            'member', _member_rec,
+            'attendanceInserted', (_checkin_res->>'attendanceInserted')::boolean,
+            'alreadyCheckedIn', (_checkin_res->>'alreadyCheckedIn')::boolean,
+            'serviceId', _service_id
         );
     END IF;
 
-    -- Create new member with immutable first-timer flags
+    -- 3. Insert genuinely new member with authoritative service date
     INSERT INTO public.members (
         id,
         manifest_id,
@@ -281,25 +305,29 @@ BEGIN
         _born_again,
         _referral_source,
         _is_phaneroo_member,
-        _joined_date,
+        _service_date,
         true,
         _service_id,
-        _joined_date,
+        _service_date,
         ARRAY[_service_id::text]
     );
 
-    -- Insert attendance record for originating service
+    -- 4. Insert attendance record for originating service
     INSERT INTO public.service_attendance (manifest_id, service_id, member_id, check_in_time)
     VALUES (_manifest_id, _service_id, _new_member_id, now())
     ON CONFLICT (manifest_id, service_id, member_id) DO NOTHING;
 
-    SELECT to_jsonb(m) INTO _new_member_rec
-    FROM public.members m WHERE id = _new_member_id;
+    SELECT to_jsonb(m) INTO _member_rec
+    FROM public.members m WHERE id = _new_member_id AND manifest_id = _manifest_id;
 
     RETURN jsonb_build_object(
         'success', true,
         'isNewMember', true,
-        'member', _new_member_rec
+        'alreadyExisted', false,
+        'member', _member_rec,
+        'attendanceInserted', true,
+        'alreadyCheckedIn', false,
+        'serviceId', _service_id
     );
 END;
 $$;
@@ -307,7 +335,7 @@ $$;
 REVOKE EXECUTE ON FUNCTION public.atomic_register_first_timer FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.atomic_register_first_timer TO service_role;
 
--- 5. Atomic Undo Check-in RPC
+-- 5. Atomic Undo Check-in RPC (Strict Lock Order & Immutable First-Timer Guarantee)
 CREATE OR REPLACE FUNCTION public.atomic_undo_check_in(
     _manifest_id uuid,
     _member_id uuid,
@@ -319,11 +347,31 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 DECLARE
+    _service_exists boolean;
+    _member_exists boolean;
     _deleted_count integer := 0;
-    _curr_attended text[];
     _new_attended text[];
 BEGIN
-    -- Delete attendance row for this specific service
+    -- 1. Validate tenant-scoped service
+    SELECT EXISTS (
+        SELECT 1 FROM public.ministry_events 
+        WHERE id = _service_id AND manifest_id = _manifest_id
+    ) INTO _service_exists;
+    IF NOT _service_exists THEN
+        RAISE EXCEPTION 'Service % not found for tenant %', _service_id, _manifest_id;
+    END IF;
+
+    -- 2. Lock tenant-scoped member row FOR UPDATE
+    SELECT EXISTS (
+        SELECT 1 FROM public.members 
+        WHERE id = _member_id AND manifest_id = _manifest_id
+        FOR UPDATE
+    ) INTO _member_exists;
+    IF NOT _member_exists THEN
+        RAISE EXCEPTION 'Member % not found for tenant %', _member_id, _manifest_id;
+    END IF;
+
+    -- 3. Delete attendance row for this specific service
     DELETE FROM public.service_attendance
     WHERE manifest_id = _manifest_id
       AND service_id = _service_id
@@ -331,27 +379,25 @@ BEGIN
       
     GET DIAGNOSTICS _deleted_count = ROW_COUNT;
 
-    -- Update member's attended_service_ids array (remove service_id)
-    SELECT attended_service_ids INTO _curr_attended
-    FROM public.members
-    WHERE id = _member_id AND manifest_id = _manifest_id
-    FOR UPDATE;
+    -- 4. Rebuild attended_service_ids array from authoritative service_attendance
+    SELECT COALESCE(array_agg(sa.service_id::text), '{}'::text[])
+    INTO _new_attended
+    FROM public.service_attendance sa
+    WHERE sa.member_id = _member_id AND sa.manifest_id = _manifest_id;
 
-    IF _curr_attended IS NOT NULL THEN
-        SELECT array_agg(elem) INTO _new_attended
-        FROM unnest(_curr_attended) elem
-        WHERE elem <> _service_id::text;
-        
-        UPDATE public.members
-        SET attended_service_ids = COALESCE(_new_attended, '{}'::text[])
-        WHERE id = _member_id AND manifest_id = _manifest_id;
-    END IF;
+    UPDATE public.members
+    SET attended_service_ids = _new_attended
+    WHERE id = _member_id AND manifest_id = _manifest_id;
 
-    -- CRITICAL: RETAIN first_timer_service_id, first_timer_date, and is_first_timer UNCHANGED!
+    -- RETAIN all original first-timer fields (first_timer_service_id, first_timer_date, is_first_timer) UNCHANGED!
 
     RETURN jsonb_build_object(
         'success', true,
-        'removed', (_deleted_count > 0)
+        'attendanceInserted', false,
+        'alreadyCheckedIn', false,
+        'attendanceRemoved', (_deleted_count > 0),
+        'memberId', _member_id,
+        'serviceId', _service_id
     );
 END;
 $$;

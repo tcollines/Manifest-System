@@ -92,9 +92,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             return profile;
         } catch (err) {
             console.error('[REG-RT] Auth preparation failed:', err);
-            setRealtimeAuthReady(false);
-            setVerifiedRealtimeManifestId(null);
-            setUser(null);
+            if (currentGen === authGenRef.current) {
+                setRealtimeAuthReady(false);
+                setVerifiedRealtimeManifestId(null);
+                setUser(null);
+            }
             throw err;
         }
     }, []);

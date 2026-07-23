@@ -1596,27 +1596,8 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
         showToast(`${newMember.name} added to database.`, 'success');
       }
 
-      if (isServiceActive && selectedService) { // Use selectedService (which might be stale, but we used serviceIdToUse logic)
-        // If we auto-saved, stats need fetching for the NEW ID
-        const sid = serviceIdToUse || selectedService.id;
-        const sdate = autoSavedEvent?.date || selectedService.date;
-
-        // CRITICAL FIX: Explicitly guarantee check-in through the dedicated Express endpoint
-        // The RPC 'submit_member_entry' JSONB regex parser has a known bug silently failing attendance inserts.
-        if (sid) {
-          await MemberStore.checkIn(realMember.id, sid);
-        }
-
-        // Fetch fresh stats
-        try {
-          // Delay slightly to ensure DB consistency if needed, but usually immediate is fine
-          const stats = await MemberStore.getServiceStats(sid, sdate);
-          const childrenCount = selectedService.stats?.manualChildrenCount || 0;
-          setCheckInStats({ total: 0, firstTimers: stats.firstTimers, soulsWon: checkInStats.soulsWon });
-          setCheckedInIds(new Set(stats.memberIds));
-        } catch (statErr) {
-          console.warn("Failed to refresh stats after auto-save", statErr);
-        }
+      if (isServiceActive && selectedService) {
+        enqueueReconcileJob('mutation');
       } else {
         setViewMode('list');
       }
@@ -1702,6 +1683,7 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
         showToast("Check-in skipped for temporary event. Please save event first.", "warning");
       } else {
         showToast("Member Checked In Successfully", "success");
+        enqueueReconcileJob('mutation');
       }
 
       // Note: Stats are updated automatically via idempotent Realtime listeners for parallel devices
@@ -1784,15 +1766,7 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
       // 2. Platform Request
       await MemberStore.undoCheckIn(memberId, selectedService.id);
       showToast("Check-In reversed successfully", "success");
-
-      // Auto-refresh stats to ensure FirstTimer counts also sync perfectly
-      try {
-        const stats = await MemberStore.getServiceStats(selectedService.id, selectedService.date);
-        const childrenCount = selectedService.stats?.manualChildrenCount || 0;
-        setCheckInStats({ total: 0, firstTimers: stats.firstTimers, soulsWon: checkInStats.soulsWon });
-      } catch (e) {
-        // silent fail on auto-refresh
-      }
+      enqueueReconcileJob('mutation');
 
     } catch (error: any) {
       console.error("Undo Check-in Error:", error);

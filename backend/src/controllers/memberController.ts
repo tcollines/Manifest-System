@@ -101,8 +101,7 @@ export const addMember = async (req: Request, res: Response) => {
                     _place_of_work: m.place_of_work || m.placeOfWork || null,
                     _born_again: m.born_again !== undefined ? String(m.born_again) : (m.bornAgain !== undefined ? String(m.bornAgain) : null),
                     _referral_source: m.referral_source || m.referralSource || null,
-                    _is_phaneroo_member: m.is_phaneroo_member || m.isPhanerooMember || null,
-                    _joined_date: m.joined_date || m.joinedDate || new Date().toISOString().split('T')[0]
+                    _is_phaneroo_member: m.is_phaneroo_member || m.isPhanerooMember || null
                 });
 
                 if (error) {
@@ -110,7 +109,7 @@ export const addMember = async (req: Request, res: Response) => {
                     return res.status(500).json({ error: 'Failed to register member', details: error.message });
                 }
 
-                return res.status(201).json(data.member);
+                return res.status(201).json(data);
             }
         }
 
@@ -246,29 +245,33 @@ export const checkInMember = async (req: Request, res: Response) => {
             });
         }
 
+        if (validIds.length > 1) {
+            return res.status(400).json({ error: 'Multi-service check-in is not supported in a single request. Check in per service.' });
+        }
+
         const uuidMemberId = toUUID(memberId);
         if (!uuidMemberId) return res.status(400).json({ error: 'Invalid Member ID' });
 
-        const uuidServiceIds = validIds.map(toUUID).filter((id): id is string => !!id);
+        const sid = toUUID(validIds[0]);
+        if (!sid) return res.status(400).json({ error: 'Invalid Service ID' });
 
-        for (const sid of uuidServiceIds) {
-            const { error: rpcErr } = await supabase.rpc('atomic_check_in_member', {
-                _manifest_id: manifestId,
-                _member_id: uuidMemberId,
-                _service_id: sid
-            });
+        const { data, error: rpcErr } = await supabase.rpc('atomic_check_in_member', {
+            _manifest_id: manifestId,
+            _member_id: uuidMemberId,
+            _service_id: sid
+        });
 
-            if (rpcErr) {
-                console.error('[checkInMember RPC ERROR]', rpcErr);
-                return res.status(500).json({ error: 'Check-in failed: ' + rpcErr.message });
-            }
+        if (rpcErr) {
+            console.error('[checkInMember RPC ERROR]', rpcErr);
+            return res.status(500).json({ error: 'Check-in failed: ' + rpcErr.message });
         }
 
-        res.json({
+        return res.json({
             message: 'Check-in processed',
             results: {
-                checkedIn: uuidServiceIds,
-                alreadyCheckedIn: [],
+                checkedIn: data?.attendanceInserted ? [sid] : [],
+                alreadyCheckedIn: data?.alreadyCheckedIn ? [sid] : [],
+                attendanceInserted: data?.attendanceInserted,
                 ignored: tempIds
             },
             _meta: { ignored_service_ids: tempIds }
