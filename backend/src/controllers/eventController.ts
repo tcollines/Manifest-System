@@ -498,14 +498,29 @@ export const getServiceSnapshot = async (req: Request, res: Response) => {
         const memberIds = attendanceData ? attendanceData.map(a => String(a.member_id)) : [];
 
         let firstTimersCount = 0;
-        if (serviceData.date && memberIds.length > 0) {
-            const { count } = await supabase
+        if (memberIds.length > 0) {
+            const { data: ftMembers } = await supabase
                 .from('members')
-                .select('id', { count: 'exact', head: true })
+                .select('id, category, joined_date, first_timer_service_id')
                 .eq('manifest_id', manifestId)
-                .eq('joined_date', serviceData.date)
                 .in('id', memberIds);
-            if (count !== null) firstTimersCount = count;
+
+            if (ftMembers) {
+                const serviceDateStr = serviceData.date ? String(serviceData.date).split('T')[0] : '';
+                firstTimersCount = ftMembers.filter(m => {
+                    const isServiceMatch = (m as any).first_timer_service_id === serviceId || (m as any).firstTimerServiceId === serviceId;
+                    if (isServiceMatch) return true;
+
+                    if (m.category === 'First Timer') {
+                        if (m.joined_date && serviceDateStr) {
+                            const mJoinedStr = String(m.joined_date).split('T')[0];
+                            return mJoinedStr === serviceDateStr;
+                        }
+                        return true;
+                    }
+                    return false;
+                }).length;
+            }
         }
 
         const { data: mainSouls } = await supabase

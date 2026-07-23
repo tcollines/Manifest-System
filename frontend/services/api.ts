@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient';
+import { UserStore } from '../database/userStore';
 
 export const API_URL = import.meta.env.VITE_API_URL || 'https://manifest-system-lofy.onrender.com/api';
 
@@ -6,8 +7,15 @@ export const apiFetch = async (endpoint: string, options: RequestInit & { token?
     // Dynamically retrieve the latest session token if not explicitly provided
     let token = options.token;
     if (!token) {
-        const { data: { session } } = await supabase.auth.getSession();
-        token = session?.access_token || localStorage.getItem('google_sso_token') || undefined;
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            token = session?.access_token;
+        } catch (e) {}
+
+        if (!token) {
+            const localUser = UserStore.getSession();
+            token = (localUser as any)?.token || (localUser as any)?.access_token || localStorage.getItem('google_sso_token') || undefined;
+        }
     }
 
     const headers: Record<string, string> = {

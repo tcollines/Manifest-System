@@ -215,7 +215,17 @@ AS $$
         JOIN valid_attendees va ON va.member_id = m.id::text
         CROSS JOIN service_info si
         WHERE m.manifest_id = _manifest_id
-          AND m.joined_date = si.date
+          AND (
+            ((to_jsonb(m)->>'first_timer_service_id')::text = _service_id::text)
+            OR ((to_jsonb(m)->>'firstTimerServiceId')::text = _service_id::text)
+            OR (
+              m.category = 'First Timer'
+              AND (
+                m.joined_date::text LIKE si.date::text || '%'
+                OR (m.joined_date IS NOT NULL AND si.date IS NOT NULL AND m.joined_date::date = si.date::date)
+              )
+            )
+          )
     ),
     main_souls AS (
         SELECT s.id::text as soul_id

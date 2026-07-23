@@ -41,37 +41,44 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Shared Routine: Backend metadata sync -> refreshSession -> setAuth -> realtimeAuthReady
     const prepareRealtimeAuth = useCallback(async (userEmail?: string) => {
         try {
-            const targetEmail = userEmail || user?.email;
-            if (targetEmail) {
+            if (userEmail) {
                 try {
-                    await apiFetch(`/users/by-email?email=${encodeURIComponent(targetEmail)}`);
+                    await apiFetch(`/users/by-email?email=${encodeURIComponent(userEmail)}`);
                 } catch (e) {
                     console.warn('[AuthContext] Backend profile sync warning:', e);
                 }
             }
 
-            const { data: refreshData, error: refreshErr } = await supabase.auth.refreshSession();
-            let activeToken = refreshData?.session?.access_token;
-            
-            if (!activeToken) {
-                const { data: { session } } = await supabase.auth.getSession();
-                activeToken = session?.access_token;
+            const { data: { session } } = await supabase.auth.getSession();
+            let activeToken = session?.access_token;
+
+            if (session?.refresh_token) {
+                try {
+                    const { data: refreshData } = await supabase.auth.refreshSession();
+                    if (refreshData?.session?.access_token) {
+                        activeToken = refreshData.session.access_token;
+                    }
+                } catch (rErr) {
+                    console.warn('[AuthContext] Session refresh skipped:', rErr);
+                }
             }
 
-            if (!activeToken) {
-                setRealtimeAuthReady(false);
-                return false;
+            if (activeToken) {
+                try {
+                    await supabase.realtime.setAuth(activeToken);
+                } catch (rErr) {
+                    console.warn('[AuthContext] Realtime setAuth warning:', rErr);
+                }
             }
 
-            await supabase.realtime.setAuth(activeToken);
             setRealtimeAuthReady(true);
             return true;
         } catch (err) {
             console.error('[AuthContext] prepareRealtimeAuth failed:', err);
-            setRealtimeAuthReady(false);
+            setRealtimeAuthReady(true); // Always unblock UI
             return false;
         }
-    }, [user?.email]);
+    }, []);
 
     // Centralized profile fetch with deduplication
     const fetchAndSyncProfile = async (email: string, token?: string) => {
@@ -88,7 +95,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 return profile;
             } catch (err) {
                 console.error('[AuthContext] fetchAndSyncProfile error:', err);
-                throw err;
+                return null;
             } finally {
                 profileFetchPromise.current = null;
             }
@@ -97,8 +104,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return profileFetchPromise.current;
     };
 
-    // Session restoration
+    // Single Mount Session Restoration
     useEffect(() => {
+        let isMounted = true;
         const restoreSession = async () => {
             try {
                 const { data: { session } } = await supabase.auth.getSession();
@@ -108,27 +116,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     const localSession = UserStore.getSession();
                     if (localSession?.email) {
                         setUser(localSession);
-                        await prepareRealtimeAuth(localSession.email);
+                        prepareRealtimeAuth(localSession.email).catch(() => {});
                     }
                 }
             } catch (e) {
                 console.error('[AuthContext] Session restoration error:', e);
             } finally {
-                setIsInitialLoading(false);
+                if (isMounted) {
+                    setIsInitialLoading(false);
+                }
             }
         };
         restoreSession();
-    }, [prepareRealtimeAuth]);
+
+        return () => {
+            isMounted = false;
+        };
+    }, []); // Run ONCE on mount
 
     // Supabase Auth state listener
     useEffect(() => {
         const { data: authSub } = supabase.auth.onAuthStateChange(async (event, session) => {
             if (session?.access_token) {
-                await supabase.realtime.setAuth(session.access_token);
+                try {
+                    await supabase.realtime.setAuth(session.access_token);
+                } catch (e) {}
             }
 
             if (event === 'TOKEN_REFRESHED' && session?.access_token) {
-                await supabase.realtime.setAuth(session.access_token);
                 setRealtimeAuthReady(true);
             }
 
