@@ -84,9 +84,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             // 2. Background Validation
             try {
+                const googleToken = localStorage.getItem('google_sso_token');
+                if (googleToken) {
+                    await supabase.realtime.setAuth(googleToken);
+                }
+
                 const { data: { session } } = await supabase.auth.getSession();
+                if (session?.access_token) {
+                    await supabase.realtime.setAuth(session.access_token);
+                }
+
                 if (session?.user?.email) {
                     await fetchAndSyncProfile(session.user.email, session.access_token);
+                } else if (googleToken && cachedUser?.email) {
+                    await fetchAndSyncProfile(cachedUser.email, googleToken);
                 } else if (cachedUser) {
                     // Cache is stale/invalid, clear it out
                     setUser(null);
@@ -195,6 +206,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
         keysToRemove.forEach(k => localStorage.removeItem(k));
         localStorage.setItem('google_sso_token', token);
+
+        // Ensure Realtime WebSocket connection carries the SSO token for authorization
+        if (token) {
+            try {
+                await supabase.realtime.setAuth(token);
+            } catch (err) {
+                console.warn('[AuthContext] Realtime setAuth warning for Google SSO:', err);
+            }
+        }
 
         try {
             const profile = await UserStore.getByEmail(email, token);

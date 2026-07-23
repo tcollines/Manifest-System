@@ -49,38 +49,44 @@ const mapMemberToDB = (m: Member) => ({
 });
 
 const MEMBER_CACHE = new Map<string, { timestamp: number, data: ServiceResponse<Member[]> }>();
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes (not strictly used if we just want micro-cache for rapid nav)
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 const MAX_CACHE_SIZE = 10;
 
 export const MemberStore = {
+  invalidateCache: () => {
+    MEMBER_CACHE.clear();
+  },
+
   getMembers: async (page: number = 1, pageSize: number = 50, searchQuery: string = '', signal?: AbortSignal): Promise<ServiceResponse<Member[]>> => {
-    const cacheKey = `${page}-${pageSize}-${searchQuery.trim()}`;
+    const trimmedQuery = searchQuery.trim();
+    const cacheKey = `${page}-${pageSize}-${trimmedQuery}`;
+    const now = Date.now();
 
-    // 1. Cache Hit Strategy: Return immediately if found
-    if (MEMBER_CACHE.has(cacheKey)) {
-      console.log(`[MemberStore] Cache Hit: ${cacheKey}`);
+    // 1. Cache Strategy: Only cache empty searches (browse view) and enforce TTL
+    if (!trimmedQuery && MEMBER_CACHE.has(cacheKey)) {
       const cached = MEMBER_CACHE.get(cacheKey)!;
-
-      // Background Revalidation (Stale-While-Revalidate)
-      // We return cached immediately, then catch up. 
-      // Note: For a pure function, we can't easily "push" the update unless we use a subscription or just let the next render catch it.
-      // For "Ultra-Fast", returning cached is priority.
-      // If we want to be strict, we can check timestamp.
-      return cached.data;
+      if (now - cached.timestamp < CACHE_TTL) {
+        return cached.data;
+      }
+      MEMBER_CACHE.delete(cacheKey);
     }
 
     const response = await safeFetch(
-      () => apiFetch(`/members?page=${page}&pageSize=${pageSize}&search=${encodeURIComponent(searchQuery)}`, { signal }),
+      () => apiFetch(`/members?page=${page}&pageSize=${pageSize}&search=${encodeURIComponent(trimmedQuery)}`, { signal }),
       'Failed to load members list.',
-      (raw: any[]) => raw ? raw.map(mapMemberFromDB) : [],
+      (raw: any) => {
+        if (Array.isArray(raw)) return raw.map(mapMemberFromDB);
+        if (raw && Array.isArray(raw.data)) return raw.data.map(mapMemberFromDB);
+        return [];
+      },
       signal
     );
 
-    // 2. Cache Set Strategy
-    if (response.status === 'success' && !signal?.aborted) {
+    // 2. Cache Set Strategy for browse views
+    if (response.status === 'success' && !signal?.aborted && !trimmedQuery) {
       if (MEMBER_CACHE.size >= MAX_CACHE_SIZE) {
         const firstKey = MEMBER_CACHE.keys().next().value;
-        MEMBER_CACHE.delete(firstKey);
+        if (firstKey) MEMBER_CACHE.delete(firstKey);
       }
       MEMBER_CACHE.set(cacheKey, { timestamp: Date.now(), data: response });
     }
@@ -89,24 +95,21 @@ export const MemberStore = {
   },
 
   getAll: async (): Promise<ServiceResponse<Member[]>> => {
-    // Force pagination as /all is removed for stability. 
-    // Consumers needing "all" should fetch specific pages or use search.
     return MemberStore.getMembers(1, 100);
   },
 
-
-
   add: async (member: Member): Promise<any> => {
-    // Ensure ID is a valid UUID. If missing or looks like a mock ID (e.g. starts with 'm-'), generate new UUID.
     const isValidUUID = (id?: string) => id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
 
     const finalId = isValidUUID(member.id) ? member.id! : uuidv4();
     const memberWithId = { ...member, id: finalId };
     try {
-      return await apiFetch('/members', {
+      const result = await apiFetch('/members', {
         method: 'POST',
         body: JSON.stringify(mapMemberToDB(memberWithId))
       });
+      MemberStore.invalidateCache();
+      return result;
     } catch (e: any) {
       console.error('Error adding member:', e);
       throw e;
@@ -144,6 +147,7 @@ export const MemberStore = {
         method: 'PUT',
         body: JSON.stringify(mapMemberToDB(member))
       });
+      MemberStore.invalidateCache();
     } catch (e) {
       console.error('Error updating member:', e);
     }
@@ -155,6 +159,7 @@ export const MemberStore = {
         method: 'POST',
         body: JSON.stringify({ ids })
       });
+      MemberStore.invalidateCache();
     } catch (e) {
       console.error('Error deleting members:', e);
     }

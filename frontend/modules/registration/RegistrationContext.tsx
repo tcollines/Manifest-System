@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, createContext, useContext, useMemo } from 'react';
+import React, { useState, useEffect, useRef, createContext, useContext, useMemo, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '../../services/supabaseClient';
 import { v4 as uuidv4 } from 'uuid';
@@ -541,166 +541,158 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 50;
 
-  // --- REALTIME SYNC: Service Check-Ins ---
+  // Resync Guard for Foreground Recovery
+  const resyncInProgressRef = useRef(false);
+
+  // Authoritative Reconciliation Function
+  const reconcileCheckInsAndSouls = useCallback(async () => {
+    if (!selectedService || viewMode !== 'service-active') return;
+    if (resyncInProgressRef.current) return;
+    resyncInProgressRef.current = true;
+
+    try {
+      // 1. Refresh Supabase / Realtime auth token
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.access_token) {
+        await supabase.realtime.setAuth(session.access_token);
+      } else {
+        const googleToken = localStorage.getItem('google_sso_token');
+        if (googleToken) {
+          await supabase.realtime.setAuth(googleToken);
+        }
+      }
+
+      // 2. Fetch Authoritative Service Stats & Attendees
+      const [stats, soulsList, attendees] = await Promise.all([
+        MemberStore.getServiceStats(selectedService.id, selectedService.date),
+        SoulsStore.getAll(selectedService.id),
+        MemberStore.getAttendees(selectedService.id)
+      ]);
+
+      if (attendees && Array.isArray(attendees)) {
+        const attendeeIds = new Set(attendees.map(m => String(m.id).toLowerCase()));
+        setCheckedInIds(attendeeIds);
+        checkedInIdsRef.current = attendeeIds;
+      }
+
+      if (soulsList && Array.isArray(soulsList)) {
+        const soulIds = new Set(soulsList.map((s: any) => String(s.id).toLowerCase()));
+        setCheckedSoulIds(soulIds);
+      }
+
+      if (stats) {
+        setCheckInStats({
+          total: stats.total || 0,
+          firstTimers: stats.firstTimers || 0,
+          soulsWon: Array.isArray(soulsList) ? soulsList.length : 0
+        });
+      }
+    } catch (err) {
+      console.warn('[RegistrationContext] Authoritative reconciliation warning:', err);
+    } finally {
+      resyncInProgressRef.current = false;
+    }
+  }, [selectedService?.id, selectedService?.date, viewMode]);
+
+  // --- REALTIME SYNC: Service Check-Ins & Broadcast Invalidation Signals ---
   useEffect(() => {
     const manifestId = currentUser.manifestId || (currentUser as any).manifest_id;
     if (!selectedService || viewMode !== 'service-active' || !manifestId) return;
 
-    const channelName = `service-checkins-${selectedService.id}`;
+    let debounceTimer: NodeJS.Timeout | null = null;
+    const debouncedReconcile = () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        reconcileCheckInsAndSouls();
+      }, 300);
+    };
+
+    const broadcastTopic = `manifest:${manifestId}:service:${selectedService.id}`;
     const channel = supabase
-      .channel(channelName)
+      .channel(broadcastTopic)
+      .on('broadcast', { event: 'invalidate' }, () => {
+        debouncedReconcile();
+      })
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
           table: 'service_attendance',
-          // Enforce strict service scope
           filter: `service_id=eq.${selectedService.id}`
         },
-        (payload) => {
-          const { eventType, new: newRecord, old: oldRecord } = payload;
-
-          // Double verification just to be safe (with case insensitivity)
-          const newServiceId = newRecord ? (newRecord as any).service_id : null;
-          const oldServiceId = oldRecord ? (oldRecord as any).service_id : null;
-          
-          if (newServiceId && newServiceId.toLowerCase() !== selectedService.id.toLowerCase()) return;
-          if (oldServiceId && oldServiceId.toLowerCase() !== selectedService.id.toLowerCase()) return;
-
-          if (eventType === 'INSERT') {
-            const memberId = ((newRecord as any).member_id || '').toLowerCase();
-            
-            // Early return if already checked in locally
-            if (checkedInIdsRef.current.has(memberId)) return;
-
-            // Update first timer stats if this member is a first timer
-            const member = membersRef.current.find(m => m.id.toLowerCase() === memberId);
-            const serviceDate = selectedServiceRef.current?.date;
-            if (member) {
-              const joinedDate = member.joinedDate ? member.joinedDate.split('T')[0].split(' ')[0] : null;
-              if (member.category === 'First Timer' && joinedDate === serviceDate) {
-                setCheckInStats(stats => ({ ...stats, firstTimers: stats.firstTimers + 1 }));
-              }
-            } else {
-              // Member not loaded locally (newly registered on another device)
-              MemberStore.getById(memberId).then((data) => {
-                if (data) {
-                  const joinedDate = data.joinedDate ? data.joinedDate.split('T')[0].split(' ')[0] : null;
-                  if (data.category === 'First Timer' && joinedDate === serviceDate) {
-                    setCheckInStats(stats => ({ ...stats, firstTimers: stats.firstTimers + 1 }));
-                  }
-                }
-              });
-            }
-
-            setCheckedInIds(prev => {
-              const next = new Set(prev);
-              next.add(memberId);
-              // total is dynamically derived from checkedInIds.size
-              return next;
-            });
-          } else if (eventType === 'DELETE') {
-            const memberId = ((oldRecord as any).member_id || '').toLowerCase();
-            
-            // Early return if not checked in locally
-            if (!checkedInIdsRef.current.has(memberId)) return;
-
-            // Update first timer stats if this member is a first timer
-            const member = membersRef.current.find(m => m.id.toLowerCase() === memberId);
-            const serviceDate = selectedServiceRef.current?.date;
-            if (member) {
-              const joinedDate = member.joinedDate ? member.joinedDate.split('T')[0].split(' ')[0] : null;
-              if (member.category === 'First Timer' && joinedDate === serviceDate) {
-                setCheckInStats(stats => ({ ...stats, firstTimers: Math.max(0, stats.firstTimers - 1) }));
-              }
-            } else {
-              MemberStore.getById(memberId).then((data) => {
-                if (data) {
-                  const joinedDate = data.joinedDate ? data.joinedDate.split('T')[0].split(' ')[0] : null;
-                  if (data.category === 'First Timer' && joinedDate === serviceDate) {
-                    setCheckInStats(stats => ({ ...stats, firstTimers: Math.max(0, stats.firstTimers - 1) }));
-                  }
-                }
-              });
-            }
-
-            setCheckedInIds(prev => {
-              const next = new Set(prev);
-              next.delete(memberId);
-              // total is dynamically derived
-              return next;
-            });
-          }
+        () => {
+          debouncedReconcile();
         }
       )
-      .subscribe();
-
-    const channel_souls = supabase
-      .channel(`service-souls-${selectedService.id}`)
       .on(
         'postgres_changes',
         {
-          event: 'INSERT',
+          event: '*',
           schema: 'public',
           table: 'souls',
           filter: `source_id=eq.${selectedService.id}`
         },
-        (payload) => {
-          const soulId = (payload.new as any).id;
-          setCheckedSoulIds(prev => {
-            if (prev.has(soulId)) return prev;
-            const next = new Set(prev);
-            next.add(soulId);
-            setCheckInStats(stats => ({ ...stats, soulsWon: stats.soulsWon + 1 }));
-            return next;
-          });
+        () => {
+          debouncedReconcile();
         }
       )
-      .on(
-        'postgres_changes',
-        {
-          event: 'DELETE',
-          schema: 'public',
-          table: 'souls',
-          filter: `source_id=eq.${selectedService.id}`
-        },
-        (payload) => {
-          const soulId = (payload.old as any).id;
-          setCheckedSoulIds(prev => {
-            if (!prev.has(soulId)) return prev;
-            const next = new Set(prev);
-            next.delete(soulId);
-            setCheckInStats(stats => ({ ...stats, soulsWon: Math.max(0, stats.soulsWon - 1) }));
-            return next;
-          });
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          reconcileCheckInsAndSouls();
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          setTimeout(() => {
+            if (selectedServiceRef.current?.id === selectedService.id) {
+              reconcileCheckInsAndSouls();
+            }
+          }, 3000);
         }
-      )
-      .subscribe();
-
-    const channel_events = supabase
-      .channel(`service-events-${selectedService.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'ministry_events',
-          filter: `id=eq.${selectedService.id}`
-        },
-        (payload) => {
-          const updatedEvent = payload.new as any;
-          setSelectedService(prev => prev ? { ...prev, stats: updatedEvent.stats || prev.stats } : prev);
-        }
-      )
-      .subscribe();
+      });
 
     return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
       supabase.removeChannel(channel);
-      supabase.removeChannel(channel_souls);
-      supabase.removeChannel(channel_events);
     };
-  }, [selectedService?.id, viewMode, currentUser.manifestId, (currentUser as any).manifest_id]);
+  }, [selectedService?.id, viewMode, currentUser.manifestId, (currentUser as any).manifest_id, reconcileCheckInsAndSouls]);
+
+  // --- FOREGROUND RECOVERY: Web & Capacitor iOS/Android Wake Listener ---
+  useEffect(() => {
+    if (!selectedService || viewMode !== 'service-active') return;
+
+    const handleForegroundWake = () => {
+      reconcileCheckInsAndSouls();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        handleForegroundWake();
+      }
+    };
+
+    // Web lifecycle events
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('pageshow', handleForegroundWake);
+    window.addEventListener('online', handleForegroundWake);
+
+    // Native Capacitor appStateChange event
+    let capListener: any = null;
+    import('@capacitor/app').then(({ App }) => {
+      capListener = App.addListener('appStateChange', ({ isActive }) => {
+        if (isActive) {
+          handleForegroundWake();
+        }
+      });
+    }).catch(() => {});
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('pageshow', handleForegroundWake);
+      window.removeEventListener('online', handleForegroundWake);
+      if (capListener && typeof capListener.remove === 'function') {
+        capListener.remove();
+      }
+    };
+  }, [selectedService?.id, viewMode, reconcileCheckInsAndSouls]);
 
 
   // Robust Role Check: Case-insensitive and includes Department ID 'd5' (Transportation/Logistics) - Fixes Data Entrant Guard
@@ -814,51 +806,70 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
       const isCheckInTab = activeTab === 'checkin';
       const effectiveFilterCategory = isCheckInTab ? filterCategory : null;
 
-      let membersPromise: Promise<ServiceResponse<Member[]>>;
-
-      // OPTIMIZATION: Reduce page size during search for faster rendering
       const currentPageSize = effectiveQuery ? 20 : itemsPerPage;
+      let membersPromise: Promise<ServiceResponse<Member[]>>;
 
       if (effectiveFilterCategory) {
         if (checkedInIds.size > 0) {
-          // Fetch specific IDs (No signal support on getManyByIds yet, but it's fast)
           membersPromise = MemberStore.getManyByIds(Array.from(checkedInIds));
         } else {
           membersPromise = Promise.resolve({ status: 'success', data: [] } as ServiceResponse<Member[]>);
         }
       } else {
-        // Pass signal for cancellation
         membersPromise = MemberStore.getMembers(currentPage, currentPageSize, queryToSend, signal);
       }
 
-      // Parallel Fetch - Note: Only members fetch is cancellable for now, others let run (usually cached or fast)
+      // OPTIMIZATION: If performing a search, ONLY fetch members (do not re-fetch logistics, users, vehicles)
+      if (queryToSend) {
+        const fetchedMembersResult = await membersPromise.catch(err => {
+          if (signal.aborted || err?.name === 'AbortError') return { status: 'cancelled' } as any;
+          throw err;
+        });
+
+        if (signal.aborted || fetchedMembersResult?.status === 'cancelled' || fetchedMembersResult?.error === 'Aborted' || fetchedMembersResult?.message?.includes('cancelled')) {
+          return;
+        }
+
+        if (fetchedMembersResult.status === 'success' && Array.isArray(fetchedMembersResult.data)) {
+          setMembers(fetchedMembersResult.data);
+          setTotalMembers(fetchedMembersResult.count || fetchedMembersResult.data.length);
+        } else {
+          const errorMsg = (fetchedMembersResult as any)?.message || "Unknown error";
+          console.error("Member Search Error:", errorMsg);
+          showToast(`Error loading members: ${errorMsg}`, 'error');
+          setMembers([]);
+          setTotalMembers(0);
+        }
+        return;
+      }
+
+      // Parallel Fetch for general dashboard initialization
       const [fetchedStations, fetchedVehicles, fetchedPassengers, fetchedMembersResult, fetchedUsers, fetchedPersonalCars] = await Promise.all([
         LogisticsStore.getStations(),
         VehicleStore.getVehicles({ eventId: selectedLogisticsEvent?.id }),
         VehicleStore.getPassengers({ eventId: selectedLogisticsEvent?.id }),
         membersPromise.catch(err => {
-          // Handle AbortError specifically to return a "cancelled" state
-          if (signal.aborted || err.name === 'AbortError') return { status: 'cancelled' } as any;
+          if (signal.aborted || err?.name === 'AbortError') return { status: 'cancelled' } as any;
           throw err;
         }),
         UserStore.getAll(),
         VehicleStore.getPersonalVehicles()
       ]);
 
-      if (signal.aborted) return; // Stop if cancelled
+      if (signal.aborted || fetchedMembersResult?.status === 'cancelled' || fetchedMembersResult?.error === 'Aborted' || fetchedMembersResult?.message?.includes('cancelled')) {
+        return;
+      }
 
       setStations(fetchedStations.status === 'success' ? fetchedStations.data : []);
       setVehicles(fetchedVehicles.status === 'success' ? fetchedVehicles.data : []);
       setPersonalVehicles(fetchedPersonalCars.status === 'success' ? fetchedPersonalCars.data : []);
       setPassengers(fetchedPassengers.status === 'success' ? fetchedPassengers.data : []);
 
-      // Handle Member Result
       if (fetchedMembersResult.status === 'success' && Array.isArray(fetchedMembersResult.data)) {
         setMembers(fetchedMembersResult.data);
         setTotalMembers(fetchedMembersResult.count || fetchedMembersResult.data.length);
-      } else if (fetchedMembersResult.status !== 'cancelled') {
-        // Error handling
-        const errorMsg = (fetchedMembersResult as any).message || "Unknown error";
+      } else {
+        const errorMsg = (fetchedMembersResult as any)?.message || "Unknown error";
         console.error("Member Fetch Error:", errorMsg);
         showToast(`Error loading members: ${errorMsg}`, 'error');
         setMembers([]);
@@ -870,7 +881,7 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
         : []);
 
     } catch (error: any) {
-      if (error.name !== 'AbortError') {
+      if (error?.name !== 'AbortError' && !error?.message?.includes('cancelled')) {
         console.error("Error refreshing data:", error);
         showToast("Critical error refreshing data.", 'error');
       }

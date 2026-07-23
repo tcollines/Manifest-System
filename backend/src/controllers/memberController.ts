@@ -7,49 +7,69 @@ export const getMembers = async (req: Request, res: Response) => {
     const manifestId = (req as any).manifestId;
     if (!manifestId) return res.status(401).json({ error: 'Unauthorized: Missing Manifest ID' });
 
-    console.log(`[GET MEMBERS] Search: '${req.query.search}', Page: ${req.query.page}`);
-
     const page = parseInt(req.query.page as string) || 1;
     const requestedSize = parseInt(req.query.pageSize as string) || 50;
-    const pageSize = Math.min(requestedSize, 100); // ≡ƒÜ¿ CRITICAL ENFORCEMENT: Hard limit of 100 rows per request.
-    const searchQuery = req.query.search as string || '';
+    const pageSize = Math.min(requestedSize, 100);
+    const searchQuery = (req.query.search as string || '').trim();
 
     try {
-        let query = supabase.from('members').select('id, name, category, phone, status, check_in_time, gender, residency, born_again, joined_date, attended_service_ids, created_at, occupation, place_of_work, email, is_phaneroo_member, referral_source', { count: 'exact' })
-            .eq('manifest_id', manifestId); // Tenant Isolation
-
         if (searchQuery) {
-            const isNumeric = /^\d+$/.test(searchQuery);
+            // Attempt RPC search with hasMore contract first
+            const { data: rpcData, error: rpcError } = await supabase.rpc('search_members_v2', {
+                _manifest_id: manifestId,
+                _search_query: searchQuery,
+                _page: page,
+                _page_size: pageSize
+            });
 
-            if (isNumeric && searchQuery.length >= 7) {
-                query = query.ilike('phone', `%${searchQuery}%`);
-            } else {
-                const tokens = searchQuery.split(/\s+/).filter(Boolean);
-
-                tokens.forEach(token => {
-                    const tokenClean = token.replace(/\D/g, '');
-                    if (tokenClean.length > 0) {
-                        query = query.or(`name.ilike.%${token}%,phone.ilike.%${tokenClean}%`);
-                    } else {
-                        query = query.or(`name.ilike.%${token}%`);
-                    }
-                });
+            if (!rpcError && Array.isArray(rpcData)) {
+                const hasMore = rpcData.length > 0 ? Boolean(rpcData[0].has_more) : false;
+                const cleanedData = rpcData.map(({ has_more, row_num, ...m }: any) => m);
+                return res.json({ data: cleanedData, count: cleanedData.length, hasMore, page });
             }
+
+            // Fallback: Use pageSize + 1 range query without { count: 'exact' }
+            const cleanPhone = searchQuery.replace(/\D/g, '');
+            let query = supabase.from('members')
+                .select('id, name, category, phone, status, check_in_time, gender, residency, born_again, joined_date, attended_service_ids, created_at, occupation, place_of_work, email, is_phaneroo_member, referral_source')
+                .eq('manifest_id', manifestId);
+
+            if (cleanPhone.length >= 7) {
+                query = query.or(`name.ilike.%${searchQuery}%,phone.ilike.%${cleanPhone}%`);
+            } else {
+                query = query.ilike('name', `%${searchQuery}%`);
+            }
+
+            const from = (page - 1) * pageSize;
+            const to = from + pageSize; // Fetch 1 extra row to check hasMore
+
+            const { data, error } = await query
+                .range(from, to)
+                .order('created_at', { ascending: false });
+
+            if (error) throw error;
+
+            const items = data || [];
+            const hasMore = items.length > pageSize;
+            const finalData = hasMore ? items.slice(0, pageSize) : items;
+
+            return res.json({ data: finalData, count: finalData.length, hasMore, page });
         }
 
+        // Unfiltered database view: retain exact total count for standard pagination
         const from = (page - 1) * pageSize;
         const to = from + pageSize - 1;
 
-        const { data, count, error } = await query
+        const { data, count, error } = await supabase
+            .from('members')
+            .select('id, name, category, phone, status, check_in_time, gender, residency, born_again, joined_date, attended_service_ids, created_at, occupation, place_of_work, email, is_phaneroo_member, referral_source', { count: 'exact' })
+            .eq('manifest_id', manifestId)
             .range(from, to)
             .order('created_at', { ascending: false });
 
-        if (error) {
-            console.error('[GET MEMBERS ERROR] Query failed:', error);
-            throw error;
-        }
+        if (error) throw error;
 
-        res.json({ data: data || [], count: count || 0 });
+        return res.json({ data: data || [], count: count || 0, hasMore: (from + (data?.length || 0)) < (count || 0), page });
     } catch (error: any) {
         console.error('[GET MEMBERS EXCEPTION]', error);
         res.status(500).json({ error: 'An internal server error occurred.' });
