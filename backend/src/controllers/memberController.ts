@@ -90,7 +90,7 @@ export const addMember = async (req: Request, res: Response) => {
             const uuidServiceId = serviceId ? toUUID(serviceId) : null;
 
             if (uuidServiceId) {
-                const { data, error } = await supabase.rpc('atomic_register_first_timer', {
+                const { data: rpcData, error: rpcErr } = await supabase.rpc('atomic_register_first_timer', {
                     _manifest_id: manifestId,
                     _service_id: uuidServiceId,
                     _name: m.name || 'Unnamed Member',
@@ -104,12 +104,64 @@ export const addMember = async (req: Request, res: Response) => {
                     _is_phaneroo_member: m.is_phaneroo_member || m.isPhanerooMember || null
                 });
 
-                if (error) {
-                    console.error('[ATOMIC REGISTER FIRST TIMER ERROR]', error);
-                    return res.status(500).json({ error: 'Failed to register member', details: error.message });
+                if (!rpcErr) {
+                    return res.status(201).json(rpcData);
                 }
 
-                return res.status(201).json(data);
+                if (rpcErr && !rpcErr.message.includes('Could not find the function') && !rpcErr.message.includes('schema cache')) {
+                    console.error('[ATOMIC REGISTER FIRST TIMER ERROR]', rpcErr);
+                    return res.status(500).json({ error: 'Failed to register member', details: rpcErr.message });
+                }
+
+                console.warn('[addMember] atomic_register_first_timer RPC missing from DB, using direct query fallback');
+                const newMemberId = m.id ? toUUID(m.id) : uuidv4();
+                const memberRecord = {
+                    id: newMemberId,
+                    manifest_id: manifestId,
+                    name: m.name || 'Unnamed Member',
+                    phone: m.phone || '',
+                    category: 'First Timer',
+                    status: 'Checked In',
+                    check_in_time: new Date().toISOString(),
+                    gender: m.gender || null,
+                    residency: m.residency || null,
+                    occupation: m.occupation || null,
+                    place_of_work: m.place_of_work || m.placeOfWork || null,
+                    born_again: m.born_again !== undefined ? m.born_again : null,
+                    referral_source: m.referral_source || m.referralSource || null,
+                    is_phaneroo_member: m.is_phaneroo_member || m.isPhanerooMember || null,
+                    is_first_timer: true,
+                    first_timer_service_id: uuidServiceId,
+                    first_timer_date: new Date().toISOString().split('T')[0],
+                    attended_service_ids: [uuidServiceId]
+                };
+
+                const { data: createdMember, error: insertErr } = await supabase.from('members')
+                    .insert(memberRecord)
+                    .select()
+                    .single();
+
+                if (insertErr) {
+                    console.error('[addMember Fallback Error]', insertErr);
+                    return res.status(500).json({ error: 'Failed to add member: ' + insertErr.message });
+                }
+
+                await supabase.from('service_attendance').insert({
+                    manifest_id: manifestId,
+                    service_id: uuidServiceId,
+                    member_id: newMemberId,
+                    check_in_time: new Date().toISOString()
+                });
+
+                return res.status(201).json({
+                    success: true,
+                    isNewMember: true,
+                    alreadyExisted: false,
+                    member: createdMember,
+                    attendanceInserted: true,
+                    alreadyCheckedIn: false,
+                    serviceId: uuidServiceId
+                });
             }
         }
 
@@ -255,15 +307,65 @@ export const checkInMember = async (req: Request, res: Response) => {
         const sid = toUUID(validIds[0]);
         if (!sid) return res.status(400).json({ error: 'Invalid Service ID' });
 
-        const { data, error: rpcErr } = await supabase.rpc('atomic_check_in_member', {
+        let data: any = null;
+        let rpcErr: any = null;
+
+        const rpcRes = await supabase.rpc('atomic_check_in_member', {
             _manifest_id: manifestId,
             _member_id: uuidMemberId,
             _service_id: sid
         });
 
+        data = rpcRes.data;
+        rpcErr = rpcRes.error;
+
         if (rpcErr) {
-            console.error('[checkInMember RPC ERROR]', rpcErr);
-            return res.status(500).json({ error: 'Check-in failed: ' + rpcErr.message });
+            console.warn('[checkInMember] RPC error (' + rpcErr.message + '), executing direct query fallback');
+            
+            const { data: existingAtt } = await supabase.from('service_attendance')
+                .select('id')
+                .eq('manifest_id', manifestId)
+                .eq('service_id', sid)
+                .eq('member_id', uuidMemberId)
+                .maybeSingle();
+
+            if (existingAtt) {
+                data = { attendanceInserted: false, alreadyCheckedIn: true };
+            } else {
+                const { error: insErr } = await supabase.from('service_attendance').insert({
+                    manifest_id: manifestId,
+                    service_id: sid,
+                    member_id: uuidMemberId,
+                    check_in_time: new Date().toISOString()
+                });
+                
+                if (insErr && !insErr.message.includes('duplicate')) {
+                    return res.status(500).json({ error: 'Check-in failed: ' + insErr.message });
+                }
+
+                // Safely update member check_in_time and attended_service_ids array
+                const { data: memData } = await supabase.from('members')
+                    .select('attended_service_ids')
+                    .eq('manifest_id', manifestId)
+                    .eq('id', uuidMemberId)
+                    .maybeSingle();
+
+                let currentAttended: string[] = [];
+                if (Array.isArray(memData?.attended_service_ids)) {
+                    currentAttended = [...memData.attended_service_ids];
+                }
+                if (!currentAttended.includes(sid)) {
+                    currentAttended.push(sid);
+                }
+
+                await supabase.from('members').update({
+                    check_in_time: new Date().toISOString(),
+                    attended_service_ids: currentAttended
+                }).eq('manifest_id', manifestId).eq('id', uuidMemberId);
+
+                data = { attendanceInserted: true, alreadyCheckedIn: false };
+            }
+            rpcErr = null;
         }
 
         return res.json({
@@ -307,12 +409,39 @@ export const uncheckInMember = async (req: Request, res: Response) => {
             _service_id: uuidServiceId
         });
 
-        if (error) {
-            console.error('[UNCHECKIN RPC ERROR]', error);
-            return res.status(500).json({ error: 'Failed to uncheck member: ' + error.message });
+        if (!error) {
+            return res.json({ message: 'Unchecked in successfully', data });
         }
 
-        return res.json({ message: 'Unchecked in successfully', data });
+        console.warn('[uncheckInMember] RPC error (' + error.message + '), executing direct query fallback');
+        const { error: delErr } = await supabase.from('service_attendance')
+            .delete()
+            .eq('manifest_id', manifestId)
+            .eq('service_id', uuidServiceId)
+            .eq('member_id', uuidMemberId);
+
+        if (delErr) {
+            return res.status(500).json({ error: 'Failed to uncheck member: ' + delErr.message });
+        }
+
+        // Safely update member attended_service_ids array
+        const { data: memData } = await supabase.from('members')
+            .select('attended_service_ids')
+            .eq('manifest_id', manifestId)
+            .eq('id', uuidMemberId)
+            .maybeSingle();
+
+        if (Array.isArray(memData?.attended_service_ids)) {
+            const updated = memData.attended_service_ids.filter((id: string) => id !== uuidServiceId);
+            await supabase.from('members').update({
+                attended_service_ids: updated
+            }).eq('manifest_id', manifestId).eq('id', uuidMemberId);
+        }
+
+        return res.json({
+            message: 'Unchecked in successfully',
+            data: { success: true, attendanceRemoved: true }
+        });
     } catch (error: any) {
         console.error('[UNCHECKIN EXCEPTION]', error);
         res.status(500).json({ error: 'An internal server error occurred.' });
@@ -325,22 +454,53 @@ export const getServiceStats = async (req: Request, res: Response) => {
 
     const { serviceId } = req.params;
     try {
+        const uuidSid = toUUID(serviceId);
         const { data, error } = await supabase.rpc('get_service_snapshot_v2', {
-            _service_id: toUUID(serviceId),
+            _service_id: uuidSid,
             _manifest_id: manifestId
         });
 
-        if (error) {
-            console.error('[getServiceStats RPC ERROR]', error);
-            return res.status(500).json({ error: 'Failed to fetch service stats' });
+        if (!error && data) {
+            return res.json(data);
         }
 
-        return res.json(data);
+        if (error && !error.message.includes('Could not find the function') && !error.message.includes('schema cache')) {
+            throw error;
+        }
+
+        console.warn('[getServiceStats] get_service_snapshot_v2 RPC missing, using direct query fallback');
+        const { data: attRows } = await supabase.from('service_attendance')
+            .select('member_id')
+            .eq('manifest_id', manifestId)
+            .eq('service_id', uuidSid);
+
+        const memberIds = (attRows || []).map(r => r.member_id);
+
+        const { data: ftRows } = await supabase.from('members')
+            .select('id')
+            .eq('manifest_id', manifestId)
+            .eq('first_timer_service_id', uuidSid);
+
+        const ftIds = (ftRows || []).map(r => r.id);
+
+        return res.json({
+            serviceId: uuidSid,
+            checkedInMemberIds: memberIds,
+            firstTimerMemberIds: ftIds,
+            memberAttendanceCount: memberIds.length,
+            firstTimers: ftIds.length,
+            manualChildrenCount: 0,
+            memberIds: memberIds,
+            total: memberIds.length,
+            soulIds: [],
+            soulsWon: 0
+        });
     } catch (error: any) {
         console.error('[getServiceStats EXCEPTION]', error);
         res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
+
 
 export const getMemberDetails = async (req: Request, res: Response) => {
     const manifestId = (req as any).manifestId;

@@ -123,7 +123,7 @@ $$;
 REVOKE EXECUTE ON FUNCTION public.get_service_snapshot_v2 FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.get_service_snapshot_v2 TO service_role;
 
--- 3. Atomic Existing-Member Check-in RPC (Strict Locking Order)
+-- 3. Atomic Existing-Member Check-in RPC (Strict Locking Order & JSONB array formatting)
 CREATE OR REPLACE FUNCTION public.atomic_check_in_member(
     _manifest_id uuid,
     _member_id uuid,
@@ -139,7 +139,7 @@ DECLARE
     _member_exists boolean;
     _att_inserted boolean := false;
     _already_checked_in boolean := false;
-    _new_attended text[];
+    _new_attended jsonb;
 BEGIN
     -- 1. Validate tenant-scoped service & lock row FOR SHARE
     SELECT EXISTS (
@@ -173,8 +173,8 @@ BEGIN
     
     _att_inserted := FOUND;
 
-    -- 4. Rebuild attended_service_ids from authoritative attendance while holding member lock
-    SELECT COALESCE(array_agg(sa.service_id::text), '{}'::text[])
+    -- 4. Rebuild attended_service_ids as JSONB array from authoritative attendance while holding member lock
+    SELECT COALESCE(jsonb_agg(sa.service_id::text), '[]'::jsonb)
     INTO _new_attended
     FROM public.service_attendance sa
     WHERE sa.member_id = _member_id AND sa.manifest_id = _manifest_id;
@@ -269,7 +269,7 @@ BEGIN
         );
     END IF;
 
-    -- 3. Insert genuinely new member with authoritative service date
+    -- 3. Insert genuinely new member with authoritative service date and jsonb attended_service_ids
     INSERT INTO public.members (
         id,
         manifest_id,
@@ -309,7 +309,7 @@ BEGIN
         true,
         _service_id,
         _service_date,
-        ARRAY[_service_id::text]
+        jsonb_build_array(_service_id::text)
     );
 
     -- 4. Insert attendance record for originating service
@@ -335,7 +335,7 @@ $$;
 REVOKE EXECUTE ON FUNCTION public.atomic_register_first_timer FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.atomic_register_first_timer TO service_role;
 
--- 5. Atomic Undo Check-in RPC (Strict Lock Order & Immutable First-Timer Guarantee)
+-- 5. Atomic Undo Check-in RPC (Strict Lock Order & JSONB Array Rebuild)
 CREATE OR REPLACE FUNCTION public.atomic_undo_check_in(
     _manifest_id uuid,
     _member_id uuid,
@@ -350,7 +350,7 @@ DECLARE
     _service_exists boolean;
     _member_exists boolean;
     _deleted_count integer := 0;
-    _new_attended text[];
+    _new_attended jsonb;
 BEGIN
     -- 1. Validate tenant-scoped service
     SELECT EXISTS (
@@ -379,8 +379,8 @@ BEGIN
       
     GET DIAGNOSTICS _deleted_count = ROW_COUNT;
 
-    -- 4. Rebuild attended_service_ids array from authoritative service_attendance
-    SELECT COALESCE(array_agg(sa.service_id::text), '{}'::text[])
+    -- 4. Rebuild attended_service_ids as JSONB array from authoritative service_attendance
+    SELECT COALESCE(jsonb_agg(sa.service_id::text), '[]'::jsonb)
     INTO _new_attended
     FROM public.service_attendance sa
     WHERE sa.member_id = _member_id AND sa.manifest_id = _manifest_id;

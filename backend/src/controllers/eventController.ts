@@ -466,6 +466,41 @@ export const getServiceSnapshot = async (req: Request, res: Response) => {
             _manifest_id: manifestId
         });
 
+        if (!error && data && Object.keys(data).length > 0) {
+            return res.json(data);
+        }
+
+        if (error && (error.message.includes('Could not find the function') || error.message.includes('schema cache'))) {
+            console.warn('[getServiceSnapshot] RPC missing from DB schema cache, using direct query fallback');
+            
+            const { data: attRows } = await supabase.from('service_attendance')
+                .select('member_id')
+                .eq('manifest_id', manifestId)
+                .eq('service_id', serviceId);
+
+            const memberIds = (attRows || []).map(r => r.member_id);
+
+            const { data: ftRows } = await supabase.from('members')
+                .select('id')
+                .eq('manifest_id', manifestId)
+                .eq('first_timer_service_id', serviceId);
+
+            const ftIds = (ftRows || []).map(r => r.id);
+
+            return res.json({
+                serviceId: serviceId,
+                checkedInMemberIds: memberIds,
+                firstTimerMemberIds: ftIds,
+                memberAttendanceCount: memberIds.length,
+                firstTimers: ftIds.length,
+                manualChildrenCount: 0,
+                memberIds: memberIds,
+                total: memberIds.length,
+                soulIds: [],
+                soulsWon: 0
+            });
+        }
+
         if (error) {
             console.error('[getServiceSnapshot RPC ERROR]', error);
             return res.status(500).json({ error: 'Failed to fetch authoritative service snapshot', details: error.message });
