@@ -244,9 +244,19 @@
 
 <body>
   <div id="root">
-    <div class="splash-container">
+    <div class="splash-container" id="initial-splash">
       <img src="/MANIFEST.png" alt="Manifest MS Logo" class="splash-logo" />
     </div>
+    <script>
+      // Hide the internal Manifest splash screen for public forms
+      if (window.location.pathname.startsWith('/forms/f/')) {
+        var splash = document.getElementById('initial-splash');
+        if (splash) {
+          splash.style.display = 'none';
+          document.body.style.backgroundColor = '#f9fafb'; // gray-50 background for seamless transition
+        }
+      }
+    </script>
   </div>
 
   <script type="module" src="/index.tsx"></script>
