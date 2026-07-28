@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>SVG BBox All</title>
+</head>
+<body>
+  <div id="svg-container"></div>
+  <pre id="output"></pre>
+  <script>
+    fetch('/3D Car Nav.svg')
+      .then(r => r.text())
+      .then(svgText => {
+        document.getElementById('svg-container').innerHTML = svgText;
+        
+        // Find all groups whose IDs start with _x3 (like _x31_, _x32_, etc.) and aren't nested in another _x3 group
+        const allGroups = Array.from(document.querySelectorAll('g[id^="_x3"]'));
+        
+        const results = {};
+        allGroups.forEach(el => {
+          if (typeof el.getBBox === 'function') {
+            const bbox = el.getBBox();
+            results[el.id] = {
+              x: Math.round(bbox.x), 
+              y: Math.round(bbox.y), 
+              width: Math.round(bbox.width), 
+              height: Math.round(bbox.height)
+            };
+          }
+        });
+        document.getElementById('output').textContent = JSON.stringify(results, null, 2);
+      });
+  </script>
+</body>
+</html>

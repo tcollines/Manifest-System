@@ -4,6 +4,7 @@ import { Loader2, MapPin, CheckCircle2, AlertCircle, Upload, X, Camera } from 'l
 import { getPublicForm, addResponse } from '../services/formsStore';
 import type { Form, FormField, AnswerValue } from '../types/forms.types';
 import PhoneField from '../components/fields/PhoneField';
+import KairosChatbot from '../components/KairosChatbot';
 
 // ─── GPS Button ───────────────────────────────────────────────────────────────
 
@@ -399,6 +400,21 @@ const PublicFormPage: React.FC = () => {
   );
 
   if (!form) return null;
+
+  if (form.render_style === 'chatbot') {
+    return (
+      <KairosChatbot 
+        form={form} 
+        onSubmit={async (ans) => {
+          setSubmitting(true);
+          await addResponse(form.id, form.owner_uid, ans);
+          setSubmitting(false);
+          setState('submitted');
+        }} 
+        submitting={submitting} 
+      />
+    );
+  }
 
   // ── Form Render ───────────────────────────────────────────────────────────
 

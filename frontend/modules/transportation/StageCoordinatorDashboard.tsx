@@ -20,13 +20,16 @@ import {
 import PhoneInput from '../../components/PhoneInput';
 import { useAuth } from '@/context/AuthContext';
 import { TrackedVehicle } from './types';
-import { GoogleMap, useJsApiLoader, Marker, Polyline } from '@react-google-maps/api';
+import { GoogleMap, useJsApiLoader, Polyline } from '@react-google-maps/api';
+import { SmoothVehicleMarker } from './SmoothVehicleMarker';
 
 const mapContainerStyle = {
     width: '100%',
     height: '500px',
     borderRadius: '1rem'
 };
+
+import { getTopDownCarIcon, getBearing } from './utils/vehicleIcons';
 
 const center = {
     lat: 0.3476,
@@ -147,46 +150,6 @@ const StageCoordinatorDashboard: React.FC = () => {
         }
     };
 
-    // Vehicle Simulation Effect
-    useEffect(() => {
-        if (!eventLocation) return;
-        
-        const interval = setInterval(() => {
-            setVehicles(prevVehicles => prevVehicles.map(v => {
-                // Determine if vehicle should be moving
-                const isMoving = v.status === 'En Route' || v.currentStage === 'Transit';
-                if (!isMoving) return v;
-                
-                if (!v.location) return v;
-                
-                const targetLat = eventLocation.lat;
-                const targetLng = eventLocation.lng;
-                
-                const dLat = targetLat - v.location.lat;
-                const dLng = targetLng - v.location.lng;
-                
-                const dist = Math.sqrt(dLat * dLat + dLng * dLng);
-                if (dist < 0.0001) {
-                    // Close enough to destination
-                    return { ...v, status: 'Arrived', currentStage: 'Arrived' } as any;
-                }
-                
-                // Simulation step (speed)
-                const step = 0.0002; 
-                const moveRatio = Math.min(step / dist, 1);
-                
-                return {
-                    ...v,
-                    location: {
-                        lat: v.location.lat + dLat * moveRatio,
-                        lng: v.location.lng + dLng * moveRatio
-                    }
-                };
-            }));
-        }, 100);
-        
-        return () => clearInterval(interval);
-    }, [eventLocation]);
 
     // Realtime Subscriptions
     useEffect(() => {
@@ -550,21 +513,16 @@ const StageCoordinatorDashboard: React.FC = () => {
                                 {/* Vehicle Markers */}
                                 {vehicles.map(v => (
                                     v.location && (
-                                        <Marker
+                                        <SmoothVehicleMarker
                                             key={v.id}
-                                            position={{ lat: v.location.lat, lng: v.location.lng }}
-                                            title={`${v.number_plate} (${v.driverName})`}
+                                            vehicle={v}
+                                            title={v.number_plate}
                                             label={{
-                                                text: `${v.coordinator || 'Unassigned'}`,
-                                                color: "black",
-                                                fontWeight: "bold",
-                                                fontSize: "12px",
+                                                text: v.number_plate,
+                                                color: 'white',
+                                                fontWeight: 'bold',
+                                                fontSize: '12px',
                                                 className: "bg-white px-2 py-1 rounded shadow-md mt-8"
-                                            }}
-                                            icon={{
-                                                url: '/Pin.png',
-                                                scaledSize: (window as any).google ? new (window as any).google.maps.Size(40, 40) : undefined,
-                                                labelOrigin: (window as any).google ? new (window as any).google.maps.Point(20, 50) : undefined
                                             }}
                                         />
                                     )

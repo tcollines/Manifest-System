@@ -35,6 +35,7 @@ export interface FormField {
   autoGps?: boolean;              // gps — auto-capture on open
   dateOnly?: boolean;             // datetime
   timeOnly?: boolean;             // datetime
+  ai_question?: string;           // Kairos Chatbot generated question
 }
 
 // ─── Form (stored in localStorage / Firestore) ────────────────────────────────
@@ -53,6 +54,7 @@ export interface Form {
   response_count: number;
   accent_color?: string;
   cover_image?: string; // base64 data-url for the cover photo
+  render_style?: 'standard' | 'chatbot'; // UI rendering style
 }
 
 // ─── Response ─────────────────────────────────────────────────────────────────

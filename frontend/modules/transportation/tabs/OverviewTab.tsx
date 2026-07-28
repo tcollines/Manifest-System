@@ -17,7 +17,8 @@ import { useNotification } from '../../../components/ui/NotificationSystem';
 import { isEventLocked } from '../../../utils';
 import { JourneyStage, Vehicle, Passenger } from '../../../types';
 import PhoneInput from '../../../components/PhoneInput';
-import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
+import { GoogleMap, useJsApiLoader, DirectionsRenderer, TrafficLayer, MarkerF } from '@react-google-maps/api';
+import { SmoothVehicleMarker } from '../SmoothVehicleMarker';
 import {
     Bus, Navigation, AlertTriangle, CheckCircle, UserPlus, ChevronRight,
     Search, ShieldAlert, MapPin, FileCheck, DollarSign,
@@ -27,6 +28,8 @@ import {
 import { useAuth } from '@/context/AuthContext';
 
 const mapContainerStyle = { width: '100%', height: '100%' };
+
+import { getTopDownCarIcon } from './utils/vehicleIcons';
 
 // ─── Journey Report (shared between coordinator + admin detail) ───────────────
 
@@ -110,7 +113,7 @@ const CoordinatorView: React.FC = () => {
         handleStageUpdate, handleToggleVerify, handleAddReturnPassenger,
         handleMarkSoulWon, switchJourneyTab, handlePrintReport,
         isReturnAvailable, isJourneyComplete, refreshData, selectedEventId,
-        cognitoFormUrl
+        selectedEvent, cognitoFormUrl
     } = useTransport();
     const { showToast, confirm: askConfirm } = useNotification();
 
@@ -120,6 +123,62 @@ const CoordinatorView: React.FC = () => {
     const onUnmount = React.useCallback(() => setMapInstance(null), []);
 
     const [userLocation, setUserLocation] = React.useState<{ lat: number, lng: number } | null>(null);
+    const [directionsResponse, setDirectionsResponse] = React.useState<google.maps.DirectionsResult | null>(null);
+    const [routeError, setRouteError] = React.useState<string | null>(null);
+
+    const lastRouteFetch = React.useRef(0);
+
+    React.useEffect(() => {
+        if (!isLoaded || !window.google || !window.google.maps) return;
+        if (!myVehicle?.location?.lat || !myVehicle?.location?.lng || !selectedEvent?.lat || !selectedEvent?.lng) return;
+        if (myVehicle.currentStage !== 'Transit') return; // Only fetch in transit
+        
+        const now = Date.now();
+        if (directionsResponse && now - lastRouteFetch.current < 30000) {
+            return; // Prevent continuous fetching, update route at most every 30 seconds
+        }
+        lastRouteFetch.current = now;
+
+        try {
+            const directionsService = new window.google.maps.DirectionsService();
+            directionsService.route({
+                origin: myVehicle.location ? { lat: Number(myVehicle.location.lat), lng: Number(myVehicle.location.lng) } : DEFAULT_CENTER,
+                destination: { lat: selectedEvent.lat, lng: selectedEvent.lng },
+                travelMode: window.google.maps.TravelMode.DRIVING,
+            }, (result, status) => {
+                if (status === window.google.maps.DirectionsStatus.OK) {
+                    setDirectionsResponse(result);
+                    setRouteError(null);
+                } else {
+                    setDirectionsResponse(null);
+                    setRouteError(status);
+                }
+            });
+        } catch (error: any) {
+            console.error("DirectionsService error:", error);
+            setRouteError(error?.message || "Failed to initialize directions");
+        }
+        
+    }, [isLoaded, myVehicle?.location?.lat, myVehicle?.location?.lng, myVehicle?.currentStage, selectedEvent?.lat, selectedEvent?.lng, directionsResponse]);
+
+    React.useEffect(() => {
+        if (!mapInstance || !window.google) return;
+        
+        if (myVehicle?.location?.lat && selectedEvent?.lat) {
+            const bounds = new window.google.maps.LatLngBounds();
+            bounds.extend({ lat: Number(myVehicle.location.lat), lng: Number(myVehicle.location.lng) });
+            bounds.extend({ lat: selectedEvent.lat, lng: selectedEvent.lng });
+            mapInstance.fitBounds(bounds);
+            
+            // Add a little padding after fitting bounds so markers aren't stuck on the absolute edge
+            const listener = window.google.maps.event.addListener(mapInstance, 'idle', function() {
+                if (mapInstance.getZoom() > 14) mapInstance.setZoom(14);
+                window.google.maps.event.removeListener(listener);
+            });
+        } else if (myVehicle?.location?.lat) {
+            mapInstance.panTo({ lat: Number(myVehicle.location.lat), lng: Number(myVehicle.location.lng) });
+        }
+    }, [mapInstance, myVehicle?.location?.lat, myVehicle?.location?.lng, selectedEvent?.lat, selectedEvent?.lng]);
 
     React.useEffect(() => {
         if (!navigator.geolocation) return;
@@ -246,24 +305,48 @@ const CoordinatorView: React.FC = () => {
                     <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden min-h-[400px] flex flex-col">
                         {(myVehicle.currentStage === 'Transit' || myVehicle.currentStage === 'Arrived') ? (
                             <div className="relative h-[500px] bg-gray-100 w-full flex flex-col">
+                                {routeError && (
+                                    <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-10 bg-red-100 border border-red-300 text-red-700 px-4 py-2 rounded-lg shadow-md font-bold text-sm">
+                                        Route Error: {routeError}
+                                    </div>
+                                )}
                                 {isLoaded ? (
                                     <>
                                         <GoogleMap
                                         mapContainerStyle={mapContainerStyle}
-                                        center={{ lat: myVehicle.location?.lat || DEFAULT_CENTER.lat, lng: myVehicle.location?.lng || DEFAULT_CENTER.lng }}
+                                        center={{ lat: myVehicle.location?.lat ? Number(myVehicle.location.lat) : DEFAULT_CENTER.lat, lng: myVehicle.location?.lng ? Number(myVehicle.location.lng) : DEFAULT_CENTER.lng }}
                                         zoom={14} onLoad={onLoad} onUnmount={onUnmount}
                                         options={{ mapTypeId: 'roadmap' }}
                                     >
+                                        <TrafficLayer />
+                                        {directionsResponse && (
+                                            <DirectionsRenderer
+                                                directions={directionsResponse}
+                                                options={{
+                                                    suppressMarkers: true, // We have our own vehicle marker
+                                                    polylineOptions: {
+                                                        strokeColor: '#3b82f6',
+                                                        strokeOpacity: 0.8,
+                                                        strokeWeight: 6
+                                                    }
+                                                }}
+                                            />
+                                        )}
                                         {myVehicle.location && (
-                                            <Marker
-                                                position={{ lat: myVehicle.location.lat, lng: myVehicle.location.lng }}
+                                            <SmoothVehicleMarker
+                                                vehicle={myVehicle}
                                                 title={myVehicle.number_plate}
-                                                icon={{ url: 'http://maps.google.com/mapfiles/ms/icons/green-dot.png', labelOrigin: (window as any).google ? new (window as any).google.maps.Point(16, -20) : undefined }}
-                                                label={{ text: myVehicle.number_plate, color: 'white', fontWeight: 'bold', fontSize: '12px', className: 'bg-orange-500 px-2 py-1 rounded shadow-md font-bold' }}
+                                            />
+                                        )}
+                                        {selectedEvent?.lat && selectedEvent?.lng && (
+                                            <MarkerF
+                                                position={{ lat: selectedEvent.lat, lng: selectedEvent.lng }}
+                                                title={selectedEvent.title}
+                                                icon={{ url: 'http://maps.google.com/mapfiles/ms/icons/red-dot.png' }}
                                             />
                                         )}
                                         {userLocation && (
-                                            <Marker
+                                            <MarkerF
                                                 position={userLocation}
                                                 title="My Location"
                                                 icon={{ url: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png' }}
@@ -296,7 +379,7 @@ const CoordinatorView: React.FC = () => {
                                         {myVehicle.currentStage === 'Arrived' ? 'Vehicle Arrived' : 'Vehicle is In Transit'}
                                     </h2>
                                     <p className="text-gray-200 text-sm drop-shadow-md">
-                                        {myVehicle.currentStage === 'Arrived' ? `Arrival Time: ${activeJourneyTab === 'Ongoing' ? myVehicle.ongoingArrivalTime : myVehicle.returnArrivalTime}` : 'Locating...'}
+                                        {myVehicle.currentStage === 'Arrived' ? `Arrival Time: ${activeJourneyTab === 'Ongoing' ? myVehicle.ongoingArrivalTime : myVehicle.returnArrivalTime}` : (myVehicle.location?.lat ? 'Tracking Route...' : 'Waiting for GPS...')}
                                     </p>
                                 </div>
 
@@ -675,9 +758,9 @@ const HodOverview: React.FC = () => {
                                             center={{ lat: selectedAdminVehicle.location?.lat || DEFAULT_CENTER.lat, lng: selectedAdminVehicle.location?.lng || DEFAULT_CENTER.lng }}
                                             zoom={15} onLoad={onLoad} onUnmount={onUnmount} options={{ mapTypeId: 'roadmap' }}>
                                             {selectedAdminVehicle.location && (
-                                                <Marker position={{ lat: selectedAdminVehicle.location.lat, lng: selectedAdminVehicle.location.lng }}
-                                                    label={{ text: selectedAdminVehicle.number_plate, color: 'white', fontWeight: 'bold', fontSize: '14px' }}
-                                                    icon={{ url: 'http://maps.google.com/mapfiles/ms/icons/green-dot.png', labelOrigin: (window as any).google ? new (window as any).google.maps.Point(16, -20) : undefined }}
+                                                <SmoothVehicleMarker 
+                                                    vehicle={selectedAdminVehicle}
+                                                    label={{ text: selectedAdminVehicle.number_plate, color: 'black', fontWeight: 'bold', fontSize: '12px', className: 'bg-white px-2 py-1 rounded shadow-md mt-8' }}
                                                 />
                                             )}
                                         </GoogleMap>
@@ -721,11 +804,10 @@ const HodOverview: React.FC = () => {
                             <div className="border border-gray-200 rounded-2xl p-1 shadow-sm overflow-hidden relative h-[500px] bg-gray-900">
                                 {isLoaded ? (
                                     <GoogleMap mapContainerStyle={mapContainerStyle} center={DEFAULT_CENTER} zoom={11} onLoad={onLoad} onUnmount={onUnmount} options={{ mapTypeId: 'roadmap' }}>
-                                        {activeVehicles.map(v => v.location && (
-                                            <Marker key={v.id}
-                                                position={{ lat: v.location.lat, lng: v.location.lng }}
-                                                label={{ text: v.coordinator || 'Unassigned', color: 'white', fontWeight: 'bold', fontSize: '12px' }}
-                                                icon={{ url: v.isDelayed ? 'http://maps.google.com/mapfiles/ms/icons/orange-dot.png' : 'http://maps.google.com/mapfiles/ms/icons/green-dot.png', labelOrigin: (window as any).google ? new (window as any).google.maps.Point(16, -20) : undefined }}
+                                        {activeVehicles.filter(v => v.location).map(v => (
+                                            <SmoothVehicleMarker key={v.id}
+                                                vehicle={v}
+                                                label={{ text: v.coordinator || 'Unassigned', color: 'black', fontWeight: 'bold', fontSize: '12px', className: 'bg-white px-2 py-1 rounded shadow-md mt-8' }}
                                                 title={`${v.number_plate} - ${v.coordinator}`}
                                             />
                                         ))}

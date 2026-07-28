@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import type { FormField, FieldType } from '../../types/forms.types';
 import { FIELD_TYPE_META } from '../../types/forms.types';
 
-interface Props { field: FormField; onChange: (patch: Partial<FormField>) => void; }
+interface Props { field: FormField; onChange: (patch: Partial<FormField>) => void; showAiConfig?: boolean; }
 
 // Types that share the `options[]` array — keep options when switching between these
 const OPTION_TYPES = new Set<FieldType>(['dropdown', 'radio', 'multi_select']);
@@ -11,7 +11,7 @@ const OPTION_TYPES = new Set<FieldType>(['dropdown', 'radio', 'multi_select']);
 const TYPE_SPECIFIC_KEYS: (keyof FormField)[] = [
   'options', 'placeholder', 'min', 'max', 'allowDecimals',
   'contactType', 'autoGps', 'dateOnly', 'timeOnly',
-  'maxFileSizeMb', 'allowedFileTypes',
+  'maxFileSizeMb', 'allowedFileTypes', 'ai_question',
 ];
 
 const Toggle: React.FC<{ label: string; value: boolean; onChange: (v: boolean) => void }> = ({ label, value, onChange }) => (
@@ -86,7 +86,7 @@ const TypePicker: React.FC<{ current: FieldType; onChange: (t: FieldType) => voi
 
 // ─── Main Panel ───────────────────────────────────────────────────────────────
 
-const FieldPropertiesPanel: React.FC<Props> = ({ field, onChange }) => {
+const FieldPropertiesPanel: React.FC<Props> = ({ field, onChange, showAiConfig }) => {
   const handleTypeChange = (newType: FieldType) => {
     if (newType === field.type) return;
 
@@ -119,6 +119,20 @@ const FieldPropertiesPanel: React.FC<Props> = ({ field, onChange }) => {
       <TypePicker current={field.type} onChange={handleTypeChange} />
 
       <div className="border-t border-gray-100" />
+
+      {/* Kairos AI Question (only if chatbot mode) */}
+      {showAiConfig && (
+        <div className="bg-orange-50/50 -mx-4 px-4 py-3 mb-2 border-y border-orange-100">
+          <Label><span className="text-orange-500 mr-1">✨</span> Kairos AI Question</Label>
+          <textarea
+            value={field.ai_question ?? ''}
+            onChange={e => onChange({ ai_question: e.target.value })}
+            rows={3}
+            className="w-full px-3 py-2 bg-white border border-orange-200 rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-orange-500 transition-all resize-none mt-1 shadow-sm"
+            placeholder="How Kairos will ask this..."
+          />
+        </div>
+      )}
 
       {/* Label */}
       <div>

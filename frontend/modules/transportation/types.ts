@@ -9,6 +9,7 @@ export interface TrackedVehicle extends Omit<Vehicle, 'status'> {
     progress: number;
     eta: string;
     isDelayed: boolean;
+    bearing?: number;
 }
 
 export const TRANSPORT_DEPT_UUID = '4630e48a-f97e-48fd-a901-864b591c282f';

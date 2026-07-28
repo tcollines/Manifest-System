@@ -22,7 +22,7 @@ export const mapVehicleFromDB = (v: any): Vehicle => ({
     currentStage: (v.current_stage === 'Registration' ? 'Onboarding' : v.current_stage),
     approvals: v.approvals,
     financeDetails: v.finance_details,
-    location: v.location,
+    location: typeof v.location === 'string' ? JSON.parse(v.location) : v.location,
     ongoingStartTime: v.ongoing_start_time,
     ongoingArrivalTime: v.ongoing_arrival_time,
     returnStartTime: v.return_start_time,

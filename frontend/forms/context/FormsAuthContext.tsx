@@ -91,7 +91,7 @@ export const FormsAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       // onAuthStateChanged will fire and update formsUser automatically
       return { success: true };
     } catch (err: any) {
-      return { success: false, error: friendlyError(err.code) };
+      return { success: false, error: friendlyError(err.code, err.message) };
     }
   }, []);
 
@@ -104,7 +104,7 @@ export const FormsAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       await signInWithEmailAndPassword(formsAuth, email, password);
       return { success: true };
     } catch (err: any) {
-      return { success: false, error: friendlyError(err.code) };
+      return { success: false, error: friendlyError(err.code, err.message) };
     }
   }, []);
 
@@ -117,7 +117,7 @@ export const FormsAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') {
         return { success: false, error: 'cancelled' };
       }
-      return { success: false, error: friendlyError(err.code) };
+      return { success: false, error: friendlyError(err.code, err.message) };
     }
   }, []);
 
@@ -156,7 +156,7 @@ export const useFormsAuth = (): FormsAuthContextType => {
 
 // ─── Error messages ───────────────────────────────────────────────────────────
 
-function friendlyError(code: string): string {
+function friendlyError(code: string, originalMessage?: string): string {
   const map: Record<string, string> = {
     'auth/email-already-in-use':    'An account with this email already exists.',
     'auth/invalid-email':           'Please enter a valid email address.',
@@ -167,6 +167,7 @@ function friendlyError(code: string): string {
     'auth/too-many-requests':       'Too many attempts. Please wait a moment.',
     'auth/network-request-failed':  'Network error. Check your connection.',
     'auth/popup-blocked':           'Pop-up blocked. Please allow pop-ups for this site.',
+    'auth/unauthorized-domain':     'This domain is not authorized in Firebase Console.',
   };
-  return map[code] ?? 'Something went wrong. Please try again.';
+  return map[code] ?? `Something went wrong: ${code || originalMessage || 'Unknown error'}`;
 }

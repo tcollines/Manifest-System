@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { useFormsAuth } from '../context/FormsAuthContext';
 import { getForm, saveForm, publishSnapshot, unpublishSnapshot } from '../services/formsStore';
+import { generateAIQuestions } from '../services/geminiService';
 import type { Form, FormField, FieldType } from '../types/forms.types';
 import { FIELD_TYPE_META } from '../types/forms.types';
 import FieldPalette from '../components/builder/FieldPalette';
@@ -247,6 +248,7 @@ const FormBuilderPage: React.FC = () => {
   const [dragOver, setDragOver] = useState<string | null>(null);
   const [showPublishModal, setShowPublishModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [generatingAI, setGeneratingAI] = useState(false);
 
   // Cover photo
   const coverInputRef = React.useRef<HTMLInputElement>(null);
@@ -344,6 +346,22 @@ const FormBuilderPage: React.FC = () => {
 
   const updateField = (id: string, patch: Partial<FormField>) => {
     update({ fields: form!.fields.map(f => f.id === id ? { ...f, ...patch } : f) });
+  };
+
+  const handleToggleChatbot = async (checked: boolean) => {
+    if (checked) {
+      setGeneratingAI(true);
+      const needsGen = form!.fields.some(f => !f.ai_question);
+      if (needsGen) {
+        const updatedForm = await generateAIQuestions(form!);
+        update({ fields: updatedForm.fields, render_style: 'chatbot' });
+      } else {
+        update({ render_style: 'chatbot' });
+      }
+      setGeneratingAI(false);
+    } else {
+      update({ render_style: 'standard' });
+    }
   };
 
   const deleteField = (id: string) => {
@@ -601,6 +619,26 @@ const FormBuilderPage: React.FC = () => {
                   className="w-full bg-transparent text-sm text-gray-400 focus:outline-none placeholder-gray-300 resize-none"
                   placeholder="Form description (optional)"
                 />
+
+                {/* Render Style Toggle */}
+                <div className="mt-4 flex items-center justify-between p-3 bg-gray-50 border border-gray-100 rounded-xl">
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                      <span className="text-orange-500">✨</span> Kairos AI Chatbot
+                    </h3>
+                    <p className="text-xs text-gray-500">Present this form as a conversation instead of a static page.</p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      className="sr-only peer" 
+                      disabled={generatingAI}
+                      checked={form.render_style === 'chatbot'}
+                      onChange={e => handleToggleChatbot(e.target.checked)}
+                    />
+                    <div className={`w-11 h-6 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all ${generatingAI ? 'bg-orange-200 cursor-wait' : 'bg-gray-200 peer-checked:bg-orange-500 cursor-pointer'}`}></div>
+                  </label>
+                </div>
               </div>
             </div>
 
@@ -724,7 +762,7 @@ const FormBuilderPage: React.FC = () => {
         {/* ── Right: Properties Panel ──────────────────────────────── */}
         <div className="w-64 shrink-0 border-l border-gray-200 overflow-y-auto bg-white hidden lg:flex lg:flex-col">
           {selectedField
-            ? <FieldPropertiesPanel field={selectedField} onChange={patch => updateField(selectedField.id, patch)} />
+            ? <FieldPropertiesPanel field={selectedField} onChange={patch => updateField(selectedField.id, patch)} showAiConfig={form.render_style === 'chatbot'} />
             : (
               <div className="flex flex-col items-center justify-center h-full text-center px-6">
                 <Settings2 className="w-8 h-8 text-gray-300 mb-3" />

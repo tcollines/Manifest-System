@@ -215,23 +215,22 @@ const TransportationLayout: React.FC = () => {
         return () => { clearTimeout(t); supabase.removeChannel(channel); };
     }, [selectedEventId]);
 
-    // ── Geolocation for coordinator ───────────────────────────────────────────
     useEffect(() => {
-        if (isCoordinatorView && myVehicle) {
+        if (isCoordinatorView && myVehicle?.id) {
             const watchId = navigator.geolocation.watchPosition(
                 ({ coords: { latitude, longitude } }) => {
                     const now = Date.now();
-                    if (now - lastLocationUpdate.current > 10000) {
+                    if (now - lastLocationUpdate.current > 3000) {
                         lastLocationUpdate.current = now;
                         VehicleStore.updateVehicleLocation(myVehicle.id, { lat: latitude, lng: longitude }).catch(console.error);
                     }
                 },
-                err => console.error('Geolocation:', err.message),
-                { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+                err => console.error('Geolocation Watch Error:', err.message),
+                { enableHighAccuracy: true, maximumAge: 10000 }
             );
             return () => navigator.geolocation.clearWatch(watchId);
         }
-    }, [isCoordinatorView, myVehicle]);
+    }, [isCoordinatorView, myVehicle?.id]);
 
     // ── Handlers ──────────────────────────────────────────────────────────────
 
