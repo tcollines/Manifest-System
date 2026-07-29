@@ -1,7 +1,6 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import App from './App';
-import FormsApp from './forms/FormsApp';
 import PublicSoulEntry from './components/PublicSoulEntry';
 import PublicResidentSoulEntry from './components/PublicResidentSoulEntry';
 import PublicScheduleAvailability from './components/PublicScheduleAvailability';
@@ -36,10 +35,6 @@ const Root: React.FC = () => {
                             <Route path="/collect-residency-souls/:residenceId" element={<PublicResidentSoulEntry />} />
                             <Route path="/schedule-availability/:scheduleId" element={<PublicScheduleAvailability />} />
                             <Route path="/schedule/:slug" element={<PublicScheduleAvailability />} />
-
-                            {/* ── Manifest Forms product (fully isolated auth + dashboard) ── */}
-                            <Route path="/forms/*" element={<FormsApp />} />
-
                             {/* ── Manifest Management System (catch-all) ── */}
                             <Route path="*" element={<App />} />
                         </Routes>

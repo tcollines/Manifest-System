@@ -14,9 +14,6 @@ export const InstallPWAPrompt: React.FC = () => {
   const [isIOS, setIsIOS] = useState(false);
 
   useEffect(() => {
-    // Never register install prompt on public form links
-    if (pathname.startsWith('/forms/f/')) return;
-
     // Check if it's already installed
     if (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone) {
       return;
@@ -53,8 +50,6 @@ export const InstallPWAPrompt: React.FC = () => {
     }
   };
 
-  // Never render on public form links
-  if (pathname.startsWith('/forms/f/')) return null;
   if (!showPrompt) return null;
 
   return (

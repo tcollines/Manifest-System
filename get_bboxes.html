@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>SVG BBox</title>
+</head>
+<body>
+  <div id="svg-container"></div>
+  <pre id="output"></pre>
+  <script>
+    fetch('frontend/public/3D Car Nav.svg')
+      .then(r => r.text())
+      .then(svgText => {
+        document.getElementById('svg-container').innerHTML = svgText;
+        const svgElement = document.querySelector('svg');
+        const ids = ['_x31_', '_x32_', '_x33_', '_x34__1_', '_x35__2_'];
+        const results = {};
+        ids.forEach(id => {
+          const el = document.getElementById(id);
+          if (el && typeof el.getBBox === 'function') {
+            const bbox = el.getBBox();
+            results[id] = {
+              x: bbox.x, y: bbox.y, width: bbox.width, height: bbox.height
+            };
+          } else {
+            results[id] = 'not found or no getBBox';
+          }
+        });
+        document.getElementById('output').textContent = JSON.stringify(results, null, 2);
+      });
+  </script>
+</body>
+</html>

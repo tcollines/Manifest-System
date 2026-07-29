@@ -421,7 +421,7 @@ const SignIn: React.FC<SignInProps> = ({ onLogin, onGoogleLogin, error }) => {
                     onClick={() => {
                       setDropdownOpen(false);
                       if (product.id === 'manifest-forms') {
-                        navigate('/forms/auth');
+                        window.location.href = import.meta.env.VITE_FORMS_DOMAIN || 'http://localhost:3002';
                       } else {
                         setActiveProduct(product.id);
                       }

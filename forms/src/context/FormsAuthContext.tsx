@@ -63,7 +63,7 @@ export const FormsAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   // Uses SESSION persistence: session clears when the browser tab is closed.
   // After signOut(), onAuthStateChanged fires with null → Guard redirects to /forms/auth.
   // Do NOT manually navigate after signOut() — that causes a race condition where the
-  // auth page sees formsUser still set and immediately bounces back to /forms/dashboard.
+  // auth page sees formsUser still set and immediately bounces back to /dashboard.
   useEffect(() => {
     let unsub: (() => void) | undefined;
 

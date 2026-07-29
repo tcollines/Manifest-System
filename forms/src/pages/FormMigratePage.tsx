@@ -174,7 +174,7 @@ const FormMigratePage: React.FC = () => {
 
           {claimStep === 'done' && (
             <div className="flex gap-3">
-              <button onClick={() => navigate('/forms/dashboard')}
+              <button onClick={() => navigate('/dashboard')}
                 className="flex-1 py-2.5 bg-orange-500 hover:bg-orange-400 text-white font-bold rounded-xl transition-all text-sm">
                 Go to Dashboard
               </button>
@@ -379,7 +379,7 @@ const FormMigratePage: React.FC = () => {
           )}
         </div>
 
-        <button onClick={() => navigate('/forms/dashboard')}
+        <button onClick={() => navigate('/dashboard')}
           className="flex items-center gap-1.5 text-gray-400 hover:text-gray-700 text-sm transition-colors mx-auto">
           <ArrowLeft className="w-4 h-4" /> Back to Dashboard
         </button>

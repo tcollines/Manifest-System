@@ -18,7 +18,7 @@ const Guard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       <Loader2 className="w-7 h-7 text-orange-500 animate-spin" />
     </div>
   );
-  return formsUser ? <>{children}</> : <Navigate to="/forms/auth" replace />;
+  return formsUser ? <>{children}</> : <Navigate to="/auth" replace />;
 };
 
 // ─── FormsApp ─────────────────────────────────────────────────────────────────
@@ -37,8 +37,8 @@ const FormsApp: React.FC = () => (
       <Route path="migrate"           element={<Guard><FormMigratePage /></Guard>} />
 
       {/* Fallback */}
-      <Route index element={<Navigate to="/forms/auth" replace />} />
-      <Route path="*" element={<Navigate to="/forms/auth" replace />} />
+      <Route index element={<Navigate to="/auth" replace />} />
+      <Route path="*" element={<Navigate to="/auth" replace />} />
     </Routes>
   </FormsAuthProvider>
 );

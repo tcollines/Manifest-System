@@ -109,7 +109,7 @@ const FormsAuthPage: React.FC = () => {
 
   // Redirect once authenticated
   useEffect(() => {
-    if (!isLoading && formsUser) navigate('/forms/dashboard', { replace: true });
+    if (!isLoading && formsUser) navigate('/dashboard', { replace: true });
   }, [formsUser, isLoading, navigate]);
 
   const switchTab = (t: AuthTab) => {
@@ -153,18 +153,8 @@ const FormsAuthPage: React.FC = () => {
     if (!result.success) setSuError(result.error ?? 'Sign up failed.');
   };
 
-  if (isLoading) {
-    return (
-      <div className="min-h-[100dvh] flex items-center justify-center bg-black">
-        <Loader2 className="w-8 h-8 text-orange-500 animate-spin" />
-      </div>
-    );
-  }
-
-  // ─────────────────────────────────────────────────────────────────────────
-
   return (
-    <div className="min-h-[100dvh] flex flex-col items-center justify-center p-4 relative overflow-hidden font-sans">
+    <div className="min-h-[100dvh] flex flex-col items-center justify-center p-4 relative overflow-hidden font-sans bg-black">
 
       {/* ── Background ─────────────────────────────────────────────────── */}
       <div className="absolute inset-0 z-0">
@@ -183,6 +173,13 @@ const FormsAuthPage: React.FC = () => {
         <div className="absolute -top-[10%] -left-[5%] w-[50%] h-[50%] rounded-full bg-orange-500/10 blur-[120px]" />
         <div className="absolute bottom-[5%] right-[5%] w-[40%] h-[40%] rounded-full bg-amber-400/12 blur-[100px]" />
       </div>
+
+      {isLoading ? (
+        <div className="relative z-10 flex items-center justify-center min-h-[400px]">
+          <Loader2 className="w-8 h-8 text-orange-500 animate-spin" />
+        </div>
+      ) : (
+        <>
 
       {/* ── Card ───────────────────────────────────────────────────────── */}
       <div className="relative z-10 w-full max-w-5xl bg-white/5 backdrop-blur-md border border-white/10 rounded-[2rem] shadow-2xl shadow-orange-950/40 flex flex-col md:flex-row overflow-hidden" style={{ minHeight: 580 }}>
@@ -497,6 +494,8 @@ const FormsAuthPage: React.FC = () => {
           />
         </button>
       </div>
+        </>
+      )}
     </div>
   );
 };

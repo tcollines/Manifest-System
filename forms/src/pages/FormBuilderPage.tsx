@@ -463,7 +463,7 @@ const FormBuilderPage: React.FC = () => {
       )}
       {/* ── Top Bar ──────────────────────────────────────────────────── */}
       <header className="h-14 border-b border-gray-200 flex items-center gap-4 px-4 bg-white shadow-sm sticky top-0 z-40">
-        <button onClick={() => navigate('/forms/dashboard')}
+        <button onClick={() => navigate('/dashboard')}
           className="flex items-center gap-1.5 text-gray-400 hover:text-gray-900 transition-colors text-sm">
           <ArrowLeft className="w-4 h-4" /> Dashboard
         </button>
