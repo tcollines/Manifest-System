@@ -154,7 +154,7 @@ const ImportGoogleFormModal: React.FC<{
 // ─── Publish Modal ────────────────────────────────────────────────────────────
 
 const PublishModal: React.FC<{ formId: string; onClose: () => void }> = ({ formId, onClose }) => {
-  const publicUrl = `${window.location.origin}/forms/f/${formId}`;
+  const publicUrl = `${window.location.origin}/f/${formId}`;
   const [copied, setCopied] = React.useState(false);
 
   const copy = () => {
@@ -494,7 +494,7 @@ const FormBuilderPage: React.FC = () => {
             Import
           </button>
 
-          <button onClick={() => navigate(`/forms/responses/${form.id}`)}
+          <button onClick={() => navigate(`/responses/${form.id}`)}
             className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-sm text-gray-500 hover:text-gray-900 transition-all">
             <Eye className="w-4 h-4" /> Responses
           </button>

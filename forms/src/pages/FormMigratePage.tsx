@@ -16,7 +16,7 @@ import type { Form, FormResponse } from '../types/forms.types';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const CANONICAL_ID    = 'mp59euhldujwa';
-const CANONICAL_URL   = `https://manifestsystem.vercel.app/forms/f/${CANONICAL_ID}`;
+const CANONICAL_URL   = `https://manifestsystem.vercel.app/f/${CANONICAL_ID}`;
 const FORM_TITLE_FRAG = 'Manifest Locator';
 
 // ─── FormMigratePage ──────────────────────────────────────────────────────────
@@ -321,7 +321,7 @@ const FormMigratePage: React.FC = () => {
                 )}
               </div>
               {totalCount > 0 && (
-                <button onClick={() => navigate(`/forms/responses/${CANONICAL_ID}`)}
+                <button onClick={() => navigate(`/responses/${CANONICAL_ID}`)}
                   className="w-full py-2.5 bg-orange-500 hover:bg-orange-400 text-white font-bold rounded-xl transition-all text-sm">
                   View Responses
                 </button>

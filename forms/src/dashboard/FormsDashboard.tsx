@@ -13,7 +13,7 @@ import type { Form } from '../types/forms.types';
 // ─── Share Modal ────────────────────────────────────────────────────────────
 
 const ShareModal: React.FC<{ formId: string; formTitle: string; onClose: () => void }> = ({ formId, formTitle, onClose }) => {
-  const publicUrl = `${window.location.origin}/forms/f/${formId}`;
+  const publicUrl = `${window.location.origin}/f/${formId}`;
   const [copied, setCopied] = useState(false);
 
   const copy = () => {
@@ -186,7 +186,7 @@ const FormsDashboard: React.FC = () => {
   const handleCreate = async () => {
     setCreating(true);
     const form = await createForm(uid);
-    navigate(`/forms/builder/${form.id}`);
+    navigate(`/builder/${form.id}`);
   };
 
   const handleDelete = async (id: string) => {
@@ -211,7 +211,7 @@ const FormsDashboard: React.FC = () => {
   };
 
   const handleSignOut = async () => {
-    await signOut(); // onAuthStateChanged fires → formsUser=null → Guard redirects to /forms/auth
+    await signOut(); // onAuthStateChanged fires → formsUser=null → Guard redirects to /auth
     // Do NOT manually navigate here — causes race condition
   };
 
@@ -336,8 +336,8 @@ const FormsDashboard: React.FC = () => {
               <FormCard
                 key={form.id}
                 form={form}
-                onEdit={()   => navigate(`/forms/builder/${form.id}`)}
-                onView={()   => navigate(`/forms/responses/${form.id}`)}
+                onEdit={()   => navigate(`/builder/${form.id}`)}
+                onView={()   => navigate(`/responses/${form.id}`)}
                 onDelete={()  => handleDelete(form.id)}
                 onToggle={()  => handleToggle(form)}
                 onShare={()   => setShareForm(form)}
