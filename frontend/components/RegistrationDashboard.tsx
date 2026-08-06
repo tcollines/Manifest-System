@@ -2416,9 +2416,9 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
 
   const handleDeleteEvent = async (event: MinistryEvent) => {
     // Strict Guard
-    const canDeleteEvent = currentUser.role === 'TeamLeader';
+    const canDeleteEvent = currentUser.role === 'TeamLeader' || currentUser.role === 'Administrator';
     if (!canDeleteEvent) {
-      showToast("Access Denied: Only Team Leader can delete events/services.", 'error');
+      showToast("Access Denied: Only Team Leader or Administrator can delete events/services.", 'error');
       return;
     }
 
@@ -2741,7 +2741,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
                     >
                       {isClosed ? 'View Highlights' : 'Open Check-In'}
                     </button>
-                    {currentUser.role === 'TeamLeader' && (
+                    {(currentUser.role === 'TeamLeader' || currentUser.role === 'Administrator') && !isClosed && (
                       <button
                         onClick={() => handleDeleteEvent(service)}
                         className="mt-2 w-full py-2 rounded-lg font-bold text-red-500 bg-red-50 hover:bg-red-100 transition-colors flex items-center justify-center border border-red-100"
@@ -3165,14 +3165,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
                             {isEventLocked(event.date) ? 'Preview Highlights' : 'View Stations'}
                           </button>
 
-                          {currentUser.role === 'TeamLeader' && (
-                            <button
-                              onClick={() => handleDeleteEvent(event)}
-                              className="mt-2 w-full py-2 rounded-lg font-bold text-red-500 bg-red-50 hover:bg-red-100 transition-colors flex items-center justify-center border border-red-100"
-                            >
-                              <Trash2 className="w-4 h-4 mr-2" /> Delete Event
-                            </button>
-                          )}
+
                         </div>
                       ))}
                       {logisticsEvents.length === 0 && (
@@ -3197,13 +3190,25 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
                           <p className="text-sm text-gray-500">Pickup Stations Management</p>
                         </div>
                       </div>
-                      <button
-                        onClick={() => setIsAddStationOpen(true)}
-                        className="flex items-center space-x-2 bg-ministry-text text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors"
-                      >
-                        <Plus className="w-4 h-4" />
-                        <span>Add Pickup Station</span>
-                      </button>
+                      <div className="flex items-center space-x-2 shrink-0">
+                        {(currentUser.role === 'TeamLeader' || currentUser.role === 'Administrator') && !isEventLocked(selectedLogisticsEvent.date) && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleDeleteEvent(selectedLogisticsEvent); }}
+                            className="flex items-center space-x-2 bg-red-50 text-red-500 px-4 py-2 rounded-lg hover:bg-red-100 transition-colors border border-red-100 font-bold"
+                            title="Delete Event and all linked data"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            <span>Delete Event</span>
+                          </button>
+                        )}
+                        <button
+                          onClick={() => setIsAddStationOpen(true)}
+                          className="flex items-center space-x-2 bg-ministry-text text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors"
+                        >
+                          <Plus className="w-4 h-4" />
+                          <span>Add Pickup Station</span>
+                        </button>
+                      </div>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

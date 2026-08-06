@@ -2576,6 +2576,11 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
     }
   };
 
+  const openAddVIP = () => {
+    setPassengerForm({ ...initialPassengerForm, category: 'VIP' });
+    setIsAddPassengerOpen(true);
+  };
+
   const openAddMember = () => {
     setPassengerForm({ ...initialPassengerForm, category: 'Member' });
     setIsAddPassengerOpen(true);
@@ -3128,6 +3133,7 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
     handleAddStation, 
     handleAddExtraEntrant, 
     handleAddPassenger, 
+    openAddVIP,
     openAddMember, 
     openAddStudent, 
     openAddInstitution, 

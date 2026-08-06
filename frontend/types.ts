@@ -257,7 +257,7 @@ export interface VehicleAttendance {
 export interface Passenger {
   id: string;
   vehicleId: string;
-  category: 'Member' | 'Student' | 'Institution';
+  category: 'Member' | 'Student' | 'Institution' | 'VIP';
   name: string;
   contact: string;
   residence: string;
@@ -270,6 +270,11 @@ export interface Passenger {
   gender?: 'Male' | 'Female';
   soulWon?: boolean;
   parentContact?: string;
+  // VIP Specifics
+  vipType?: 'Corporate' | 'Pastor' | 'International Guest' | 'Government Official' | 'Other' | string;
+  organization?: string;
+  transportMeans?: 'Private' | 'EMF Transportation' | 'Other' | string;
+  
   eventId?: string; // Links passenger to specific event
   stationId?: string; // Links passenger to specific station
   version?: number;

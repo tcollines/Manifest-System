@@ -15,6 +15,7 @@ interface ProtectedRouteProps {
     bypassRoles?: string[];
     /** Where to redirect unauthenticated users. Defaults to '/'. */
     redirectPath?: string;
+    children?: React.ReactNode;
 }
 
 /**
@@ -33,6 +34,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     allowedRoles = [],
     bypassRoles = [],
     redirectPath = '/',
+    children,
 }) => {
     const { user, isInitialLoading } = useAuth();
     const location = useLocation();
@@ -56,12 +58,12 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 
     // ── Super Admin / Administrator / TeamLeader: full access ─────────────────
     if (['Super Admin', 'Administrator', 'TeamLeader', 'Team Leader'].includes(user.role)) {
-        return <Outlet />;
+        return <>{children ? children : <Outlet />}</>;
     }
 
     // ── Bypass roles (e.g. Logistics accessing Registration) ─────────────────
     if (bypassRoles.length > 0 && bypassRoles.includes(user.role)) {
-        return <Outlet />;
+        return <>{children ? children : <Outlet />}</>;
     }
 
     // ── Department check ──────────────────────────────────────────────────────
@@ -87,7 +89,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
         return <Navigate to={getDashboardForUser(user)} replace />;
     }
 
-    return <Outlet />;
+    return <>{children ? children : <Outlet />}</>;
 };
 
 export default ProtectedRoute;

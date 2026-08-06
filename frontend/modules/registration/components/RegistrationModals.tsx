@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangle, LocateFixed } from 'lucide-react';
+import { AlertTriangle, LocateFixed, UserPlus } from 'lucide-react';
 import EventDetailsModal from '../../../components/EventDetailsModal';
 import PhoneInput from '../../../components/PhoneInput';
 import NumberPlateInput from '../../../components/NumberPlateInput';
@@ -24,6 +24,8 @@ const RegistrationModals: React.FC = () => {
         handleUpdateManualCount,
         isAddEventOpen,
         setIsAddEventOpen,
+        eventToEdit,
+        setEventToEdit,
         eventFormType,
         eventForm,
         setEventForm,
@@ -146,7 +148,7 @@ const RegistrationModals: React.FC = () => {
                     <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-lg w-full border border-gray-200 max-h-[90vh] overflow-y-auto">
                         <div className="flex items-center justify-between mb-6">
                             <h3 className="text-xl font-bold text-gray-900">
-                                {eventFormType === 'Service' ? 'Schedule New Service' : 'Plan New Event'}
+                                {eventToEdit ? 'Edit Event Details' : (eventFormType === 'Service' ? 'Add New Service' : 'Add Special Event')}
                             </h3>
                             <button
                                 onClick={() => setIsAddEventOpen(false)}
@@ -249,6 +251,40 @@ const RegistrationModals: React.FC = () => {
                                     placeholder="Optional notes..."
                                 />
                             </div>
+
+                            {/* Head of Event Section */}
+                            <div className="pt-4 border-t border-gray-100">
+                                <h4 className="text-sm font-bold text-gray-900 mb-3 flex items-center">
+                                    <UserPlus className="w-4 h-4 mr-2 text-ministry-orange" />
+                                    Head of Event Details (Optional)
+                                </h4>
+                                <div className="space-y-3">
+                                    <input
+                                        type="text"
+                                        placeholder="Full Name"
+                                        value={eventForm.headName}
+                                        onChange={e => setEventForm({ ...eventForm, headName: e.target.value })}
+                                        className="w-full p-3 border border-gray-200 rounded-xl focus:outline-none focus:border-ministry-orange text-sm"
+                                    />
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <input
+                                            type="text"
+                                            placeholder="Username"
+                                            value={eventForm.headUsername}
+                                            onChange={e => setEventForm({ ...eventForm, headUsername: e.target.value })}
+                                            className="w-full p-3 border border-gray-200 rounded-xl focus:outline-none focus:border-ministry-orange text-sm"
+                                        />
+                                        <input
+                                            type="password"
+                                            placeholder="Password"
+                                            value={eventForm.headPassword}
+                                            onChange={e => setEventForm({ ...eventForm, headPassword: e.target.value })}
+                                            className="w-full p-3 border border-gray-200 rounded-xl focus:outline-none focus:border-ministry-orange text-sm"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
                             <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
                                 <button
                                     type="button"
@@ -262,7 +298,7 @@ const RegistrationModals: React.FC = () => {
                                         isSubmittingEvent ? 'bg-orange-400 cursor-not-allowed' : 'bg-ministry-orange hover:bg-orange-600'
                                     }`}
                                 >
-                                    {isSubmittingEvent ? 'Scheduling...' : (eventFormType === 'Service' ? 'Schedule Service' : 'Create Event')}
+                                    {isSubmittingEvent ? 'Saving...' : (eventToEdit ? 'Save Changes' : (eventFormType === 'Service' ? 'Schedule Service' : 'Create Event'))}
                                 </button>
                             </div>
                         </form>
@@ -535,7 +571,7 @@ const RegistrationModals: React.FC = () => {
                     <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden border border-gray-200">
                         <div className="bg-gray-50 border-b border-gray-200 p-6">
                             <h3 className="text-xl font-bold text-gray-900">
-                                {passengerForm.category === 'Student' ? 'Add Student' : passengerForm.category === 'Institution' ? 'Add Institution' : 'Add Member'} to Vehicle
+                                {passengerForm.category === 'Student' ? 'Add Student' : passengerForm.category === 'Institution' ? 'Add Institution' : passengerForm.category === 'VIP' ? 'Add VIP' : 'Add Member'} to Vehicle
                             </h3>
                             <p className="text-sm text-gray-500 mt-1">Vehicle: {selectedVehicle?.number_plate}</p>
                         </div>
@@ -640,6 +676,36 @@ const RegistrationModals: React.FC = () => {
                                         <div className="space-y-1.5">
                                             <label className="text-sm font-bold text-gray-700">Institution Name</label>
                                             <input value={passengerForm.school} onChange={e => setPassengerForm({ ...passengerForm, school: e.target.value })} className="w-full p-3 border border-gray-200 rounded-xl bg-white" placeholder="e.g. Nkumba University" />
+                                        </div>
+                                    </div>
+                                )}
+                                
+                                {passengerForm.category === 'VIP' && (
+                                    <div className="bg-gray-50 p-4 rounded-xl space-y-4 border border-gray-200 mt-2">
+                                        <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider">VIP Details</h4>
+                                        <div className="space-y-1.5">
+                                            <label className="text-sm font-bold text-gray-700">Dignitary Type</label>
+                                            <select value={passengerForm.vipType || ''} onChange={e => setPassengerForm({ ...passengerForm, vipType: e.target.value })} className="w-full p-3 border border-gray-200 rounded-xl bg-white">
+                                                <option value="">Select Type</option>
+                                                <option value="Corporate">Corporate</option>
+                                                <option value="Pastor">Pastor</option>
+                                                <option value="International Guest">International Guest</option>
+                                                <option value="Government Official">Government Official</option>
+                                                <option value="Other">Other</option>
+                                            </select>
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <label className="text-sm font-bold text-gray-700">Church / Organization</label>
+                                            <input value={passengerForm.organization || ''} onChange={e => setPassengerForm({ ...passengerForm, organization: e.target.value })} className="w-full p-3 border border-gray-200 rounded-xl bg-white" placeholder="Enter name" />
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <label className="text-sm font-bold text-gray-700">Transport Means</label>
+                                            <select value={passengerForm.transportMeans || ''} onChange={e => setPassengerForm({ ...passengerForm, transportMeans: e.target.value })} className="w-full p-3 border border-gray-200 rounded-xl bg-white">
+                                                <option value="">Select Transport</option>
+                                                <option value="Private">Private</option>
+                                                <option value="EMF Transportation">EMF Transportation</option>
+                                                <option value="Other">Other</option>
+                                            </select>
                                         </div>
                                     </div>
                                 )}

@@ -44,11 +44,13 @@ const TeamLeaderRequisitions = React.lazy(() => import('./components/TeamLeaderR
 const ActionPanel = React.lazy(() => import('./components/ActionPanel'));
 const MinistryAI = React.lazy(() => import('./components/MinistryAI'));
 const PublicSoulEntry = React.lazy(() => import('./components/PublicSoulEntry'));
+const PublicPrivateRegistration = React.lazy(() => import('./modules/registration/components/PublicPrivateRegistration'));
 const DepartmentRouterProxy = React.lazy(() => import('./components/DepartmentRouterProxy'));
 const WorkplanQueue = React.lazy(() => import('./components/WorkplanQueue'));
 const RequisitionQueue = React.lazy(() => import('./components/RequisitionQueue'));
 const AdminRequisitionQueue = React.lazy(() => import('./components/AdminRequisitionQueue'));
 const AdministrationDashboard = React.lazy(() => import('./modules/administration/AdministrationDashboard'));
+const EventsLeadDashboard = React.lazy(() => import('./components/EventsLeadDashboard'));
 const TeamLeaderDashboard = React.lazy(() => import('./components/TeamLeaderDashboard'));
 const SettingsLayout = React.lazy(() => import('./modules/settings/SettingsLayout'));
 const SettingsMapPage = React.lazy(() => import('./modules/settings/SettingsMapPage'));
@@ -157,6 +159,19 @@ const App: React.FC = () => {
       <div className="splash-container">
         <img src="/MANIFEST.png" alt="Manifest MS Logo" className="splash-logo" />
       </div>
+    );
+  }
+
+  // Allow public routes to bypass authentication
+  if (location.pathname.startsWith('/public/registration/')) {
+    return (
+      <ErrorBoundary moduleName="Application">
+        <React.Suspense fallback={<RouteFallback />}>
+          <Routes>
+            <Route path="/public/registration/:eventId" element={<PublicPrivateRegistration />} />
+          </Routes>
+        </React.Suspense>
+      </ErrorBoundary>
     );
   }
 
@@ -334,8 +349,9 @@ const App: React.FC = () => {
                    <Route path="finance/processing" element={<RequisitionQueue systemRole={user.role} />} />
               </Route>
 
-              <Route path="events"      element={<EventsView />} />
-              <Route path="reports"     element={<ReportsView currentUser={user} isGlobal={true} />} />
+              <Route path="events" element={<ProtectedRoute><EventsView /></ProtectedRoute>} />
+              <Route path="events-lead" element={<ProtectedRoute allowedRoles={['Head of Event']}><EventsLeadDashboard /></ProtectedRoute>} />
+              <Route path="reports" element={<ProtectedRoute><ReportsView currentUser={user} isGlobal={true} /></ProtectedRoute>} />
               <Route path="schedules"   element={<GlobalSchedulesView />} />
 
 

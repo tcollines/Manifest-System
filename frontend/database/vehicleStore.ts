@@ -46,6 +46,9 @@ export const mapPassengerFromDB = (p: any): Passenger => ({
     gender: p.gender,
     parentContact: p.parent_contact,
     soulWon: p.soul_won,
+    vipType: p.vip_type,
+    organization: p.organization,
+    transportMeans: p.transport_means,
     version: p.version
 });
 
@@ -291,6 +294,9 @@ export const VehicleStore = {
             gender: passenger.gender,
             parent_contact: passenger.parentContact,
             soul_won: passenger.soulWon,
+            vip_type: passenger.vipType,
+            organization: passenger.organization,
+            transport_means: passenger.transportMeans,
             event_id: passenger.eventId, // Added field
             station_id: passenger.stationId // Added field
         };
@@ -320,6 +326,9 @@ export const VehicleStore = {
         if (passenger.gender !== undefined) payload.gender = passenger.gender;
         if (passenger.parentContact !== undefined) payload.parent_contact = passenger.parentContact;
         if (passenger.soulWon !== undefined) payload.soul_won = passenger.soulWon;
+        if (passenger.vipType !== undefined) payload.vip_type = passenger.vipType;
+        if (passenger.organization !== undefined) payload.organization = passenger.organization;
+        if (passenger.transportMeans !== undefined) payload.transport_means = passenger.transportMeans;
         if (passenger.eventId !== undefined) payload.event_id = passenger.eventId;
         if (passenger.stationId !== undefined) payload.station_id = passenger.stationId;
         if (passenger.version !== undefined) payload.version = passenger.version; // For optimistic locking

@@ -398,7 +398,7 @@ const TransportationLayout: React.FC = () => {
             role: form.roleType === 'vehicle' ? 'Vehicle Coordinator' : 'Stage Coordinator',
             username: form.username, password: form.password, departmentId: TRANSPORT_DEPT_UUID,
             eventId: selectedEventId || user?.eventId, contact: form.contact, stationId: form.stationId || undefined,
-            email: form.email || undefined
+            email: form.email || undefined, status: 'Active'
         };
         try {
             await UserStore.add(newUser);

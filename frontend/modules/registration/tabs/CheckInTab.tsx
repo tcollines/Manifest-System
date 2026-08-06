@@ -126,7 +126,7 @@ export default function CheckInTab() {
                                             )}
                                         </div>
                                     </div>
-                                    {currentUser.role === 'TeamLeader' && (
+                                    {(currentUser.role === 'TeamLeader' || currentUser.role === 'Administrator') && !isClosed && (
                                         <button
                                             onClick={(e) => { e.stopPropagation(); handleDeleteEvent(service); }}
                                             className="w-full py-2 rounded-lg font-bold text-red-500 bg-red-50 hover:bg-red-100 transition-colors flex items-center justify-center border border-red-100 text-sm mt-1"
@@ -164,7 +164,7 @@ export default function CheckInTab() {
                                     >
                                         {isClosed ? 'View Highlights' : 'Open Check-In'}
                                     </button>
-                                    {currentUser.role === 'TeamLeader' && (
+                                    {(currentUser.role === 'TeamLeader' || currentUser.role === 'Administrator') && !isClosed && (
                                         <button
                                             onClick={() => handleDeleteEvent(service)}
                                             className="mt-2 w-full py-2 rounded-lg font-bold text-red-500 bg-red-50 hover:bg-red-100 transition-colors flex items-center justify-center border border-red-100"

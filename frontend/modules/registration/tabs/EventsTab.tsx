@@ -5,7 +5,7 @@ import {
     Calendar, CalendarPlus, ArrowLeft, Users, UserPlus, Search, CheckCircle,
     Trash2, Download, Baby, Heart, Lock, Copy, Save, Ticket, CreditCard,
     Upload, Plus, MapPin, Building2, GraduationCap, ChevronRight, Bus,
-    Printer, ShieldCheck, Settings, LayoutList, Edit2
+    Printer, ShieldCheck, Settings, LayoutList, Edit2, Award
 } from 'lucide-react';
 import { useRegistration } from '../RegistrationContext';
 
@@ -30,6 +30,7 @@ const EventsTab: React.FC = () => {
         setShowHighlights,
         setSelectedLogisticsEvent,
         handleDeleteEvent,
+        handleEditEvent,
         handleBackLogistics,
         setIsAddStationOpen,
         handleSelectStation,
@@ -43,6 +44,7 @@ const EventsTab: React.FC = () => {
         setIsAddChildrenOpen,
         handlePrintManifest,
         handleApproveVehicle,
+        openAddVIP,
         openAddMember,
         openAddStudent,
         openAddInstitution,
@@ -141,14 +143,7 @@ const EventsTab: React.FC = () => {
                                           )}
                                       </div>
                                   </div>
-                                  {currentUser.role === 'TeamLeader' && (
-                                      <button
-                                          onClick={(e) => { e.stopPropagation(); handleDeleteEvent(event); }}
-                                          className="w-full py-2 rounded-lg font-bold text-red-500 bg-red-50 hover:bg-red-100 transition-colors flex items-center justify-center border border-red-100 text-sm mt-1"
-                                      >
-                                          <Trash2 className="w-4 h-4 mr-2" /> Delete Event
-                                      </button>
-                                  )}
+
                               </div>
                           );
                       })}
@@ -188,14 +183,7 @@ const EventsTab: React.FC = () => {
                             {isEventLocked(event.date) ? 'Preview Highlights' : 'View Stations'}
                           </button>
 
-                          {currentUser.role === 'TeamLeader' && (
-                            <button
-                              onClick={() => handleDeleteEvent(event)}
-                              className="mt-2 w-full py-2 rounded-lg font-bold text-red-500 bg-red-50 hover:bg-red-100 transition-colors flex items-center justify-center border border-red-100"
-                            >
-                              <Trash2 className="w-4 h-4 mr-2" /> Delete Event
-                            </button>
-                          )}
+
                         </div>
                       ))}
                       {logisticsEvents.length === 0 && (
@@ -220,13 +208,49 @@ const EventsTab: React.FC = () => {
                           <p className="text-sm text-gray-500">Pickup Stations Management</p>
                         </div>
                       </div>
-                      <button
-                        onClick={() => setIsAddStationOpen(true)}
-                        className="w-10 h-10 flex items-center justify-center bg-gray-900 hover:bg-black rounded-xl shadow-sm transition-colors shrink-0"
-                        title="Add Pickup Station"
-                      >
-                        <Plus className="w-6 h-6 text-[#CCFF00]" />
-                      </button>
+                      <div className="flex items-center space-x-2 shrink-0">
+                        {(currentUser.role === 'TeamLeader' || currentUser.role === 'Administrator') && !isEventLocked(selectedLogisticsEvent.date) && (
+                          <>
+                            <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const url = `${window.location.origin}/public/registration/${selectedLogisticsEvent.id}`;
+                                  navigator.clipboard.writeText(url).then(() => {
+                                    showToast("Public link copied to clipboard", "success");
+                                  });
+                                  window.open(url, '_blank');
+                                }}
+                                className="h-10 px-4 flex items-center justify-center font-bold text-ministry-orange bg-ministry-orange/10 hover:bg-ministry-orange/20 rounded-xl transition-colors border border-ministry-orange/20 text-sm shadow-sm"
+                                title="Copy and open public registration link"
+                              >
+                                <span className="hidden sm:inline">Public Link</span>
+                              </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleEditEvent(selectedLogisticsEvent); }}
+                              className="h-10 px-4 flex items-center justify-center font-bold text-blue-500 bg-blue-50 hover:bg-blue-100 rounded-xl transition-colors border border-blue-100 text-sm shadow-sm"
+                              title="Edit Event"
+                            >
+                              <Edit2 className="w-4 h-4 mr-2" />
+                              <span className="hidden sm:inline">Edit Event</span>
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleDeleteEvent(selectedLogisticsEvent); }}
+                              className="h-10 px-4 flex items-center justify-center font-bold text-red-500 bg-red-50 hover:bg-red-100 rounded-xl transition-colors border border-red-100 text-sm shadow-sm"
+                              title="Delete Event and all linked data"
+                            >
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              <span className="hidden sm:inline">Delete Event</span>
+                            </button>
+                          </>
+                        )}
+                        <button
+                          onClick={() => setIsAddStationOpen(true)}
+                          className="w-10 h-10 flex items-center justify-center bg-gray-900 hover:bg-black rounded-xl shadow-sm transition-colors shrink-0"
+                          title="Add Pickup Station"
+                        >
+                          <Plus className="w-6 h-6 text-[#CCFF00]" />
+                        </button>
+                      </div>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -548,6 +572,13 @@ const EventsTab: React.FC = () => {
                                 {/* Add Buttons: Only if not locked */}
                                 {!isLocked ? (
                                   <>
+                                    <button
+                                      onClick={openAddVIP}
+                                      className="flex-1 lg:flex-none flex items-center justify-center space-x-2 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors shadow-sm font-bold"
+                                    >
+                                      <Award className="w-4 h-4" />
+                                      <span>Register VIP</span>
+                                    </button>
                                     <button
                                       onClick={openAddMember}
                                       className="flex-1 lg:flex-none flex items-center justify-center space-x-2 bg-ministry-text text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors shadow-sm"

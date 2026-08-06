@@ -68,12 +68,17 @@ const Sidebar: React.FC<SidebarProps> = ({ onLogout, isOpen, onClose }) => {
   let sections: NavSection[] = [];
 
   // 1. Top-Level / General
-  if (isSystemAdmin || isTeamLeader) {
+  const isHeadOfEvent = currentUser.role === 'Head of Event';
+
+  if (isSystemAdmin || isTeamLeader || isHeadOfEvent) {
       sections.push({
           title: '',
           items: [
-              { id: 'sys-overview', label: 'Ministry Overview', icon: Globe, path: '/dashboard' },
-              { id: 'sys-departments', label: 'Manage Departments', icon: Building2, path: '/departments' }
+              ...(isSystemAdmin || isTeamLeader ? [
+                  { id: 'sys-overview', label: 'Ministry Overview', icon: Globe, path: '/dashboard' },
+                  { id: 'sys-departments', label: 'Manage Departments', icon: Building2, path: '/departments' }
+              ] : []),
+              { id: 'sys-live-event', label: 'Live Event Dashboard', icon: LayoutDashboard, path: '/events-lead' }
           ]
       });
   }
@@ -87,7 +92,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onLogout, isOpen, onClose }) => {
   const isStageCoordinator = checkCode('d5', 'transportation') && (currentUser.role === 'Stage Coordinator' || (currentUser.role === 'Coordinator' && !!currentUser.stationId));
   const isVehicleCoordinator = checkCode('d5', 'transportation') && currentUser.role === 'Vehicle Coordinator';
 
-  if (!isRegularRegistration && !isStageCoordinator && !isVehicleCoordinator && !checkCode('d11', 'sales')) {
+  if (!isRegularRegistration && !isStageCoordinator && !isVehicleCoordinator && !checkCode('d11', 'sales') && !isHeadOfEvent) {
       myDeptItems.push({ id: 'my-dept-ops', label: 'Dept Dashboard', icon: LayoutDashboard, path: `/departments/${dId}/dashboard` });
   }
 

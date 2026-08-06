@@ -315,3 +315,43 @@ export const submitPublicScheduleAvailability = async (req: Request, res: Respon
         res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };
+
+export const submitPublicEventPassengers = async (req: Request, res: Response) => {
+    const { eventId, passengers } = req.body;
+    
+    if (!eventId || !Array.isArray(passengers) || passengers.length === 0) {
+        return res.status(400).json({ error: 'Invalid payload' });
+    }
+
+    try {
+        const { data: event, error: eventError } = await supabase
+                .from('ministry_events')
+                .select('id')
+                .eq('id', eventId)
+                .single();
+        
+        if (eventError || !event) {
+            return res.status(404).json({ error: 'Event not found' });
+        }
+
+        const formattedPassengers = passengers.map((p: any) => ({
+            id: uuidv4(),
+            event_id: eventId,
+            name: p.name,
+            contact: p.contact,
+            residence: p.residence,
+            is_first_time: p.isFirstTime,
+            transport_means: p.transportMeans,
+            category: p.category || 'Member'
+        }));
+        
+        const { error } = await supabase.from('passengers').insert(formattedPassengers);
+        if (error) {
+            return res.status(500).json({ error: error.message });
+        }
+        
+        res.status(201).json({ success: true, count: formattedPassengers.length });
+    } catch (e) {
+        res.status(500).json({ error: 'An internal server error occurred.' });
+    }
+};
