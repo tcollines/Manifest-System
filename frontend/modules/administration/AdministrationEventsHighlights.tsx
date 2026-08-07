@@ -16,7 +16,8 @@ import {
   Wallet,
   Baby,
   UserPlus,
-  Download
+  Download,
+  Car
 } from 'lucide-react';
 
 const AdministrationEventsHighlights: React.FC = () => {
@@ -278,6 +279,19 @@ const AdministrationEventsHighlights: React.FC = () => {
               {(highlights.attendees || 0).toLocaleString()}
             </p>
             <p className="text-xs text-indigo-600 mt-1">Total passengers</p>
+          </div>
+
+          <div className="bg-gradient-to-br from-teal-50 to-teal-100/50 p-6 rounded-2xl border border-teal-100 shadow-sm hover:shadow-md transition-all group">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="bg-teal-500 text-white p-2 rounded-lg group-hover:scale-110 transition-transform">
+                <Car size={20} />
+              </div>
+              <h3 className="text-xs font-bold text-teal-800 uppercase tracking-wider">Private Commuters</h3>
+            </div>
+            <p className="text-3xl font-black text-gray-900 mt-1">
+              {(highlights.personalCars || 0).toLocaleString()}
+            </p>
+            <p className="text-xs text-teal-600 mt-1">Personal / Private Vehicles</p>
           </div>
 
           <div className="bg-gradient-to-br from-emerald-50 to-emerald-100/50 p-6 rounded-2xl border border-emerald-100 shadow-sm hover:shadow-md transition-all group">

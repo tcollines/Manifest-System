@@ -18,11 +18,12 @@ export const getVehicles = async (req: Request, res: Response) => {
     const coordinatorUid = req.query.coordinatorUid as string;
     const eventId = req.query.eventId as string;
     const stationId = req.query.stationId as string;
+    const searchPlate = req.query.plate as string;
 
     const validEventId = (eventId && eventId !== 'undefined' && eventId !== 'null') ? eventId : null;
 
     try {
-        if (!coordinator && !validEventId && !stationId) {
+        if (!coordinator && !validEventId && !stationId && !searchPlate) {
             return res.json([]);
         }
 
@@ -53,8 +54,35 @@ export const getVehicles = async (req: Request, res: Response) => {
             }
         }
 
-        const { data, error } = await query;
+        if (searchPlate) {
+            const rawPlate = searchPlate.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+            if (rawPlate) {
+                const wildcard = rawPlate.split('').join('%');
+                query = query.or(`number_plate.ilike.%${searchPlate.trim()}%,number_plate.ilike.%${wildcard}%`);
+            }
+        }
+
+        let { data, error } = await query;
         if (error) throw error;
+
+        // Fallback search in personal_vehicles if empty
+        if (searchPlate && (!data || data.length === 0)) {
+            const rawPlate = searchPlate.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+            if (rawPlate) {
+                const wildcard = rawPlate.split('').join('%');
+                const { data: pvData } = await supabase
+                    .from('personal_vehicles')
+                    .select('*')
+                    .eq('manifest_id', manifestId)
+                    .ilike('number_plate', `%${wildcard}%`)
+                    .order('created_at', { ascending: false });
+
+                if (pvData && pvData.length > 0) {
+                    data = pvData;
+                }
+            }
+        }
+
         res.json(data);
     } catch (error: any) {
         res.status(500).json({ error: 'An internal server error occurred.' });
