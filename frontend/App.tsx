@@ -45,6 +45,7 @@ const ActionPanel = React.lazy(() => import('./components/ActionPanel'));
 const MinistryAI = React.lazy(() => import('./components/MinistryAI'));
 const PublicSoulEntry = React.lazy(() => import('./components/PublicSoulEntry'));
 const PublicPrivateRegistration = React.lazy(() => import('./modules/registration/components/PublicPrivateRegistration'));
+const PublicSlugRedirect = React.lazy(() => import('./modules/registration/components/PublicSlugRedirect').then(m => ({ default: m.PublicSlugRedirect })));
 const DepartmentRouterProxy = React.lazy(() => import('./components/DepartmentRouterProxy'));
 const WorkplanQueue = React.lazy(() => import('./components/WorkplanQueue'));
 const RequisitionQueue = React.lazy(() => import('./components/RequisitionQueue'));
@@ -162,13 +163,20 @@ const App: React.FC = () => {
     );
   }
 
-  // Allow public routes to bypass authentication
-  if (location.pathname.startsWith('/public/registration/')) {
+  // Allow public routes and vanity short links to bypass authentication
+  const isPublicRoute = 
+    location.pathname.startsWith('/public/registration/') ||
+    location.pathname.toLowerCase().endsWith('privatetransport') ||
+    location.pathname.toLowerCase().includes('12thanniversary');
+
+  if (isPublicRoute) {
     return (
       <ErrorBoundary moduleName="Application">
         <React.Suspense fallback={<RouteFallback />}>
           <Routes>
             <Route path="/public/registration/:eventId" element={<PublicPrivateRegistration />} />
+            <Route path="/12thAnniversaryPrivateTransport" element={<PublicSlugRedirect />} />
+            <Route path="/:slug" element={<PublicSlugRedirect />} />
           </Routes>
         </React.Suspense>
       </ErrorBoundary>

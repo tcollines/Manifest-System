@@ -51,7 +51,8 @@ const EventsTab: React.FC = () => {
         setPassengerForm,
         setIsAddPassengerOpen,
         handleDeleteVehicle,
-        handleDeletePassenger
+        handleDeletePassenger,
+        showToast
     } = useRegistration();
 
     const [searchParams] = useSearchParams();
@@ -214,7 +215,10 @@ const EventsTab: React.FC = () => {
                             <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  const url = `${window.location.origin}/public/registration/${selectedLogisticsEvent.id}`;
+                                  const vanitySlug = selectedLogisticsEvent.title.toLowerCase().includes('12th')
+                                    ? '12thAnniversaryPrivateTransport'
+                                    : `${selectedLogisticsEvent.title.replace(/[^a-zA-Z0-9]/g, '')}PrivateTransport`;
+                                  const url = `${window.location.origin}/${vanitySlug}`;
                                   navigator.clipboard.writeText(url).then(() => {
                                     showToast("Public link copied to clipboard", "success");
                                   });
@@ -268,10 +272,12 @@ const EventsTab: React.FC = () => {
                                 : `${vehicles.filter(v => v.stationId === station.id).length} Vehicles`}
                             </span>
                           </div>
-                          <div className="flex items-center text-xs text-gray-500 mb-3 bg-gray-50 p-2 rounded">
-                            <UserPlus className="w-3 h-3 mr-2" />
-                            Coord: {station.coordinatorName || 'None'}
-                          </div>
+                          {!station.name.toLowerCase().includes('private transport') && (
+                            <div className="flex items-center text-xs text-gray-500 mb-3 bg-gray-50 p-2 rounded">
+                              <UserPlus className="w-3 h-3 mr-2" />
+                              Coord: {station.coordinatorName || 'None'}
+                            </div>
+                          )}
                           <button
                             onClick={() => handleSelectStation(station)}
                             className="w-full bg-white border border-gray-200 text-gray-700 py-2 rounded-lg font-bold hover:bg-gray-50 transition-colors"
@@ -320,36 +326,40 @@ const EventsTab: React.FC = () => {
                           {/* Stats & Actions */}
                           <div className="flex flex-col items-end gap-3 shrink-0">
                             <div className="bg-green-50 border border-green-100 text-green-700 px-3 py-1.5 rounded-xl flex flex-col items-center min-w-[70px]">
-                              <span className="text-[10px] font-bold uppercase">Registered</span>
+                              <span className="text-[10px] font-bold uppercase">
+                                {selectedStation.name.toLowerCase().includes('private transport') ? 'Registrants' : 'Registered'}
+                              </span>
                               <span className="text-xl font-bold leading-none">
-                                {passengers.filter(p => vehicles.find(v => v.id === p.vehicleId)?.stationId === selectedStation.id).length}
+                                {passengers.filter(p => p.stationId === selectedStation.id || vehicles.find(v => v.id === p.vehicleId)?.stationId === selectedStation.id).length}
                               </span>
                             </div>
 
                             <div className="flex flex-col gap-2 items-end">
                               {canDeleteLogistics && (
                                 <div className="flex space-x-2">
-                                  <button
-                                    onClick={() => {
-                                      setStationForm({
-                                        id: selectedStation.id,
-                                        name: selectedStation.name,
-                                        location: selectedStation.location,
-                                        coordinatorName: selectedStation.coordinatorName || '',
-                                        coordinatorContact: selectedStation.coordinatorContact || '',
-                                        // Pre-fill first entrant if available
-                                        entrantName: stationEntrants[0] ? stationEntrants[0].name : '',
-                                        entrantContact: stationEntrants[0] ? stationEntrants[0].contact || '' : '',
-                                        entrantUsername: stationEntrants[0] ? stationEntrants[0].username || '' : '',
-                                        entrantPassword: stationEntrants[0] ? stationEntrants[0].password || '' : ''
-                                      });
-                                      setIsAddStationOpen(true);
-                                    }}
-                                    className="bg-gray-100 text-gray-700 p-2 rounded-xl hover:bg-gray-200 transition-colors"
-                                    title="Edit Station"
-                                   >
-                                    <Settings className="w-4 h-4" />
-                                  </button>
+                                  {!selectedStation.name.toLowerCase().includes('private transport') && (
+                                    <button
+                                      onClick={() => {
+                                        setStationForm({
+                                          id: selectedStation.id,
+                                          name: selectedStation.name,
+                                          location: selectedStation.location,
+                                          coordinatorName: selectedStation.coordinatorName || '',
+                                          coordinatorContact: selectedStation.coordinatorContact || '',
+                                          // Pre-fill first entrant if available
+                                          entrantName: stationEntrants[0] ? stationEntrants[0].name : '',
+                                          entrantContact: stationEntrants[0] ? stationEntrants[0].contact || '' : '',
+                                          entrantUsername: stationEntrants[0] ? stationEntrants[0].username || '' : '',
+                                          entrantPassword: stationEntrants[0] ? stationEntrants[0].password || '' : ''
+                                        });
+                                        setIsAddStationOpen(true);
+                                      }}
+                                      className="bg-gray-100 text-gray-700 p-2 rounded-xl hover:bg-gray-200 transition-colors"
+                                      title="Edit Station"
+                                    >
+                                      <Settings className="w-4 h-4" />
+                                    </button>
+                                  )}
                                   <button
                                     onClick={handleDeleteStation}
                                     className="bg-red-50 text-red-600 p-2 rounded-xl hover:bg-red-100 transition-colors border border-red-100"
@@ -417,6 +427,7 @@ const EventsTab: React.FC = () => {
                                 <th className="px-4 py-3">Place of Residence</th>
                                 <th className="px-4 py-3">Transport Mode</th>
                                 <th className="px-4 py-3">First Timer</th>
+                                <th className="px-4 py-3 text-right">Actions</th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
@@ -444,11 +455,20 @@ const EventsTab: React.FC = () => {
                                         {p.isFirstTime || 'No'}
                                       </span>
                                     </td>
+                                    <td className="px-4 py-3 text-right">
+                                      <button
+                                        onClick={() => handleDeletePassenger(p.id)}
+                                        className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                        title="Delete Passenger"
+                                      >
+                                        <Trash2 className="w-4 h-4" />
+                                      </button>
+                                    </td>
                                   </tr>
                                 ))}
                               {passengers.filter(p => p.stationId === selectedStation.id || vehicles.find(v => v.id === p.vehicleId)?.stationId === selectedStation.id).length === 0 && (
                                 <tr>
-                                  <td colSpan={6} className="py-12 text-center text-gray-400 italic">
+                                  <td colSpan={7} className="py-12 text-center text-gray-400 italic">
                                     No public link passenger registrations recorded for this event yet.
                                   </td>
                                 </tr>
