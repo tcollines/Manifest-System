@@ -15,8 +15,8 @@ import { StageDetailsTab } from '../../../components/StageDetailsTab';
 const StagesTab: React.FC = () => {
     const { vehicles, passengers, dbStations, selectedEventId } = useTransport();
 
-    // Filter stations to the currently selected event only
-    const eventStations = dbStations.filter(s => s.eventId === selectedEventId);
+    // Filter stations to the currently selected event only (excluding Private Transport)
+    const eventStations = dbStations.filter(s => s.eventId === selectedEventId && !s.name.toLowerCase().includes('private transport'));
 
     return (
         <div>

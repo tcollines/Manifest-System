@@ -197,14 +197,19 @@ const EventsLeadDashboard: React.FC = () => {
         };
     });
 
-    // Calculations for Vehicles Tab
-    const totalVehicles = vehicles.length;
-    const vehiclesByCategory = vehicles.reduce((acc, v) => {
+    // Calculations for Vehicles Tab (excluding Private Transport public link entries)
+    const realFleetVehicles = vehicles.filter(v => 
+        v.number_plate !== 'PUBLIC TRANSPORT' && 
+        !v.number_plate?.toLowerCase().startsWith('private car') && 
+        !stations.find(s => s.id === v.stationId)?.name.toLowerCase().includes('private transport')
+    );
+    const totalVehicles = realFleetVehicles.length;
+    const vehiclesByCategory = realFleetVehicles.reduce((acc, v) => {
         const type = v.type || 'Unknown';
         acc[type] = (acc[type] || 0) + 1;
         return acc;
     }, { Car: 0, Taxi: 0, Coaster: 0, Bus: 0 } as Record<string, number>);
-    const vehiclesByStatus = vehicles.reduce((acc, v) => {
+    const vehiclesByStatus = realFleetVehicles.reduce((acc, v) => {
         const status = v.status || 'Pending';
         acc[status] = (acc[status] || 0) + 1;
         return acc;

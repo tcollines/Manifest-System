@@ -49,6 +49,7 @@ const RegistrationModals: React.FC = () => {
         selectedStation,
         isAddPassengerOpen,
         setIsAddPassengerOpen,
+        isSubmittingPassenger,
         passengerForm,
         setPassengerForm,
         handleAddPassenger,
@@ -711,9 +712,22 @@ const RegistrationModals: React.FC = () => {
                                 )}
                                 
                                 <div className="mt-8 flex justify-end gap-3 pt-4 border-t border-gray-100">
-                                    <button type="button" onClick={() => setIsAddPassengerOpen(false)} className="px-5 py-2.5 rounded-xl font-bold text-gray-600 hover:bg-gray-100 transition-colors">Cancel</button>
-                                    <button type="submit" className="px-6 py-2.5 rounded-xl font-bold text-white bg-ministry-orange hover:bg-orange-600 shadow-md transition-colors">
-                                        {passengerForm.id ? "Update Passenger" : "Add to Vehicle"}
+                                    <button type="button" onClick={() => setIsAddPassengerOpen(false)} disabled={isSubmittingPassenger} className="px-5 py-2.5 rounded-xl font-bold text-gray-600 hover:bg-gray-100 transition-colors disabled:opacity-50">Cancel</button>
+                                    <button
+                                        type="submit"
+                                        disabled={isSubmittingPassenger}
+                                        className={`px-6 py-2.5 rounded-xl font-bold text-white transition-colors flex items-center justify-center space-x-2 ${
+                                            isSubmittingPassenger ? 'bg-gray-400 cursor-not-allowed' : 'bg-ministry-orange hover:bg-orange-600 shadow-md'
+                                        }`}
+                                    >
+                                        {isSubmittingPassenger ? (
+                                            <>
+                                                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                                <span>Saving...</span>
+                                            </>
+                                        ) : (
+                                            <span>{passengerForm.id ? "Update Passenger" : "Add to Vehicle"}</span>
+                                        )}
                                     </button>
                                 </div>
                             </form>

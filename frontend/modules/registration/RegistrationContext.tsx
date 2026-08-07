@@ -513,6 +513,7 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
     description: ''
   });
   const [isSubmittingEvent, setIsSubmittingEvent] = useState(false);
+  const [isSubmittingPassenger, setIsSubmittingPassenger] = useState(false);
 
   // Highlights Modal State
     const showHighlights = searchParams.get('modal') === 'highlights';
@@ -2503,7 +2504,24 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
       return;
     }
 
+    if (isSubmittingPassenger) return;
+
     const sanitize = (val?: string) => val ? val.trim() : undefined;
+
+    // Check duplicate passenger in client state before submitting CREATE MODE
+    if (!passengerForm.id && selectedVehicle) {
+      const nameClean = passengerForm.name.trim().toLowerCase();
+      const contactClean = (finalContact || passengerForm.contact || '').trim();
+      const existingInVehicle = passengers.find(p => 
+        p.vehicleId === selectedVehicle.id &&
+        p.name.trim().toLowerCase() === nameClean &&
+        (p.contact || '').trim() === contactClean
+      );
+      if (existingInVehicle) {
+        showToast(`Passenger "${passengerForm.name.trim()}" is already registered in this vehicle.`, 'error');
+        return;
+      }
+    }
 
     const payload: Passenger = {
       ...passengerForm,
@@ -2522,6 +2540,7 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
     };
 
     try {
+      setIsSubmittingPassenger(true);
       if (passengerForm.id) {
         // UPDATE MODE
         const updatePayload: Partial<Passenger> & { id: string } = {
@@ -2544,7 +2563,11 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
       } else {
         // CREATE MODE
         const res = await VehicleStore.addPassenger(payload);
-        const createdPassenger = (res.status === 'success' && res.data) ? res.data : payload;
+        if (res.status === 'error') {
+          showToast(res.message || "Failed to add passenger", 'error');
+          return;
+        }
+        const createdPassenger = res.data || payload;
         setPassengers(prev => [...prev, createdPassenger]);
         showToast("Passenger added successfully", 'success');
       }
@@ -2565,7 +2588,6 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
         soulWon: 'No',
         id: '' // Reset ID
       });
-      // refreshData(); // Removed in favor of local state update and Realtime sync
       
       // Clear session after successful submit
       sessionStorage.removeItem('manifest_passengerForm');
@@ -2573,6 +2595,8 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
     } catch (error: any) {
       console.error("Failed to save passenger:", error);
       showToast(passengerForm.id ? "Failed to update passenger" : "Failed to add passenger", 'error');
+    } finally {
+      setIsSubmittingPassenger(false);
     }
   };
 
@@ -3058,6 +3082,7 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
     setVehicleForm, 
     isAddPassengerOpen, 
     setIsAddPassengerOpen, 
+    isSubmittingPassenger, 
     isAddChildrenOpen, 
     setIsAddChildrenOpen, 
     childrenForm, 

@@ -20,7 +20,7 @@ import {
 import PhoneInput from '../../components/PhoneInput';
 import { useAuth } from '@/context/AuthContext';
 import { TrackedVehicle } from './types';
-import { GoogleMap, useJsApiLoader, Polyline } from '@react-google-maps/api';
+import { GoogleMap, useJsApiLoader, Polyline, MarkerF } from '@react-google-maps/api';
 import { SmoothVehicleMarker } from './SmoothVehicleMarker';
 
 const mapContainerStyle = {
@@ -481,7 +481,7 @@ const StageCoordinatorDashboard: React.FC = () => {
                                 options={{ mapTypeId: 'roadmap' }}
                             >
                                 {/* Station Marker */}
-                                <Marker
+                                <MarkerF
                                     position={center} // Should be station location if we had coords
                                     label="S"
                                     title="My Station"
@@ -489,7 +489,7 @@ const StageCoordinatorDashboard: React.FC = () => {
 
                                 {/* Event Destination Marker */}
                                 {eventLocation && (
-                                    <Marker
+                                    <MarkerF
                                         position={eventLocation}
                                         title="Event Destination"
                                         icon={{

@@ -263,7 +263,9 @@ const EventsTab: React.FC = () => {
                               <p className="text-xs text-gray-500 truncate">{station.location}</p>
                             </div>
                             <span className="text-xs bg-gray-100 px-2 py-1 rounded font-bold text-gray-600 shrink-0 whitespace-nowrap">
-                              {vehicles.filter(v => v.stationId === station.id).length} Vehicles
+                              {station.name.toLowerCase().includes('private transport')
+                                ? `${passengers.filter(p => p.stationId === station.id || vehicles.find(v => v.id === p.vehicleId)?.stationId === station.id).length} Registrants`
+                                : `${vehicles.filter(v => v.stationId === station.id).length} Vehicles`}
                             </span>
                           </div>
                           <div className="flex items-center text-xs text-gray-500 mb-3 bg-gray-50 p-2 rounded">
@@ -388,108 +390,172 @@ const EventsTab: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* ENTRANT MANAGEMENT (ADMIN ONLY) */}
-                    {!isLogisticsRole && (
-                      <div className="mb-8 bg-gray-50 p-6 rounded-2xl border border-gray-200">
-                        <div className="flex justify-between items-center mb-4">
-                          <h3 className="text-lg font-bold text-gray-800 flex items-center">
-                            <Users className="w-5 h-5 mr-2 text-ministry-orange" />
-                            Assigned Data Entrants
-                          </h3>
-                          <button
-                            onClick={() => setIsAddEntrantOpen(true)}
-                            className="w-10 h-10 flex items-center justify-center bg-gray-900 hover:bg-black rounded-xl shadow-sm transition-colors"
-                            title="Add Data Entrant"
-                          >
-                            <Plus className="w-6 h-6 text-[#CCFF00]" />
-                          </button>
+                    {/* ENTRANT & VEHICLE MANAGEMENT OR PRIVATE TRANSPORT PASSENGER TABLE */}
+                    {selectedStation.name.toLowerCase().includes('private transport') ? (
+                      <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm space-y-4">
+                        <div className="flex justify-between items-center pb-4 border-b border-gray-100">
+                          <div>
+                            <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                              <Users className="w-5 h-5 text-ministry-orange" />
+                              Public Registration Passengers
+                            </h3>
+                            <p className="text-xs text-gray-500">Commuters registered directly via the public registration link</p>
+                          </div>
+                          <span className="bg-orange-50 text-ministry-orange font-bold text-xs px-3 py-1.5 rounded-full border border-orange-100">
+                            {passengers.filter(p => p.stationId === selectedStation.id || vehicles.find(v => v.id === p.vehicleId)?.stationId === selectedStation.id).length} Registrants
+                          </span>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                          {stationEntrants.map(user => (
-                            <div key={user.id} className="bg-white border border-gray-200 p-4 rounded-xl flex items-center justify-between">
-                              <div className="flex items-center space-x-3">
-                                <div className="w-10 h-10 bg-ministry-neon text-black font-bold rounded-full flex items-center justify-center">
-                                  {user.name.charAt(0)}
-                                </div>
-                                <div>
-                                  <p className="font-bold text-sm text-gray-900">{user.name}</p>
-                                  <p className="text-xs text-gray-500">@{user.username}</p>
-                                </div>
-                              </div>
-                              <div className="text-xs bg-green-50 text-green-700 px-2 py-1 rounded font-bold">Active</div>
-                            </div>
-                          ))}
-                          {stationEntrants.length === 0 && (
-                            <div className="col-span-full py-4 text-center text-gray-400 text-sm italic">
-                              No Data Entrants assigned.
-                            </div>
-                          )}
+
+                        {/* PASSENGER TABLE WITH FORM QUESTIONS IN COLUMNS */}
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left text-sm">
+                            <thead className="bg-gray-50 text-xs font-bold uppercase text-gray-500 border-b border-gray-200">
+                              <tr>
+                                <th className="px-4 py-3">#</th>
+                                <th className="px-4 py-3">Full Name</th>
+                                <th className="px-4 py-3">Contact Number</th>
+                                <th className="px-4 py-3">Place of Residence</th>
+                                <th className="px-4 py-3">Transport Mode</th>
+                                <th className="px-4 py-3">First Timer</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                              {passengers
+                                .filter(p => p.stationId === selectedStation.id || vehicles.find(v => v.id === p.vehicleId)?.stationId === selectedStation.id)
+                                .map((p, idx) => (
+                                  <tr key={p.id} className="hover:bg-gray-50 transition-colors">
+                                    <td className="px-4 py-3 font-bold text-gray-400">{idx + 1}</td>
+                                    <td className="px-4 py-3 font-bold text-gray-900">{p.name}</td>
+                                    <td className="px-4 py-3 text-gray-600 font-mono">{p.contact || 'N/A'}</td>
+                                    <td className="px-4 py-3 text-gray-700">{p.residence || 'N/A'}</td>
+                                    <td className="px-4 py-3">
+                                      <span className={`inline-block px-2.5 py-1 rounded-md text-xs font-bold ${
+                                        p.transportMeans?.toLowerCase().includes('private car')
+                                          ? 'bg-blue-50 text-blue-700 border border-blue-100'
+                                          : 'bg-amber-50 text-amber-700 border border-amber-100'
+                                      }`}>
+                                        {p.transportMeans || 'Public Transport'}
+                                      </span>
+                                    </td>
+                                    <td className="px-4 py-3">
+                                      <span className={`inline-block px-2 py-0.5 rounded text-xs font-bold ${
+                                        p.isFirstTime === 'Yes' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'
+                                      }`}>
+                                        {p.isFirstTime || 'No'}
+                                      </span>
+                                    </td>
+                                  </tr>
+                                ))}
+                              {passengers.filter(p => p.stationId === selectedStation.id || vehicles.find(v => v.id === p.vehicleId)?.stationId === selectedStation.id).length === 0 && (
+                                <tr>
+                                  <td colSpan={6} className="py-12 text-center text-gray-400 italic">
+                                    No public link passenger registrations recorded for this event yet.
+                                  </td>
+                                </tr>
+                              )}
+                            </tbody>
+                          </table>
                         </div>
                       </div>
-                    )}
-
-                    {/* VEHICLE LIST */}
-                    <div>
-                      <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center"><Bus className="w-5 h-5 mr-2 text-ministry-orange" /> Registered Vehicles</h3>
-                      {/* DEBUG: Vehicle List */}
-                      {console.log("Rendering Vehicles:", {
-                        totalVehicles: vehicles.length,
-                        selectedStationId: selectedStation?.id,
-                        filteredCount: vehicles.filter(v => v.stationId === selectedStation?.id).length,
-                        sampleVehicle: vehicles[0]
-                      })}
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-                        {vehicles.filter(v => String(v.stationId) === String(selectedStation.id)).map(vehicle => {
-                          const vPassengers = passengers.filter(p => p.vehicleId === vehicle.id);
-                          let statusColor = "bg-gray-100 text-gray-600";
-                          let statusText = vehicle.currentStage || "Onboarding";
-
-                          if (vehicle.currentStage === 'RegApproval') { statusColor = "bg-orange-100 text-orange-700"; }
-                          else if (vehicle.currentStage === 'FinanceApproval') { statusColor = "bg-blue-100 text-blue-700"; }
-                          else if (vehicle.currentStage === 'Transit') { statusColor = "bg-green-100 text-green-700"; }
-
-                          return (
-                            <div key={vehicle.id} className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm hover:border-ministry-orange/50 transition-all group">
-                              <div className="p-4 bg-white border-b border-gray-100 flex justify-between items-start">
-                                <span className="font-mono font-bold text-xl text-gray-900">{vehicle.number_plate}</span>
-                                <div className="text-right">
-                                  <span className="text-[10px] font-bold uppercase bg-gray-50 border border-gray-200 px-2 py-1 rounded text-gray-500 block mb-1">{vehicle.type}</span>
-                                  <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${statusColor}`}>
-                                    {statusText}
-                                  </span>
-                                </div>
-                              </div>
-                              <div className="p-4">
-                                <div className="mb-4 flex justify-between">
-                                  <div>
-                                    <p className="text-xs text-gray-400 uppercase font-bold">Driver</p>
-                                    <p className="font-bold text-gray-700">{vehicle.driverName}</p>
-                                  </div>
-                                  <div className="text-right">
-                                    <p className="text-xs text-gray-400 uppercase font-bold">Passengers</p>
-                                    <div className="flex items-center justify-end text-blue-600 font-bold text-lg">
-                                      <Users className="w-4 h-4 mr-1" />
-                                      {vPassengers.length}
+                    ) : (
+                      <>
+                        {/* ENTRANT MANAGEMENT (ADMIN ONLY) */}
+                        {!isLogisticsRole && (
+                          <div className="mb-8 bg-gray-50 p-6 rounded-2xl border border-gray-200">
+                            <div className="flex justify-between items-center mb-4">
+                              <h3 className="text-lg font-bold text-gray-800 flex items-center">
+                                <Users className="w-5 h-5 mr-2 text-ministry-orange" />
+                                Assigned Data Entrants
+                              </h3>
+                              <button
+                                onClick={() => setIsAddEntrantOpen(true)}
+                                className="w-10 h-10 flex items-center justify-center bg-gray-900 hover:bg-black rounded-xl shadow-sm transition-colors"
+                                title="Add Data Entrant"
+                              >
+                                <Plus className="w-6 h-6 text-[#CCFF00]" />
+                              </button>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                              {stationEntrants.map(user => (
+                                <div key={user.id} className="bg-white border border-gray-200 p-4 rounded-xl flex items-center justify-between">
+                                  <div className="flex items-center space-x-3">
+                                    <div className="w-10 h-10 bg-ministry-neon text-black font-bold rounded-full flex items-center justify-center">
+                                      {user.name.charAt(0)}
+                                    </div>
+                                    <div>
+                                      <p className="font-bold text-sm text-gray-900">{user.name}</p>
+                                      <p className="text-xs text-gray-500">@{user.username}</p>
                                     </div>
                                   </div>
+                                  <div className="text-xs bg-green-50 text-green-700 px-2 py-1 rounded font-bold">Active</div>
                                 </div>
-                                <button
-                                  onClick={() => setSelectedVehicle(vehicle)}
-                                  className="w-full text-center bg-ministry-text text-white py-3 rounded-xl font-bold text-sm hover:bg-ministry-orange transition-colors flex items-center justify-center shadow-md active:scale-95"
-                                >
-                                  Manage Vehicle <ChevronRight className="w-4 h-4 ml-1" />
-                                </button>
-                              </div>
+                              ))}
+                              {stationEntrants.length === 0 && (
+                                <div className="col-span-full py-4 text-center text-gray-400 text-sm italic">
+                                  No Data Entrants assigned.
+                                </div>
+                              )}
                             </div>
-                          );
-                        })}
-                        {vehicles.filter(v => String(v.stationId) === String(selectedStation.id)).length === 0 && (
-                          <div className="col-span-full py-12 text-center text-gray-400 bg-white rounded-xl border border-dashed border-gray-300">
-                            No vehicles registered at this station yet.
                           </div>
                         )}
-                      </div>
-                    </div>
+
+                        {/* VEHICLE LIST */}
+                        <div>
+                          <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center"><Bus className="w-5 h-5 mr-2 text-ministry-orange" /> Registered Vehicles</h3>
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+                            {vehicles.filter(v => String(v.stationId) === String(selectedStation.id)).map(vehicle => {
+                              const vPassengers = passengers.filter(p => p.vehicleId === vehicle.id);
+                              let statusColor = "bg-gray-100 text-gray-600";
+                              let statusText = vehicle.currentStage || "Onboarding";
+
+                              if (vehicle.currentStage === 'RegApproval') { statusColor = "bg-orange-100 text-orange-700"; }
+                              else if (vehicle.currentStage === 'FinanceApproval') { statusColor = "bg-blue-100 text-blue-700"; }
+                              else if (vehicle.currentStage === 'Transit') { statusColor = "bg-green-100 text-green-700"; }
+
+                              return (
+                                <div key={vehicle.id} className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm hover:border-ministry-orange/50 transition-all group">
+                                  <div className="p-4 bg-white border-b border-gray-100 flex justify-between items-start">
+                                    <span className="font-mono font-bold text-xl text-gray-900">{vehicle.number_plate}</span>
+                                    <div className="text-right">
+                                      <span className="text-[10px] font-bold uppercase bg-gray-50 border border-gray-200 px-2 py-1 rounded text-gray-500 block mb-1">{vehicle.type}</span>
+                                      <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${statusColor}`}>
+                                        {statusText}
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <div className="p-4">
+                                    <div className="mb-4 flex justify-between">
+                                      <div>
+                                        <p className="text-xs text-gray-400 uppercase font-bold">Driver</p>
+                                        <p className="font-bold text-gray-700">{vehicle.driverName}</p>
+                                      </div>
+                                      <div className="text-right">
+                                        <p className="text-xs text-gray-400 uppercase font-bold">Passengers</p>
+                                        <div className="flex items-center justify-end text-blue-600 font-bold text-lg">
+                                          <Users className="w-4 h-4 mr-1" />
+                                          {vPassengers.length}
+                                        </div>
+                                      </div>
+                                    </div>
+                                    <button
+                                      onClick={() => setSelectedVehicle(vehicle)}
+                                      className="w-full text-center bg-ministry-text text-white py-3 rounded-xl font-bold text-sm hover:bg-ministry-orange transition-colors flex items-center justify-center shadow-md active:scale-95"
+                                    >
+                                      Manage Vehicle <ChevronRight className="w-4 h-4 ml-1" />
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                            {vehicles.filter(v => String(v.stationId) === String(selectedStation.id)).length === 0 && (
+                              <div className="col-span-full py-12 text-center text-gray-400 bg-white rounded-xl border border-dashed border-gray-300">
+                                No vehicles registered at this station yet.
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </>
+                    )}
                   </div>
                 )}
 

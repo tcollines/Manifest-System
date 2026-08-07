@@ -509,18 +509,42 @@ export const addPassenger = async (req: Request, res: Response) => {
     if (!manifestId) return res.status(401).json({ error: 'Unauthorized' });
 
     try {
+        const nameClean = (req.body.name || '').trim();
+        const contactClean = (req.body.contact || '').trim();
+        const vehicleIdClean = toUUID(req.body.vehicle_id);
+
+        // Prevent duplicate passenger registration in the same vehicle
+        if (vehicleIdClean && nameClean) {
+            const { data: existing } = await supabase
+                .from('passengers')
+                .select('id, name')
+                .eq('vehicle_id', vehicleIdClean)
+                .ilike('name', nameClean)
+                .eq('contact', contactClean)
+                .maybeSingle();
+
+            if (existing) {
+                return res.status(400).json({ error: `Passenger "${nameClean}" is already registered in this vehicle.` });
+            }
+        }
+
         const payload = {
             ...req.body,
             manifest_id: manifestId, // INJECT TENANT ID
             id: req.body.id ? toUUID(req.body.id) : uuidv4(),
-            vehicle_id: toUUID(req.body.vehicle_id),
+            vehicle_id: vehicleIdClean,
             event_id: toUUID(req.body.event_id),
             gender: req.body.gender || 'Male',
             is_first_time: req.body.is_first_time || req.body.isFirstTime || 'No',
             station_id: toUUID(req.body.station_id)
         };
         const { data, error } = await supabase.from('passengers').insert([payload]).select('*').maybeSingle();
-        if (error) throw error;
+        if (error) {
+            if (error.code === '23505') {
+                return res.status(400).json({ error: `Passenger "${nameClean}" is already registered in this vehicle.` });
+            }
+            throw error;
+        }
 
         // Unified Ledger Sync
         if (data && data.soul_won) {

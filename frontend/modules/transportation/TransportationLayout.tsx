@@ -302,6 +302,19 @@ const TransportationLayout: React.FC = () => {
     const handleAddReturnPassenger = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!myVehicle || !returnPassengerForm.name.trim()) return;
+
+        const nameClean = returnPassengerForm.name.trim().toLowerCase();
+        const contactClean = (returnPassengerForm.contact || '').trim();
+        const existingInVehicle = passengers.find(p =>
+            p.vehicleId === myVehicle.id &&
+            p.name.trim().toLowerCase() === nameClean &&
+            (p.contact || '').trim() === contactClean
+        );
+        if (existingInVehicle) {
+            showToast(`Passenger "${returnPassengerForm.name.trim()}" is already registered in this vehicle.`, 'error');
+            return;
+        }
+
         if (!returnPassengerForm.contact || returnPassengerForm.contact === '256' || returnPassengerForm.contact.length <= 3) {
             if (!(await askConfirm('Missing Contact Info', 'No contact number provided. Are you sure?'))) return;
         }
@@ -311,7 +324,11 @@ const TransportationLayout: React.FC = () => {
             contact: returnPassengerForm.contact, residence: returnPassengerForm.residence,
             category: 'Member', isFirstTime: 'No', verified: true
         };
-        VehicleStore.addPassenger(newP);
+        const res = await VehicleStore.addPassenger(newP);
+        if (res.status === 'error') {
+            showToast(res.message || 'Failed to add passenger', 'error');
+            return;
+        }
         setPassengers(prev => [...prev, newP]);
         setReturnPassengerForm({ name: '', contact: '', residence: '' });
     };

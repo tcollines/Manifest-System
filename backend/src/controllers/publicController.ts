@@ -326,7 +326,7 @@ export const submitPublicEventPassengers = async (req: Request, res: Response) =
     try {
         const { data: event, error: eventError } = await supabase
                 .from('ministry_events')
-                .select('id')
+                .select('id, manifest_id')
                 .eq('id', eventId)
                 .single();
         
@@ -334,9 +334,83 @@ export const submitPublicEventPassengers = async (req: Request, res: Response) =
             return res.status(404).json({ error: 'Event not found' });
         }
 
+        // Determine number plate or fallback to 'PUBLIC TRANSPORT'
+        const firstTransport = passengers[0]?.transportMeans || '';
+        const match = firstTransport.match(/Private Car \(([^)]+)\)/i);
+        const plateName = match ? match[1].trim().toUpperCase() : 'PUBLIC TRANSPORT';
+
+        // Find or auto-create vehicle for this registration payload
+        let { data: vehicle } = await supabase
+            .from('vehicles')
+            .select('id, station_id')
+            .eq('event_id', eventId)
+            .ilike('number_plate', plateName)
+            .maybeSingle();
+
+        // Find or auto-create dedicated "Private Transport" station for public registrations
+        let { data: privateStation } = await supabase
+            .from('pickup_stations')
+            .select('id, name')
+            .eq('event_id', eventId)
+            .ilike('name', 'Private Transport')
+            .maybeSingle();
+
+        if (!privateStation) {
+            const newStationId = uuidv4();
+            const { data: createdStation, error: stErr } = await supabase
+                .from('pickup_stations')
+                .insert([{
+                    id: newStationId,
+                    manifest_id: event.manifest_id,
+                    event_id: eventId,
+                    name: 'Private Transport',
+                    location: 'Public Commuters'
+                }])
+                .select('id, name')
+                .maybeSingle();
+
+            if (!stErr && createdStation) {
+                privateStation = createdStation;
+            } else if (stErr) {
+                console.error('[submitPublicEventPassengers CREATE PRIVATE STATION ERROR]', stErr);
+            }
+        }
+
+        const resolvedStationId = privateStation?.id || vehicle?.station_id || null;
+
+        if (!vehicle) {
+            const newVehicleId = uuidv4();
+            const { data: newVehicle, error: vErr } = await supabase
+                .from('vehicles')
+                .insert([{
+                    id: newVehicleId,
+                    manifest_id: event.manifest_id,
+                    event_id: eventId,
+                    station_id: resolvedStationId,
+                    number_plate: plateName,
+                    driver_name: passengers[0]?.name ? `${passengers[0].name.trim()} (Driver)` : 'Public Driver',
+                    driver_contact: passengers[0]?.contact || '',
+                    type: 'Car',
+                    status: 'Verifying'
+                }])
+                .select('id, station_id')
+                .maybeSingle();
+
+            if (!vErr && newVehicle) {
+                vehicle = newVehicle;
+            } else if (vErr) {
+                console.error('[submitPublicEventPassengers AUTO-CREATE VEHICLE ERROR]', vErr);
+            }
+        }
+
+        const resolvedVehicleId = vehicle ? vehicle.id : null;
+
         const formattedPassengers = passengers.map((p: any) => ({
             id: uuidv4(),
+            manifest_id: event.manifest_id,
             event_id: eventId,
+            vehicle_id: resolvedVehicleId,
+            station_id: resolvedStationId,
             name: p.name,
             contact: p.contact,
             residence: p.residence,
@@ -347,11 +421,13 @@ export const submitPublicEventPassengers = async (req: Request, res: Response) =
         
         const { error } = await supabase.from('passengers').insert(formattedPassengers);
         if (error) {
+            console.error('[submitPublicEventPassengers INSERT ERROR]', error);
             return res.status(500).json({ error: error.message });
         }
         
         res.status(201).json({ success: true, count: formattedPassengers.length });
     } catch (e) {
+        console.error('[submitPublicEventPassengers EXCEPTION]', e);
         res.status(500).json({ error: 'An internal server error occurred.' });
     }
 };

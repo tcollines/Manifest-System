@@ -113,7 +113,7 @@ const CoordinatorView: React.FC = () => {
         handleStageUpdate, handleToggleVerify, handleAddReturnPassenger,
         handleMarkSoulWon, switchJourneyTab, handlePrintReport,
         isReturnAvailable, isJourneyComplete, refreshData, selectedEventId,
-        selectedEvent, cognitoFormUrl
+        selectedEvent, cognitoFormUrl, dbStations
     } = useTransport();
     const { showToast, confirm: askConfirm } = useNotification();
 
@@ -521,7 +521,7 @@ const CoordinatorView: React.FC = () => {
                                         <div className="flex flex-col gap-3 items-center">
                                             {activeJourneyTab === 'Ongoing' && (
                                                 <button onClick={() => {
-                                                                                    const basePayload = {
+                                                    const basePayload = {
                                                         CordinatorsContactInformation: {
                                                             Name: {
                                                                 First: user?.name?.split(' ')[0] || '',
@@ -535,15 +535,11 @@ const CoordinatorView: React.FC = () => {
                                                         ListOfTransportedPeople: [] as any[]
                                                     };
 
-                                                    let truncated = false;
-                                                    let addedCount = 0;
-
-                                                    // Dynamically add passengers one by one up to a safe URL length limit (approx 2000 chars)
-                                                    for (const p of passengers) {
+                                                    // Map ALL passengers for the vehicle
+                                                    const mappedPassengers = passengers.map(p => {
                                                         let cleanPhone = p.contact ? p.contact.replace(/\D/g, '') : '';
                                                         if (cleanPhone.length < 9) cleanPhone = '256700000000';
                                                         
-                                                        // Construct passenger object, omitting default/empty fields to minimize URL size
                                                         const newPassenger: any = {
                                                             Name: p.name,
                                                             Phone: cleanPhone
@@ -568,31 +564,24 @@ const CoordinatorView: React.FC = () => {
                                                                 newPassenger.SchoolName = p.school;
                                                             }
                                                         }
+                                                        return newPassenger;
+                                                    });
 
-                                                        const testPayload = {
-                                                            ...basePayload,
-                                                            ListOfTransportedPeople: [...basePayload.ListOfTransportedPeople, newPassenger]
-                                                        };
-                                                        const testUrl = `${cognitoFormUrl}?entry=${encodeURIComponent(JSON.stringify(testPayload))}`;
-                                                        
-                                                        if (testUrl.length > 2000) {
-                                                            truncated = true;
-                                                            break; // Stop adding more passengers to keep the URL size safe from HTTP 400 errors
-                                                        }
-                                                        basePayload.ListOfTransportedPeople.push(newPassenger);
-                                                        addedCount++;
-                                                    }
+                                                    const fullPayload = {
+                                                        ...basePayload,
+                                                        ListOfTransportedPeople: mappedPassengers
+                                                    };
 
-                                                    if (truncated) {
-                                                        showToast(`Only ${addedCount} of ${passengers.length} passengers pre-filled due to form size limits.`, 'warning');
-                                                    }
-                                                    
-                                                    if (basePayload.ListOfTransportedPeople.length > 2) {
-                                                        showToast("If you encounter a 'Request Too Long' error, try opening in Incognito or clearing cookies for cognitoforms.com.", "info");
-                                                    }
+                                                    const fullUrl = `${cognitoFormUrl}?entry=${encodeURIComponent(JSON.stringify(fullPayload))}`;
 
-                                                    const encodedUrl = `${cognitoFormUrl}?entry=${encodeURIComponent(JSON.stringify(basePayload))}`;
-                                                    window.open(encodedUrl, '_blank');
+                                                    // Enforce All-or-Nothing Rule: Only prefill passenger table if 100% of passengers fit
+                                                    if (fullUrl.length <= 2500) {
+                                                        window.open(fullUrl, '_blank');
+                                                    } else {
+                                                        showToast(`Vehicle has too many passengers (${passengers.length}) to pre-fill all safely. Pre-filled Coordinator & Vehicle info only.`, 'info');
+                                                        const headerOnlyUrl = `${cognitoFormUrl}?entry=${encodeURIComponent(JSON.stringify(basePayload))}`;
+                                                        window.open(headerOnlyUrl, '_blank');
+                                                    }
                                                 }} className="bg-ministry-orange text-white px-6 py-2 rounded-lg font-bold hover:bg-orange-600 transition-colors flex items-center shadow">
                                                     <ExternalLink className="w-4 h-4 mr-2" /> Open Cognito form
                                                 </button>
@@ -616,7 +605,7 @@ const CoordinatorView: React.FC = () => {
 
 const HodOverview: React.FC = () => {
     const {
-        vehicles, passengers, coordinators, selectedEventId, selectedEvent, filteredEvents,
+        vehicles, passengers, coordinators, selectedEventId, selectedEvent, filteredEvents, dbStations,
         setSelectedEventId, filterStatus, setFilterStatus, isAssigning, setIsAssigning,
         selectedCoordinator, setSelectedCoordinator, adminViewMode, setAdminViewMode,
         selectedAdminVehicle, adminVehiclePassengers, adminDetailTab, setAdminDetailTab,
@@ -629,11 +618,16 @@ const HodOverview: React.FC = () => {
     const onLoad = React.useCallback((map: any) => setMapInstance(map), []);
     const onUnmount = React.useCallback(() => setMapInstance(null), []);
 
-    const activeVehicles = vehicles.filter(v => filterStatus === 'All' ? true : v.status === filterStatus);
-    const totalVehicles = vehicles.length;
-    const inTransit = vehicles.filter(v => v.currentStage === 'Transit').length;
-    const delayed = vehicles.filter(v => v.isDelayed).length;
-    const totalPeopleCount = passengers.length + vehicles.reduce((sum, v) => sum + (v.childrenCount || 0), 0);
+    const realFleetVehicles = vehicles.filter(v => 
+        v.number_plate !== 'PUBLIC TRANSPORT' && 
+        !v.number_plate?.toLowerCase().startsWith('private car') && 
+        !(dbStations || []).find(s => s.id === v.stationId)?.name.toLowerCase().includes('private transport')
+    );
+    const activeVehicles = realFleetVehicles.filter(v => filterStatus === 'All' ? true : v.status === filterStatus);
+    const totalVehicles = realFleetVehicles.length;
+    const inTransit = realFleetVehicles.filter(v => v.currentStage === 'Transit').length;
+    const delayed = realFleetVehicles.filter(v => v.isDelayed).length;
+    const totalPeopleCount = passengers.length + realFleetVehicles.reduce((sum, v) => sum + (v.childrenCount || 0), 0);
 
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
