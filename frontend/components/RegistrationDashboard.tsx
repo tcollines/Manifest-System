@@ -65,7 +65,7 @@ import EventDetailsModal from './EventDetailsModal';
 import { AssetsTab } from './AssetsTab';
 import NumberPlateInput from './NumberPlateInput';
 import PhoneInput from './PhoneInput';
-import ManualCountModal from './ManualCountModal';
+import { VehicleStore } from '../database/vehicleStore';
 
 interface RegistrationDashboardProps {
   events: MinistryEvent[];
@@ -279,6 +279,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
 
   // Data Entrant - Add Vehicle State
   const [isAddVehicleOpen, setIsAddVehicleOpen] = useState(false);
+  const [autoFilledPlate, setAutoFilledPlate] = useState<string | null>(null);
   const [vehicleForm, setVehicleForm] = useState({
     number_plate: '',
     driverName: '',
@@ -289,6 +290,64 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
     coordinator: '',
     id: '' // Added ID field for tracking edits
   });
+
+  const handleDashboardPlateChange = async (val: string) => {
+    if (vehicleForm.id) {
+      setVehicleForm(prev => ({ ...prev, number_plate: val }));
+      return;
+    }
+
+    setVehicleForm(prev => ({ ...prev, number_plate: val }));
+
+    const rawInput = val.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+    const isFullPlate = rawInput.length >= 6 || validatePlate(val).valid;
+
+    // Do NOT auto-fill on incomplete or partial number plates
+    if (!isFullPlate) {
+      setAutoFilledPlate(null);
+      return;
+    }
+
+    // 1. Check local loaded state first for exact plate match
+    const localMatch = (vehicles || []).find((v: any) => {
+      const rawV = (v.number_plate || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+      return rawV === rawInput;
+    }) || (personalVehicles || []).find((pv: any) => {
+      const rawPV = (pv.number_plate || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+      return rawPV === rawInput;
+    });
+
+    if (localMatch) {
+      setVehicleForm(prev => ({
+        ...prev,
+        driverName: localMatch.driverName || prev.driverName,
+        driverNin: localMatch.driverNin || prev.driverNin,
+        driverContact: localMatch.driverContact || prev.driverContact,
+        type: localMatch.type || prev.type || 'Taxi'
+      }));
+      setAutoFilledPlate(val);
+      return;
+    }
+
+    // 2. Query database across all past events for exact plate match
+    try {
+      const dbMatch = await VehicleStore.lookupVehicleByPlate(val);
+      if (dbMatch) {
+        setVehicleForm(prev => ({
+          ...prev,
+          driverName: dbMatch.driverName || prev.driverName,
+          driverNin: dbMatch.driverNin || prev.driverNin,
+          driverContact: dbMatch.driverContact || prev.driverContact,
+          type: dbMatch.type || prev.type || 'Taxi'
+        }));
+        setAutoFilledPlate(val);
+      } else {
+        setAutoFilledPlate(null);
+      }
+    } catch (e) {
+      console.error("Plate lookup error:", e);
+    }
+  };
 
   // Add Passenger Modal State
   const [isAddPassengerOpen, setIsAddPassengerOpen] = useState(false);
@@ -4113,6 +4172,22 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
                   </select>
                 </div>
 
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <label className="text-sm font-bold text-gray-700">Number Plate</label>
+                    {autoFilledPlate && (
+                      <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                        ✓ Auto-filled from previous event
+                      </span>
+                    )}
+                  </div>
+                  <NumberPlateInput
+                    required
+                    value={vehicleForm.number_plate}
+                    onChange={handleDashboardPlateChange}
+                  />
+                </div>
+
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="text-sm font-bold text-gray-700">Driver Name</label>
@@ -4152,14 +4227,6 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
                 <div className="space-y-2">
                   <label className="text-sm font-bold text-gray-700">Driver Contact</label>
                   <PhoneInput required value={vehicleForm.driverContact} onChange={(val) => setVehicleForm({ ...vehicleForm, driverContact: val })} placeholder="700 000 000" />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-gray-700">Number Plate</label>
-                  <NumberPlateInput
-                    required
-                    value={vehicleForm.number_plate}
-                    onChange={(val) => setVehicleForm({ ...vehicleForm, number_plate: val })}
-                  />
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-bold text-gray-700">Vehicle Type</label>

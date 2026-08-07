@@ -10,7 +10,7 @@ import { Passenger, Vehicle, User, MinistryEvent } from '../types';
 import {
     Calendar, Users, Bus, Clock, Home, GraduationCap, Building,
     Award, Wallet, Baby, UserPlus, Download, UserCheck, Shield,
-    MapPin, Settings, AlertCircle, BarChart3, Activity
+    MapPin, Settings, AlertCircle, BarChart3, Activity, Car
 } from 'lucide-react';
 
 const EventsLeadDashboard: React.FC = () => {
@@ -303,12 +303,13 @@ const EventsLeadDashboard: React.FC = () => {
                                 <MetricCard icon={<Wallet />} title="Total Budget" value={`UGX ${totalBudget.toLocaleString()}`} subtitle="Allocated budget" color="blue" />
                                 
                                 <MetricCard icon={<Clock />} title="Average ETA" value={avgEta} subtitle="Based on vehicle journeys" color="teal" />
-                                <MetricCard icon={<Baby />} title="Children" value={totalChildren.toLocaleString()} subtitle="Children attendees" color="emerald" />
-                                <MetricCard icon={<Home />} title="Community" value={(highlights.residentials || 0).toLocaleString()} subtitle="Residents / Locals" color="purple" />
-                                <MetricCard icon={<GraduationCap />} title="Students" value={(highlights.students || 0).toLocaleString()} subtitle="From Schools" color="pink" />
+                                <MetricCard icon={<Car />} title="Private Commuters" value={(highlights.personalCars || 0).toLocaleString()} subtitle="Personal / Private Vehicles" color="emerald" />
+                                <MetricCard icon={<Baby />} title="Children" value={totalChildren.toLocaleString()} subtitle="Children attendees" color="purple" />
+                                <MetricCard icon={<Home />} title="Community" value={(highlights.residentials || 0).toLocaleString()} subtitle="Residents / Locals" color="pink" />
                                 
-                                <MetricCard icon={<Building />} title="Institutions" value={(highlights.institutions || 0).toLocaleString()} subtitle="Organizations" color="violet" />
-                                <MetricCard icon={<UserPlus />} title="First Timers" value={(highlights.firstTimers || 0).toLocaleString()} subtitle="New attendees" color="cyan" />
+                                <MetricCard icon={<GraduationCap />} title="Students" value={(highlights.students || 0).toLocaleString()} subtitle="From Schools" color="violet" />
+                                <MetricCard icon={<Building />} title="Institutions" value={(highlights.institutions || 0).toLocaleString()} subtitle="Organizations" color="cyan" />
+                                <MetricCard icon={<UserPlus />} title="First Timers" value={(highlights.firstTimers || 0).toLocaleString()} subtitle="New attendees" color="blue" />
                                 <MetricCard icon={<Award />} title="VIPs" value={highlights.vips || 0} subtitle="Special Guests" color="orange" />
                             </div>
                         ) : (

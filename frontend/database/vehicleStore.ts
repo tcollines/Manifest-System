@@ -65,7 +65,7 @@ export const mapPersonalVehicleFromDB = (v: any): any => ({
 });
 
 export const VehicleStore = {
-    getVehicles: async (params?: { coordinator?: string; coordinatorUid?: string; eventId?: string }): Promise<ServiceResponse<Vehicle[]>> => {
+    getVehicles: async (params?: { coordinator?: string; coordinatorUid?: string; eventId?: string; plate?: string }): Promise<ServiceResponse<Vehicle[]>> => {
         return safeFetch(
             () => {
                 let url = '/vehicles';
@@ -73,6 +73,7 @@ export const VehicleStore = {
                 if (params?.coordinator) queryParams.append('coordinator', params.coordinator);
                 if (params?.coordinatorUid) queryParams.append('coordinatorUid', params.coordinatorUid);
                 if (params?.eventId) queryParams.append('eventId', params.eventId);
+                if (params?.plate) queryParams.append('plate', params.plate);
 
                 const queryString = queryParams.toString();
                 if (queryString) url += `?${queryString}`;
@@ -82,6 +83,25 @@ export const VehicleStore = {
             'Failed to fetch vehicles',
             (data: any[]) => data ? data.map(mapVehicleFromDB) : []
         );
+    },
+
+    lookupVehicleByPlate: async (plate: string): Promise<Vehicle | null> => {
+        const rawInput = plate.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+        if (rawInput.length < 3) return null;
+
+        try {
+            const res = await VehicleStore.getVehicles({ plate: rawInput });
+            if (res.status === 'success' && res.data && res.data.length > 0) {
+                const exact = res.data.find(v => {
+                    const rawV = (v.number_plate || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+                    return rawV === rawInput;
+                });
+                return exact || res.data[0];
+            }
+        } catch (e) {
+            console.error('Error during vehicle plate lookup:', e);
+        }
+        return null;
     },
 
     getVehicle: async (id: string): Promise<ServiceResponse<Vehicle | null>> => {

@@ -4,9 +4,11 @@ import EventDetailsModal from '../../../components/EventDetailsModal';
 import PhoneInput from '../../../components/PhoneInput';
 import NumberPlateInput from '../../../components/NumberPlateInput';
 import ManualCountModal from '../../../components/ManualCountModal';
-import { validateDriverIdentity } from '../../../utils';
+import { validateDriverIdentity, validatePlate } from '../../../utils';
 import { useRegistration } from '../RegistrationContext';
 import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
+
+import { VehicleStore } from '../../../database/vehicleStore';
 
 const RegistrationModals: React.FC = () => {
     const {
@@ -64,7 +66,69 @@ const RegistrationModals: React.FC = () => {
         newEntrant,
         setNewEntrant,
         handleAddExtraEntrant,
+        vehicles,
+        personalVehicles,
     } = useRegistration();
+
+    const [autoFilledPlate, setAutoFilledPlate] = React.useState<string | null>(null);
+
+    const handlePlateChange = async (val: string) => {
+        if (vehicleForm.id) {
+            setVehicleForm(prev => ({ ...prev, number_plate: val }));
+            return;
+        }
+
+        setVehicleForm(prev => ({ ...prev, number_plate: val }));
+
+        const rawInput = val.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+        const isFullPlate = rawInput.length >= 6 || validatePlate(val).valid;
+
+        // Do NOT auto-fill on incomplete or partial number plates
+        if (!isFullPlate) {
+            setAutoFilledPlate(null);
+            return;
+        }
+
+        // 1. Check local loaded state first for exact plate match
+        const localMatch = (vehicles || []).find((v: any) => {
+            const rawV = (v.number_plate || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+            return rawV === rawInput;
+        }) || (personalVehicles || []).find((pv: any) => {
+            const rawPV = (pv.number_plate || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+            return rawPV === rawInput;
+        });
+
+        if (localMatch) {
+            setVehicleForm(prev => ({
+                ...prev,
+                driverName: localMatch.driverName || prev.driverName,
+                driverNin: localMatch.driverNin || prev.driverNin,
+                driverContact: localMatch.driverContact || prev.driverContact,
+                type: localMatch.type || prev.type || 'Taxi'
+            }));
+            setAutoFilledPlate(val);
+            return;
+        }
+
+        // 2. Query database across all past events for exact plate match
+        try {
+            const dbMatch = await VehicleStore.lookupVehicleByPlate(val);
+            if (dbMatch) {
+                setVehicleForm(prev => ({
+                    ...prev,
+                    driverName: dbMatch.driverName || prev.driverName,
+                    driverNin: dbMatch.driverNin || prev.driverNin,
+                    driverContact: dbMatch.driverContact || prev.driverContact,
+                    type: dbMatch.type || prev.type || 'Taxi'
+                }));
+                setAutoFilledPlate(val);
+            } else {
+                setAutoFilledPlate(null);
+            }
+        } catch (e) {
+            console.error("Plate lookup error:", e);
+        }
+    };
 
     const { isLoaded } = useJsApiLoader({ id: 'google-map-script', googleMapsApiKey: 'AIzaSyCZSpPjUuv2sILESSb2yqYNxhzr9CfCtzs' });
 
@@ -500,6 +564,21 @@ const RegistrationModals: React.FC = () => {
                                 </select>
                             </div>
 
+                            <div className="space-y-2">
+                                <div className="flex justify-between items-center">
+                                    <label className="text-sm font-bold text-gray-700">Number Plate</label>
+                                    {autoFilledPlate && (
+                                        <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                                            ✓ Auto-filled from previous event
+                                        </span>
+                                    )}
+                                </div>
+                                <NumberPlateInput
+                                    value={vehicleForm.number_plate}
+                                    onChange={handlePlateChange}
+                                />
+                            </div>
+
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                     <label className="text-sm font-bold text-gray-700">Driver Name</label>
@@ -538,14 +617,6 @@ const RegistrationModals: React.FC = () => {
                             <div className="space-y-2">
                                 <label className="text-sm font-bold text-gray-700">Driver Contact</label>
                                 <PhoneInput value={vehicleForm.driverContact} onChange={(val: string) => setVehicleForm({ ...vehicleForm, driverContact: val })} />
-                            </div>
-                            
-                            <div className="space-y-2">
-                                <label className="text-sm font-bold text-gray-700">Number Plate</label>
-                                <NumberPlateInput
-                                    value={vehicleForm.number_plate}
-                                    onChange={(val: string) => setVehicleForm({ ...vehicleForm, number_plate: val })}
-                                />
                             </div>
                             
                             <div className="space-y-2">
