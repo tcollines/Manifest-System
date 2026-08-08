@@ -249,8 +249,15 @@ const FinanceLayout: React.FC = () => {
 
     const getEventVehicles = useCallback((): Vehicle[] => {
         if (!selectedFleetEvent) return [];
-        const eventStationIds = pickupStations.filter(s => s.eventId === selectedFleetEvent.id).map(s => s.id);
-        const allVehicles = vehicles.filter(v => v.eventId === selectedFleetEvent.id || eventStationIds.includes(v.stationId));
+        const eventStationIds = pickupStations
+            .filter(s => s.eventId === selectedFleetEvent.id && !s.name.toLowerCase().includes('private transport'))
+            .map(s => s.id);
+        const allVehicles = vehicles.filter(v => 
+            v.number_plate !== 'PUBLIC TRANSPORT' && 
+            !v.number_plate?.toLowerCase().startsWith('private car') && 
+            !pickupStations.find(s => s.id === v.stationId)?.name.toLowerCase().includes('private transport') &&
+            (v.eventId === selectedFleetEvent.id || eventStationIds.includes(v.stationId))
+        );
         if (fleetJourneyTab === 'All') return allVehicles;
         
         if (fleetJourneyTab === 'Ongoing') {
@@ -339,8 +346,15 @@ const FinanceLayout: React.FC = () => {
             ? eventToPrint
             : selectedFleetEvent;
         if (!ev) return;
-        const eventStationIds = pickupStations.filter(s => s.eventId === ev.id).map(s => s.id);
-        const allEventVehicles = vehicles.filter(v => v.eventId === ev.id || eventStationIds.includes(v.stationId));
+        const eventStationIds = pickupStations
+            .filter(s => s.eventId === ev.id && !s.name.toLowerCase().includes('private transport'))
+            .map(s => s.id);
+        const allEventVehicles = vehicles.filter(v => 
+            v.number_plate !== 'PUBLIC TRANSPORT' && 
+            !v.number_plate?.toLowerCase().startsWith('private car') && 
+            !pickupStations.find(s => s.id === v.stationId)?.name.toLowerCase().includes('private transport') &&
+            (v.eventId === ev.id || eventStationIds.includes(v.stationId))
+        );
         
         setPrintPayload({
             type: 'fleet',
@@ -748,7 +762,10 @@ const FleetPrintReport: React.FC<{
     formatMoney: (val: number) => string;
 }> = ({ title, date, vehicles, passengers, formatMoney }) => {
     let sumBookingFee = 0, sumBalancePayment = 0, sumTotalCost = 0, sumFinalBalance = 0, totalExpenditure = 0;
-    const totalPax = passengers.filter(p => vehicles.some(v => v.id === p.vehicleId)).length;
+    
+    const fleetPax = passengers.filter(p => vehicles.some(v => v.id === p.vehicleId)).length;
+    const privateCommutersPax = passengers.filter(p => !vehicles.some(v => v.id === p.vehicleId)).length;
+    const totalPax = fleetPax + privateCommutersPax;
     
     vehicles.forEach(v => {
         const totalCost = parseFloat(v.financeDetails?.ongoingDispatch || '0');
@@ -805,6 +822,19 @@ const FleetPrintReport: React.FC<{
                             </tr>
                         );
                     })}
+                    {privateCommutersPax > 0 && (
+                        <tr>
+                            <td className="border border-gray-400 p-2">{vehicles.length + 1}</td>
+                            <td className="border border-gray-400 p-2 font-mono font-bold">-</td>
+                            <td className="border border-gray-400 p-2 font-bold">Private Commuters</td>
+                            <td className="border border-gray-400 p-2">-</td>
+                            <td className="border border-gray-400 p-2 text-center font-bold">{privateCommutersPax}</td>
+                            <td className="border border-gray-400 p-2 text-right">{formatMoney(0)}</td>
+                            <td className="border border-gray-400 p-2 text-right">{formatMoney(0)}</td>
+                            <td className="border border-gray-400 p-2 text-right">{formatMoney(0)}</td>
+                            <td className="border border-gray-400 p-2 text-right">{formatMoney(0)}</td>
+                        </tr>
+                    )}
                     <tr className="font-bold bg-gray-100">
                         <td colSpan={4} className="border border-gray-400 p-2 text-right">TOTALS:</td>
                         <td className="border border-gray-400 p-2 text-center">{totalPax}</td>
