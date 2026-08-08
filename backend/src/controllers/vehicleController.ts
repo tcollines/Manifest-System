@@ -321,13 +321,7 @@ export const updateVehicleStage = async (req: Request, res: Response) => {
         // Direct Update
         const { data, error } = await supabase.from('vehicles')
             .update({
-                current_stage: payload.current_stage,
-                approvals: payload.approvals,
-                status: payload.status,
-                ongoing_start_time: payload.ongoing_start_time,
-                return_start_time: payload.return_start_time,
-                ongoing_arrival_time: payload.ongoing_arrival_time,
-                return_arrival_time: payload.return_arrival_time,
+                ...payload,
                 version: (version || 0) + 1 // Basic increment without enforcement
             })
             .eq('manifest_id', manifestId)
