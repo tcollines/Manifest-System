@@ -275,7 +275,7 @@ export const getEventHighlights = async (req: Request, res: Response) => {
 
         const response = {
             vehicles: fleetCount || snapshot.vehicles || 0,
-            personalCars: pcCount + pPrivateCommuters || snapshot.personalCars || 0,
+            personalCars: (pcCount || 0) + pPrivateCommuters || snapshot.personalCars || 0,
             students: pStudents || snapshot.students || 0,
             institutions: pInstitutions || snapshot.institutions || 0,
             attendees: finalAttendees || snapshot.attendees || 0,
