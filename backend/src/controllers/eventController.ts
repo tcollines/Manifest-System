@@ -194,12 +194,13 @@ export const getEventHighlights = async (req: Request, res: Response) => {
         let pStudents = 0;
         let pInstitutions = 0;
         let pSouls = 0;
+        let pPrivateCommuters = 0;
         let fleetExpenditure = 0;
 
         // 🚨 CRITICAL FIX: Fetch all passengers directly by event to avoid dropping them 
         // if the event has manual passengers but 0 logistics stations!
         const { data: passengers } = await supabase.from('passengers')
-            .select('id, is_first_time, category, soul_won, school, student_class, residence')
+            .select('id, is_first_time, category, soul_won, school, student_class, residence, transport_means')
             .eq('manifest_id', manifestId)
             .eq('event_id', eventUuid);
 
@@ -215,6 +216,8 @@ export const getEventHighlights = async (req: Request, res: Response) => {
                 if (p.school || p.student_class) return true;
                 return false;
             }).length;
+
+            pPrivateCommuters = passengers.filter(p => p.transport_means && (String(p.transport_means).startsWith('Private Car') || String(p.transport_means) === 'Public Transport')).length;
         }
 
         const { count: pcCount } = await supabase.from('personal_vehicles')
@@ -272,7 +275,7 @@ export const getEventHighlights = async (req: Request, res: Response) => {
 
         const response = {
             vehicles: fleetCount || snapshot.vehicles || 0,
-            personalCars: pcCount || snapshot.personalCars || 0,
+            personalCars: pcCount + pPrivateCommuters || snapshot.personalCars || 0,
             students: pStudents || snapshot.students || 0,
             institutions: pInstitutions || snapshot.institutions || 0,
             attendees: finalAttendees || snapshot.attendees || 0,

@@ -188,12 +188,14 @@ const EventsLeadDashboard: React.FC = () => {
     const totalInstitutions = passengers.filter(p => p.category === 'Institution').length;
 
     const passengerStatsPerStage = stations.map(station => {
-        const stationPassengers = passengers.filter(p => p.stationId === station.id);
-        const stationVehicles = vehicles.filter(v => v.currentStage === station.name || stationPassengers.some(p => p.vehicleId === v.id)); // approx
+        const stationVehicles = vehicles.filter(v => v.stationId === station.id);
+        const stationVehicleIds = new Set(stationVehicles.map(v => v.id));
+        const stationPassengers = passengers.filter(p => stationVehicleIds.has(p.vehicleId));
+
         return {
             stationName: station.name,
             passengerCount: stationPassengers.length,
-            vehicleCount: new Set(stationPassengers.map(p => p.vehicleId).filter(Boolean)).size || stationVehicles.length
+            vehicleCount: stationVehicles.length
         };
     });
 
@@ -209,11 +211,42 @@ const EventsLeadDashboard: React.FC = () => {
         acc[type] = (acc[type] || 0) + 1;
         return acc;
     }, { Car: 0, Taxi: 0, Coaster: 0, Bus: 0 } as Record<string, number>);
-    const vehiclesByStatus = realFleetVehicles.reduce((acc, v) => {
-        const status = v.status || 'Pending';
-        acc[status] = (acc[status] || 0) + 1;
-        return acc;
-    }, { Pending: 0, Approved: 0, 'En Route': 0, Arrived: 0, Completed: 0 } as Record<string, number>);
+    const ongoingStats = {
+        'Onboarding': 0,
+        'Verifying': 0,
+        'Revapproval': 0,
+        'Finance approval': 0,
+        'Transit': 0,
+        'Arrived': 0
+    };
+    const returnStats = {
+        'Pending': 0,
+        'Verifying': 0,
+        'Revapproval': 0,
+        'Finance approval': 0,
+        'Transit': 0,
+        'Arrived': 0
+    };
+
+    realFleetVehicles.forEach(v => {
+        const stage = v.currentStage || 'Onboarding';
+        const direction = v.journeyDirection || 'Ongoing';
+
+        let displayStage = '';
+        if (stage === 'Onboarding') displayStage = direction === 'Return' ? 'Pending' : 'Onboarding';
+        else if (stage === 'Verifying') displayStage = 'Verifying';
+        else if (stage === 'RegApproval') displayStage = 'Revapproval';
+        else if (stage === 'FinanceApproval') displayStage = 'Finance approval';
+        else if (stage === 'Transit') displayStage = 'Transit';
+        else if (stage === 'Arrived' || stage === 'Completed') displayStage = 'Arrived';
+        else displayStage = stage;
+        
+        if (direction === 'Ongoing' && displayStage in ongoingStats) {
+            ongoingStats[displayStage as keyof typeof ongoingStats]++;
+        } else if (direction === 'Return' && displayStage in returnStats) {
+            returnStats[displayStage as keyof typeof returnStats]++;
+        }
+    });
 
     // Calculations for Ministers Tab
     const vehicleCoordinatorsCount = vehicles.filter(v => v.coordinator).length; // or from users list
@@ -233,11 +266,8 @@ const EventsLeadDashboard: React.FC = () => {
     const totalChildren = vehicles.reduce((acc, v) => acc + (v.childrenCount || 0), 0) + passengers.filter(p => p.category === 'Child').length;
     const totalBudget = vehicles.reduce((acc, v) => {
         if (!v.financeDetails) return acc;
-        const oD = parseFloat(v.financeDetails.ongoingDispatch) || 0;
-        const oB = parseFloat(v.financeDetails.ongoingBalance) || 0;
-        const rD = parseFloat(v.financeDetails.returnDispatch) || 0;
-        const rB = parseFloat(v.financeDetails.returnBalance) || 0;
-        return acc + oD + oB + rD + rB;
+        const totalCost = parseFloat(v.financeDetails.ongoingDispatch) || 0;
+        return acc + totalCost;
     }, 0);
 
     const completedJourneys = vehicles.filter(v => v.ongoingStartTime && v.ongoingArrivalTime);
@@ -303,7 +333,7 @@ const EventsLeadDashboard: React.FC = () => {
                                 <MetricCard icon={<Wallet />} title="Total Budget" value={`UGX ${totalBudget.toLocaleString()}`} subtitle="Allocated budget" color="blue" />
                                 
                                 <MetricCard icon={<Clock />} title="Average ETA" value={avgEta} subtitle="Based on vehicle journeys" color="teal" />
-                                <MetricCard icon={<Car />} title="Private Commuters" value={(highlights.personalCars || 0).toLocaleString()} subtitle="Personal / Private Vehicles" color="emerald" />
+                                <MetricCard icon={<Users />} title="Private Commuters" value={(highlights.personalCars || 0).toLocaleString()} subtitle="Passengers via Public Link" color="emerald" />
                                 <MetricCard icon={<Baby />} title="Children" value={totalChildren.toLocaleString()} subtitle="Children attendees" color="purple" />
                                 <MetricCard icon={<Home />} title="Community" value={(highlights.residentials || 0).toLocaleString()} subtitle="Residents / Locals" color="pink" />
                                 
@@ -392,17 +422,34 @@ const EventsLeadDashboard: React.FC = () => {
                             ))}
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-                            <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+                            <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100 lg:col-span-2">
                                 <h3 className="font-bold text-gray-700 mb-4 flex items-center gap-2"><MapPin size={18}/> Status Breakdown</h3>
-                                <div className="space-y-3">
-                                    {Object.entries(vehiclesByStatus).map(([status, count]) => (
-                                        <div key={status} className="flex justify-between items-center bg-white p-3 rounded-xl border border-gray-100">
-                                            <span className="font-bold text-gray-600">{status}</span>
-                                            <span className="bg-teal-100 text-teal-800 font-bold px-3 py-1 rounded-full text-sm">{count}</span>
+                                
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div>
+                                        <h4 className="font-bold text-gray-500 mb-3 text-sm uppercase tracking-wider">Ongoing Journey</h4>
+                                        <div className="space-y-3">
+                                            {Object.entries(ongoingStats).map(([status, count]) => (
+                                                <div key={status} className="flex justify-between items-center bg-white p-3 rounded-xl border border-gray-100 shadow-sm">
+                                                    <span className="font-bold text-gray-600">{status}</span>
+                                                    <span className="bg-teal-100 text-teal-800 font-bold px-3 py-1 rounded-full text-sm">{count}</span>
+                                                </div>
+                                            ))}
                                         </div>
-                                    ))}
-                                    {Object.keys(vehiclesByStatus).length === 0 && <p className="text-gray-400 text-sm">No vehicles found.</p>}
+                                    </div>
+
+                                    <div>
+                                        <h4 className="font-bold text-gray-500 mb-3 text-sm uppercase tracking-wider">Return Journey</h4>
+                                        <div className="space-y-3">
+                                            {Object.entries(returnStats).map(([status, count]) => (
+                                                <div key={status} className="flex justify-between items-center bg-white p-3 rounded-xl border border-gray-100 shadow-sm">
+                                                    <span className="font-bold text-gray-600">{status}</span>
+                                                    <span className="bg-indigo-100 text-indigo-800 font-bold px-3 py-1 rounded-full text-sm">{count}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
