@@ -4,7 +4,7 @@ require('dotenv').config({ path: '../.env' });
 
 async function inspect() {
     const client = new Client({
-        connectionString: "postgres://postgres.poazorjmzswectxvakzl:ujrRGd5IZIKOE9Oj@44.216.29.125:5432/postgres?options=project%3Dpoazorjmzswectxvakzl",
+        connectionString: process.env.DATABASE_URL,
         ssl: { rejectUnauthorized: false }
     });
 

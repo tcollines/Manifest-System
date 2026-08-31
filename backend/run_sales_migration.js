@@ -6,7 +6,7 @@ const password = 'ujrRGd5IZIKOE9Oj';
 
 // Using session pooler on port 5432
 const client = new Client({
-    connectionString: `postgres://postgres.poazorjmzswectxvakzl:${password}@aws-0-us-east-1.pooler.supabase.com:5432/postgres`,
+    connectionString: process.env.DATABASE_URL,
     ssl: { rejectUnauthorized: false }
 });
 

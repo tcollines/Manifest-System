@@ -7,7 +7,7 @@ require('dotenv').config();
 const { createClient } = require('@supabase/supabase-js');
 const { Pool } = require('pg');
 
-const dbUrl = "postgres://postgres.poazorjmzswectxvakzl:ujrRGd5IZIKOE9Oj@aws-0-us-east-1.pooler.supabase.com:5432/postgres";
+const dbUrl = process.env.DATABASE_URL;
 const pool = new Pool({ connectionString: dbUrl, ssl: { rejectUnauthorized: false } });
 
 async function run() {

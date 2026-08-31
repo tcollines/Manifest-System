@@ -5,7 +5,7 @@ require('dotenv').config();
 const url = process.env.DATABASE_URL;
 const pwdInfo = url.match(/:([^:@]+)@/);
 const pwd = pwdInfo[1];
-const direct = `postgres://postgres:${pwd}@db.poazorjmzswectxvakzl.supabase.co:5432/postgres`;
+const direct = process.env.DATABASE_URL;
 
 async function runAudit() {
     const client = new Client({

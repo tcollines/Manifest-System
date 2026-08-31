@@ -5,7 +5,7 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SER
 
 async function testLogin() {
     const email = 'admin@manifestms.com';
-    const password = 'emf@phaneroo';
+    const password = process.env.TEST_ADMIN_PASSWORD;
     
     // First let's update the password to be absolutely sure
     const { data: users } = await supabase.auth.admin.listUsers();

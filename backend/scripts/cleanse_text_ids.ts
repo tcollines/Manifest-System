@@ -1,6 +1,8 @@
+import * as dotenv from 'dotenv';
+dotenv.config();
 import { Client } from 'pg';
 
-const poolerUrl = "postgres://postgres.poazorjmzswectxvakzl:ujrRGd5IZIKOE9Oj@aws-0-us-east-1.pooler.supabase.com:6543/postgres?options=project%3Dpoazorjmzswectxvakzl";
+const poolerUrl = process.env.DATABASE_URL;
 
 const client = new Client({
     connectionString: poolerUrl,

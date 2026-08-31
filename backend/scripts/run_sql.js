@@ -31,7 +31,7 @@ async function runSqlFile() {
         if (projectIdMatch && passwordMatch) {
             const projectId = projectIdMatch[1];
             const password = passwordMatch[1];
-            connectionString = `postgres://postgres:${password}@db.${projectId}.supabase.co:5432/postgres`;
+            connectionString = process.env.DATABASE_URL;
             console.log('Using direct connection URL (bypassing pooler).');
         }
     }

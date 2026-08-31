@@ -1,3 +1,5 @@
+import * as dotenv from 'dotenv';
+dotenv.config();
 import { Client } from 'pg';
 import * as dotenv from 'dotenv';
 import * as fs from 'fs';
@@ -11,8 +13,8 @@ const urls = [
     base.replace('%3D', '='),
     base.replace('6543', '5432'),
     base.replace('6543', '5432').replace('%3D', '='),
-    "postgres://postgres.poazorjmzswectxvakzl:ujrRGd5IZIKOE9Oj@aws-0-us-east-1.pooler.supabase.com:6543/postgres?options=-c%20project=poazorjmzswectxvakzl",
-    "postgres://postgres.poazorjmzswectxvakzl:ujrRGd5IZIKOE9Oj@aws-0-us-east-1.pooler.supabase.com:5432/postgres?options=-c%20project=poazorjmzswectxvakzl"
+    process.env.DATABASE_URL,
+    process.env.DATABASE_URL
 ];
 
 async function run() {

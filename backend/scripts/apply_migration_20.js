@@ -42,7 +42,7 @@ async function run() {
     const projectIdMatch = connectionString.match(/project%3D([a-z0-9]+)/);
     const passwordMatch = connectionString.match(/:([^:]+)@aws-/);
     if (projectIdMatch && passwordMatch) {
-      connectionString = `postgres://postgres:${passwordMatch[1]}@db.${projectIdMatch[1]}.supabase.co:5432/postgres`;
+      connectionString = process.env.DATABASE_URL;
     }
   }
 

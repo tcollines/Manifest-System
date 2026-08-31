@@ -1,3 +1,4 @@
+require('dotenv').config();
 const fs = require('fs');
 const { Client } = require('pg');
 
@@ -10,7 +11,7 @@ if (match) {
         process.exit(1);
     }
     const pwd = pwdInfo[1];
-    const direct = `postgres://postgres:${pwd}@db.poazorjmzswectxvakzl.supabase.co:5432/postgres`;
+    const direct = process.env.DATABASE_URL;
     const client = new Client({ connectionString: direct, ssl: { rejectUnauthorized: false } });
 
     client.connect().then(() =>

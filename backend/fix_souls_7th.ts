@@ -5,7 +5,7 @@ dotenv.config();
 const poolUrl = process.env.DATABASE_URL || '';
 const match = poolUrl.match(/:([^:@]+)@/);
 const password = match ? match[1] : '';
-const directUrl = `postgres://postgres.poazorjmzswectxvakzl:${password}@aws-0-us-east-1.pooler.supabase.com:6543/postgres?options=project%3Dpoazorjmzswectxvakzl`;
+const directUrl = process.env.DATABASE_URL;
 
 async function fixSouls() {
     const client = new Client({ connectionString: directUrl, ssl: { rejectUnauthorized: false } });

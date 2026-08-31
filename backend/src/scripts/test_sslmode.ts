@@ -1,9 +1,11 @@
+import * as dotenv from 'dotenv';
+dotenv.config();
 import { Client } from 'pg';
 import fs from 'fs';
 import path from 'path';
 
 async function run() {
-    const connStr = 'postgres://postgres.poazorjmzswectxvakzl:ujrRGd5IZIKOE9Oj@aws-0-us-east-1.pooler.supabase.com:6543/postgres?sslmode=require';
+    const connStr = process.env.DATABASE_URL;
     console.log("Connecting with sslmode=require...");
     const client = new Client({
         connectionString: connStr,

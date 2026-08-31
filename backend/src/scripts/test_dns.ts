@@ -1,7 +1,9 @@
+import * as dotenv from 'dotenv';
+dotenv.config();
 import { Client } from 'pg';
 
 async function testConnection() {
-    const connectionString = 'postgres://postgres:ujrRGd5IZIKOE9Oj@52.45.94.125:6543/postgres?options=project%3Dpoazorjmzswectxvakzl';
+    const connectionString = process.env.DATABASE_URL;
     console.log("Connecting using project option to 52.45.94.125...");
     const client = new Client({
         connectionString,

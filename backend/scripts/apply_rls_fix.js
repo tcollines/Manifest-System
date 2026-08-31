@@ -10,7 +10,7 @@ async function run() {
         process.env.DATABASE_URL,
         process.env.DATABASE_URL.replace('%3D', '='),
         process.env.DATABASE_URL.replace('6543', '5432'),
-        "postgres://postgres.poazorjmzswectxvakzl:ujrRGd5IZIKOE9Oj@aws-0-us-east-1.pooler.supabase.com:6543/postgres?options=-c%20project=poazorjmzswectxvakzl"
+        process.env.DATABASE_URL
     ];
 
     for (const connectionString of urls) {

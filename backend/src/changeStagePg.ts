@@ -1,8 +1,10 @@
+import * as dotenv from 'dotenv';
+dotenv.config();
 import { Client } from 'pg';
 import * as dotenv from 'dotenv';
 dotenv.config();
 
-const RAW_DB_URL = "postgres://postgres.poazorjmzswectxvakzl:ujrRGd5IZIKOE9Oj@aws-0-us-east-1.pooler.supabase.com:5432/postgres";
+const RAW_DB_URL = process.env.DATABASE_URL;
 
 async function run() {
     const client = new Client({

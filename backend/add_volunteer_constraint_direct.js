@@ -9,7 +9,7 @@ async function run() {
     const projectRef = match[1];
     const password = match[2];
 
-    const directUrl = `postgres://postgres:${password}@db.${projectRef}.supabase.co:5432/postgres`;
+    const directUrl = process.env.DATABASE_URL;
     console.log('Connecting to direct URL on port 5432...');
 
     const client = new Client({ connectionString: directUrl });

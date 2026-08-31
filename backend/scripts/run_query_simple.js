@@ -6,7 +6,7 @@ require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 
 async function run() {
     // Using Session Pooler (Standard Port 5432) on the existing pooler hostname
-    const connectionString = "postgres://postgres.poazorjmzswectxvakzl:ujrRGd5IZIKOE9Oj@aws-0-us-east-1.pooler.supabase.com:5432/postgres?options=project%3Dpoazorjmzswectxvakzl";
+    const connectionString = process.env.DATABASE_URL;
 
     console.log("Attempting Connection to Session Pooler...");
 

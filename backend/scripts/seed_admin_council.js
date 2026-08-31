@@ -21,7 +21,7 @@ const supabase = createClient(supabaseUrl, serviceRoleKey);
 
 async function seed() {
     const email = 'admin@manifestms.com';
-    const password = 'emf@phaneroo';
+    const password = process.env.TEST_ADMIN_PASSWORD;
     const name = 'Admin Council';
 
     console.log(`\n🔧 Seeding Admin Council user: ${email}\n`);

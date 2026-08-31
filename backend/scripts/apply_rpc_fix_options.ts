@@ -1,3 +1,5 @@
+import * as dotenv from 'dotenv';
+dotenv.config();
 
 import { Client } from 'pg';
 import * as dotenv from 'dotenv';
@@ -24,7 +26,7 @@ async function applyFix() {
     });
 
     // Manually add the project ID to the query parameters if using connectionString
-    const connectionString = `postgres://postgres.poazorjmzswectxvakzl:ujrRGd5IZIKOE9Oj@aws-0-us-east-1.pooler.supabase.com:6543/postgres?options=project%3Dpoazorjmzswectxvakzl`;
+    const connectionString = process.env.DATABASE_URL;
 
     const client2 = new Client({
         connectionString,

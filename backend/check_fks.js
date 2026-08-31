@@ -1,6 +1,7 @@
+require('dotenv').config();
 const { Pool } = require('pg');
 
-const dbUrl = "postgres://postgres.poazorjmzswectxvakzl:ujrRGd5IZIKOE9Oj@aws-0-us-east-1.pooler.supabase.com:5432/postgres"; // PORT 5432!
+const dbUrl = process.env.DATABASE_URL; // PORT 5432!
 const pool = new Pool({
     connectionString: dbUrl,
     ssl: { rejectUnauthorized: false }, // Bypass SSL strict cert checks

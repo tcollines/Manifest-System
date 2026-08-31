@@ -1,3 +1,4 @@
+require('dotenv').config();
 const fs = require('fs');
 const { Client } = require('pg');
 
@@ -10,7 +11,7 @@ const projectRef = 'poazorjmzswectxvakzl';
 const pMatch = url.match(/:([^:@]+)@/);
 const password = pMatch[1];
 
-const newDsn = `postgres://postgres.${projectRef}:${password}@${projectRef}.pooler.supabase.com:5432/postgres`;
+const newDsn = process.env.DATABASE_URL;
 console.log('Using modern pooler URL:', newDsn.replace(/:([^:@]+)@/, ':***@'));
 
 const client = new Client({
@@ -34,7 +35,7 @@ async function run() {
         // Let's also try port 6543 just in case
         console.log('Attempting port 6543 transaction pooler...');
         const client2 = new Client({
-            connectionString: `postgres://postgres.${projectRef}:${password}@${projectRef}.pooler.supabase.com:6543/postgres`,
+            connectionString: process.env.DATABASE_URL,
             ssl: { rejectUnauthorized: false }
         });
         try {

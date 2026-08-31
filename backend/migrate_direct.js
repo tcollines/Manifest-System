@@ -1,7 +1,8 @@
+require('dotenv').config();
 const { Client } = require('pg');
 
 async function migrateDirect() {
-    const directDsn = "postgres://postgres:ujrRGd5IZIKOE9Oj@db.poazorjmzswectxvakzl.supabase.co:5432/postgres";
+    const directDsn = process.env.DATABASE_URL;
     
     const client = new Client({
         connectionString: directDsn,

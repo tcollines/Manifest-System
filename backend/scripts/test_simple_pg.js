@@ -6,7 +6,7 @@ dotenv.config({ path: path.join(__dirname, '../.env') });
 
 async function test() {
     // Port 6543 (Transaction mode) often handles the project ID better in the username
-    const connectionString = "postgres://postgres.poazorjmzswectxvakzl:ujrRGd5IZIKOE9Oj@aws-0-us-east-1.pooler.supabase.com:6543/postgres";
+    const connectionString = process.env.DATABASE_URL;
     console.log("Testing:", connectionString.split('@')[1]);
 
     const client = new Client({
