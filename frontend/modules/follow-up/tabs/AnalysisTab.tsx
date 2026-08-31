@@ -14,17 +14,16 @@ import { Users, Search, Calendar, Check, ChevronLeft, ChevronRight, Clock, Messa
 const AnalysisTab: React.FC = () => {
     const {
         analysisData, isLoadingAnalysis, analysisPage, setAnalysisPage, analysisItemsPerPage,
+        analysisFilter, setAnalysisFilter,
         viewModeAnalysis, setViewModeAnalysis,
         selectedAnalysisMember, handleViewAnalysisDetail, handleSaveFollowUp,
         memberFormData, setMemberFormData,
     } = useFollowUp();
 
-    const [activeFilter, setActiveFilter] = useState<'pending' | 'followed'>('pending');
-
     // Split data into pending vs followed
     const pendingData = analysisData.filter(r => !r.followUpNotes || r.followUpNotes.trim() === '');
     const followedData = analysisData.filter(r => r.followUpNotes && r.followUpNotes.trim() !== '');
-    const filteredData = activeFilter === 'pending' ? pendingData : followedData;
+    const filteredData = analysisFilter === 'pending' ? pendingData : followedData;
 
     const totalPages = Math.max(1, Math.ceil(filteredData.length / analysisItemsPerPage));
     const paginatedData = filteredData.slice((analysisPage - 1) * analysisItemsPerPage, analysisPage * analysisItemsPerPage);
@@ -157,20 +156,20 @@ const AnalysisTab: React.FC = () => {
                     {/* Pending / Followed toggle */}
                     <div className="flex space-x-1 bg-gray-100 p-1 rounded-xl w-fit">
                         <button
-                            onClick={() => { setActiveFilter('pending'); setAnalysisPage(1); }}
-                            className={`px-4 py-1.5 rounded-lg text-sm font-bold whitespace-nowrap flex items-center gap-1.5 ${activeFilter === 'pending' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+                            onClick={() => { setAnalysisFilter('pending'); setAnalysisPage(1); }}
+                            className={`px-4 py-1.5 rounded-lg text-sm font-bold whitespace-nowrap flex items-center gap-1.5 ${analysisFilter === 'pending' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
                         >
                             <AlertCircle className="w-3.5 h-3.5 text-orange-500" />
                             Pending
-                            <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-black ${activeFilter === 'pending' ? 'bg-orange-100 text-orange-700' : 'bg-gray-200 text-gray-500'}`}>{pendingData.length}</span>
+                            <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-black ${analysisFilter === 'pending' ? 'bg-orange-100 text-orange-700' : 'bg-gray-200 text-gray-500'}`}>{pendingData.length}</span>
                         </button>
                         <button
-                            onClick={() => { setActiveFilter('followed'); setAnalysisPage(1); }}
-                            className={`px-4 py-1.5 rounded-lg text-sm font-bold whitespace-nowrap flex items-center gap-1.5 ${activeFilter === 'followed' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+                            onClick={() => { setAnalysisFilter('followed'); setAnalysisPage(1); }}
+                            className={`px-4 py-1.5 rounded-lg text-sm font-bold whitespace-nowrap flex items-center gap-1.5 ${analysisFilter === 'followed' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
                         >
                             <Check className="w-3.5 h-3.5 text-green-500" />
                             Followed
-                            <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-black ${activeFilter === 'followed' ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}>{followedData.length}</span>
+                            <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-black ${analysisFilter === 'followed' ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}>{followedData.length}</span>
                         </button>
                     </div>
                 </div>
@@ -184,7 +183,7 @@ const AnalysisTab: React.FC = () => {
                         </div>
                     ) : paginatedData.length === 0 ? (
                         <div className="px-4 py-12 flex flex-col items-center text-center">
-                            {activeFilter === 'pending' ? (
+                            {analysisFilter === 'pending' ? (
                                 <>
                                     <div className="w-12 h-12 bg-green-50 rounded-full flex items-center justify-center mb-3"><Check className="w-6 h-6 text-green-600" /></div>
                                     <p className="font-bold text-gray-800">All caught up!</p>
@@ -208,7 +207,7 @@ const AnalysisTab: React.FC = () => {
                                     <p className="font-bold text-sm text-gray-900 truncate">{record.name}</p>
                                     <p className="text-xs text-gray-500 font-mono mt-0.5">{record.phone}</p>
                                 </div>
-                                {activeFilter === 'followed' && record.followUpNotes ? (
+                                {analysisFilter === 'followed' && record.followUpNotes ? (
                                     <div className="shrink-0 max-w-[120px]">
                                         <span className="text-[10px] text-green-700 font-bold bg-green-50 px-2 py-0.5 rounded-full border border-green-200">Followed</span>
                                         <p className="text-[10px] text-gray-400 truncate mt-0.5">{record.followUpNotes}</p>
@@ -230,7 +229,7 @@ const AnalysisTab: React.FC = () => {
                                 <th className="px-6 py-4">Contact</th>
                                 <th className="px-6 py-4">Last Attended</th>
                                 <th className="px-6 py-4">Status</th>
-                                {activeFilter === 'followed' && <th className="px-6 py-4">Comment</th>}
+                                {analysisFilter === 'followed' && <th className="px-6 py-4">Comment</th>}
                                 <th className="px-6 py-4 text-right">Actions</th>
                             </tr>
                         </thead>
@@ -246,8 +245,8 @@ const AnalysisTab: React.FC = () => {
                                 <tr><td colSpan={6} className="px-6 py-16 text-center">
                                     <div className="flex flex-col items-center">
                                         <div className="w-12 h-12 bg-green-50 rounded-full flex items-center justify-center mb-4"><Check className="w-6 h-6 text-green-600" /></div>
-                                        <p className="text-gray-900 font-bold text-lg mb-1">{activeFilter === 'pending' ? 'No pending follow-ups!' : 'No followed-up members yet.'}</p>
-                                        <p className="text-gray-500 text-sm">{activeFilter === 'pending' ? 'All members have been contacted. Praise God!' : 'Save a comment on a pending member to move them here.'}</p>
+                                        <p className="text-gray-900 font-bold text-lg mb-1">{analysisFilter === 'pending' ? 'No pending follow-ups!' : 'No followed-up members yet.'}</p>
+                                        <p className="text-gray-500 text-sm">{analysisFilter === 'pending' ? 'All members have been contacted. Praise God!' : 'Save a comment on a pending member to move them here.'}</p>
                                     </div>
                                 </td></tr>
                             ) : (
@@ -270,7 +269,7 @@ const AnalysisTab: React.FC = () => {
                                                 {record.followUpStatus || 'Pending'}
                                             </span>
                                         </td>
-                                        {activeFilter === 'followed' && (
+                                        {analysisFilter === 'followed' && (
                                             <td className="px-6 py-4 text-gray-500 text-sm max-w-[200px]">
                                                 <p className="truncate italic">"{record.followUpNotes}"</p>
                                             </td>

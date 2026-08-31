@@ -104,6 +104,7 @@ const FollowUpLayout: React.FC = () => {
     const [isLoadingAnalysis, setIsLoadingAnalysis] = useState(false);
     const [analysisPage, setAnalysisPage] = useState(1);
     const analysisItemsPerPage = 50;
+    const [analysisFilter, setAnalysisFilter] = useState<'pending' | 'followed'>('pending');
     const [viewModeAnalysis, setViewModeAnalysis] = useState<'list' | 'detail'>('list');
     const [selectedAnalysisMember, setSelectedAnalysisMember] = useState<any | null>(null);
 
@@ -307,6 +308,7 @@ const FollowUpLayout: React.FC = () => {
             setAnalysisData(prev => prev.map(d => d.id === selectedAnalysisMember.member.id
                 ? { ...d, followUpStatus: memberFormData.followUpStatus, followUpNotes: memberFormData.followUpNotes }
                 : d));
+            setAnalysisFilter('followed');
             setViewModeAnalysis('list');
         } catch { showToast('Failed to save follow-up', 'error'); }
     };
@@ -347,6 +349,7 @@ const FollowUpLayout: React.FC = () => {
         analysisData, isLoadingAnalysis,
         analysisPage, setAnalysisPage,
         analysisItemsPerPage,
+        analysisFilter, setAnalysisFilter,
         viewModeAnalysis, setViewModeAnalysis,
         selectedAnalysisMember,
         handleViewAnalysisDetail, handleSaveFollowUp,

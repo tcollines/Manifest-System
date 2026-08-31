@@ -24,6 +24,7 @@ import { authenticate } from './middleware/auth';
 import { requestContext } from './middleware/requestContext';
 import authRoutes from './routes/authRoutes';
 import publicRoutes from './routes/publicRoutes'; // NEW public routes
+import adminCouncilRoutes from './routes/adminCouncilRoutes';
 
 // Attach correlation ID to all incoming requests
 app.use(requestContext);
@@ -33,6 +34,7 @@ import formsAuthRoutes from './forms/routes/auth.routes';
 app.use('/api/auth', authRoutes);
 app.use('/api/public', publicRoutes);
 app.use('/api/forms/auth', formsAuthRoutes);  // Manifest Forms — public, uses service role internally
+app.use('/api/admin-council', adminCouncilRoutes);  // Admin Council — handles its own auth internally
 
 // Protected endpoints
 // Public Health & Root Routes

@@ -254,6 +254,25 @@ const SettingsView: React.FC<SettingsViewProps> = ({ openModal, onDeleteUser, on
                     <p className="text-gray-500">Configure global ministry manifest details and location.</p>
                 </div>
 
+                {/* Logo & Name Card */}
+                <div className="bg-ministry-card border border-gray-200 rounded-2xl p-8 shadow-lg flex flex-col items-center">
+                    <div className="relative group cursor-pointer mb-4" onClick={() => document.getElementById('manifest-logo-input')?.click()}>
+                        {manifestData.logoUrl ? (
+                            <img src={manifestData.logoUrl} alt={manifestData.name} className="w-28 h-28 rounded-full object-cover border-4 border-gray-200 shadow-lg" />
+                        ) : (
+                            <div className="w-28 h-28 rounded-full bg-gradient-to-br from-ministry-orange to-orange-600 flex items-center justify-center text-white text-3xl font-bold border-4 border-orange-100 shadow-lg">
+                                {manifestData.name?.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || 'M'}
+                            </div>
+                        )}
+                        <div className="absolute inset-0 w-28 h-28 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <Upload className="w-6 h-6 text-white" />
+                        </div>
+                        <input id="manifest-logo-input" type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
+                    </div>
+                    <h2 className="text-2xl font-bold text-ministry-text text-center">{manifestData.name || 'Ministry Manifest'}</h2>
+                    <p className="text-sm text-gray-400 mt-1">Click the logo to upload a new photo</p>
+                </div>
+
                 <div className="bg-ministry-card border border-gray-200 rounded-2xl p-8 shadow-lg">
                     <form onSubmit={handleSaveManifest} className="space-y-6">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

@@ -74,6 +74,8 @@ export interface FollowUpContextValue {
     analysisPage: number;
     setAnalysisPage: (p: number | ((prev: number) => number)) => void;
     analysisItemsPerPage: number;
+    analysisFilter: 'pending' | 'followed';
+    setAnalysisFilter: (f: 'pending' | 'followed') => void;
     viewModeAnalysis: 'list' | 'detail';
     setViewModeAnalysis: (m: 'list' | 'detail') => void;
     selectedAnalysisMember: any | null;

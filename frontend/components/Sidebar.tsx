@@ -4,6 +4,7 @@ import { LayoutDashboard, Users, Calendar, Bus, ClipboardList, Map, BookOpen, Cl
 import { Department } from '../types';
 import { useAuth } from '@/context/AuthContext';
 import { resolveDepartment } from '../constants/departmentMap';
+import { ManifestStore } from '../database/manifestStore';
 
 interface SidebarProps {
   onLogout: () => void;
@@ -27,8 +28,23 @@ const Sidebar: React.FC<SidebarProps> = ({ onLogout, isOpen, onClose }) => {
   const { user: currentUser } = useAuth();
   const location = useLocation();
   const [departments, setDepartments] = useState<Department[]>([]);
+  const [manifestLogo, setManifestLogo] = useState<string | null>(null);
+  const [manifestName, setManifestName] = useState<string>('');
 
   if (!currentUser) return null;
+
+  useEffect(() => {
+    const fetchManifest = async () => {
+      try {
+        const manifest = await ManifestStore.get();
+        setManifestLogo(manifest?.logoUrl || null);
+        setManifestName(manifest?.name || '');
+      } catch (e) {
+        console.error('Failed to load manifest in sidebar', e);
+      }
+    };
+    fetchManifest();
+  }, []);
 
   useEffect(() => {
     const fetchDepts = async () => {
@@ -268,8 +284,19 @@ const Sidebar: React.FC<SidebarProps> = ({ onLogout, isOpen, onClose }) => {
       <div className={`fixed top-0 left-0 h-[100dvh] w-64 bg-ministry-dark border-r border-gray-200 flex flex-col z-[60] transform transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 shadow-2xl md:shadow-none`}>
         <div className="p-6 flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <div className="bg-ministry-neon p-2 rounded-lg"><Globe className="w-6 h-6 text-black" /></div>
-            <span className="text-xl font-bold tracking-tight text-ministry-text">Entebbe <span className="text-ministry-orange">Manifest</span></span>
+            {manifestLogo ? (
+              <img src={manifestLogo} alt="" className="w-10 h-10 rounded-full object-cover border-2 border-gray-200 flex-shrink-0" />
+            ) : (
+              <div className="bg-ministry-neon p-2 rounded-lg flex-shrink-0"><Globe className="w-6 h-6 text-black" /></div>
+            )}
+            {manifestName ? (
+              <span className="text-xl font-bold tracking-tight text-ministry-text leading-tight">
+                {manifestName.split(' ').slice(0, -1).join(' ')}{' '}
+                <span className="text-ministry-orange">{manifestName.split(' ').slice(-1)[0]}</span>
+              </span>
+            ) : (
+              <span className="text-xl font-bold tracking-tight text-ministry-text">Manifest</span>
+            )}
           </div>
           <button onClick={onClose} className="md:hidden p-1 text-gray-500 hover:bg-gray-100 rounded-full"><X className="w-6 h-6" /></button>
         </div>
