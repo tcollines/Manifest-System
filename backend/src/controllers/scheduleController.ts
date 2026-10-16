@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { supabase } from '../supabase';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID as uuidv4 } from 'crypto';
 
 const guard = (req: Request, res: Response): string | null => {
     const manifestId = (req as any).manifestId;

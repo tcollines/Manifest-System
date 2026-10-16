@@ -2,7 +2,7 @@ import { resolve as resolveEnvPath } from 'path';
 
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID as uuidv4 } from 'crypto';
 
 dotenv.config({ path: resolveEnvPath(__dirname, '../.env') });
 const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_KEY!);

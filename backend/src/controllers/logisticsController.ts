@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { supabase } from '../supabase';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID as uuidv4 } from 'crypto';
 import { toUUID, logLegacyFallback } from '../utils/uuid';
 
 export const getStations = async (req: Request, res: Response) => {

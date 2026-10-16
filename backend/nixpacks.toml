@@ -1,0 +1,4 @@
+# Nixpacks build config for the backend (Dokploy builds this folder).
+# Node 20: Node 18 is end-of-life and @supabase/supabase-js warns it will drop it.
+[variables]
+NIXPACKS_NODE_VERSION = "20"
