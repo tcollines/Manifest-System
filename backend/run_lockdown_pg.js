@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
 
-const password = 'ujrRGd5IZIKOE9Oj';
+const password = process.env.SUPABASE_DB_PASSWORD;
 
 // Using session pooler on port 5432 with SSL
 const client = new Client({

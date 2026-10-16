@@ -310,22 +310,23 @@ export const updateVehicleStage = async (req: Request, res: Response) => {
         if (ongoing_start_time !== undefined) payload.ongoing_start_time = ongoing_start_time;
         if (return_start_time !== undefined) payload.return_start_time = return_start_time;
 
+        const idUuid = toUUID(id) || id;
+
         // Pre-Verify Tenant Access
         const { data: vRecord, error: vErr } = await supabase.from('vehicles')
-            .select('*').eq('manifest_id', manifestId).eq('id', id).maybeSingle();
+            .select('*').eq('manifest_id', manifestId).eq('id', idUuid).maybeSingle();
         if (vErr || !vRecord) return res.status(404).json({ error: 'Vehicle not found' });
 
-        // Optimistic Locking Requirement Removed for Reversion
-        // Version increments are now handled manually or ignored for simplicity.
+        const updatePayload: any = {
+            ...payload,
+            version: (version || vRecord.version || 0) + 1
+        };
 
         // Direct Update
         const { data, error } = await supabase.from('vehicles')
-            .update({
-                ...payload,
-                version: (version || 0) + 1 // Basic increment without enforcement
-            })
+            .update(updatePayload)
             .eq('manifest_id', manifestId)
-            .eq('id', id)
+            .eq('id', idUuid)
             .select('*')
             .maybeSingle();
 
@@ -340,7 +341,8 @@ export const updateVehicleStage = async (req: Request, res: Response) => {
 
         res.json({ message: 'Vehicle stage updated', vehicle: data });
     } catch (error: any) {
-        res.status(500).json({ error: 'An internal server error occurred.' });
+        console.error('[VEHICLE_STAGE_UPDATE] Error updating vehicle stage:', error);
+        res.status(500).json({ error: error.message || 'An internal server error occurred.' });
     }
 };
 
@@ -351,15 +353,16 @@ export const startReturnJourney = async (req: Request, res: Response) => {
     const { id } = req.params;
     const { version } = req.body;
     try {
+        const idUuid = toUUID(id) || id;
         const { data: vRecord, error: vErr } = await supabase.from('vehicles')
-            .select('*').eq('manifest_id', manifestId).eq('id', id).maybeSingle();
+            .select('*').eq('manifest_id', manifestId).eq('id', idUuid).maybeSingle();
         if (vErr || !vRecord) return res.status(404).json({ error: 'Vehicle not found' });
 
         // 1. Reset all passengers linked to this vehicle
         const { error: pResetErr } = await supabase.from('passengers')
             .update({ verified: false })
             .eq('manifest_id', manifestId)
-            .eq('vehicle_id', id);
+            .eq('vehicle_id', idUuid);
         if (pResetErr) throw pResetErr;
 
         // 2. Update the vehicle to Return defaults
@@ -368,10 +371,10 @@ export const startReturnJourney = async (req: Request, res: Response) => {
                 journey_direction: 'Return',
                 current_stage: 'Onboarding',
                 approvals: { registration: 'Pending', finance: 'Pending' },
-                version: (version || 0) + 1
+                version: (version || vRecord.version || 0) + 1
             })
             .eq('manifest_id', manifestId)
-            .eq('id', id)
+            .eq('id', idUuid)
             .select('*')
             .maybeSingle();
 
@@ -386,7 +389,8 @@ export const startReturnJourney = async (req: Request, res: Response) => {
 
         res.json({ message: 'Return journey started', vehicle: data });
     } catch (error: any) {
-        res.status(500).json({ error: 'An internal server error occurred.' });
+        console.error('[START_RETURN_JOURNEY] Error starting return journey:', error);
+        res.status(500).json({ error: error.message || 'An internal server error occurred.' });
     }
 };
 

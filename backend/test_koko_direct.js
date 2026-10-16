@@ -1,10 +1,11 @@
+require('dotenv').config({ path: require('path').resolve(__dirname, '.env') });
 const { createClient } = require('@supabase/supabase-js');
 
 async function testKokoAuth() {
     console.log("Testing GoTrue Auth for Koko...");
     // Injecting explicit environment keys since ANON_KEY is not in backend .env
-    const url = 'https://poazorjmzswectxvakzl.supabase.co';
-    const anonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBvYXpvcmptenN3ZWN0eHZha3psIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzY2OTUwMDYsImV4cCI6MjA1MjI3MTAwNn0.8mN2n1V1p-hWb8oM_9I7Bnk_WftlMLTKQ99Ejv-A';
+    const url = process.env.SUPABASE_URL;
+    const anonKey = process.env.SUPABASE_KEY;
 
     const supabaseAnon = createClient(url, anonKey);
 

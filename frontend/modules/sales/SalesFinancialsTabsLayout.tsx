@@ -1,12 +1,13 @@
 import React from 'react';
 import { Outlet, NavLink, useLocation } from 'react-router-dom';
-import { DollarSign, Calculator, Wallet, PieChart, FileText } from 'lucide-react';
+import { DollarSign, Calculator, Wallet, PieChart, FileText, Landmark } from 'lucide-react';
 
 const TABS = [
     { id: 'sales-summary', label: 'Sales Summary', mobileLabel: 'Summary', icon: PieChart },
     { id: 'financial-position', label: 'Financial Position', mobileLabel: 'Position', icon: DollarSign },
     { id: 'inventory-valuation', label: 'Inventory Valuation', mobileLabel: 'Valuation', icon: Calculator },
     { id: 'cash-position', label: 'Cash Position', mobileLabel: 'Cash', icon: Wallet },
+    { id: 'money-accounts', label: 'Money Accounts', mobileLabel: 'Accounts', icon: Landmark },
     { id: 'documents', label: 'Business Documents', mobileLabel: 'Docs', icon: FileText },
 ];
 

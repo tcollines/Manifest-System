@@ -1,9 +1,10 @@
+import { resolve as resolveEnvPath } from 'path';
 
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 import fetch from 'node-fetch';
 
-dotenv.config({ path: 'd:/Manifest System/backend/.env' });
+dotenv.config({ path: resolveEnvPath(__dirname, '.env') });
 
 const API_URL = 'http://localhost:5000/api'; // Assuming backend is on port 5000
 

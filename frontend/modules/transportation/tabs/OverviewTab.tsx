@@ -117,7 +117,7 @@ const CoordinatorView: React.FC = () => {
     } = useTransport();
     const { showToast, confirm: askConfirm } = useNotification();
 
-    const { isLoaded } = useJsApiLoader({ id: 'google-map-script', googleMapsApiKey: 'AIzaSyCZSpPjUuv2sILESSb2yqYNxhzr9CfCtzs' });
+    const { isLoaded } = useJsApiLoader({ id: 'google-map-script', googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY });
     const [mapInstance, setMapInstance] = React.useState(null);
     const onLoad = React.useCallback((map: any) => setMapInstance(map), []);
     const onUnmount = React.useCallback(() => setMapInstance(null), []);
@@ -613,7 +613,7 @@ const HodOverview: React.FC = () => {
         showHighlights, setShowHighlights, refreshData
     } = useTransport();
 
-    const { isLoaded } = useJsApiLoader({ id: 'google-map-script', googleMapsApiKey: 'AIzaSyCZSpPjUuv2sILESSb2yqYNxhzr9CfCtzs' });
+    const { isLoaded } = useJsApiLoader({ id: 'google-map-script', googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY });
     const [mapInstance, setMapInstance] = React.useState(null);
     const onLoad = React.useCallback((map: any) => setMapInstance(map), []);
     const onUnmount = React.useCallback(() => setMapInstance(null), []);

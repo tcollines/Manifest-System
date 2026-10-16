@@ -1,8 +1,11 @@
+import { config as loadEnv } from 'dotenv';
+import { fileURLToPath } from 'url';
+loadEnv({ path: fileURLToPath(new URL('.env', import.meta.url)) });
 import fs from 'fs';
 import pg from 'pg';
 const { Client } = pg;
 
-const password = "ujrRGd5IZIKOE9Oj";
+const password = process.env.SUPABASE_DB_PASSWORD;
 const directUrl = `postgres://postgres.poazorjmzswectxvakzl:${password}@aws-0-us-east-1.pooler.supabase.com:5432/postgres`;
 
 const client = new Client({

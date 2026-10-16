@@ -1,6 +1,13 @@
 import { supabase } from './supabaseClient';
 
-export const API_URL = import.meta.env.VITE_API_URL || 'https://manifest-system-lofy.onrender.com/api';
+// [CONFIG] The backend URL must come from the environment (frontend/.env locally,
+// the build environment in Dokploy). No hardcoded fallback: a silent fallback
+// sends production traffic to whichever old server happened to be written here.
+const apiUrlFromEnv = import.meta.env.VITE_API_URL as string | undefined;
+if (!apiUrlFromEnv) {
+    throw new Error('[FATAL] VITE_API_URL must be set in the environment (frontend/.env or the build environment)');
+}
+export const API_URL: string = apiUrlFromEnv;
 
 export const apiFetch = async (endpoint: string, options: RequestInit & { token?: string, _retry?: boolean, _silent?: boolean } = {}) => {
     // Dynamically retrieve the latest session token if not explicitly provided

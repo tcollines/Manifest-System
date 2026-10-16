@@ -1,3 +1,4 @@
+import { API_URL } from '../../services/api';
 import React, { useState, useEffect, useRef, createContext, useContext, useMemo, useCallback } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { useSearchParams } from 'react-router-dom';
@@ -2730,7 +2731,7 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({ chil
 
   const confirmDelete = async () => {
     // 1. Password Check
-    const apiUrl = (import.meta as any).env.VITE_API_URL || 'https://manifest-system-esft.onrender.com/api';
+    const apiUrl = API_URL;
     try {
       const response = await fetch(`${apiUrl}/auth/login`, {
         method: 'POST',

@@ -1,3 +1,6 @@
+import { config as loadEnv } from 'dotenv';
+import { resolve as resolveEnvPath } from 'path';
+loadEnv({ path: resolveEnvPath(__dirname, '../../.env') });
 import { Client } from 'pg';
 
 const candidateHosts = [
@@ -16,7 +19,7 @@ async function run() {
                     host,
                     port,
                     user,
-                    password: 'ujrRGd5IZIKOE9Oj',
+                    password: process.env.SUPABASE_DB_PASSWORD,
                     database: 'postgres',
                     ssl: { rejectUnauthorized: false }
                 });

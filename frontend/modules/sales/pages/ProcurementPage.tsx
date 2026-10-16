@@ -4,25 +4,34 @@ import { salesService } from '../../../services/sales/salesService';
 import { useNotification } from '../../../components/ui/NotificationSystem';
 import { useInfiniteScroll } from '../../../hooks/useInfiniteScroll';
 import { SalesProcurementRequest, SalesSupplier, SalesVariant, SalesProcurementRequestItem } from '../types';
-import { X, Plus, Package, Truck, Search, ShoppingCart, CheckCircle, Edit, Trash2, Eye, DollarSign, CreditCard } from 'lucide-react';
+import { X, Plus, Package, Truck, Search, ShoppingCart, CheckCircle, Edit, Trash2, Eye, DollarSign, CreditCard, FileText } from 'lucide-react';
 import TextInput from '../../../components/ui/TextInput';
-import { useAuth } from '@/context/AuthContext';
 import { procurementPaymentService } from '../../../services/sales/procurementPaymentService';
+import { accountService, MoneyAccount } from '../../../services/sales/accountService';
+import { PAYMENT_METHODS, defaultMethodForAccount } from '../constants';
 import { SalesProcurementPayment } from '../types';
+import { GoodsReceiptsTab } from '../components/GoodsReceiptsTab';
+import { SupplierStatementPanel } from '../components/SupplierStatementPanel';
 
-const formatMoneyInput = (val: string) => {
-  if (!val) return '';
-  const parts = val.split('.');
-  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-  return parts.join('.');
+/**
+ * Shillings are whole numbers. VALIDATION_RULES section 1.3 has amounts cross
+ * the wire as integers and the payment schema rejects a fractional amount
+ * outright rather than rounding it, so the payment inputs refuse a decimal
+ * point on the way in instead of letting someone type an amount the server
+ * will not accept.
+ */
+const formatShillings = (digits: string) =>
+  digits ? digits.replace(/\B(?=(\d{3})+(?!\d))/g, ',') : '';
+const toShillingDigits = (val: string) => val.replace(/[^0-9]/g, '').replace(/^0+(?=\d)/, '');
+const parseShillings = (val: string) => {
+  const digits = val.replace(/[^0-9]/g, '');
+  return digits ? parseInt(digits, 10) : 0;
 };
-const parseMoneyInput = (val: string) => val.replace(/,/g, '');
 
-type Tab = 'REQUESTS' | 'SUPPLIERS';
+type Tab = 'REQUESTS' | 'SUPPLIERS' | 'GOODS_RECEIPTS';
 
 const ProcurementPage: React.FC = () => {
   const { showToast } = useNotification();
-  const { user } = useAuth();
   const manifestId = 'default_manifest';
   
   const [activeTab, setActiveTab] = useState<Tab>('REQUESTS');
@@ -38,7 +47,13 @@ const ProcurementPage: React.FC = () => {
 
   const [suppliers, setSuppliers] = useState<SalesSupplier[]>([]);
   const [variants, setVariants] = useState<SalesVariant[]>([]);
-  
+
+  // The open statement is tracked by id rather than by holding the supplier
+  // object, so a reload of `suppliers` cannot leave the panel rendering a stale
+  // copy of a record that has since changed.
+  const [statementSupplierId, setStatementSupplierId] = useState<string | null>(null);
+  const statementSupplier = suppliers.find(s => s.id === statementSupplierId) ?? null;
+
   // Supplier Modal
   const [showSupplierModal, setShowSupplierModal] = useState(false);
   const [supplierForm, setSupplierForm] = useState({ name: '', contact_info: '' });
@@ -51,14 +66,26 @@ const ProcurementPage: React.FC = () => {
   const [poSearch, setPoSearch] = useState('');
   const [initialPaymentAmount, setInitialPaymentAmount] = useState<string>('');
   const [initialPaymentMethod, setInitialPaymentMethod] = useState<string>('Cash');
+  const [initialPaymentAccountId, setInitialPaymentAccountId] = useState<string>('');
+
+  // Money accounts. A supplier payment must name the account the money leaves,
+  // otherwise it never reaches the cash position — so these are loaded up front
+  // and both payment forms are blocked when none exist.
+  const [accounts, setAccounts] = useState<MoneyAccount[]>([]);
 
   // Payment Modal
   const [paymentModalPO, setPaymentModalPO] = useState<SalesProcurementRequest | null>(null);
   const [paymentAmount, setPaymentAmount] = useState<string>('');
   const [paymentMethod, setPaymentMethod] = useState<string>('Cash');
+  const [paymentAccountId, setPaymentAccountId] = useState<string>('');
   const [paymentRef, setPaymentRef] = useState<string>('');
   const [paymentNotes, setPaymentNotes] = useState<string>('');
+  const [paymentDate, setPaymentDate] = useState<string>('');
   const [poPayments, setPoPayments] = useState<SalesProcurementPayment[]>([]);
+  // Non-null while an existing payment is being edited: the same form records a
+  // new payment or saves changes to this one.
+  const [editingPaymentId, setEditingPaymentId] = useState<string | null>(null);
+  const [savingPayment, setSavingPayment] = useState(false);
 
   // Receive Modal
   const [receiveModalPO, setReceiveModalPO] = useState<SalesProcurementRequest | null>(null);
@@ -80,6 +107,16 @@ const ProcurementPage: React.FC = () => {
       const vars = await salesService.getVariants(manifestId);
       setSuppliers(supps);
       setVariants(vars);
+
+      // Accounts come back as ServiceResponse, so a failure here is reported
+      // rather than swallowed — without accounts no payment can be recorded and
+      // the user needs to know why the form is disabled.
+      const accountsRes = await accountService.getAccounts();
+      if (accountsRes.status === 'success') {
+        setAccounts(accountsRes.data.filter(a => a.isActive));
+      } else {
+        showToast(`Could not load money accounts: ${accountsRes.message}`, 'error');
+      }
     } catch (e: any) {
       showToast(e.message, 'error');
     }
@@ -135,17 +172,37 @@ const ProcurementPage: React.FC = () => {
         await procurementService.updateRequestWithItems(editingPoId, poSupplierId, itemsToInsert);
         showToast('Purchase Order updated', 'success');
       } else {
-        await procurementService.createRequestWithItems(
+        const initialAmount = parseShillings(initialPaymentAmount);
+        if (initialAmount > 0 && !initialPaymentAccountId) {
+          return showToast('Choose the account the initial payment leaves', 'error');
+        }
+
+        // The order is created with no payment attached, then the payment goes
+        // through the supplier-payment RPC. createRequestWithItems' own
+        // initialPayment branch still runs the legacy direct insert, which
+        // records no account and so never reaches the cash position — passing
+        // it here would reintroduce exactly the row this change stops writing.
+        const created = await procurementService.createRequestWithItems(
           manifestId,
           { supplier_id: poSupplierId },
-          itemsToInsert,
-          { 
-            amount: parseFloat(parseMoneyInput(initialPaymentAmount)) || 0, 
-            method: initialPaymentMethod, 
-            recordedBy: user?.name || 'Unknown' 
-          }
+          itemsToInsert
         );
         showToast('Purchase Order created', 'success');
+
+        if (initialAmount > 0) {
+          const res = await procurementPaymentService.recordSupplierPayment(poSupplierId, {
+            amount: initialAmount,
+            accountId: initialPaymentAccountId,
+            paymentMethod: initialPaymentMethod,
+            procurementRequestId: created.id,
+            notes: 'Initial payment on creation'
+          });
+          if (res.status === 'error') {
+            // The order exists and only the payment failed. Say precisely that,
+            // so nobody re-creates the order trying to get the payment through.
+            showToast(`Order created, but the payment was not recorded: ${res.message}`, 'error');
+          }
+        }
       }
 
       loadData();
@@ -155,6 +212,7 @@ const ProcurementPage: React.FC = () => {
       setPoItems([]);
       setInitialPaymentAmount('');
       setInitialPaymentMethod('Cash');
+      setInitialPaymentAccountId('');
     } catch (e: any) {
       showToast(e.message, 'error');
     }
@@ -197,92 +255,168 @@ const ProcurementPage: React.FC = () => {
     }
   };
 
+  /**
+   * Preselects an account only when there is exactly one to choose. With
+   * several, the user picks: the choice moves a real balance, and silently
+   * defaulting to whichever happened to load first is how money leaves the
+   * wrong account.
+   */
+  const defaultAccountSelection = () => {
+    if (accounts.length !== 1) return { id: '', method: 'Cash' as string };
+    const only = accounts[0];
+    return { id: only.id, method: defaultMethodForAccount(only.accountType, only.provider) as string };
+  };
+
   const openPaymentModal = async (po: SalesProcurementRequest) => {
     try {
       const payments = await procurementPaymentService.getPaymentsForRequest(po.id);
+      const preset = defaultAccountSelection();
       setPoPayments(payments);
       setPaymentModalPO(po);
-      setPaymentAmount('');
-      setPaymentRef('');
-      setPaymentNotes('');
+      resetPaymentForm(preset);
     } catch (e: any) {
       showToast(e.message, 'error');
     }
   };
 
-  const handleRecordPayment = async () => {
+  /** Keeps the method in step with the account, while leaving it overridable. */
+  const handleAccountChange = (accountId: string, setMethod: (m: string) => void) => {
+    const account = accounts.find(a => a.id === accountId);
+    if (account) setMethod(defaultMethodForAccount(account.accountType, account.provider));
+  };
+
+  /** Clears the form back to "record a new payment". */
+  const resetPaymentForm = (preset?: { id: string; method: string }) => {
+    const p = preset ?? defaultAccountSelection();
+    setEditingPaymentId(null);
+    setPaymentAmount('');
+    setPaymentRef('');
+    setPaymentNotes('');
+    setPaymentDate('');
+    setPaymentAccountId(p.id);
+    setPaymentMethod(p.method);
+  };
+
+  /**
+   * Re-reads the payments and brings the modal header back in step.
+   *
+   * balance_due comes from the RPC, which recomputed it inside the same
+   * transaction; amount_paid is the sum of the rows just re-read. Neither is
+   * guessed from the previous values — the RPC allows overpayment on account,
+   * so adding or subtracting locally would disagree with the database.
+   */
+  const refreshAfterPaymentChange = async (requestBalanceDue: number | null) => {
     if (!paymentModalPO) return;
-    const amt = parseFloat(parseMoneyInput(paymentAmount)) || 0;
-    if (amt <= 0) return showToast('Amount must be greater than zero', 'error');
-
-    try {
-      await procurementPaymentService.recordPayment(
-        manifestId,
-        paymentModalPO.id,
-        paymentModalPO.supplier_id,
-        amt,
-        paymentMethod,
-        user?.name || 'Unknown',
-        paymentRef,
-        paymentNotes
-      );
-      showToast('Payment recorded successfully', 'success');
-      
-      // Refresh PO data implicitly by reloading
-      loadData();
-      
-      // Update local modal data
-      const updatedPayments = await procurementPaymentService.getPaymentsForRequest(paymentModalPO.id);
-      setPoPayments(updatedPayments);
-      
-      // Update the PO reference in state so the UI reflects new balance
-      setPaymentModalPO(prev => {
-        if (!prev) return null;
-        const newAmountPaid = prev.amount_paid + amt;
-        const newBalanceDue = Math.max(0, prev.balance_due - amt);
-        let newPaymentStatus = 'UNPAID';
-        if (newAmountPaid > 0 && newBalanceDue > 0) newPaymentStatus = 'PARTIAL';
-        else if (newBalanceDue === 0 && prev.total_amount > 0) newPaymentStatus = 'PAID';
-        else if (prev.total_amount === 0 && newAmountPaid === 0) newPaymentStatus = 'PAID';
-        
-        return { ...prev, amount_paid: newAmountPaid, balance_due: newBalanceDue, payment_status: newPaymentStatus };
-      });
-      setPaymentAmount('');
-      setPaymentRef('');
-      setPaymentNotes('');
-    } catch (err: any) {
-      showToast(err.message || 'Failed to record payment', 'error');
-    }
+    loadData();
+    const updated = await procurementPaymentService.getPaymentsForRequest(paymentModalPO.id);
+    setPoPayments(updated);
+    setPaymentModalPO(prev => {
+      if (!prev) return null;
+      const paid = updated.reduce((sum, p) => sum + Number(p.amount), 0);
+      const due = requestBalanceDue ?? Math.max(0, prev.total_amount - paid);
+      let status = 'UNPAID';
+      if (due === 0 && prev.total_amount > 0) status = 'PAID';
+      else if (prev.total_amount === 0 && paid === 0) status = 'PAID';
+      else if (paid > 0 && due > 0) status = 'PARTIAL';
+      return { ...prev, amount_paid: paid, balance_due: due, payment_status: status };
+    });
   };
 
-  const handleDeletePayment = async (paymentId: string) => {
-    if (!paymentModalPO || !confirm('Are you sure you want to delete this payment?')) return;
-    try {
-      await procurementPaymentService.deletePayment(paymentId, paymentModalPO.id);
-      showToast('Payment deleted successfully', 'success');
-      
-      loadData();
-      
-      const updatedPayments = await procurementPaymentService.getPaymentsForRequest(paymentModalPO.id);
-      setPoPayments(updatedPayments);
-      
-      const deletedPayment = poPayments.find(p => p.id === paymentId);
-      if (deletedPayment) {
-        setPaymentModalPO(prev => {
-          if (!prev) return null;
-          const newAmountPaid = prev.amount_paid - deletedPayment.amount;
-          const newBalanceDue = prev.balance_due + deletedPayment.amount;
-          let newPaymentStatus = 'UNPAID';
-          if (newAmountPaid > 0 && newBalanceDue > 0) newPaymentStatus = 'PARTIAL';
-          else if (newBalanceDue === 0 && prev.total_amount > 0) newPaymentStatus = 'PAID';
-          else if (prev.total_amount === 0 && newAmountPaid === 0) newPaymentStatus = 'PAID';
-          
-          return { ...prev, amount_paid: newAmountPaid, balance_due: newBalanceDue, payment_status: newPaymentStatus };
-        });
+  const startEditPayment = (p: SalesProcurementPayment) => {
+    setEditingPaymentId(p.id);
+    setPaymentAmount(formatShillings(toShillingDigits(String(p.amount))));
+    setPaymentAccountId(p.account_id || '');
+    setPaymentMethod(p.payment_method || 'Cash');
+    setPaymentRef(p.transaction_reference || '');
+    setPaymentNotes(p.notes || '');
+    // Sliced from the ISO string rather than parsed into a Date: these are
+    // stored as a Kampala calendar date at UTC midnight, and running them
+    // through the browser's local timezone can move them a day.
+    setPaymentDate(String(p.payment_date || '').slice(0, 10));
+  };
+
+  /**
+   * Records a new payment, or saves changes to the one being edited.
+   *
+   * The pre-flight overdraft check differs between the two. Recording exposes
+   * the account to the whole amount; editing only exposes it to the increase,
+   * because the old amount is already debited — unless the account itself
+   * changed, in which case the new one takes the full amount. This mirrors what
+   * the RPC tests, so the message arrives before the round trip rather than
+   * after it.
+   */
+  const handleSavePayment = async () => {
+    if (!paymentModalPO || savingPayment) return;
+    const amt = parseShillings(paymentAmount);
+    if (amt <= 0) return showToast('Amount must be greater than zero', 'error');
+    if (!paymentAccountId) return showToast('Choose the account the money leaves', 'error');
+
+    const editing = editingPaymentId ? poPayments.find(p => p.id === editingPaymentId) : null;
+    if (editingPaymentId && !editing) return showToast('That payment is no longer listed', 'error');
+
+    const account = accounts.find(a => a.id === paymentAccountId);
+    if (account && account.accountType !== 'BANK') {
+      const exposure = editing && editing.account_id === paymentAccountId
+        ? amt - Number(editing.amount)
+        : amt;
+      if (exposure > account.balance) {
+        return showToast(
+          `${account.name} holds UGX ${account.balance.toLocaleString()}, less than UGX ${exposure.toLocaleString()}`,
+          'error'
+        );
       }
-    } catch (e: any) {
-      showToast(e.message, 'error');
     }
+
+    setSavingPayment(true);
+    const res = editingPaymentId
+      ? await procurementPaymentService.updateSupplierPayment(editingPaymentId, {
+          amount: amt,
+          accountId: paymentAccountId,
+          paymentMethod,
+          paymentDate: paymentDate || undefined,
+          reference: paymentRef,
+          notes: paymentNotes
+        })
+      : await procurementPaymentService.recordSupplierPayment(paymentModalPO.supplier_id, {
+          amount: amt,
+          accountId: paymentAccountId,
+          paymentMethod,
+          paymentDate: paymentDate || undefined,
+          procurementRequestId: paymentModalPO.id,
+          reference: paymentRef,
+          notes: paymentNotes
+        });
+    setSavingPayment(false);
+
+    if (res.status === 'error') {
+      // The backend message is the specific one — "Cash has 88,000, needs
+      // 150,000", "Jan 2020 is closed" — so it is shown rather than replaced
+      // with a generic failure.
+      return showToast(res.message, 'error');
+    }
+
+    showToast(editingPaymentId ? 'Payment updated' : 'Payment recorded successfully', 'success');
+    await refreshAfterPaymentChange(res.data.requestBalanceDue);
+    resetPaymentForm();
+  };
+
+  const handleDeletePayment = async (p: SalesProcurementPayment) => {
+    if (!paymentModalPO) return;
+    const when = new Date(p.payment_date).toLocaleDateString();
+    if (!window.confirm(
+      `Delete the UGX ${Number(p.amount).toLocaleString()} payment dated ${when}?
+
+` +
+      `The account it came from goes back up by that amount, and the order's balance is recalculated. ` +
+      `This cannot be undone.`
+    )) return;
+
+    const res = await procurementPaymentService.deleteSupplierPayment(p.id);
+    if (res.status === 'error') return showToast(res.message, 'error');
+
+    showToast('Payment deleted', 'success');
+    if (editingPaymentId === p.id) resetPaymentForm();
+    await refreshAfterPaymentChange(res.data.requestBalanceDue);
   };
 
   // --- Receiving & Viewing ---
@@ -371,15 +505,18 @@ const ProcurementPage: React.FC = () => {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Procurement</h1>
         <div className="flex gap-2">
-          {activeTab === 'SUPPLIERS' ? (
+          {activeTab === 'SUPPLIERS' && (
             <button onClick={() => setShowSupplierModal(true)} className="px-4 py-2 bg-ministry-orange text-white rounded-lg hover:opacity-90 transition-opacity font-bold text-sm flex items-center gap-2">
               <Plus size={16} /> Add Supplier
             </button>
-          ) : (
+          )}
+          {activeTab === 'REQUESTS' && (
             <button onClick={() => { setEditingPoId(null); setPoSupplierId(''); setPoItems([]); setShowPOModal(true); }} className="px-4 py-2 bg-ministry-orange text-white rounded-lg hover:opacity-90 transition-opacity font-bold text-sm flex items-center gap-2">
               <ShoppingCart size={16} /> Create PO
             </button>
           )}
+          {/* Goods receipts are read-only here: the POST endpoint exists but
+              recording a receipt belongs with the stock side of procurement. */}
         </div>
       </div>
 
@@ -391,13 +528,21 @@ const ProcurementPage: React.FC = () => {
         >
           Purchase Orders
         </button>
-        <button 
+        <button
+          onClick={() => setActiveTab('GOODS_RECEIPTS')}
+          className={`pb-3 px-2 font-medium text-sm transition-colors border-b-2 ${activeTab === 'GOODS_RECEIPTS' ? 'border-ministry-orange text-ministry-orange' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+        >
+          Goods Receipts
+        </button>
+        <button
           onClick={() => setActiveTab('SUPPLIERS')}
           className={`pb-3 px-2 font-medium text-sm transition-colors border-b-2 ${activeTab === 'SUPPLIERS' ? 'border-ministry-orange text-ministry-orange' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
         >
           Suppliers
         </button>
       </div>
+
+      {activeTab === 'GOODS_RECEIPTS' && <GoodsReceiptsTab suppliers={suppliers} />}
       
       {activeTab === 'REQUESTS' && (
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm w-full">
@@ -590,26 +735,37 @@ const ProcurementPage: React.FC = () => {
       )}
 
       {activeTab === 'SUPPLIERS' && (
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm w-full">
+        <div className="space-y-4">
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm w-full">
           <div className="hidden md:block overflow-x-auto">
-            <table className="w-full text-left min-w-[500px]">
+            <table className="w-full text-left min-w-[560px]">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200 text-sm text-gray-500">
                   <th className="p-4">Supplier Name</th>
                   <th className="p-4">Contact Info</th>
                   <th className="p-4 text-right">Added On</th>
+                  <th className="p-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 text-sm">
                 {suppliers.map(s => (
-                  <tr key={s.id}>
+                  <tr key={s.id} className={statementSupplierId === s.id ? 'bg-orange-50/60' : ''}>
                     <td className="p-4 font-medium text-gray-900">{s.name}</td>
                     <td className="p-4 text-gray-500">{s.contact_info || '-'}</td>
                     <td className="p-4 text-right text-gray-500">{new Date(s.created_at).toLocaleDateString()}</td>
+                    <td className="p-4 text-right">
+                      <button
+                        onClick={() => setStatementSupplierId(statementSupplierId === s.id ? null : s.id)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-ministry-orange bg-orange-50 hover:bg-orange-100 rounded-md transition-colors"
+                      >
+                        <FileText size={14} />
+                        {statementSupplierId === s.id ? 'Hide statement' : 'Statement'}
+                      </button>
+                    </td>
                   </tr>
                 ))}
                 {suppliers.length === 0 && (
-                  <tr><td colSpan={3} className="p-8 text-center text-gray-400">No suppliers found.</td></tr>
+                  <tr><td colSpan={4} className="p-8 text-center text-gray-400">No suppliers found.</td></tr>
                 )}
               </tbody>
             </table>
@@ -620,15 +776,33 @@ const ProcurementPage: React.FC = () => {
               <div className="p-8 text-center text-gray-400">No suppliers found.</div>
             )}
             {suppliers.map(s => (
-              <div key={s.id} className="p-4 hover:bg-gray-50 flex justify-between items-center">
-                <div>
+              <div key={s.id} className="p-4 hover:bg-gray-50 flex justify-between items-center gap-3">
+                <div className="min-w-0">
                   <div className="font-semibold text-gray-900">{s.name}</div>
                   <div className="text-sm text-gray-500 mt-1">{s.contact_info || 'No contact info'}</div>
+                  <div className="text-xs text-gray-400 mt-1">{new Date(s.created_at).toLocaleDateString()}</div>
                 </div>
-                <div className="text-xs text-gray-400">{new Date(s.created_at).toLocaleDateString()}</div>
+                <button
+                  onClick={() => setStatementSupplierId(statementSupplierId === s.id ? null : s.id)}
+                  className="shrink-0 w-11 h-11 flex items-center justify-center bg-orange-50 text-ministry-orange hover:bg-orange-100 rounded-md transition-colors"
+                  aria-label={`${statementSupplierId === s.id ? 'Hide' : 'View'} statement for ${s.name}`}
+                >
+                  <FileText size={16} />
+                </button>
               </div>
             ))}
           </div>
+          </div>
+
+          {/* A statement is always for one supplier, so it is a drill-down from
+              this list rather than a tab of its own — the same shape as the
+              cashbook panel under Money Accounts. */}
+          {statementSupplier && (
+            <SupplierStatementPanel
+              supplier={statementSupplier}
+              onClose={() => setStatementSupplierId(null)}
+            />
+          )}
         </div>
       )}
 
@@ -799,35 +973,60 @@ const ProcurementPage: React.FC = () => {
                   {poItems.length > 0 && (
                     <div className="mt-4 pt-3 border-t border-gray-200 shrink-0">
                       <h3 className="font-bold text-gray-800 mb-2 text-xs uppercase">Initial Supplier Payment (Optional)</h3>
-                      <div className="flex gap-2">
-                        <div className="flex-1">
-                          <label className="text-[10px] uppercase font-bold text-gray-500 block mb-1">Amount Paid</label>
-                          <input 
-                            type="text" 
-                            inputMode="numeric"
-                            className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-ministry-orange"
-                            placeholder="Amount..."
-                            value={initialPaymentAmount}
-                            onChange={e => {
-                              const numeric = e.target.value.replace(/[^0-9.]/g, '');
-                              setInitialPaymentAmount(formatMoneyInput(numeric));
-                            }}
-                          />
-                        </div>
-                        <div className="flex-1">
-                          <label className="text-[10px] uppercase font-bold text-gray-500 block mb-1">Method</label>
-                          <select 
-                            className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-ministry-orange"
-                            value={initialPaymentMethod}
-                            onChange={e => setInitialPaymentMethod(e.target.value)}
-                          >
-                            <option value="Cash">Cash</option>
-                            <option value="Mobile Money">Mobile Money</option>
-                            <option value="Bank Transfer">Bank Transfer</option>
-                            <option value="Card">Card</option>
-                          </select>
-                        </div>
-                      </div>
+                      {accounts.length === 0 ? (
+                        <p className="text-xs text-orange-700 bg-orange-50 border border-orange-100 rounded px-2 py-1.5">
+                          No active money account, so no payment can be recorded. Create one under
+                          Financials &rarr; Money Accounts, then pay this order from its payment screen.
+                        </p>
+                      ) : (
+                        <>
+                          <div className="flex gap-2">
+                            <div className="flex-1">
+                              <label className="text-[10px] uppercase font-bold text-gray-500 block mb-1">Amount Paid</label>
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-ministry-orange"
+                                placeholder="Amount..."
+                                value={initialPaymentAmount}
+                                onChange={e => setInitialPaymentAmount(formatShillings(toShillingDigits(e.target.value)))}
+                              />
+                            </div>
+                            <div className="flex-1">
+                              <label className="text-[10px] uppercase font-bold text-gray-500 block mb-1">Method</label>
+                              <select
+                                className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-ministry-orange"
+                                value={initialPaymentMethod}
+                                onChange={e => setInitialPaymentMethod(e.target.value)}
+                              >
+                                {PAYMENT_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
+                              </select>
+                            </div>
+                          </div>
+                          {parseShillings(initialPaymentAmount) > 0 && (
+                            <div className="mt-2">
+                              <label className="text-[10px] uppercase font-bold text-gray-500 block mb-1">
+                                Paid From <span className="text-red-500">*</span>
+                              </label>
+                              <select
+                                className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-ministry-orange"
+                                value={initialPaymentAccountId}
+                                onChange={e => {
+                                  setInitialPaymentAccountId(e.target.value);
+                                  handleAccountChange(e.target.value, setInitialPaymentMethod);
+                                }}
+                              >
+                                <option value="">Select account...</option>
+                                {accounts.map(a => (
+                                  <option key={a.id} value={a.id}>
+                                    {a.name} — UGX {a.balance.toLocaleString()}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          )}
+                        </>
+                      )}
                     </div>
                   )}
                 </div>
@@ -1031,40 +1230,76 @@ const ProcurementPage: React.FC = () => {
                 </div>
               </div>
 
-              {Number(paymentModalPO.balance_due) > 0 ? (
+              {/* An order with nothing outstanding still needs the form when a
+                  payment on it is being corrected — that is usually why it reads
+                  as fully paid. */}
+              {(Number(paymentModalPO.balance_due) > 0 || editingPaymentId) ? (
                 <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-6">
-                  <h3 className="font-bold text-gray-900 mb-4 text-sm">Add New Payment</h3>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-bold text-gray-900 text-sm">
+                      {editingPaymentId ? 'Edit Payment' : 'Add New Payment'}
+                    </h3>
+                    {editingPaymentId && (
+                      <button
+                        onClick={() => resetPaymentForm()}
+                        className="text-xs font-bold text-gray-500 hover:text-gray-800"
+                      >
+                        Cancel edit
+                      </button>
+                    )}
+                  </div>
+                  {accounts.length === 0 && (
+                    <p className="text-xs text-orange-700 bg-orange-50 border border-orange-100 rounded-lg px-3 py-2 mb-4">
+                      No active money account exists, so a payment cannot be recorded — every payment
+                      must name the account it leaves. Create one under Financials &rarr; Money Accounts.
+                    </p>
+                  )}
                   <div className="grid grid-cols-2 gap-4 mb-4">
                     <div>
-                      <TextInput 
+                      <TextInput
                         label="Amount Paid"
                         value={paymentAmount}
-                        onChange={e => {
-                          const numeric = e.target.value.replace(/[^0-9.]/g, '');
-                          setPaymentAmount(formatMoneyInput(numeric));
-                        }}
+                        onChange={e => setPaymentAmount(formatShillings(toShillingDigits(e.target.value)))}
                         placeholder={`Max: ${paymentModalPO.balance_due.toLocaleString()}`}
                       />
                     </div>
                     <div>
+                      <label className="text-[10px] uppercase font-bold text-gray-500 block mb-1">
+                        Paid From <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-ministry-orange disabled:bg-gray-100"
+                        value={paymentAccountId}
+                        disabled={accounts.length === 0}
+                        onChange={e => {
+                          setPaymentAccountId(e.target.value);
+                          handleAccountChange(e.target.value, setPaymentMethod);
+                        }}
+                      >
+                        <option value="">Select account...</option>
+                        {accounts.map(a => (
+                          <option key={a.id} value={a.id}>
+                            {a.name} — UGX {a.balance.toLocaleString()}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
                       <label className="text-[10px] uppercase font-bold text-gray-500 block mb-1">Payment Method</label>
-                      <select 
+                      <select
                         className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-ministry-orange"
                         value={paymentMethod}
                         onChange={e => setPaymentMethod(e.target.value)}
                       >
-                        <option value="Cash">Cash</option>
-                        <option value="Mobile Money">Mobile Money</option>
-                        <option value="Bank Transfer">Bank Transfer</option>
-                        <option value="Card">Card</option>
+                        {PAYMENT_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
                       </select>
                     </div>
                     <div>
                       <TextInput 
-                        label={paymentMethod === 'Mobile Money' ? "Transaction ID (Optional)" : "Transaction Ref (Optional)"}
+                        label={paymentMethod.includes('Money') ? "Transaction ID (Optional)" : "Transaction Ref (Optional)"}
                         value={paymentRef}
                         onChange={e => setPaymentRef(e.target.value)}
-                        placeholder={paymentMethod === 'Mobile Money' ? "e.g. 123456789" : "e.g. Receipt #1234"}
+                        placeholder={paymentMethod.includes('Money') ? "e.g. 123456789" : "e.g. Receipt #1234"}
                       />
                     </div>
                     <div>
@@ -1075,13 +1310,33 @@ const ProcurementPage: React.FC = () => {
                         placeholder="Any additional info..."
                       />
                     </div>
+                    <div>
+                      <label className="text-[10px] uppercase font-bold text-gray-500 block mb-1">
+                        Payment Date {editingPaymentId ? '' : '(defaults to today)'}
+                      </label>
+                      <input
+                        type="date"
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-ministry-orange"
+                        value={paymentDate}
+                        onChange={e => setPaymentDate(e.target.value)}
+                      />
+                    </div>
                   </div>
-                  <div className="flex justify-end">
-                    <button 
-                      onClick={handleRecordPayment}
-                      className="px-4 py-2 bg-ministry-orange text-white rounded-lg font-bold text-sm hover:opacity-90 transition-opacity"
+                  <div className="flex justify-end gap-2">
+                    {editingPaymentId && (
+                      <button
+                        onClick={() => resetPaymentForm()}
+                        className="px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg font-medium text-sm hover:bg-gray-50"
+                      >
+                        Cancel
+                      </button>
+                    )}
+                    <button
+                      onClick={handleSavePayment}
+                      disabled={accounts.length === 0 || savingPayment}
+                      className="px-4 py-2 bg-ministry-orange text-white rounded-lg font-bold text-sm hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
                     >
-                      Record Payment
+                      {savingPayment ? 'Saving...' : editingPaymentId ? 'Save Changes' : 'Record Payment'}
                     </button>
                   </div>
                 </div>
@@ -1101,6 +1356,7 @@ const ProcurementPage: React.FC = () => {
                         <th className="p-3">Amount</th>
                         <th className="p-3">Method</th>
                         <th className="p-3">Ref</th>
+                        <th className="p-3">Status</th>
                         <th className="p-3 text-right">Actions</th>
                       </tr>
                     </thead>
@@ -1111,11 +1367,41 @@ const ProcurementPage: React.FC = () => {
                           <td className="p-3 font-medium text-gray-900">UGX {Number(p.amount).toLocaleString()}</td>
                           <td className="p-3 text-gray-600">{p.payment_method}</td>
                           <td className="p-3 text-gray-500 text-xs">{p.transaction_reference || '-'}</td>
-                          <td className="p-3 text-right">
-                            <button 
-                              onClick={() => handleDeletePayment(p.id)}
+                          <td className="p-3">
+                            {/* Posted means the payment debited a money account and so
+                                reaches the cash position. Unposted marks a legacy row
+                                written before the account was recorded; editing it and
+                                naming an account is what fixes it. */}
+                            {p.account_id ? (
+                              <span
+                                className="text-[10px] uppercase font-bold text-gray-400"
+                                title="Debited a money account, so it appears in the cashbook and the cash position."
+                              >
+                                Posted
+                              </span>
+                            ) : (
+                              <span
+                                className="text-[10px] uppercase font-bold text-orange-600"
+                                title="Recorded against no money account, so it never reduced the cash position. Edit it to name one."
+                              >
+                                Unposted
+                              </span>
+                            )}
+                          </td>
+                          <td className="p-3 text-right whitespace-nowrap">
+                            <button
+                              onClick={() => startEditPayment(p)}
+                              className={`p-1.5 rounded ${editingPaymentId === p.id
+                                ? 'bg-ministry-orange/10 text-ministry-orange'
+                                : 'text-gray-500 hover:bg-gray-100'}`}
+                              title="Edit this payment"
+                            >
+                              <Edit size={14} />
+                            </button>
+                            <button
+                              onClick={() => handleDeletePayment(p)}
                               className="p-1.5 text-red-500 hover:bg-red-50 rounded"
-                              title="Delete Payment"
+                              title="Delete this payment"
                             >
                               <Trash2 size={14} />
                             </button>

@@ -2,11 +2,11 @@ require('dotenv').config();
 const fs = require('fs');
 const { Client } = require('pg');
 
-const env = fs.readFileSync('d:\\Manifest System\\backend\\.env', 'utf8');
+const env = fs.readFileSync(require('path').resolve(__dirname, '.env'), 'utf8');
 const url = env.match(/DATABASE_URL=(.*)/)?.[1]?.trim();
 
-// Original: postgres://postgres.poazorjmzswectxvakzl:***@aws-0-us-east-1.pooler.supabase.com:6543/postgres?options=project%3Dpoazorjmzswectxvakzl
-// New format: postgres://postgres.[ref]:***@[ref].pooler.supabase.com:5432/postgres
+// Original: postgres://postgres.poazorjmzswectxvakzl:<password>@aws-0-us-east-1.pooler.supabase.com:6543/postgres?options=project%3Dpoazorjmzswectxvakzl
+// New format: postgres://postgres.[ref]:<password>@[ref].pooler.supabase.com:5432/postgres
 const projectRef = 'poazorjmzswectxvakzl';
 const pMatch = url.match(/:([^:@]+)@/);
 const password = pMatch[1];

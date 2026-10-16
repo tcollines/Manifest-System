@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 require('dotenv').config({ path: './backend/.env' });
 
-const password = 'ujrRGd5IZIKOE9Oj';
+const password = process.env.SUPABASE_DB_PASSWORD;
 const projectId = 'poazorjmzswectxvakzl';
 
 // Direct connection to the database instance (bypassing pooler)

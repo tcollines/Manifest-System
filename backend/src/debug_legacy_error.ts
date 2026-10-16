@@ -1,9 +1,10 @@
+import { resolve as resolveEnvPath } from 'path';
 
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 import fs from 'fs';
 
-dotenv.config({ path: 'd:/Manifest System/backend/.env' });
+dotenv.config({ path: resolveEnvPath(__dirname, '../.env') });
 
 const supabaseUrl = process.env.SUPABASE_URL || '';
 const supabaseKey = process.env.SUPABASE_KEY || '';

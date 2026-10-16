@@ -192,7 +192,8 @@ export const VehicleStore = {
                     ongoing_arrival_time: options?.ongoingArrivalTime,
                     return_arrival_time: options?.returnArrivalTime,
                     ongoing_start_time: options?.ongoingStartTime,
-                    return_start_time: options?.returnStartTime
+                    return_start_time: options?.returnStartTime,
+                    version: options?.version
                 })
             });
             return mapVehicleFromDB(res.vehicle);

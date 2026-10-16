@@ -1,5 +1,8 @@
 import { supabase } from '../../../supabase';
-import { logAudit, computeChangedFields } from '../../../services/audit/auditService';
+import { logAudit } from '../../../services/audit/auditService';
+import { SALES_RPC } from '../shared/salesConstants';
+import { parseOrThrow } from '../../../shared/validators/common';
+import { ProcessCheckoutSchema } from '../../../shared/validators/salesSchemas';
 
 export const getOrders = async (manifestId: string) => {
     const { data, error } = await supabase
@@ -102,83 +105,76 @@ export const createOrder = async (manifestId: string, payload: any, items: any[]
     return order;
 };
 
-export const processCheckout = async (manifestId: string, orderPayload: any, items: any[], amountPaid: number, paymentMethod: string, transactionId: string | undefined, auditContext: any) => {
-    // 1. Validate Stock & Prepare Order
-    const variantIds = items.map((i: any) => i.variant_id).filter(Boolean);
-    const { data: variants, error: varErr } = await supabase.from('sales_product_variants').select('id, stock_quantity, reserved_quantity, cost_price, selling_price').in('id', variantIds);
-    if (varErr) throw varErr;
+/**
+ * POS checkout. Runs sales_process_checkout (migration 48) — one transaction
+ * that prices the order from the locked variant rows, writes the order, its
+ * items, the payment and the stock movements, and, when the order is paid in
+ * full, the delivery the P&L recognises revenue from.
+ *
+ * This was thirty lines of service code doing the same work in seven separate
+ * statements, and each of them was a hole:
+ *
+ *   - Stock was read, decremented in JavaScript and written back, so two
+ *     concurrent sales of the last shirt both passed the availability test and
+ *     both sold it. CLAUDE.md requires a SELECT ... FOR UPDATE, which only the
+ *     RPC takes.
+ *   - The payment row was inserted without an account_id and without checking
+ *     the error, so a payment method the CHECK constraint refuses — the POS
+ *     sends 'Mobile Money', which is not one of the six allowed values — was
+ *     discarded in silence, leaving an order marked PAID with no payment
+ *     behind it. Nothing in sales_account_ledger ever saw the money either.
+ *   - A checkout that failed halfway left the order written and the stock not
+ *     moved, or the reverse. There was no transaction.
+ *   - And since migration 48, a completed sale must write a delivery row.
+ *     Service code wrote none, so revenue recognised from deliveries would
+ *     have started drifting from the orders on the very next sale.
+ *
+ * The RPC returns the ids and the resulting statuses; the order row itself is
+ * no longer returned, because the caller only ever used it to learn what it
+ * already knew.
+ */
+export const processCheckout = async (manifestId: string, payload: any, auditContext: any) => {
+    const {
+        items, amountPaid, accountId, paymentMethod, customerId, reference
+    } = parseOrThrow(ProcessCheckoutSchema, payload);
 
-    let totalAmount = 0;
-    for (const item of items) {
-        const variant = variants?.find((v: any) => v.id === item.variant_id);
-        if (!variant) throw new Error(`Variant ${item.variant_id} not found`);
-        const availableStock = Math.max(0, variant.stock_quantity - (variant.reserved_quantity || 0));
-        if (item.quantity > availableStock) throw new Error(`Not enough stock for one of the items. Only ${availableStock} left.`);
-        totalAmount += variant.selling_price * item.quantity;
-    }
+    const createdBy = auditContext?.actorName ?? auditContext?.actorId ?? null;
 
-    const isFullyPaid = Number(amountPaid) >= totalAmount;
-    const paymentStatus = isFullyPaid ? 'PAID' : (Number(amountPaid) > 0 ? 'PARTIAL' : 'UNPAID');
-    const fulfillmentStatus = isFullyPaid ? 'COMPLETED' : 'PENDING';
+    const { data, error } = await supabase.rpc(SALES_RPC.PROCESS_CHECKOUT, {
+        p_manifest_id: manifestId,
+        // The RPC reads variant_id and quantity and prices the line itself.
+        p_items: items.map(item => ({ variant_id: item.variantId, quantity: item.quantity })),
+        p_amount_paid: amountPaid,
+        p_account_id: accountId ?? null,
+        p_payment_method: paymentMethod ?? null,
+        p_reference: reference ?? null,
+        p_created_by: createdBy,
+        // Only the columns a checkout may legitimately set. p_order_payload is
+        // merged into the order row, so anything accepted here is a column the
+        // client can write; created_by comes from the session, not the body.
+        p_order_payload: { customer_id: customerId ?? null, created_by: createdBy }
+    });
+    if (error) throw error;
 
-    // 2. Create Order
-    const { data: order, error: orderError } = await supabase.from('sales_orders').insert([{ 
-        manifest_id: manifestId, ...orderPayload, total_amount: totalAmount, amount_paid: amountPaid, payment_status: paymentStatus, fulfillment_status: fulfillmentStatus 
-    }]).select().single();
-    if (orderError) throw orderError;
-
-    // 3. Create Items
-    const itemsPayload = items.map((item: any) => ({ ...item, order_id: order.id }));
-    const { error: itemsError } = await supabase.from('sales_order_items').insert(itemsPayload);
-    if (itemsError) throw itemsError;
-
-    // 4. Record Payment
-    let paymentRecord = null;
-    if (Number(amountPaid) > 0) {
-        const reference = transactionId ? `Mobile Money: ${transactionId}` : 'POS Checkout';
-        const { data: pmt } = await supabase.from('sales_payments').insert([{ manifest_id: manifestId, order_id: order.id, amount: amountPaid, payment_method: paymentMethod, reference }]).select().single();
-        paymentRecord = pmt;
-    }
-
-    // 5. Stock Update & Movements
-    let movementsData = null;
-    if (isFullyPaid) {
-        const updatePromises = items.map(async (item: any) => {
-            const variant = variants?.find((v: any) => v.id === item.variant_id);
-            await supabase.from('sales_product_variants').update({ stock_quantity: Math.max(0, variant!.stock_quantity - item.quantity) }).eq('id', item.variant_id);
-        });
-        await Promise.all(updatePromises);
-
-        const movements = items.map((item: any) => ({ manifest_id: manifestId, variant_id: item.variant_id, type: 'SALE', quantity: item.quantity, reason: 'POS completed', reference_id: order.id }));
-        const { data: movs } = await supabase.from('sales_inventory_movements').insert(movements).select();
-        movementsData = movs;
-    } else if (Number(amountPaid) > 0) {
-        const updatePromises = items.map(async (item: any) => {
-            const variant = variants?.find((v: any) => v.id === item.variant_id);
-            await supabase.from('sales_product_variants').update({ reserved_quantity: (variant!.reserved_quantity || 0) + item.quantity }).eq('id', item.variant_id);
-        });
-        await Promise.all(updatePromises);
-        
-        const movements = items.map((item: any) => ({ manifest_id: manifestId, variant_id: item.variant_id, type: 'RESERVATION', quantity: item.quantity, reason: 'POS partially paid', reference_id: order.id }));
-        const { data: movs } = await supabase.from('sales_inventory_movements').insert(movements).select();
-        movementsData = movs;
-        await supabase.from('sales_orders').update({ fulfillment_status: 'RESERVED' }).eq('id', order.id);
-    }
-
-    // Log audit for Checkout
     await logAudit({
         ...auditContext,
         actionType: 'CHECKOUT_ORDER',
         moduleName: 'sales',
         entityName: 'sales_orders',
-        entityId: order.id,
-        afterValues: { 
-            order, 
-            items: itemsPayload, 
-            payment: paymentRecord, 
-            movements: movementsData 
+        entityId: data?.order_id,
+        afterValues: {
+            orderId: data?.order_id,
+            customerId: customerId ?? null,
+            items,
+            totalAmount: data?.total_amount,
+            amountPaid: data?.amount_paid,
+            accountId: accountId ?? null,
+            paymentMethod: paymentMethod ?? null,
+            paymentStatus: data?.payment_status,
+            fulfillmentStatus: data?.fulfillment_status,
+            deliveryId: data?.delivery_id ?? null
         }
     });
 
-    return order;
+    return data;
 };

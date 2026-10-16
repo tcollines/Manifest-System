@@ -1,5 +1,5 @@
 const fs = require('fs');
-const env = fs.readFileSync('d:\\Manifest System\\backend\\.env', 'utf8');
+const env = fs.readFileSync(require('path').resolve(__dirname, '.env'), 'utf8');
 const getEnv = (key) => {
     const match = env.match(new RegExp(`^${key}=(.*)$`, 'm'));
     return match ? match[1].trim() : null;

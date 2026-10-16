@@ -83,6 +83,31 @@ export const normalizeUsername = (value: string): string =>
 
 // ─── Dates ────────────────────────────────────────────────────────────────────
 
+/**
+ * Today's date in Africa/Kampala as YYYY-MM-DD.
+ *
+ * The organisation operates in EAT, so "today" must be the local day, not the
+ * browser's. A device set to UTC would otherwise post a 01:30 EAT entry to the
+ * previous date. Kampala has no DST, so a fixed +03:00 shift is exact.
+ */
+export const getKampalaToday = (): string =>
+    new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
+/**
+ * Renders a timestamp as the calendar date it fell on in Africa/Kampala.
+ *
+ * Use this for anything derived from a timestamp. A plain YYYY-MM-DD value
+ * coming from the backend is already a Kampala date and needs no shift, so it
+ * is passed through untouched.
+ */
+export const formatKampalaDate = (value: string | null | undefined): string => {
+    if (!value) return '—';
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return formatDate(value);
+    const d = new Date(value);
+    if (isNaN(d.getTime())) return '—';
+    return formatDate(new Date(d.getTime() + 3 * 60 * 60 * 1000).toISOString().slice(0, 10));
+};
+
 export const formatDate = (iso: string | null | undefined): string => {
     if (!iso) return '—';
     const d = new Date(iso);

@@ -6,7 +6,7 @@ const path = require('path');
 async function run() {
     // Determine the connection string from env vars. Supabase provides a direct DB connection string.
     // If not present, we will reconstruct it or ask the user.
-    const connectionString = process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/postgres';
+    const connectionString = process.env.DATABASE_URL;
     if (!process.env.DATABASE_URL) {
         console.log("No DATABASE_URL found for raw postgres. Will attempt local testing or user will need to run manually.");
     }

@@ -2,7 +2,7 @@ require('dotenv').config();
 const { Client } = require('pg');
 
 async function trimUsernames() {
-    const directUrl = 'postgresql://postgres.poazorjmzswectxvakzl:ujrRGd5IZIKOE9Oj@aws-0-us-east-1.pooler.supabase.com:6543/postgres?sslmode=require';
+    const directUrl = `postgresql://postgres.poazorjmzswectxvakzl:${process.env.SUPABASE_DB_PASSWORD}@aws-0-us-east-1.pooler.supabase.com:6543/postgres?sslmode=require`;
     const client = new Client({
         connectionString: directUrl
     });

@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Html5QrcodeScanner, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import { ShoppingCart, QrCode, Search, Plus, Minus, CreditCard, CheckCircle, User, X } from 'lucide-react';
-import { useAuth } from '@/context/AuthContext';
 import { salesService } from '../../../services/sales/salesService';
 import { customerService } from '../../../services/sales/customerService';
+import { accountService, MoneyAccount } from '../../../services/sales/accountService';
+import { PAYMENT_METHODS, defaultMethodForAccount } from '../constants';
 import { useNotification } from '../../../components/ui/NotificationSystem';
 import { MobileSheet } from '../../../components/mobile/MobileSheet';
 import { SalesProduct, SalesVariant, SalesCustomer } from '../types';
@@ -17,7 +18,6 @@ const formatMoneyInput = (val: string) => {
 const parseMoneyInput = (val: string) => val.replace(/,/g, '');
 
 const POSPage: React.FC = () => {
- const { user } = useAuth();
  const { showToast } = useNotification();
  const [isScanning, setIsScanning] = useState(false);
  const [showMobileCart, setShowMobileCart] = useState(false);
@@ -28,8 +28,14 @@ const POSPage: React.FC = () => {
  
  const [cart, setCart] = useState<{ variant: SalesVariant; quantity: number }[]>([]);
  const [amountPaid, setAmountPaid] = useState<string>('');
- const [paymentMethod, setPaymentMethod] = useState('Cash');
+ const [paymentMethod, setPaymentMethod] = useState<string>('Cash');
  const [transactionId, setTransactionId] = useState('');
+
+ // Which money account receives the takings. sales_process_checkout refuses a
+ // payment without one, because a payment row with no account_id never reaches
+ // sales_account_ledger and the cash position silently overstates itself.
+ const [accounts, setAccounts] = useState<MoneyAccount[]>([]);
+ const [accountId, setAccountId] = useState<string>('');
  const [isProcessing, setIsProcessing] = useState(false);
 
  const [customers, setCustomers] = useState<SalesCustomer[]>([]);
@@ -40,6 +46,7 @@ const POSPage: React.FC = () => {
  useEffect(() => {
    loadCatalog();
    loadCustomers();
+   loadAccounts();
  }, []);
 
  const loadCatalog = async () => {
@@ -51,6 +58,28 @@ const POSPage: React.FC = () => {
    } catch (err: any) {
      showToast(err.message, 'error');
    }
+ };
+
+ const loadAccounts = async () => {
+   const res = await accountService.getAccounts();
+   if (res.status !== 'success') {
+     showToast(res.message, 'error');
+     return;
+   }
+   const active = res.data.filter(a => a.isActive);
+   setAccounts(active);
+   if (active.length > 0) {
+     setAccountId(active[0].id);
+     setPaymentMethod(defaultMethodForAccount(active[0].accountType, active[0].provider));
+   }
+ };
+
+ const selectAccount = (id: string) => {
+   setAccountId(id);
+   const account = accounts.find(a => a.id === id);
+   // The method describes how the money arrived, so it follows the account by
+   // default and stays overridable - cash can be banked, after all.
+   if (account) setPaymentMethod(defaultMethodForAccount(account.accountType, account.provider));
  };
 
  const loadCustomers = async () => {
@@ -176,26 +205,29 @@ const POSPage: React.FC = () => {
  const handleCheckout = async () => {
    if (cart.length === 0) return;
    const paid = selectedCustomerId === '' ? totalAmount : (Number(parseMoneyInput(amountPaid)) || 0);
-   
+
+   if (paid > 0 && !accountId) {
+     showToast('Choose the account receiving this payment', 'warning');
+     return;
+   }
+
    setIsProcessing(true);
    try {
+     // Quantities only. The backend prices every line from the variant row it
+     // has locked, so a price sent from here would be ignored - and the schema
+     // rejects it rather than letting the two disagree in silence.
      const orderItems = cart.map(item => ({
-       variant_id: item.variant.id,
-       quantity: item.quantity,
-       unit_price: item.variant.selling_price,
-       unit_cost_price: item.variant.cost_price
+       variantId: item.variant.id,
+       quantity: item.quantity
      }));
 
-     // 1. Unified Backend Checkout
      await salesService.processCheckout(manifestId, {
-       orderPayload: {
-         customer_id: selectedCustomerId || undefined,
-         created_by: user?.name
-       },
        items: orderItems,
        amountPaid: paid,
-       paymentMethod: paymentMethod,
-       transactionId: paymentMethod === 'Mobile Money' ? transactionId : undefined
+       accountId: paid > 0 ? accountId : undefined,
+       paymentMethod: paid > 0 ? paymentMethod : undefined,
+       customerId: selectedCustomerId || undefined,
+       reference: transactionId.trim() || undefined
      });
 
      if (paid >= totalAmount) {
@@ -288,23 +320,40 @@ const POSPage: React.FC = () => {
           </div>
         )}
         <div>
-          <label className="text-xs text-gray-500 uppercase font-semibold mb-1 block">Payment Method</label>
-          <div className="flex gap-2">
-            {['Cash', 'Mobile Money', 'Card'].map(method => (
-              <button
-                key={method}
-                onClick={() => setPaymentMethod(method)}
-                className={`flex-1 py-2 text-sm rounded-lg border transition-colors ${paymentMethod === method ? 'bg-ministry-orange text-white border-ministry-orange' : 'bg-white text-gray-600 border-gray-300 '}`}
-              >
-                {method}
-              </button>
+          <label className="text-xs text-gray-500 uppercase font-semibold mb-1 block">Account Receiving Payment</label>
+          <select
+            className="w-full p-2 bg-white border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-ministry-orange"
+            value={accountId}
+            onChange={e => selectAccount(e.target.value)}
+          >
+            {accounts.length === 0 && <option value="">No active accounts</option>}
+            {accounts.map(account => (
+              <option key={account.id} value={account.id}>{account.name}</option>
             ))}
-          </div>
+          </select>
+          {accounts.length === 0 && (
+            <p className="text-xs text-red-600 mt-1">
+              A sale cannot be recorded until a money account exists. Create one under Money Accounts.
+            </p>
+          )}
         </div>
-        
-        {paymentMethod === 'Mobile Money' && (
+
+        <div>
+          <label className="text-xs text-gray-500 uppercase font-semibold mb-1 block">Payment Method</label>
+          <select
+            className="w-full p-2 bg-white border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-ministry-orange"
+            value={paymentMethod}
+            onChange={e => setPaymentMethod(e.target.value)}
+          >
+            {PAYMENT_METHODS.map(method => (
+              <option key={method} value={method}>{method}</option>
+            ))}
+          </select>
+        </div>
+
+        {paymentMethod !== 'Cash' && (
           <div>
-            <label className="text-xs text-gray-500 uppercase font-semibold mb-1 block">Transaction ID (Optional)</label>
+            <label className="text-xs text-gray-500 uppercase font-semibold mb-1 block">Transaction Reference (Optional)</label>
             <input 
               type="text"
               placeholder="e.g. 123456789"

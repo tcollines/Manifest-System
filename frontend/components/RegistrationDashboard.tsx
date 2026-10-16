@@ -1,3 +1,4 @@
+import { API_URL } from '../services/api';
 import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate, useParams } from 'react-router-dom';
 import { useSafeAsync } from '../hooks/useSafeAsync';
@@ -2412,7 +2413,7 @@ const RegistrationDashboard: React.FC<RegistrationDashboardProps> = ({ events, c
 
   const confirmDelete = async () => {
     // 1. Password Check
-    const apiUrl = (import.meta as any).env.VITE_API_URL || 'https://manifest-system-lofy.onrender.com/api';
+    const apiUrl = API_URL;
     try {
       const response = await fetch(`${apiUrl}/auth/login`, {
         method: 'POST',

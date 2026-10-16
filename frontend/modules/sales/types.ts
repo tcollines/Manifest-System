@@ -154,6 +154,13 @@ export interface SalesProcurementPayment {
   notes?: string;
   recorded_by?: string;
   created_at: string;
+  /**
+   * The money account this payment left. Set by the sales_record_supplier_payment
+   * RPC; null on rows written by the legacy direct-insert endpoint, which never
+   * populated it. A row with an account has moved a real balance, so it cannot
+   * be deleted without a reversal — see ProcurementPage's payment history.
+   */
+  account_id?: string | null;
 }
 
 export interface SalesProcurementRequestItem {

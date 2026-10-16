@@ -1,6 +1,6 @@
 const jwt = require('jsonwebtoken');
 const fetch = require('node-fetch'); // Assuming node-fetch or native fetch
-require('dotenv').config({ path: 'd:/Manifest System/backend/.env' });
+require('dotenv').config({ path: require('path').resolve(__dirname, '.env') });
 
 async function run() {
   const secret = process.env.SUPABASE_JWT_SECRET;

@@ -1,7 +1,10 @@
+import { config as loadEnv } from 'dotenv';
+import { resolve as resolveEnvPath } from 'path';
+loadEnv({ path: resolveEnvPath(__dirname, '../.env') });
 
 import { Client } from 'pg';
 
-const PWD = 'ujrRGd5IZIKOE9Oj';
+const PWD = process.env.SUPABASE_DB_PASSWORD;
 const REF = 'poazorjmzswectxvakzl';
 
 const PERMUTATIONS = [

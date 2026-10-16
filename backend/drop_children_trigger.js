@@ -3,7 +3,7 @@ const { Client } = require('pg');
 
 async function run() {
     const rawUrl = process.env.DATABASE_URL;
-    // postgres://postgres.poazorjmzswectxvakzl:***@aws-0-us-east-1.pooler.supabase.com...
+    // postgres://postgres.poazorjmzswectxvakzl:<password>@aws-0-us-east-1.pooler.supabase.com...
     // The raw URL already contains the project ref if it's new-style: postgres.projectRef
     // Wait, let's parse it and ensure the username is correct if using pooler.
 

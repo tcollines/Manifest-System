@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { validateTenant, handleApiError } from '../../../utils/supabaseHelper';
+import { handleSalesError } from '../shared/salesErrors';
 import * as paymentsService from './payments.service';
 
 const buildAuditContext = (req: Request) => {
@@ -35,14 +36,25 @@ export const processRefund = async (req: Request, res: Response) => {
     } catch (err) { handleApiError(res, err, 'Failed to process refund'); }
 };
 
+/**
+ * POST /sales/orders/fulfill
+ *
+ * handleSalesError comes first so the RPC's refusals keep their meaning: not
+ * fully paid and already completed are 422s the cashier can act on, a stock
+ * shortfall is a 409, a closed month is a 409. All of them used to arrive as
+ * 'Failed to fulfill order' with a 500.
+ */
 export const fulfillOrder = async (req: Request, res: Response) => {
     const manifestId = validateTenant(req, res);
     if (!manifestId) return;
     try {
         const auditContext = buildAuditContext(req);
-        await paymentsService.fulfillOrder(manifestId, req.body.orderId, auditContext);
-        res.status(200).json({ success: true });
-    } catch (err) { handleApiError(res, err, 'Failed to fulfill order'); }
+        const data = await paymentsService.fulfillOrder(manifestId, req.body, auditContext);
+        res.status(200).json({ success: true, data });
+    } catch (err) {
+        if (handleSalesError(res, err)) return;
+        handleApiError(res, err, 'Failed to fulfill order');
+    }
 };
 
 export const getProcurementPayments = async (req: Request, res: Response) => {
@@ -54,22 +66,6 @@ export const getProcurementPayments = async (req: Request, res: Response) => {
     } catch (err) { handleApiError(res, err, 'Failed to fetch payments'); }
 };
 
-export const recordProcurementPayment = async (req: Request, res: Response) => {
-    const manifestId = validateTenant(req, res);
-    if (!manifestId) return;
-    try {
-        const auditContext = buildAuditContext(req);
-        const data = await paymentsService.recordProcurementPayment(manifestId, req.body, auditContext);
-        res.status(201).json(data);
-    } catch (err) { handleApiError(res, err, 'Failed to record payment'); }
-};
-
-export const deleteProcurementPayment = async (req: Request, res: Response) => {
-    const manifestId = validateTenant(req, res);
-    if (!manifestId) return;
-    try {
-        const auditContext = buildAuditContext(req);
-        await paymentsService.deleteProcurementPayment(manifestId, req.params.paymentId, req.params.requestId, auditContext);
-        res.status(200).json({ success: true });
-    } catch (err) { handleApiError(res, err, 'Failed to delete payment'); }
-};
+// recordProcurementPayment and deleteProcurementPayment were removed with their
+// routes — see the note in sales.routes.ts. Supplier payments are recorded by
+// procurementController.recordSupplierPayment, which runs the migration-44 RPC.

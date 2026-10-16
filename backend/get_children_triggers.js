@@ -2,7 +2,7 @@ require('dotenv').config();
 const fs = require('fs');
 const { Client } = require('pg');
 
-const match = fs.readFileSync('d:\\Manifest System\\backend\\.env', 'utf8').match(/DATABASE_URL=(.*)/);
+const match = fs.readFileSync(require('path').resolve(__dirname, '.env'), 'utf8').match(/DATABASE_URL=(.*)/);
 if (match) {
     const url = match[1].trim();
     const pwdInfo = url.match(/:([^:@]+)@/);

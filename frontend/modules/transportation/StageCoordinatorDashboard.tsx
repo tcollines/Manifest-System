@@ -54,7 +54,7 @@ const StageCoordinatorDashboard: React.FC = () => {
     // Google Maps Loader
     const { isLoaded } = useJsApiLoader({
         id: 'google-map-script',
-        googleMapsApiKey: 'AIzaSyCZSpPjUuv2sILESSb2yqYNxhzr9CfCtzs'
+        googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY
     });
 
     const [mapInstance, setMapInstance] = React.useState(null);

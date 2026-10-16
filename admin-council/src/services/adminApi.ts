@@ -5,7 +5,12 @@
  * Uses the same base URL as the main app.
  */
 
-const API_URL = import.meta.env.VITE_API_URL || 'https://manifest-system-lofy.onrender.com/api';
+// [CONFIG] Backend URL comes from the environment (admin-council/.env locally, the
+// build environment when deployed). No hardcoded fallback to an old server.
+const API_URL = import.meta.env.VITE_API_URL as string | undefined;
+if (!API_URL) {
+    throw new Error('[FATAL] VITE_API_URL must be set in the environment (admin-council/.env or the build environment)');
+}
 const ADMIN_BASE = `${API_URL}/admin-council`;
 
 interface FetchOptions extends RequestInit {

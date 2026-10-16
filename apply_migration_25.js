@@ -6,7 +6,7 @@ const dotenv = require('dotenv');
 dotenv.config({ path: path.join(__dirname, 'backend', '.env') });
 
 const project = 'poazorjmzswectxvakzl';
-const pass = 'ujrRGd5IZIKOE9Oj';
+const pass = process.env.SUPABASE_DB_PASSWORD;
 const sqlPath = path.join(__dirname, 'backend', 'migrations', '25_dedupe_and_unique_passengers.sql');
 const sqlContent = fs.readFileSync(sqlPath, 'utf8');
 

@@ -130,7 +130,7 @@ const RegistrationModals: React.FC = () => {
         }
     };
 
-    const { isLoaded } = useJsApiLoader({ id: 'google-map-script', googleMapsApiKey: 'AIzaSyCZSpPjUuv2sILESSb2yqYNxhzr9CfCtzs' });
+    const { isLoaded } = useJsApiLoader({ id: 'google-map-script', googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY });
 
     // Reconstruct the initial forms to reset correctly on close
     const initialStationForm = {

@@ -25,19 +25,22 @@ export const procurementService = {
     return data as SalesProcurementRequestItem[];
   },
 
+  /**
+   * Creates the order only. It used to take an `initialPayment`, which the
+   * backend handed to the legacy direct insert — recording a payment with no
+   * account, invisible to the cash position. Pay the new order with
+   * procurementPaymentService.recordSupplierPayment instead, which names the
+   * account the money leaves.
+   */
   async createRequestWithItems(
-    manifestId: string, 
-    requestPayload: Partial<SalesProcurementRequest>, 
-    items: Partial<SalesProcurementRequestItem>[],
-    initialPayment?: { amount: number; method: string; recordedBy: string }
+    manifestId: string,
+    requestPayload: Partial<SalesProcurementRequest>,
+    items: Partial<SalesProcurementRequestItem>[]
   ): Promise<SalesProcurementRequest> {
     const data = await apiFetch('/sales/procurement/requests', {
       method: 'POST',
-      body: JSON.stringify({ requestPayload, items, initialPayment })
+      body: JSON.stringify({ requestPayload, items })
     });
-    // Triggers payment logic on the backend too (needs to be implemented if I keep it there, or separately called)
-    // Wait, the backend currently just creates the items in my controller, but it didn't call procurementPaymentService. 
-    // I need to make sure I add that back, or I can just call the payment endpoint separately here.
     return data as SalesProcurementRequest;
   },
 

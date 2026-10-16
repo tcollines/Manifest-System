@@ -7,7 +7,7 @@ const envPath = path.join(__dirname, 'backend', '.env');
 const envConfig = dotenv.parse(fs.readFileSync(envPath));
 
 // Supavisor connection string without the options query string, since username already has the tenant id
-const directUrl = 'postgres://postgres.poazorjmzswectxvakzl:ujrRGd5IZIKOE9Oj@aws-0-us-east-1.pooler.supabase.com:6543/postgres';
+const directUrl = `postgres://postgres.poazorjmzswectxvakzl:${process.env.SUPABASE_DB_PASSWORD}@aws-0-us-east-1.pooler.supabase.com:6543/postgres`;
 
 const client = new Client({
   connectionString: directUrl,

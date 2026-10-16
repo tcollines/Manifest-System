@@ -9,8 +9,8 @@ import path from 'path';
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 // Use the ANON key (same as frontend), not service role key
-const supabaseUrl = 'https://poazorjmzswectxvakzl.supabase.co';
-const anonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBvYXpvcmptenN3ZWN0eHZha3psIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY4MTEyNjgsImV4cCI6MjA4MjM4NzI2OH0.63UUyttqrMAvPYeiA2IIqPxTnk_WftlMLTKQ99Ejv-A';
+const supabaseUrl = process.env.SUPABASE_URL;
+const anonKey = process.env.SUPABASE_KEY;
 const supabase = createClient(supabaseUrl, anonKey);
 
 const EVENT_ID = '163f08ad-a151-4579-9519-f6a6da3e3269'; // MEN GATHER IX

@@ -1,8 +1,9 @@
+require('dotenv').config({ path: require('path').resolve(__dirname, '.env') });
 const { Client } = require('pg');
 const fs = require('fs');
 
 async function dumpHook() {
-    const directUrl = 'postgresql://postgres:ujrRGd5IZIKOE9Oj@db.poazorjmzswectxvakzl.supabase.co:5432/postgres';
+    const directUrl = `postgresql://postgres:${process.env.SUPABASE_DB_PASSWORD}@db.poazorjmzswectxvakzl.supabase.co:5432/postgres`;
     const client = new Client({
         connectionString: directUrl
     });

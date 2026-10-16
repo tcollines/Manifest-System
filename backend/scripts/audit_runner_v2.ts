@@ -1,3 +1,4 @@
+import { resolve as resolveEnvPath } from 'path';
 
 import { createClient } from '@supabase/supabase-js';
 import * as fs from 'fs';
@@ -6,7 +7,7 @@ import * as dotenv from 'dotenv'; // Ensure you have this installed or use stand
 
 // Manual Env Parsing fallback if dotenv fails (sometimes issues with ts-node)
 function loadEnvRequest() {
-    const envPath = 'd:\\Manifest System\\backend\\.env';
+    const envPath = resolveEnvPath(__dirname, '../.env');
     if (fs.existsSync(envPath)) {
         console.log(`Loading .env from ${envPath}`);
         const envConfig = dotenv.parse(fs.readFileSync(envPath));

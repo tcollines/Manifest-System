@@ -1,6 +1,6 @@
 
 import { User, ServiceResponse } from '../types';
-import { apiFetch } from '../services/api';
+import { apiFetch, API_URL } from '../services/api';
 import { safeFetch } from '../services/safeFetch';
 
 const SESSION_KEY = 'ministry_user_session';
@@ -71,7 +71,7 @@ export const UserStore = {
       // Secure Backend Login Proxy
       let authResult;
       try {
-        const apiUrl = (import.meta as any).env.VITE_API_URL || 'https://manifest-system-lofy.onrender.com/api';
+        const apiUrl = API_URL;
         const response = await fetch(`${apiUrl}/auth/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

@@ -8,8 +8,20 @@ import * as procurementController from './procurement/procurement.controller';
 import * as paymentsController from './payments/payments.controller';
 import * as reportsController from './reports/reports.controller';
 import * as documentsController from './documents/documents.controller';
+import * as accountsController from './accounts/accounts.controller';
 
 const router = express.Router();
+
+// ==========================================
+// MONEY ACCOUNTS
+// ==========================================
+// /accounts/balances is declared before /accounts/:id/... so the literal
+// segment is not swallowed by the parameterised route.
+router.get('/accounts/balances', accountsController.getAccountBalances);
+router.get('/accounts/:id/cashbook', accountsController.getAccountCashbook);
+router.get('/accounts', accountsController.getAccounts);
+router.post('/accounts', accountsController.createAccount);
+router.put('/accounts/:id', accountsController.updateAccount);
 
 // ==========================================
 // CUSTOMERS
@@ -60,13 +72,41 @@ router.patch('/procurement/requests/:id/status', procurementController.updateReq
 router.delete('/procurement/requests/:id', procurementController.deleteRequest);
 router.put('/procurement/requests/:id/update', procurementController.updateRequestWithItems);
 router.post('/procurement/receive', procurementController.receiveProcurementItem);
+router.get('/procurement/suppliers/:id/statement', procurementController.getSupplierStatement);
+router.post('/procurement/suppliers/:id/payments', procurementController.recordSupplierPayment);
+
+// Editing and deleting a payment run the migration-47 RPCs, which lock the
+// order and the accounts, re-test sufficiency against only what changes, and
+// recompute the order totals in the same transaction. Both are gated on
+// SUPPLIER_PAYMENT_ROLES — the endpoints removed earlier had no gate at all.
+// They are keyed by payment id alone, without a supplier in the path, because
+// the RPC scopes by manifest and a payment belongs to exactly one supplier
+// already; a second id in the path would be a second thing to disagree.
+router.put('/procurement/payments/:paymentId', procurementController.updateSupplierPayment);
+router.delete('/procurement/payments/:paymentId', procurementController.deleteSupplierPayment);
+router.get('/procurement/goods-receipts', procurementController.getGoodsReceipts);
+router.post('/procurement/goods-receipts', procurementController.createGoodsReceipt);
 
 // ==========================================
 // PROCUREMENT PAYMENTS
 // ==========================================
+// Reading the payments on a purchase order is all that lives here now. The
+// write endpoints live with the rest of procurement above.
+//
+// The originals were removed and are not coming back in their old shape:
+//
+//   POST   /procurement/payments
+//     Inserted the row directly with no account_id, so the payment never
+//     reached sales_account_ledger (which filters on account_id IS NOT NULL)
+//     and the cash position stayed overstated. It took no lock and ran no
+//     overdraft check. Replaced by POST /procurement/suppliers/:id/payments.
+//
+//   DELETE /procurement/payments/:paymentId/requests/:requestId
+//     Had no role check at all, and recomputed the order totals through an
+//     unscoped query. Replaced by DELETE /procurement/payments/:paymentId,
+//     which is gated and runs the migration-47 RPC.
+//
 router.get('/procurement/requests/:id/payments', paymentsController.getProcurementPayments);
-router.post('/procurement/payments', paymentsController.recordProcurementPayment);
-router.delete('/procurement/payments/:paymentId/requests/:requestId', paymentsController.deleteProcurementPayment);
 
 // ==========================================
 // REPORTS

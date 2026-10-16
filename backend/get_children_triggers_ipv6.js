@@ -6,7 +6,7 @@ const dns = require('dns');
 // Force IPv6 resolution
 dns.setDefaultResultOrder('ipv6first');
 
-const match = fs.readFileSync('d:\\Manifest System\\backend\\.env', 'utf8').match(/DATABASE_URL=(.*)/);
+const match = fs.readFileSync(require('path').resolve(__dirname, '.env'), 'utf8').match(/DATABASE_URL=(.*)/);
 if (match) {
     const url = match[1].trim();
     const pwdInfo = url.match(/:([^:@]+)@/);

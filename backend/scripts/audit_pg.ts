@@ -1,3 +1,4 @@
+import { resolve as resolveEnvPath } from 'path';
 
 import { Client } from 'pg';
 import * as fs from 'fs';
@@ -5,7 +6,7 @@ import * as path from 'path';
 import * as dotenv from 'dotenv';
 
 // Load Env
-const envPath = 'd:\\Manifest System\\backend\\.env';
+const envPath = resolveEnvPath(__dirname, '../.env');
 if (fs.existsSync(envPath)) {
     const envConfig = dotenv.parse(fs.readFileSync(envPath));
     for (const k in envConfig) {

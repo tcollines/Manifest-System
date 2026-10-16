@@ -15,7 +15,7 @@ async function applyFix() {
         user: 'postgres.poazorjmzswectxvakzl',
         host: 'aws-0-us-east-1.pooler.supabase.com',
         database: 'postgres',
-        password: 'ujrRGd5IZIKOE9Oj',
+        password: process.env.SUPABASE_DB_PASSWORD,
         port: 6543,
         ssl: {
             rejectUnauthorized: false

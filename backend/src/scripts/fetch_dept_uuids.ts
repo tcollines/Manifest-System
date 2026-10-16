@@ -1,10 +1,11 @@
+import { resolve as resolveEnvPath } from 'path';
 
 import { Client } from 'pg';
 import dotenv from 'dotenv';
 import path from 'path';
 
 // Hardcode absolute path
-const envPath = 'd:\\Manifest System\\backend\\.env';
+const envPath = resolveEnvPath(__dirname, '../../.env');
 dotenv.config({ path: envPath });
 
 const run = async () => {

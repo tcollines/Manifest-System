@@ -1,10 +1,11 @@
+require('dotenv').config({ path: require('path').resolve(__dirname, '.env') });
 const { Client } = require('pg');
 const fs = require('fs');
 
 async function dumpHook() {
     const client = new Client({
         user: 'postgres.poazorjmzswectxvakzl',
-        password: 'ujrRGd5IZIKOE9Oj',
+        password: process.env.SUPABASE_DB_PASSWORD,
         host: 'aws-0-us-east-1.pooler.supabase.com',
         port: 6543,
         database: 'postgres',

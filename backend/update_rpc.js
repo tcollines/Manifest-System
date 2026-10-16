@@ -1,6 +1,6 @@
 const { Client } = require('pg');
 const dotenv = require('dotenv');
-dotenv.config({ path: 'd:/Manifest System/backend/.env' });
+dotenv.config({ path: require('path').resolve(__dirname, '.env') });
 const client = new Client({ connectionString: process.env.DATABASE_URL });
 const query = `
 CREATE OR REPLACE FUNCTION public.analytics_workflow_summary(

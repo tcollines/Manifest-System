@@ -2,7 +2,7 @@ const { Client } = require('pg');
 const fs = require('fs');
 require('dotenv').config();
 
-const password = 'ujrRGd5IZIKOE9Oj';
+const password = process.env.SUPABASE_DB_PASSWORD;
 
 // Using session pooler on port 5432
 const client = new Client({
