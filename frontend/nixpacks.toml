@@ -1,0 +1,14 @@
+# Nixpacks build config for the frontend (Dokploy builds this folder).
+#
+# Node 20: Firebase packages require node >= 20 (Node 18 is end-of-life).
+#
+# --ignore-scripts: the web build needs no install scripts. The only one that
+# downloads anything is `sharp` (pulled in by the @capacitor/assets dev tool for
+# app icons), which fetches a binary from GitHub during `npm ci` and fails the
+# whole build whenever the server cannot reach GitHub. esbuild's binary comes
+# from its platform package, so skipping scripts does not affect `vite build`.
+[variables]
+NIXPACKS_NODE_VERSION = "20"
+
+[phases.install]
+cmds = ["npm ci --ignore-scripts"]
