@@ -1,6 +1,17 @@
 {
     "redirects": [
         {
+            "source": "/",
+            "has": [
+                {
+                    "type": "host",
+                    "value": "manifestsystem.vercel.app"
+                }
+            ],
+            "destination": "https://www.manifestms.org/",
+            "permanent": true
+        },
+        {
             "source": "/:path*",
             "has": [
                 {
