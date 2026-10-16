@@ -1,0 +1,29 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "backend",
+      "url": "http://localhost:5000",
+      "port": 5000
+    },
+    {
+      "name": "frontend",
+      "url": "http://localhost:3000",
+      "port": 3000
+    },
+    {
+      "name": "backend-launch",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "cwd": "backend",
+      "port": 5000
+    },
+    {
+      "name": "frontend-launch",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "cwd": "frontend",
+      "port": 3000
+    }
+  ]
+}

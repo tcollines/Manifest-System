@@ -1,0 +1,37 @@
+# Keeps the Supabase project awake.
+#
+# Supabase pauses a free-tier project after 7 days with no API requests, and
+# a paused project is offline until somebody restores it by hand. A church
+# running one service a week sits right on that boundary — a quiet week, or a
+# holiday, and the app is down on Sunday morning with no warning.
+#
+# This makes one trivial request twice a week, which is enough to reset the
+# clock. It reads nothing: row level security means the anon key sees an
+# empty array. The point is only that a request happened.
+#
+# Setup: repo Settings -> Secrets and variables -> Actions, add
+#   SUPABASE_URL       https://<your-ref>.supabase.co
+#   SUPABASE_ANON_KEY  the anon public key
+name: Keep Supabase awake
+
+on:
+  schedule:
+    # 06:00 UTC (09:00 Kampala) on Wednesday and Saturday.
+    - cron: '0 6 * * 3,6'
+  workflow_dispatch: # lets you run it by hand from the Actions tab
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping the REST API
+        run: |
+          code=$(curl -s -o /dev/null -w '%{http_code}' \
+            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
+            "${{ secrets.SUPABASE_URL }}/rest/v1/services?select=id&limit=1")
+          echo "HTTP $code"
+          # 2xx or 4xx both prove the project answered; only a failure to
+          # reach it at all should fail the job.
+          if [ -z "$code" ] || [ "$code" = "000" ]; then
+            echo "Could not reach Supabase"; exit 1
+          fi

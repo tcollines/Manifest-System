@@ -1,0 +1,5 @@
+# Supabase credentials for HeIs.
+# The anon key is safe in the browser — row level security is what protects
+# the data. Never put the service_role key in this file.
+VITE_SUPABASE_URL=https://hfzmvjjiotdqqfetijtb.supabase.co
+VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhmem12amppb3RkcXFmZXRpanRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg3ODEyOTUsImV4cCI6MjEwNDM1NzI5NX0.T0izThOCfE7ToR3L7gqbyvQ6KpdAhHbegYSq4wOmnd8
